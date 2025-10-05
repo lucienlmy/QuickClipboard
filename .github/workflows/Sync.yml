@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        branch: [main, master, dev]   # 需要同步的分支列表
+        branch: [main]   # 需要同步的分支列表
     steps:
       # 1. 检出当前 fork 仓库代码
       - name: Checkout target repo
