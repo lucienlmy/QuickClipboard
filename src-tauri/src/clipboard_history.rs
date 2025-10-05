@@ -40,7 +40,7 @@ pub fn add_to_history(text: String) {
         return;
     }
 
-    if let Err(e) = database::add_clipboard_item(text) {
+    if let Err(e) = database::add_clipboard_item_smart(text, None) {
         println!("添加剪贴板历史失败: {}", e);
     }
 }
@@ -76,12 +76,8 @@ pub fn add_to_history_with_check_and_move_html(text: String, html_content: Optio
             }
         }
         Ok(None) => {
-            // 新文本：添加到历史
-            let result = if html_content.is_some() {
-                database::add_clipboard_item_with_html(text, html_content)
-            } else {
-                database::add_clipboard_item(text)
-            };
+            // 新文本：使用智能添加函数根据内容类型自动判断
+            let result = database::add_clipboard_item_smart(text, html_content);
             
             if let Err(e) = result {
                 println!("添加剪贴板历史失败: {}", e);
@@ -181,12 +177,12 @@ pub fn move_item(from_index: usize, to_index: usize) -> Result<(), String> {
     let moved_item = reordered_items.remove(from_index);
     reordered_items.insert(to_index, moved_item);
 
-    let item_texts: Vec<String> = reordered_items
+    let item_ids: Vec<i64> = reordered_items
         .iter()
-        .map(|item| item.content.clone())
+        .map(|item| item.id)
         .collect();
 
-    database::reorder_clipboard_items(&item_texts)
+    database::reorder_clipboard_items_by_ids(&item_ids)
         .map_err(|e| format!("数据库重新排序失败: {}", e))?;
 
     Ok(())
@@ -245,7 +241,7 @@ pub fn delete_item_by_index(index: usize) -> Result<(), String> {
     let item = &items[index];
 
     // 如果是图片，删除对应的图片文件
-    if item.is_image {
+    if item.content_type == crate::database::ContentType::Image {
         if let Some(image_id) = &item.image_id {
             match get_image_manager() {
                 Ok(image_manager) => {
@@ -275,7 +271,7 @@ pub fn clear_all() -> Result<(), String> {
     let items = database::get_clipboard_history(None)?;
 
     for item in &items {
-        if item.is_image {
+        if item.content_type == crate::database::ContentType::Image {
             if let Some(image_id) = &item.image_id {
                 match get_image_manager() {
                     Ok(image_manager) => {

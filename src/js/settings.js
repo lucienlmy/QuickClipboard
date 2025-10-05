@@ -6,11 +6,14 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { setTheme, getCurrentTheme, getAvailableThemes, addThemeChangeListener } from './themeManager.js';
 import { updateShortcutDisplay } from './settingsManager.js';
+import { showNotification } from './notificationManager.js';
 import {
   initAIConfig,
   getCurrentAIConfig,
   saveAIConfig
 } from './aiConfig.js';
+import { settingsSearch } from './settingsSearch.js';
+import { initDisableBrowserShortcuts } from './utils/disableBrowserShortcuts.js';
 
 // =================== 启动横幅 ===================
 function printSettingsBanner() {
@@ -41,6 +44,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 输出启动横幅
   printSettingsBanner();
 
+  // 禁用浏览器默认快捷键
+  initDisableBrowserShortcuts();
+
   // 初始化主题管理器
   const { initThemeManager } = await import('./themeManager.js');
   initThemeManager();
@@ -51,7 +57,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await initializeUI();
   bindEvents();
+  // 来自托盘或其他窗口的设置变更同步到设置界面
+  try {
+    await listen('settings-changed', (event) => {
+      const newSettings = event?.payload || {};
+      // 同步剪贴板监听开关
+      if (typeof newSettings.clipboardMonitor === 'boolean') {
+        settings.clipboardMonitor = newSettings.clipboardMonitor;
+        const el = document.getElementById('clipboard-monitor');
+        if (el && el.checked !== newSettings.clipboardMonitor) {
+          el.checked = newSettings.clipboardMonitor;
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('监听设置变更事件失败:', e);
+  }
   setupWindowEvents();
+  
+  // 初始化搜索功能
+  setTimeout(() => {
+    settingsSearch.init();
+  }, 100);
 });
 
 // 默认设置
@@ -74,7 +101,6 @@ const defaultSettings = {
   soundVolume: 50,
   copySoundPath: '',
   pasteSoundPath: '',
-  soundPreset: 'default',
   screenshotEnabled: true,
   screenshotShortcut: 'Ctrl+Shift+A',
   screenshotQuality: 85,
@@ -85,6 +111,19 @@ const defaultSettings = {
   previewScrollSound: true,
   previewScrollSoundPath: 'sounds/roll.mp3',
   previewShortcut: 'Ctrl+`',
+  // 剪贴板窗口快捷键设置
+  navigateUpShortcut: 'ArrowUp',
+  navigateDownShortcut: 'ArrowDown',
+  tabLeftShortcut: 'ArrowLeft',
+  tabRightShortcut: 'ArrowRight',
+  focusSearchShortcut: 'Tab',
+  hideWindowShortcut: 'Escape',
+  executeItemShortcut: 'Ctrl+Enter',
+  previousGroupShortcut: 'Ctrl+ArrowUp',
+  nextGroupShortcut: 'Ctrl+ArrowDown',
+  togglePinShortcut: 'Ctrl+P',
+  // 窗口行为设置
+  autoFocusSearch: false,
   // AI翻译设置
   aiTranslationEnabled: false,
   aiApiKey: '',
@@ -107,10 +146,14 @@ const defaultSettings = {
   titleBarPosition: 'top',
   // 显示行为
   autoScrollToTopOnShow: false,
+  // 贴边隐藏设置
+  edgeHideEnabled: true,
   // 应用黑白名单设置
   appFilterEnabled: false,
   appFilterMode: 'blacklist',
-  appFilterList: []
+  appFilterList: [],
+  // 图片粘贴策略
+  imageDataPriorityApps: []
 };
 
 // 加载设置
@@ -176,6 +219,7 @@ async function initializeUI() {
     console.log('设置快捷键显示值:', settings.toggleShortcut);
   }
   document.getElementById('number-shortcuts').checked = settings.numberShortcuts;
+  document.getElementById('number-shortcuts-modifier').value = settings.numberShortcutsModifier || 'Ctrl';
   document.getElementById('clipboard-monitor').checked = settings.clipboardMonitor;
   document.getElementById('ignore-duplicates').checked = settings.ignoreDuplicates;
   document.getElementById('save-images').checked = settings.saveImages;
@@ -191,7 +235,6 @@ async function initializeUI() {
   document.getElementById('sound-volume').value = settings.soundVolume;
   document.getElementById('copy-sound-path').value = settings.copySoundPath;
   document.getElementById('paste-sound-path').value = settings.pasteSoundPath;
-  document.getElementById('sound-preset').value = settings.soundPreset;
 
   // 预览窗口设置
   document.getElementById('preview-enabled').checked = settings.previewEnabled;
@@ -200,6 +243,27 @@ async function initializeUI() {
   document.getElementById('preview-auto-paste').checked = settings.previewAutoPaste;
   document.getElementById('preview-scroll-sound').checked = settings.previewScrollSound;
   document.getElementById('preview-scroll-sound-path').value = settings.previewScrollSoundPath;
+
+  // 剪贴板窗口快捷键设置
+  const clipboardShortcutInputs = [
+    { id: 'navigate-up-shortcut', key: 'navigateUpShortcut' },
+    { id: 'navigate-down-shortcut', key: 'navigateDownShortcut' },
+    { id: 'tab-left-shortcut', key: 'tabLeftShortcut' },
+    { id: 'tab-right-shortcut', key: 'tabRightShortcut' },
+    { id: 'focus-search-shortcut', key: 'focusSearchShortcut' },
+    { id: 'hide-window-shortcut', key: 'hideWindowShortcut' },
+    { id: 'execute-item-shortcut', key: 'executeItemShortcut' },
+    { id: 'previous-group-shortcut', key: 'previousGroupShortcut' },
+    { id: 'next-group-shortcut', key: 'nextGroupShortcut' },
+    { id: 'toggle-pin-shortcut', key: 'togglePinShortcut' }
+  ];
+
+  clipboardShortcutInputs.forEach(({ id, key }) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.value = settings[key] || defaultSettings[key];
+    }
+  });
 
   // 截屏设置
   document.getElementById('screenshot-enabled').checked = settings.screenshot_enabled;
@@ -229,6 +293,7 @@ async function initializeUI() {
 
   // 鼠标设置
   document.getElementById('mouse-middle-button-enabled').checked = settings.mouseMiddleButtonEnabled;
+  document.getElementById('mouse-middle-button-modifier').value = settings.mouseMiddleButtonModifier || 'None';
 
   // 动画设置
   document.getElementById('clipboard-animation-enabled').checked = settings.clipboardAnimationEnabled;
@@ -244,6 +309,16 @@ async function initializeUI() {
   
   // 标题栏位置设置
   document.getElementById('title-bar-position').value = settings.titleBarPosition || 'top';
+  
+  // 贴边隐藏设置
+  document.getElementById('edge-hide-enabled').checked = settings.edgeHideEnabled !== undefined ? settings.edgeHideEnabled : true;
+  
+  // 自动聚焦搜索框设置
+  document.getElementById('auto-focus-search').checked = settings.autoFocusSearch !== undefined ? settings.autoFocusSearch : false;
+  
+  // 侧边栏悬停延迟设置
+  const sidebarHoverDelay = settings.sidebarHoverDelay !== undefined ? settings.sidebarHoverDelay : 0.5;
+  document.getElementById('sidebar-hover-delay').value = sidebarHoverDelay;
 
   // 应用黑白名单设置
   document.getElementById('app-filter-enabled').checked = settings.appFilterEnabled || false;
@@ -255,6 +330,11 @@ async function initializeUI() {
   const appFilterListTextarea = document.getElementById('app-filter-list');
   if (appFilterListTextarea) {
     appFilterListTextarea.value = (settings.appFilterList || []).join('\n');
+  }
+
+  const imageDataPriorityApps = document.getElementById('image-data-priority-apps');
+  if (imageDataPriorityApps) {
+    imageDataPriorityApps.value = (settings.imageDataPriorityApps || []).join('\n');
   }
 
   updateAppFilterStatus();
@@ -372,6 +452,9 @@ function bindEvents() {
   // 快捷键设置
   bindToggleShortcutEvents();
 
+  // 剪贴板窗口快捷键设置
+  bindClipboardShortcutEvents();
+
   // 音效设置事件
   bindSoundEvents();
 
@@ -425,18 +508,19 @@ function bindEvents() {
 function bindSettingEvents() {
   const settingInputs = [
     'auto-start', 'start-hidden', 'show-startup-notification', 'history-limit',
-    'number-shortcuts', 'clipboard-monitor',
+    'number-shortcuts', 'number-shortcuts-modifier', 'clipboard-monitor',
     'ignore-duplicates', 'save-images', 'show-image-preview',
-    'sound-enabled', 'copy-sound-path', 'paste-sound-path', 'sound-preset',
+    'sound-enabled', 'copy-sound-path', 'paste-sound-path',
     'preview-enabled', 'preview-shortcut', 'preview-items-count', 'preview-auto-paste',
     'preview-scroll-sound', 'preview-scroll-sound-path',
     'screenshot-enabled', 'screenshot-shortcut', 'screenshot-quality',
     'screenshot-auto-save', 'screenshot-show-hints',
-    'ai-translation-enabled', 'ai-target-language', 'ai-translate-on-copy', 'ai-translate-on-paste',
+    'ai-target-language', 'ai-translate-on-copy', 'ai-translate-on-paste',
     'ai-translation-prompt', 'ai-input-speed', 'ai-newline-mode', 'ai-output-mode',
-    'mouse-middle-button-enabled', 'clipboard-animation-enabled',
+    'mouse-middle-button-enabled', 'mouse-middle-button-modifier', 'clipboard-animation-enabled',
     'window-position-mode', 'remember-window-size', 'auto-scroll-to-top-on-show',
-    'title-bar-position'
+    'title-bar-position', 'edge-hide-enabled', 'auto-focus-search', 'sidebar-hover-delay',
+    'image-data-priority-apps'
   ];
 
   settingInputs.forEach(id => {
@@ -460,6 +544,13 @@ function bindSettingEvents() {
         } else if (element.type === 'select-one' && (id === 'preview-items-count' || id === 'ai-input-speed' || id === 'history-limit')) {
           settings[key] = parseInt(element.value);
           console.log(`特殊处理整数设置: ${id} -> ${key} = ${settings[key]} (原始值: ${element.value})`);
+        } else if (id === 'image-data-priority-apps') {
+          const lines = element.value
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(line => line.toLowerCase());
+          settings.imageDataPriorityApps = lines;
         } else {
           settings[key] = element.value;
         }
@@ -476,19 +567,29 @@ function bindSettingEvents() {
 
   // 截屏快捷键特殊处理
   bindScreenshotShortcutEvents();
+  
+  // 贴边隐藏特殊处理
+  bindEdgeHideEvents();
 }
 
 // 绑定显示/隐藏窗口快捷键事件
 function bindToggleShortcutEvents() {
   const shortcutInput = document.getElementById('toggle-shortcut');
-  const clearButton = document.querySelector('.shortcut-clear');
+  const clearButton = document.querySelector('.sound-reset-btn');
 
   if (shortcutInput) {
     let isRecording = false;
 
-    shortcutInput.addEventListener('focus', () => {
+    shortcutInput.addEventListener('focus', async () => {
       if (!isRecording) {
-        startRecording();
+        // 先禁用后端监听，再开始录制
+        try {
+          await invoke('set_shortcut_recording', { recording: true });
+          startRecording();
+        } catch (err) {
+          console.error('设置快捷键录制状态失败:', err);
+          startRecording(); // 即使失败也继续录制
+        }
       }
     });
 
@@ -534,12 +635,24 @@ function bindToggleShortcutEvents() {
       shortcutInput.classList.add('recording');
       shortcutInput.placeholder = '请按下快捷键组合...';
       shortcutInput.value = '';
+      // 通知全局禁用系统
+      if (window.setShortcutRecording) {
+        window.setShortcutRecording(true);
+      }
     }
 
     function stopRecording() {
       isRecording = false;
       shortcutInput.classList.remove('recording');
       shortcutInput.placeholder = '点击设置快捷键';
+      // 通知全局禁用系统
+      if (window.setShortcutRecording) {
+        window.setShortcutRecording(false);
+      }
+      // 通知后端恢复快捷键监听
+      invoke('set_shortcut_recording', { recording: false }).catch(err => {
+        console.error('设置快捷键录制状态失败:', err);
+      });
     }
   }
 
@@ -581,6 +694,106 @@ function bindToggleShortcutEvents() {
   });
 }
 
+// 绑定剪贴板窗口快捷键事件
+function bindClipboardShortcutEvents() {
+  const shortcutConfigs = [
+    { id: 'navigate-up-shortcut', key: 'navigateUpShortcut', default: 'ArrowUp' },
+    { id: 'navigate-down-shortcut', key: 'navigateDownShortcut', default: 'ArrowDown' },
+    { id: 'tab-left-shortcut', key: 'tabLeftShortcut', default: 'ArrowLeft' },
+    { id: 'tab-right-shortcut', key: 'tabRightShortcut', default: 'ArrowRight' },
+    { id: 'focus-search-shortcut', key: 'focusSearchShortcut', default: 'Tab' },
+    { id: 'hide-window-shortcut', key: 'hideWindowShortcut', default: 'Escape' },
+    { id: 'execute-item-shortcut', key: 'executeItemShortcut', default: 'Ctrl+Enter' },
+    { id: 'previous-group-shortcut', key: 'previousGroupShortcut', default: 'Ctrl+ArrowUp' },
+    { id: 'next-group-shortcut', key: 'nextGroupShortcut', default: 'Ctrl+ArrowDown' },
+    { id: 'toggle-pin-shortcut', key: 'togglePinShortcut', default: 'Ctrl+P' }
+  ];
+
+  shortcutConfigs.forEach(config => {
+    const shortcutInput = document.getElementById(config.id);
+    const clearButton = shortcutInput?.parentElement?.querySelector('.sound-reset-btn');
+
+    if (shortcutInput) {
+      let isRecording = false;
+
+      shortcutInput.addEventListener('focus', () => {
+        if (!isRecording) {
+          startRecording();
+        }
+      });
+
+      shortcutInput.addEventListener('keydown', (e) => {
+        if (!isRecording) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const key = e.key;
+        const modifiers = [];
+
+        if (e.ctrlKey) modifiers.push('Ctrl');
+        if (e.shiftKey) modifiers.push('Shift');
+        if (e.altKey) modifiers.push('Alt');
+        if (e.metaKey) modifiers.push('Win');
+
+        // 忽略单独的修饰键
+        if (['Control', 'Shift', 'Alt', 'Meta', 'OS'].includes(key)) {
+          return;
+        }
+
+        // 构建快捷键字符串
+        let keyName = key;
+        // 特殊键名处理
+        if (key === 'ArrowUp') keyName = 'ArrowUp';
+        else if (key === 'ArrowDown') keyName = 'ArrowDown';
+        else if (key === 'ArrowLeft') keyName = 'ArrowLeft';
+        else if (key === 'ArrowRight') keyName = 'ArrowRight';
+        else if (key === 'Escape') keyName = 'Escape';
+        else if (key === 'Tab') keyName = 'Tab';
+        else if (key === 'Enter') keyName = 'Enter';
+        else keyName = key.toUpperCase();
+
+        const shortcut = [...modifiers, keyName].join('+');
+        shortcutInput.value = shortcut;
+        settings[config.key] = shortcut;
+
+        stopRecording();
+        saveSettings();
+      });
+
+      shortcutInput.addEventListener('blur', () => {
+        if (isRecording) {
+          stopRecording();
+        }
+      });
+
+      function startRecording() {
+        isRecording = true;
+        shortcutInput.classList.add('recording');
+        shortcutInput.placeholder = '请按下快捷键组合...';
+        shortcutInput.value = '';
+      }
+
+      function stopRecording() {
+        isRecording = false;
+        shortcutInput.classList.remove('recording');
+        shortcutInput.placeholder = '点击设置快捷键';
+      }
+
+      // 清除/恢复默认按钮
+      if (clearButton) {
+        clearButton.addEventListener('click', () => {
+          const defaultShortcut = config.default;
+          shortcutInput.value = defaultShortcut;
+          settings[config.key] = defaultShortcut;
+          saveSettings();
+          console.log(`${config.key} 已恢复为默认值:`, defaultShortcut);
+        });
+      }
+    }
+  });
+}
+
 // 绑定预览快捷键事件
 function bindPreviewShortcutEvents() {
   const shortcutInput = document.getElementById('preview-shortcut');
@@ -589,9 +802,16 @@ function bindPreviewShortcutEvents() {
   if (shortcutInput) {
     let isRecording = false;
 
-    shortcutInput.addEventListener('focus', () => {
+    shortcutInput.addEventListener('focus', async () => {
       if (!isRecording) {
-        startRecording();
+        // 先禁用后端监听，再开始录制
+        try {
+          await invoke('set_shortcut_recording', { recording: true });
+          startRecording();
+        } catch (err) {
+          console.error('设置快捷键录制状态失败:', err);
+          startRecording(); // 即使失败也继续录制
+        }
       }
     });
 
@@ -634,20 +854,36 @@ function bindPreviewShortcutEvents() {
       shortcutInput.classList.add('recording');
       shortcutInput.placeholder = '请按下快捷键组合...';
       shortcutInput.value = '';
+      // 通知全局禁用系统
+      if (window.setShortcutRecording) {
+        window.setShortcutRecording(true);
+      }
+      // 后端状态已在focus事件中设置，这里不再重复调用
     }
 
     function stopRecording() {
       isRecording = false;
       shortcutInput.classList.remove('recording');
       shortcutInput.placeholder = '点击设置快捷键';
+      // 通知全局禁用系统
+      if (window.setShortcutRecording) {
+        window.setShortcutRecording(false);
+      }
+      // 通知后端恢复快捷键监听
+      invoke('set_shortcut_recording', { recording: false }).catch(err => {
+        console.error('设置快捷键录制状态失败:', err);
+      });
     }
   }
 
   if (clearButton) {
     clearButton.addEventListener('click', () => {
-      shortcutInput.value = '';
-      settings.previewShortcut = '';
+      // 恢复到默认快捷键而不是清空
+      const defaultShortcut = defaultSettings.previewShortcut;
+      shortcutInput.value = defaultShortcut;
+      settings.previewShortcut = defaultShortcut;
       saveSettings();
+      console.log('预览快捷键已恢复为默认值:', defaultShortcut);
     });
   }
 
@@ -707,9 +943,16 @@ function bindScreenshotShortcutEvents() {
   if (shortcutInput) {
     let isRecording = false;
 
-    shortcutInput.addEventListener('focus', () => {
+    shortcutInput.addEventListener('focus', async () => {
       if (!isRecording) {
-        startRecording();
+        // 先禁用后端监听，再开始录制
+        try {
+          await invoke('set_shortcut_recording', { recording: true });
+          startRecording();
+        } catch (err) {
+          console.error('设置快捷键录制状态失败:', err);
+          startRecording(); // 即使失败也继续录制
+        }
       }
     });
 
@@ -752,20 +995,61 @@ function bindScreenshotShortcutEvents() {
       shortcutInput.classList.add('recording');
       shortcutInput.placeholder = '请按下快捷键组合...';
       shortcutInput.value = '';
+      // 通知全局禁用系统
+      if (window.setShortcutRecording) {
+        window.setShortcutRecording(true);
+      }
+      // 后端状态已在focus事件中设置，这里不再重复调用
     }
 
     function stopRecording() {
       isRecording = false;
       shortcutInput.classList.remove('recording');
       shortcutInput.placeholder = '点击设置快捷键';
+      // 通知全局禁用系统
+      if (window.setShortcutRecording) {
+        window.setShortcutRecording(false);
+      }
+      // 通知后端恢复快捷键监听
+      invoke('set_shortcut_recording', { recording: false }).catch(err => {
+        console.error('设置快捷键录制状态失败:', err);
+      });
     }
   }
 
   if (clearButton) {
     clearButton.addEventListener('click', () => {
-      shortcutInput.value = '';
-      settings.screenshot_shortcut = '';
+      // 恢复到默认快捷键而不是清空
+      const defaultShortcut = defaultSettings.screenshotShortcut;
+      shortcutInput.value = defaultShortcut;
+      settings.screenshot_shortcut = defaultShortcut;
       saveSettings();
+      console.log('截屏快捷键已恢复为默认值:', defaultShortcut);
+    });
+  }
+}
+
+// 绑定贴边隐藏设置事件
+function bindEdgeHideEvents() {
+  const edgeHideCheckbox = document.getElementById('edge-hide-enabled');
+  if (edgeHideCheckbox) {
+    edgeHideCheckbox.addEventListener('change', async (e) => {
+      try {
+        // 调用后端设置贴边隐藏开关
+        await invoke('set_edge_hide_enabled', { enabled: e.target.checked });
+        console.log('贴边隐藏设置已更新:', e.target.checked);
+        
+        if (e.target.checked) {
+          showNotification('贴边隐藏功能已启用', 'success');
+        } else {
+          showNotification('贴边隐藏功能已禁用', 'info');
+        }
+      } catch (error) {
+        console.error('更新贴边隐藏设置失败:', error);
+        showNotification('设置失败: ' + error, 'error');
+        // 恢复复选框状态
+        e.target.checked = !e.target.checked;
+      }
     });
   }
 }
@@ -781,13 +1065,26 @@ function bindSoundEvents() {
     saveSettings();
   });
 
-  // 预设选择
-  const presetSelect = document.getElementById('sound-preset');
-  presetSelect.addEventListener('change', (e) => {
-    const preset = e.target.value;
-    settings.soundPreset = preset;
-    applyPreset(preset);
+  // 恢复默认音效按钮
+  document.getElementById('reset-copy-sound').addEventListener('click', () => {
+    settings.copySoundPath = '';
+    document.getElementById('copy-sound-path').value = '';
     saveSettings();
+    showNotification('已恢复默认复制音效', 'success');
+  });
+
+  document.getElementById('reset-paste-sound').addEventListener('click', () => {
+    settings.pasteSoundPath = '';
+    document.getElementById('paste-sound-path').value = '';
+    saveSettings();
+    showNotification('已恢复默认粘贴音效', 'success');
+  });
+
+  document.getElementById('reset-preview-scroll-sound').addEventListener('click', () => {
+    settings.previewScrollSoundPath = 'sounds/roll.mp3';
+    document.getElementById('preview-scroll-sound-path').value = settings.previewScrollSoundPath;
+    saveSettings();
+    showNotification('已恢复默认滚动音效', 'success');
   });
 
   // 浏览音效文件按钮
@@ -961,23 +1258,7 @@ function updateAiInputSpeedDisplay(speed) {
   }
 }
 
-// 应用音效预设
-function applyPreset(preset) {
-  const presets = {
-    default: {
-      copy: 'sounds/copy.mp3', // 使用sounds文件夹中的音效文件
-      paste: 'sounds/paste.mp3'
-    }
-  };
 
-  if (preset && presets[preset]) {
-    settings.copySoundPath = presets[preset].copy;
-    settings.pasteSoundPath = presets[preset].paste;
-
-    document.getElementById('copy-sound-path').value = settings.copySoundPath;
-    document.getElementById('paste-sound-path').value = settings.pasteSoundPath;
-  }
-}
 
 // 浏览音效文件
 async function browseSoundFile(type) {
@@ -1094,85 +1375,6 @@ async function openGitHub() {
   } catch (error) {
     console.error('打开GitHub失败:', error);
   }
-}
-
-// 显示通知
-function showNotification(message, type = 'info', duration = 3000) {
-  // 移除已存在的通知
-  const existingNotifications = document.querySelectorAll('.notification');
-  existingNotifications.forEach(n => n.remove());
-
-  // 创建通知元素
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-
-  // 创建图标
-  const icon = document.createElement('i');
-  if (type === 'success') {
-    icon.className = 'ti ti-check-circle';
-  } else if (type === 'error') {
-    icon.className = 'ti ti-alert-circle';
-  } else {
-    icon.className = 'ti ti-info-circle';
-  }
-
-  // 创建消息文本
-  const messageSpan = document.createElement('span');
-  messageSpan.textContent = message;
-
-  // 组装通知内容
-  notification.appendChild(icon);
-  notification.appendChild(messageSpan);
-
-  // 添加样式
-  notification.style.cssText = `
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 10000;
-    opacity: 0;
-    transform: translateX(100%);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    max-width: 300px;
-  `;
-
-  // 根据类型设置背景色
-  if (type === 'success') {
-    notification.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-  } else if (type === 'error') {
-    notification.style.background = 'linear-gradient(135deg, #dc3545, #e74c3c)';
-  } else {
-    notification.style.background = 'linear-gradient(135deg, #4a89dc, #007bff)';
-  }
-
-  // 添加到页面
-  document.body.appendChild(notification);
-
-  // 显示动画
-  setTimeout(() => {
-    notification.style.opacity = '1';
-    notification.style.transform = 'translateX(0)';
-  }, 10);
-
-  // 自动隐藏
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 300);
-  }, duration);
 }
 
 // 加载应用版本信息
@@ -1504,6 +1706,33 @@ function bindAiTranslationEvents() {
     });
   }
 
+  // 侧边栏悬停延迟输入框
+  const sidebarHoverDelayInput = document.getElementById('sidebar-hover-delay');
+  if (sidebarHoverDelayInput) {
+    sidebarHoverDelayInput.addEventListener('change', async (e) => {
+      let delay = parseFloat(e.target.value);
+      
+      // 验证范围和有效性
+      if (isNaN(delay) || delay < 0) {
+        delay = 0;
+        e.target.value = delay;
+      } else if (delay > 10) {
+        delay = 10;
+        e.target.value = delay;
+      }
+      
+      settings.sidebarHoverDelay = delay;
+      saveSettings();
+      
+      try {
+        const { emit } = await import('@tauri-apps/api/event');
+        await emit('sidebar-hover-delay-changed', { delay: delay });
+      } catch (error) {
+        console.error('发送侧边栏悬停延迟更新事件失败:', error);
+      }
+    });
+  }
+
   // AI换行符处理模式选择
   const aiNewlineModeSelect = document.getElementById('ai-newline-mode');
   if (aiNewlineModeSelect) {
@@ -1562,10 +1791,61 @@ function bindAiTranslationEvents() {
   if (aiTranslationEnabledCheckbox) {
     aiTranslationEnabledCheckbox.addEventListener('change', async (e) => {
       try {
+        // 如果尝试启用AI翻译，先检查API密钥是否配置
+        if (e.target.checked) {
+          // 获取当前AI配置
+          const aiConfig = getCurrentAIConfig();
+          
+          // 检查API密钥是否为空
+          if (!aiConfig.apiKey || aiConfig.apiKey.trim() === '') {
+            // API密钥未配置，不允许启用，并弹出提示
+            e.target.checked = false; // 恢复开关状态
+            showNotification('请先配置AI API密钥后再启用AI翻译功能', 'warning');
+            
+            // 滚动到AI配置区域
+            const aiConfigSection = document.getElementById('ai-config-section');
+            if (aiConfigSection) {
+              aiConfigSection.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            return;
+          }
+          
+          // 检查AI配置是否有效
+          const isConfigValid = await invoke('check_ai_translation_config');
+          if (!isConfigValid) {
+            // AI配置无效，不允许启用，并弹出提示
+            e.target.checked = false; // 恢复开关状态
+            showNotification('AI配置无效，请检查AI配置后再启用AI翻译功能', 'warning');
+            
+            // 滚动到AI配置区域
+            const aiConfigSection = document.getElementById('ai-config-section');
+            if (aiConfigSection) {
+              aiConfigSection.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            return;
+          }
+        }
+        
+        // 更新本地设置
+        settings.aiTranslationEnabled = e.target.checked;
+        saveSettings();
+        
         // 发送AI翻译状态变化事件到主窗口
         await emit('ai-translation-state-changed', { enabled: e.target.checked });
+        
+        // 显示适当的提示
+        if (e.target.checked) {
+          showNotification('AI翻译功能已启用', 'success');
+        } else {
+          showNotification('AI翻译功能已禁用', 'info');
+        }
       } catch (error) {
         console.error('发送AI翻译状态变化事件失败:', error);
+        // 如果发生错误，恢复开关状态
+        e.target.checked = !e.target.checked;
+        showNotification('启用AI翻译失败，请重试', 'error');
       }
     });
   }
@@ -1620,6 +1900,17 @@ function bindAiTranslationEvents() {
 
 // =================== 数据管理功能 ===================
 
+// 刷新整个前端界面
+async function refreshAllWindows() {
+  try {
+    // 刷新所有窗口
+    await invoke('refresh_all_windows');
+    console.log('已刷新所有窗口');
+  } catch (error) {
+    console.error('刷新窗口失败:', error);
+  }
+}
+
 // 初始化数据管理功能
 function initDataManagement() {
   // 导出数据按钮
@@ -1645,30 +1936,34 @@ function initDataManagement() {
   if (resetAllButton) {
     resetAllButton.addEventListener('click', handleResetAllData);
   }
+
+  // 存储位置管理按钮
+  const openStorageButton = document.getElementById('open-storage-folder');
+  if (openStorageButton) {
+    openStorageButton.addEventListener('click', handleOpenStorageFolder);
+  }
+
+  const changeStorageButton = document.getElementById('change-storage-location');
+  if (changeStorageButton) {
+    changeStorageButton.addEventListener('click', handleChangeStorageLocation);
+  }
+
+  const resetStorageButton = document.getElementById('reset-storage-location');
+  if (resetStorageButton) {
+    resetStorageButton.addEventListener('click', handleResetStorageLocation);
+  }
+
+  // 加载存储信息
+  loadStorageInfo();
 }
 
 // 处理导出数据
 async function handleExportData() {
   try {
-    // 获取导出选项
-    const options = {
-      clipboard_history: document.getElementById('export-clipboard-history')?.checked || false,
-      quick_texts: document.getElementById('export-quick-texts')?.checked || false,
-      groups: document.getElementById('export-groups')?.checked || false,
-      settings: document.getElementById('export-settings')?.checked || false,
-      images: document.getElementById('export-images')?.checked || false,
-    };
-
-    // 检查是否至少选择了一个选项
-    if (!Object.values(options).some(value => value)) {
-      showNotification('请至少选择一个导出选项', 'warning');
-      return;
-    }
-
     // 使用文件对话框选择保存位置
     const { save } = await import('@tauri-apps/plugin-dialog');
     const filePath = await save({
-      title: '导出数据',
+      title: '导出全部数据',
       defaultPath: `quickclipboard_backup_${new Date().toISOString().slice(0, 10)}.zip`,
       filters: [{
         name: 'ZIP文件',
@@ -1681,15 +1976,15 @@ async function handleExportData() {
     }
 
     // 显示进度提示
-    showNotification('正在导出数据，请稍候...', 'info');
+    showNotification('正在导出全部数据，请稍候...', 'info');
 
     // 调用后端导出函数
     await invoke('export_data', {
       exportPath: filePath,
-      options: options
+      options: {} // 空选项，后端会导出所有数据
     });
 
-    showNotification('数据导出成功！', 'success');
+    showNotification('全部数据导出成功！', 'success');
   } catch (error) {
     console.error('导出数据失败:', error);
     showNotification(`导出数据失败: ${error}`, 'error');
@@ -1744,27 +2039,14 @@ async function handleImportData() {
     await invoke('import_data', {
       importPath: filePath,
       options: {
-        mode: importMode === 'replace' ? 'Replace' : 'Merge',
-        clipboard_history: true,
-        quick_texts: true,
-        groups: true,
-        settings: true,
-        images: true
+        mode: importMode === 'replace' ? 'Replace' : 'Merge'
       }
     });
 
-    showNotification('数据导入成功！应用将重新启动以应用更改。', 'success');
+    showNotification('数据导入成功！', 'success');
 
-    // 延迟重启整个Tauri应用程序
-    setTimeout(async () => {
-      try {
-        await invoke('restart_app');
-      } catch (error) {
-        console.error('重启应用失败:', error);
-        // 如果重启失败，回退到页面重新加载
-        window.location.reload();
-      }
-    }, 2000);
+    // 刷新所有窗口
+    await refreshAllWindows();
   } catch (error) {
     console.error('导入数据失败:', error);
     showNotification(`导入数据失败: ${error}`, 'error');
@@ -1785,18 +2067,10 @@ async function handleClearClipboardHistory() {
   try {
     showNotification('正在清空剪贴板历史...', 'info');
     await invoke('clear_clipboard_history_dm');
-    showNotification('剪贴板历史已清空，应用将重新启动。', 'success');
+    showNotification('剪贴板历史已清空！', 'success');
 
-    // 延迟重启整个Tauri应用程序
-    setTimeout(async () => {
-      try {
-        await invoke('restart_app');
-      } catch (error) {
-        console.error('重启应用失败:', error);
-        // 如果重启失败，回退到页面重新加载
-        window.location.reload();
-      }
-    }, 2000);
+    // 刷新所有窗口
+    await refreshAllWindows();
   } catch (error) {
     console.error('清空剪贴板历史失败:', error);
     showNotification(`清空剪贴板历史失败: ${error}`, 'error');
@@ -1826,18 +2100,10 @@ async function handleResetAllData() {
   try {
     showNotification('正在重置所有数据...', 'info');
     await invoke('reset_all_data');
-    showNotification('所有数据已重置，应用将重新启动。', 'success');
+    showNotification('所有数据已重置！', 'success');
 
-    // 延迟重启整个Tauri应用程序
-    setTimeout(async () => {
-      try {
-        await invoke('restart_app');
-      } catch (error) {
-        console.error('重启应用失败:', error);
-        // 如果重启失败，回退到页面重新加载
-        window.location.reload();
-      }
-    }, 2000);
+    // 刷新所有窗口
+    await refreshAllWindows();
   } catch (error) {
     console.error('重置所有数据失败:', error);
     showNotification(`重置所有数据失败: ${error}`, 'error');
@@ -2210,6 +2476,114 @@ function addAppToFilterList(processName, appName) {
     renderAvailableAppsGrid();
 
     showNotification(`已添加 ${processName} 到应用过滤列表`, 'success');
+  }
+}
+
+// =================== 存储位置管理功能 ===================
+
+// 加载存储信息
+async function loadStorageInfo() {
+  try {
+    const storageInfo = await invoke('get_storage_info');
+    const currentPathElement = document.getElementById('current-storage-path');
+    if (currentPathElement) {
+      currentPathElement.textContent = storageInfo.current_path;
+      currentPathElement.title = storageInfo.current_path; 
+    }
+  } catch (error) {
+    console.error('获取存储信息失败:', error);
+    const currentPathElement = document.getElementById('current-storage-path');
+    if (currentPathElement) {
+      currentPathElement.textContent = '获取存储位置失败';
+    }
+  }
+}
+
+// 处理打开存储文件夹
+async function handleOpenStorageFolder() {
+  try {
+    await invoke('open_storage_folder');
+  } catch (error) {
+    console.error('打开存储文件夹失败:', error);
+    showNotification(`打开存储文件夹失败: ${error}`, 'error');
+  }
+}
+
+// 处理更改存储位置
+async function handleChangeStorageLocation() {
+  try {
+    // 使用文件夹选择对话框
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selectedPath = await open({
+      title: '选择新的数据存储位置',
+      directory: true,
+      multiple: false
+    });
+
+    if (!selectedPath) {
+      return; // 用户取消了操作
+    }
+
+    // 确认操作
+    const confirmed = await confirm(
+      '更改存储位置将迁移所有现有数据到新位置，此过程可能需要一些时间。确定继续吗？',
+      {
+        title: '确认更改存储位置',
+        type: 'warning'
+      }
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    // 显示进度提示
+    showNotification('正在迁移数据到新位置，请稍候...', 'info');
+
+    // 调用后端迁移函数
+    await invoke('set_custom_storage_location', {
+      newPath: selectedPath
+    });
+
+    // 重新加载存储信息
+    await loadStorageInfo();
+
+    showNotification('存储位置更改成功！', 'success');
+  } catch (error) {
+    console.error('更改存储位置失败:', error);
+    showNotification(`更改存储位置失败: ${error}`, 'error');
+  }
+}
+
+// 处理重置存储位置
+async function handleResetStorageLocation() {
+  try {
+    // 确认操作
+    const confirmed = await confirm(
+      '重置存储位置将把数据迁移回默认的AppData目录。确定继续吗？',
+      {
+        title: '确认重置存储位置',
+        type: 'warning'
+      }
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    // 显示进度提示
+    showNotification('正在重置存储位置，请稍候...', 'info');
+
+    // 调用后端重置函数
+    await invoke('reset_to_default_storage_location');
+
+    // 重新加载存储信息
+    await loadStorageInfo();
+
+    showNotification('存储位置已重置为默认位置！', 'success');
+  } catch (error) {
+    console.error('重置存储位置失败:', error);
+    showNotification(`重置存储位置失败: ${error}`, 'error');
   }
 }
 

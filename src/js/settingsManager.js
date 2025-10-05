@@ -3,6 +3,8 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentTheme } from './themeManager.js';
 import { refreshClipboardHistory } from './clipboard.js';
 import { getDominantColor, generateTitleBarColors, applyTitleBarColors, removeTitleBarColors } from './colorAnalyzer.js';
+import { setPasteWithFormat } from './config.js';
+import { updateFormatButtonStatus } from './toolsPanel.js';
 
 // 当前设置
 let currentSettings = {
@@ -29,7 +31,11 @@ let currentSettings = {
   clipboardAnimationEnabled: true
   ,
   // 显示行为
-  autoScrollToTopOnShow: false
+  autoScrollToTopOnShow: false,
+  // 格式设置
+  pasteWithFormat: true, // 是否带格式粘贴和显示，true=带格式，false=纯文本
+  // 图片粘贴策略
+  imageDataPriorityApps: []
 };
 
 // 初始化设置管理器
@@ -88,6 +94,14 @@ function applySettings(settings) {
     applyAnimationSettings(settings.clipboardAnimationEnabled);
   }
 
+  if (Array.isArray(settings.imageDataPriorityApps)) {
+    try {
+      window.__imageDataPriorityApps = settings.imageDataPriorityApps;
+    } catch (error) {
+      console.warn('记录图像数据优先应用失败:', error);
+    }
+  }
+
   // 设置显示后滚动行为
   if (settings.autoScrollToTopOnShow !== undefined) {
     console.log('应用自动滚动设置:', settings.autoScrollToTopOnShow);
@@ -97,6 +111,16 @@ function applySettings(settings) {
   // 应用标题栏位置设置
   if (settings.titleBarPosition !== undefined) {
     applyTitleBarPosition(settings.titleBarPosition);
+  }
+
+  // 应用格式设置
+  if (settings.pasteWithFormat !== undefined) {
+    setPasteWithFormat(settings.pasteWithFormat);
+    try {
+      updateFormatButtonStatus();
+    } catch (error) {
+      console.warn('更新格式按钮状态失败:', error);
+    }
   }
 }
 
@@ -168,38 +192,21 @@ function applyOpacity(opacity) {
 }
 
 // 应用动画设置
-function applyAnimationSettings(animationEnabled) {
-  // 获取或创建动画样式元素
-  let animationStyleElement = document.getElementById('animation-control-styles');
-  if (!animationStyleElement) {
-    animationStyleElement = document.createElement('style');
-    animationStyleElement.id = 'animation-control-styles';
-    document.head.appendChild(animationStyleElement);
-  }
+async function applyAnimationSettings(animationEnabled) {
+  try {
+    // 清理旧的动画样式元素
+    const oldAnimationStyleElement = document.getElementById('animation-control-styles');
+    if (oldAnimationStyleElement) {
+      oldAnimationStyleElement.remove();
+    }
 
-  if (animationEnabled) {
-    // 启用动画：使用正常的动画持续时间
-    animationStyleElement.textContent = `
-      .window-show-animation {
-        animation: scrollDown 0.3s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-      }
-      .window-hide-animation {
-        animation: scrollUp 0.2s cubic-bezier(0.755, 0.05, 0.855, 0.06) forwards;
-      }
-    `;
-  } else {
-    // 禁用动画：将动画持续时间设置为 0
-    animationStyleElement.textContent = `
-      .window-show-animation {
-        animation: scrollDown 0s forwards;
-      }
-      .window-hide-animation {
-        animation: scrollUp 0s forwards;
-      }
-    `;
+    //设置开关状态
+    const { setAnimationEnabled } = await import('./windowAnimation.js');
+    setAnimationEnabled(animationEnabled);
+    console.log('动画设置已应用:', animationEnabled);
+  } catch (error) {
+    console.error('应用动画设置失败:', error);
   }
-
-  console.log('动画设置已应用:', animationEnabled);
 }
 
 // 获取当前设置

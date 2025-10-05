@@ -8,18 +8,23 @@ mod clipboard_content;
 mod clipboard_history;
 mod clipboard_monitor;
 mod commands;
+mod data_migration;
 mod data_manager;
 mod database;
+mod database_image_utils;
 mod file_handler;
 mod global_state;
 mod groups;
 mod image_manager;
 mod key_state_monitor;
 mod mouse_hook;
-mod native_screenshot;
 mod paste_utils;
 mod preview_window;
+mod pin_image_window;
 mod quick_texts;
+
+// 截屏功能模块
+mod screenshot;
 
 mod memory_manager;
 mod services;
@@ -31,11 +36,15 @@ mod tray;
 mod utils;
 mod window_effects;
 mod window_management;
+mod edge_snap;
+mod state_manager;
+mod window_drag;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub use commands::*;
 pub use window_effects::*;
+pub use database::{ContentType, ClipboardItem, FavoriteItem};
 
 use tauri::Manager;
 
@@ -121,14 +130,65 @@ pub fn run() {
         }))
         .on_menu_event(|app, event| match event.id().as_ref() {
             "toggle" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = commands::toggle_window_visibility(window);
-                }
+                let _ = commands::toggle_window_visibility(app.app_handle().clone());
             }
             "settings" => {
                 let app_handle = app.app_handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    let _ = crate::services::window_service::open_settings_window(app_handle).await;
+                    let _ = commands::open_settings_window(app_handle).await;
+                });
+            }
+            "toggle-hotkeys" => {
+                #[cfg(windows)]
+                {
+                    let hook_enabled = crate::shortcut_interceptor::is_interception_enabled();
+                    let poll_enabled = crate::key_state_monitor::is_polling_active();
+
+                    if hook_enabled || poll_enabled {
+                        crate::shortcut_interceptor::disable_shortcut_interception();
+                        crate::key_state_monitor::stop_keyboard_polling_system();
+                        if let Some(item) = crate::tray::TOGGLE_HOTKEYS_ITEM.get() {
+                            let _ = item.set_text("启用快捷键");
+                        }
+                    } else {
+                        crate::shortcut_interceptor::enable_shortcut_interception();
+                        crate::key_state_monitor::start_keyboard_polling_system();
+                        if let Some(item) = crate::tray::TOGGLE_HOTKEYS_ITEM.get() {
+                            let _ = item.set_text("禁用快捷键");
+                        }
+                    }
+                }
+            }
+            "toggle-clipboard-monitor" => {
+                let new_enabled = !crate::clipboard_history::is_monitoring_enabled();
+                crate::clipboard_history::set_monitoring_enabled(new_enabled);
+                // 持久化到设置
+                let mut app_settings = crate::settings::get_global_settings();
+                app_settings.clipboard_monitor = new_enabled;
+                let _ = crate::settings::update_global_settings(app_settings);
+                // 广播设置变更，确保主窗口与设置窗口同步
+                if let Some(main_window) = app.get_webview_window("main") {
+                    use tauri::Emitter;
+                    let _ = main_window.emit(
+                        "settings-changed",
+                        crate::settings::get_global_settings().to_json(),
+                    );
+                }
+                if let Some(settings_window) = app.get_webview_window("settings") {
+                    use tauri::Emitter;
+                    let _ = settings_window.emit(
+                        "settings-changed",
+                        crate::settings::get_global_settings().to_json(),
+                    );
+                }
+                if let Some(item) = crate::tray::TOGGLE_MONITOR_ITEM.get() {
+                    let _ = item.set_text(if new_enabled { "禁用剪贴板监听" } else { "启用剪贴板监听" });
+                }
+            }
+            "restart" => {
+                let app_handle = app.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = commands::restart_app(app_handle).await;
                 });
             }
             "quit" => {
@@ -178,9 +238,14 @@ pub fn run() {
                 }
             }
 
-            // 启动内存收缩调度器（仅 Windows 生效）
-            #[cfg(windows)]
-            memory_manager::start_memory_trim_scheduler();
+            // 启动内存收缩调度器，暂停使用避免程序崩溃
+            // #[cfg(windows)]
+            // memory_manager::start_memory_trim_scheduler();
+
+            // 初始化内置音效文件
+            if let Err(e) = services::sound_service::SoundService::initialize_builtin_sounds() {
+                eprintln!("初始化内置音效文件失败: {}", e);
+            }
 
             // 初始化音效管理器
             if let Err(_e) = sound_manager::initialize_sound_manager() {
@@ -189,6 +254,14 @@ pub fn run() {
 
             // 初始化预览窗口
             preview_window::init_preview_window();
+            
+            // 初始化贴图窗口
+            pin_image_window::init_pin_image_window();
+
+            // 初始化截屏窗口
+            if let Err(e) = crate::screenshot::ScreenshotWindowManager::init_screenshot_window(app.handle()) {
+                println!("截屏窗口初始化失败: {}", e);
+            }
 
             // 加载并应用设置
             // println!("正在加载应用设置...");
@@ -221,6 +294,8 @@ pub fn run() {
             // 应用数字快捷键设置
             #[cfg(windows)]
             global_state::set_number_shortcuts_enabled(app_settings.number_shortcuts);
+            #[cfg(windows)]
+            global_state::update_number_shortcuts_modifier(&app_settings.number_shortcuts_modifier);
 
             // 应用预览窗口快捷键设置
             #[cfg(windows)]
@@ -253,7 +328,7 @@ pub fn run() {
                 volume: (app_settings.sound_volume / 100.0) as f32,
                 copy_sound_path: app_settings.copy_sound_path,
                 paste_sound_path: app_settings.paste_sound_path,
-                preset: app_settings.sound_preset,
+                preset: "default".to_string(),
             };
             sound_manager::update_sound_settings(sound_settings);
 
@@ -262,6 +337,9 @@ pub fn run() {
 
             // 注册托盘图标和事件
             tray::setup_tray(&app.app_handle())?;
+
+            // 初始化状态管理器
+            state_manager::init_state_manager();
 
             // 设置窗口关闭事件处理 - 隐藏到托盘而不是退出
             let main_window_clone = main_window.clone();
@@ -299,6 +377,10 @@ pub fn run() {
                 // 发送启动通知
                 let _ = send_startup_notification_internal(&app_handle);
             });
+
+
+            // 初始化边缘吸附功能
+            let _ = crate::edge_snap::init_edge_snap();
 
             // 标记后端初始化完成
             BACKEND_INITIALIZED.store(true, Ordering::Relaxed);
@@ -372,7 +454,7 @@ pub fn run() {
             is_backend_initialized,
             send_system_notification,
             send_startup_notification,
-            native_screenshot::start_native_screenshot,
+
             commands::test_ai_translation,
             commands::translate_and_input_text,
             commands::translate_and_paste_text,
@@ -403,10 +485,58 @@ pub fn run() {
             commands::clear_clipboard_history_dm,
             commands::reset_all_data,
             commands::get_app_data_dir,
+            commands::get_storage_info,
+            commands::set_custom_storage_location,
+            commands::reset_to_default_storage_location,
+            commands::open_storage_folder,
             commands::save_window_position,
             commands::save_window_size,
             commands::get_saved_window_position,
-            commands::get_saved_window_size
+            commands::get_saved_window_size,
+            commands::init_edge_snap,
+            commands::check_window_edge_snap,
+            commands::restore_window_from_snap,
+            commands::set_edge_hide_enabled,
+            commands::is_edge_hide_enabled,
+            commands::restore_edge_snap_on_startup,
+            commands::refresh_all_windows,
+            commands::get_screen_size,
+            commands::set_shortcut_recording,
+            commands::start_custom_drag,
+            commands::stop_custom_drag,
+            commands::get_image_file_path,
+            commands::pin_image_to_screen,
+            commands::file_exists,
+            commands::create_pin_image_window,
+            
+            // 截屏窗口相关命令
+            crate::screenshot::show_screenshot_window,
+            crate::screenshot::hide_screenshot_window,
+            crate::screenshot::toggle_screenshot_window,
+            crate::screenshot::is_screenshot_window_visible,
+            crate::screenshot::get_all_monitors,
+            crate::screenshot::get_css_monitors,
+            crate::screenshot::constrain_selection_bounds,
+            commands::start_builtin_screenshot,
+            
+            crate::screenshot::init_scrolling_screenshot,
+            crate::screenshot::start_scrolling_screenshot,
+            crate::screenshot::pause_scrolling_screenshot,
+            crate::screenshot::resume_scrolling_screenshot,
+            crate::screenshot::stop_scrolling_screenshot,
+            crate::screenshot::cancel_scrolling_screenshot,
+            crate::screenshot::update_scrolling_panel_rect,
+            
+            // 自动选区相关命令
+            crate::screenshot::start_auto_selection,
+            crate::screenshot::stop_auto_selection,
+            crate::screenshot::is_auto_selection_active,
+            
+            // 贴图窗口相关命令
+            crate::pin_image_window::get_pin_image_data,
+            crate::pin_image_window::close_pin_image_window_by_self,
+            crate::pin_image_window::copy_pin_image_to_clipboard,
+            crate::pin_image_window::save_pin_image_as
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,6 @@
 use arboard::Clipboard;
 use base64::{engine::general_purpose as b64_engine, Engine as _};
-use image::{ImageBuffer, ImageOutputFormat, Rgba};
+use image::{ImageBuffer, Rgba};
 
 // Windows CF_DIB 常量（0x0008）
 #[cfg(windows)]
@@ -8,17 +8,25 @@ const CF_DIB: u32 = 8;
 
 // === 图像与 DataURL 转换辅助函数 ===
 pub fn image_to_data_url(image: &arboard::ImageData) -> String {
+    use image::codecs::png::PngEncoder;
+    use image::{ExtendedColorType, ImageEncoder};
+    
     let buffer = ImageBuffer::<Rgba<u8>, _>::from_raw(
         image.width as u32,
         image.height as u32,
         image.bytes.clone().into_owned(),
     )
     .expect("无法创建图像缓冲区");
+    
     let mut png_bytes: Vec<u8> = Vec::new();
-    let _ = image::DynamicImage::ImageRgba8(buffer).write_to(
-        &mut std::io::Cursor::new(&mut png_bytes),
-        ImageOutputFormat::Png,
+    let encoder = PngEncoder::new(&mut png_bytes);
+    let _ = encoder.write_image(
+        buffer.as_raw(),
+        image.width as u32,
+        image.height as u32,
+        ExtendedColorType::Rgba8
     );
+    
     let b64 = b64_engine::STANDARD.encode(png_bytes);
     format!("data:image/png;base64,{}", b64)
 }
@@ -322,7 +330,27 @@ fn create_windows_html_format(html: &str) -> String {
 
 /// 修复图片URL，将相对协议转换为绝对协议
 fn fix_image_urls(html: &str) -> String {
+    use regex::Regex;
     let mut fixed = html.to_string();
+    
+    // 0. 首先处理 image-id: 引用，将其转换为实际的图片数据URL
+    if let Ok(re) = Regex::new(r#"src="image-id:([^"]+)""#) {
+        fixed = re.replace_all(&fixed, |caps: &regex::Captures| {
+            let image_id = &caps[1];
+            
+            // 尝试从图片管理器加载图片
+            if let Ok(manager_result) = crate::image_manager::get_image_manager() {
+                if let Ok(guard) = manager_result.lock() {
+                    if let Ok(data_url) = guard.get_image_data_url(image_id) {
+                        return format!("src=\"{}\"", data_url);
+                    }
+                }
+            }
+            
+            // 如果加载失败，保持原样
+            caps[0].to_string()
+        }).to_string();
+    }
     
     // 1. 修复相对协议的图片链接 //example.com -> https://example.com
     fixed = fixed.replace("src=\"//", "src=\"https://")
@@ -347,7 +375,6 @@ fn fix_image_urls(html: &str) -> String {
     
     // 4. 确保所有链接都有协议
     // 处理没有协议的域名链接
-    use regex::Regex;
     
     // 修复 src="domain.com/path" 格式的链接
     if let Ok(re) = Regex::new(r#"src="([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^"]*)"#) {

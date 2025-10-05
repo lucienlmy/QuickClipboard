@@ -38,13 +38,13 @@ function updateThumbPosition(container, thumb) {
   }
   thumb.style.display = 'block';
 
-  const trackHeight = container.offsetHeight - 4; // 与CSS中track top/bottom 2px 对应
+  const trackHeight = container.offsetHeight - 4;
   const thumbHeight = Math.max((clientHeight / scrollHeight) * trackHeight, 20);
   const maxThumbTop = trackHeight - thumbHeight;
   const thumbTop = clamp((scrollTop / (scrollHeight - clientHeight)) * maxThumbTop, 0, maxThumbTop);
 
   thumb.style.height = `${thumbHeight}px`;
-  thumb.style.top = `${2 + thumbTop}px`; // +2 与 track top 对齐
+  thumb.style.top = `${thumbTop}px`; 
 }
 
 function bindScrollbar(container) {

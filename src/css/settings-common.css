@@ -102,6 +102,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: var(--padding-sm) var(--padding-sm);
+  gap: var(--margin-lg);
 }
 
 .header-left {
@@ -117,6 +118,163 @@ body {
 .header-left h1 {
   font-size: 20px;
   font-weight: 600;
+}
+
+/* =================== 搜索功能 =================== */
+.header-search {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+  margin: 0 var(--margin-lg);
+}
+
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: all var(--transition-duration) ease;
+}
+
+.search-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(74, 137, 220, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 16px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-clear {
+  position: absolute;
+  right: 8px;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--border-radius-small);
+  font-size: 16px;
+  transition: all var(--transition-duration) ease;
+  -webkit-app-region: no-drag;
+}
+
+.search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: var(--z-dropdown);
+  box-shadow: var(--shadow-lg);
+  -webkit-app-region: no-drag;
+}
+
+.search-result-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all var(--transition-duration) ease;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: var(--bg-hover);
+}
+
+.search-result-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.search-result-path {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.search-result-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.search-highlight {
+  background: rgba(74, 137, 220, 0.2);
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.search-result-item.active {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+}
+
+.search-no-results {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.no-results-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.no-results-text {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.no-results-tip {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* 设置项高亮动画 */
+.setting-highlight {
+  background: var(--primary-light) !important;
+  border: 2px solid var(--primary-color) !important;
+  border-radius: var(--border-radius) !important;
+  transform: scale(1.01);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(74, 137, 220, 0.15) !important;
 }
 
 /* =================== 窗口控制按钮 =================== */
@@ -450,6 +608,24 @@ input:checked+.toggle-slider:before {
   font-family: monospace;
 }
 
+/* 数字输入框样式 */
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: var(--margin-sm);
+}
+
+.number-input {
+  min-width: 80px !important;
+  text-align: center;
+}
+
+.input-unit {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
 .setting-textarea {
   padding: var(--padding-sm) var(--margin-md);
   border: 1px solid transparent;
@@ -493,7 +669,6 @@ input:checked+.toggle-slider:before {
   font-size: 16px;
 }
 
-.shortcut-clear,
 .setting-button-small {
   display: flex;
   align-items: center;
@@ -507,18 +682,15 @@ input:checked+.toggle-slider:before {
   height: 32px;
 }
 
-.shortcut-clear:hover,
 .setting-button-small:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-light);
 }
 
-.shortcut-clear:active,
 .setting-button-small:active {
   transform: translateY(0);
 }
 
-.shortcut-clear i,
 .setting-button-small i {
   font-size: 14px;
 }
@@ -643,27 +815,6 @@ input:checked+.toggle-slider:before {
   animation: recording-pulse 1s infinite;
 }
 
-/* .shortcut-clear-btn {
-  padding: var(--padding-sm);
-  background: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition: all var(--transition-duration) ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.shortcut-clear-btn:hover {
-  background: #c0392b;
-}
-
-.shortcut-clear-btn i {
-  font-size: 14px;
-} */
-
 @keyframes recording-pulse {
 
   0%,
@@ -733,7 +884,8 @@ input:checked+.toggle-slider:before {
 }
 
 .sound-browse-btn,
-.sound-test-btn {
+.sound-test-btn,
+.sound-reset-btn {
   padding: var(--padding-sm) 10px;
   border: 1px solid transparent;
   border-radius: var(--border-radius);
@@ -745,13 +897,15 @@ input:checked+.toggle-slider:before {
 }
 
 .sound-browse-btn:hover,
-.sound-test-btn:hover {
+.sound-test-btn:hover,
+.sound-reset-btn:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
 
 .sound-browse-btn i,
-.sound-test-btn i {
+.sound-test-btn i,
+.sound-reset-btn i {
   font-size: 16px;
 }
 
@@ -1427,14 +1581,14 @@ textarea:focus {
 
 .mode-option input[type="radio"]:checked+.mode-card {
   border-color: var(--primary-color);
-  background-color: var(--primary-light);
+  background-color: var(--bg-primary);
   /* color: var(--primary-color); */
   box-shadow: 0 0 0 2px var(--primary-color);
 }
 
 .mode-option input[type="radio"]:checked+.mode-card:hover {
   border-color: var(--primary-hover);
-  background-color: var(--primary-light);
+  /* background-color: var(--primary-light); */
   box-shadow: 0 0 0 2px var(--primary-hover), var(--shadow-light);
 }
 

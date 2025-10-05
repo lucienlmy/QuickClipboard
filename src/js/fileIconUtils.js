@@ -168,9 +168,6 @@ const imageLoadManager = new ImageLoadManager();
 
 /**
  * 设置文件图标，支持直接访问图片文件
- * @param {HTMLImageElement} iconElement - 图标元素
- * @param {Object} file - 文件信息对象
- * @param {string} defaultIcon - 默认图标的base64数据
  */
 function setFileIcon(iconElement, file, defaultIcon = null) {
   const defaultIconData = defaultIcon || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiBmaWxsPSIjQ0NDQ0NDIi8+Cjwvc3ZnPgo=';
@@ -233,8 +230,6 @@ async function preloadImage(filePath) {
 
 /**
  * 检查文件是否为图片类型
- * @param {Object} file - 文件信息对象
- * @returns {boolean} 是否为图片文件
  */
 function isImageFile(file) {
   if (!file.file_type) return false;
@@ -245,9 +240,6 @@ function isImageFile(file) {
 
 /**
  * 创建文件图标元素
- * @param {Object} file - 文件信息对象
- * @param {string} size - 图标大小 ('small', 'medium', 'large')
- * @returns {HTMLImageElement} 图标元素
  */
 function createFileIconElement(file, size = 'medium') {
   const iconElement = document.createElement('img');

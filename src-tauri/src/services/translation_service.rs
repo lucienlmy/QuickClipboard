@@ -412,3 +412,73 @@ fn preprocess_translation_text(text: &str) -> Result<String, String> {
 
     Ok(cleaned)
 }
+
+/// 测试AI翻译配置
+pub async fn test_ai_translation() -> Result<String, String> {
+    let settings = crate::settings::get_global_settings();
+
+    // 检查配置是否有效
+    if !crate::ai_translator::is_translation_config_valid(&settings) {
+        return Err("AI翻译配置不完整，请检查API密钥、模型和目标语言设置".to_string());
+    }
+
+    // 创建翻译配置
+    let config = crate::ai_translator::config_from_settings(&settings);
+
+    // 创建翻译器
+    let translator = match crate::ai_translator::AITranslator::new(config) {
+        Ok(t) => t,
+        Err(e) => return Err(format!("创建翻译器失败: {}", e)),
+    };
+
+    // 测试翻译
+    let test_text = "Hello, this is a test message for AI translation.";
+
+    match translator.translate_stream(test_text).await {
+        Ok(mut receiver) => {
+            let mut result = String::new();
+
+            // 收集流式响应
+            while let Some(translation_result) = receiver.recv().await {
+                match translation_result {
+                    crate::ai_translator::TranslationResult::Chunk(chunk) => {
+                        result.push_str(&chunk);
+                    }
+                    crate::ai_translator::TranslationResult::Complete => {
+                        break;
+                    }
+                    crate::ai_translator::TranslationResult::Error(e) => {
+                        return Err(format!("翻译失败: {}", e));
+                    }
+                }
+            }
+
+            if result.is_empty() {
+                Err("翻译结果为空".to_string())
+            } else {
+                Ok(format!("测试成功！翻译结果：{}", result))
+            }
+        }
+        Err(e) => Err(format!("启动翻译失败: {}", e)),
+    }
+}
+
+/// 启用AI翻译取消快捷键
+pub fn enable_ai_translation_cancel_shortcut() -> Result<(), String> {
+    #[cfg(windows)]
+    crate::global_state::enable_ai_translation_cancel();
+    Ok(())
+}
+
+/// 禁用AI翻译取消快捷键
+pub fn disable_ai_translation_cancel_shortcut() -> Result<(), String> {
+    #[cfg(windows)]
+    crate::global_state::disable_ai_translation_cancel();
+    Ok(())
+}
+
+/// 检查AI翻译配置是否有效
+pub fn check_ai_translation_config() -> Result<bool, String> {
+    let settings = crate::settings::get_global_settings();
+    Ok(crate::ai_translator::is_translation_config_valid(&settings))
+}

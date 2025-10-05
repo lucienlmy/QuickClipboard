@@ -108,6 +108,123 @@ div {
     background-color: var(--bg-hover);
 }
 
+/* =================== 搜索功能主题适配 =================== */
+.theme-background .search-input {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-color: var(--border-primary);
+    color: #333;
+    backdrop-filter: blur(var(--blur-strength));
+}
+
+.theme-background .search-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(74, 137, 220, 0.1);
+    background-color: rgba(255, 255, 255, 0.98);
+}
+
+.theme-background .search-input::placeholder {
+    color: #999;
+}
+
+.theme-background .search-icon {
+    color: var(--text-secondary);
+}
+
+.theme-background .search-clear {
+    color: var(--text-secondary);
+}
+
+.theme-background .search-clear:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.theme-background .search-results {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-color: var(--border-primary);
+    backdrop-filter: blur(var(--blur-strength));
+    box-shadow: 0 4px 20px var(--shadow-secondary);
+}
+
+.theme-background .search-result-item {
+    border-bottom-color: var(--border-secondary);
+}
+
+.theme-background .search-result-item:hover {
+    background-color: rgba(248, 249, 250, 0.9);
+}
+
+.theme-background .search-result-item.active {
+    background-color: rgba(240, 247, 255, 0.9);
+    border-color: var(--primary-color);
+}
+
+.theme-background .search-result-title {
+    color: #333;
+    font-weight: 500;
+}
+
+.theme-background .search-result-path {
+    color: #666;
+    font-weight: 400;
+}
+
+.theme-background .search-result-description {
+    color: #777;
+    font-weight: 400;
+}
+
+.theme-background .search-highlight {
+    background: rgba(74, 137, 220, 0.2);
+    color: var(--primary-color);
+}
+
+.theme-background .search-no-results {
+    color: #666;
+}
+
+.theme-background .no-results-icon {
+    color: #999;
+}
+
+.theme-background .no-results-text {
+    color: #666;
+    font-weight: 500;
+}
+
+.theme-background .no-results-tip {
+    color: #888;
+}
+
+.theme-background .setting-highlight {
+    background-color: var(--bg-active) !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 4px 12px var(--shadow-hover) !important;
+}
+
+/* 动态标题栏搜索适配 */
+.theme-background.has-dynamic-titlebar .search-input {
+    background-color: color-mix(in srgb, var(--titlebar-bg-dynamic) 80%, transparent);
+    border-color: var(--titlebar-border-dynamic, var(--border-primary));
+    color: var(--titlebar-text-dynamic, var(--text-primary));
+}
+
+.theme-background.has-dynamic-titlebar .search-input:focus {
+    background-color: color-mix(in srgb, var(--titlebar-bg-dynamic) 90%, transparent);
+}
+
+.theme-background.has-dynamic-titlebar .search-input::placeholder {
+    color: color-mix(in srgb, var(--titlebar-text-dynamic) 70%, transparent);
+}
+
+.theme-background.has-dynamic-titlebar .search-icon {
+    color: var(--titlebar-text-dynamic, var(--text-secondary));
+}
+
+.theme-background.has-dynamic-titlebar .search-clear {
+    color: var(--titlebar-text-dynamic, var(--text-secondary));
+}
+
 .theme-background .minimize-btn:hover {
     background: #e3f2fd;
     color: #1976d2;
@@ -365,14 +482,16 @@ div {
 }
 
 .theme-background .sound-browse-btn,
-.theme-background .sound-test-btn {
+.theme-background .sound-test-btn,
+.theme-background .sound-reset-btn {
     background: var(--bg-primary);
     border-color: var(--border-secondary);
     color: var(--text-secondary);
 }
 
 .theme-background .sound-browse-btn:hover,
-.theme-background .sound-test-btn:hover {
+.theme-background .sound-test-btn:hover,
+.theme-background .sound-reset-btn:hover {
     background: var(--bg-secondary);
     border-color: var(--primary-color);
     color: var(--primary-color);

@@ -16,6 +16,7 @@ pub struct AppSettings {
     pub background_image_path: String,
     pub toggle_shortcut: String,
     pub number_shortcuts: bool,
+    pub number_shortcuts_modifier: String,
     pub clipboard_monitor: bool,
     pub ignore_duplicates: bool,
     pub save_images: bool,
@@ -26,7 +27,6 @@ pub struct AppSettings {
     pub sound_volume: f64,
     pub copy_sound_path: String,
     pub paste_sound_path: String,
-    pub sound_preset: String,
 
     // 截屏设置
     pub screenshot_enabled: bool,
@@ -58,6 +58,7 @@ pub struct AppSettings {
 
     // 鼠标设置
     pub mouse_middle_button_enabled: bool,
+    pub mouse_middle_button_modifier: String,
 
     // 动画设置
     pub clipboard_animation_enabled: bool, // 剪贴板显示/隐藏动画开关
@@ -69,15 +70,45 @@ pub struct AppSettings {
     pub app_filter_enabled: bool,     // 是否启用应用过滤
     pub app_filter_mode: String,      // 过滤模式：whitelist(白名单) 或 blacklist(黑名单)
     pub app_filter_list: Vec<String>, // 应用列表（进程名或窗口标题关键词）
-    
+
+    #[serde(default)]
+    pub image_data_priority_apps: Vec<String>, // 优先使用图像数据粘贴的应用列表
+
     // 窗口位置和大小设置默认值
     pub window_position_mode: String, // 窗口位置模式：smart(智能位置) 或 remember(记住位置)
     pub remember_window_size: bool,   // 是否记住窗口大小
     pub saved_window_position: Option<(i32, i32)>, // 保存的极口位置 (x, y)
     pub saved_window_size: Option<(u32, u32)>, // 保存的窗口大小 (width, height)
-    
+
+    // 贴边隐藏设置
+    pub edge_hide_enabled: bool, // 是否启用贴边隐藏功能
+    pub edge_snap_position: Option<(i32, i32)>, // 贴边隐藏时的窗口位置
+
+    // 窗口行为设置
+    pub auto_focus_search: bool, // 窗口显示时是否自动聚焦搜索框
+    pub sidebar_hover_delay: f64, // 侧边栏悬停延迟时间（秒）
+
     // 标题栏位置设置
     pub title_bar_position: String,   // 标题栏位置：top(上), bottom(下), left(左), right(右)
+
+    // 格式设置
+    pub paste_with_format: bool,      // 是否带格式粘贴和显示，true=带格式，false=纯文本
+
+    // 剪贴板窗口快捷键设置
+    pub navigate_up_shortcut: String,      // 向上导航快捷键
+    pub navigate_down_shortcut: String,    // 向下导航快捷键
+    pub tab_left_shortcut: String,         // 左切换标签快捷键
+    pub tab_right_shortcut: String,        // 右切换标签快捷键
+    pub focus_search_shortcut: String,     // 聚焦搜索框快捷键
+    pub hide_window_shortcut: String,      // 隐藏窗口快捷键
+    pub execute_item_shortcut: String,     // 执行选中项目快捷键
+    pub previous_group_shortcut: String,   // 上一个分组快捷键
+    pub next_group_shortcut: String,       // 下一个分组快捷键
+    pub toggle_pin_shortcut: String,       // 切换固定状态快捷键
+
+    // 数据存储设置
+    pub custom_storage_path: Option<String>, // 自定义存储路径，None表示使用默认位置
+    pub use_custom_storage: bool,            // 是否使用自定义存储路径
 }
 
 impl Default for AppSettings {
@@ -94,6 +125,7 @@ impl Default for AppSettings {
             background_image_path: "".to_string(),
             toggle_shortcut: "Win+V".to_string(),
             number_shortcuts: true,
+            number_shortcuts_modifier: "Ctrl".to_string(),
             clipboard_monitor: true,
             ignore_duplicates: true,
             save_images: true,
@@ -104,7 +136,6 @@ impl Default for AppSettings {
             sound_volume: 50.0,
             copy_sound_path: "".to_string(),
             paste_sound_path: "".to_string(),
-            sound_preset: "default".to_string(),
 
             // 截屏设置默认值
             screenshot_enabled: true,
@@ -138,6 +169,7 @@ impl Default for AppSettings {
 
             // 鼠标设置默认值
             mouse_middle_button_enabled: true, // 默认启用鼠标中键显示剪贴板
+            mouse_middle_button_modifier: "None".to_string(), // 默认单独中键，无修饰键
 
             // 动画设置默认值
             clipboard_animation_enabled: true, // 默认启用剪贴板显示/隐藏动画
@@ -149,33 +181,74 @@ impl Default for AppSettings {
             app_filter_enabled: false,                  // 默认不启用应用过滤
             app_filter_mode: "blacklist".to_string(), // 默认使用黑名单模式
             app_filter_list: vec![],                    // 默认空列表
-            
+            image_data_priority_apps: vec![],           // 默认没有特殊应用
+
             // 窗口极口和大小设置默认值
             window_position_mode: "smart".to_string(), // 默认使用智能位置
             remember_window_size: false,               // 默认不记住窗口大小
             saved_window_position: None,               // 初始没有保存的位置
             saved_window_size: None,                   // 初始没有保存的大小
             
+            // 贴边隐藏设置默认值
+            edge_hide_enabled: true,                   // 默认启用贴边隐藏功能
+            edge_snap_position: None,                  // 默认没有保存的贴边位置
+
+            // 窗口行为设置默认值
+            auto_focus_search: false,                  // 默认不自动聚焦搜索框
+            sidebar_hover_delay: 0.5,                  // 默认0.5秒悬停延迟
+
             // 标题栏位置设置默认值
             title_bar_position: "top".to_string(),    // 默认标题栏位置在上方
+            
+            // 格式设置默认值
+            paste_with_format: true,                   // 默认带格式粘贴
+
+            // 剪贴板窗口快捷键设置默认值
+            navigate_up_shortcut: "ArrowUp".to_string(),
+            navigate_down_shortcut: "ArrowDown".to_string(),
+            tab_left_shortcut: "ArrowLeft".to_string(),
+            tab_right_shortcut: "ArrowRight".to_string(),
+            focus_search_shortcut: "Tab".to_string(),
+            hide_window_shortcut: "Escape".to_string(),
+            execute_item_shortcut: "Ctrl+Enter".to_string(),
+            previous_group_shortcut: "Ctrl+ArrowUp".to_string(),
+            next_group_shortcut: "Ctrl+ArrowDown".to_string(),
+            toggle_pin_shortcut: "Ctrl+P".to_string(),
+
+            // 数据存储设置默认值
+            custom_storage_path: None,                 // 默认使用系统AppData目录
+            use_custom_storage: false,                 // 默认不使用自定义存储路径
         }
     }
 }
 
 impl AppSettings {
-    /// 获取设置文件路径
-    fn get_settings_file_path() -> Result<PathBuf, String> {
-        // 使用本地数据目录 (AppData\Local\quickclipboard)，与其他组件保持一致
-        let config_dir = dirs::data_local_dir()
-            .ok_or("无法获取本地数据目录")?
+    /// 获取默认的应用数据目录
+    pub fn get_default_data_directory() -> Result<PathBuf, String> {
+        let app_data_dir = dirs::data_local_dir()
+            .ok_or_else(|| "无法获取本地数据目录".to_string())?
             .join("quickclipboard");
 
-        // 确保配置目录存在
-        if !config_dir.exists() {
-            fs::create_dir_all(&config_dir).map_err(|e| format!("创建配置目录失败: {}", e))?;
-        }
+        fs::create_dir_all(&app_data_dir).map_err(|e| format!("创建应用数据目录失败: {}", e))?;
+        Ok(app_data_dir)
+    }
 
+    /// 获取设置文件路径（总是在默认位置）
+    fn get_settings_file_path() -> Result<PathBuf, String> {
+        let config_dir = Self::get_default_data_directory()?;
         Ok(config_dir.join("settings.json"))
+    }
+
+    /// 根据当前设置获取数据存储目录
+    pub fn get_data_directory(&self) -> Result<PathBuf, String> {
+        if self.use_custom_storage {
+            if let Some(custom_path) = &self.custom_storage_path {
+                let path = PathBuf::from(custom_path);
+                fs::create_dir_all(&path).map_err(|e| format!("创建自定义存储目录失败: {}", e))?;
+                return Ok(path);
+            }
+        }
+        Self::get_default_data_directory()
     }
 
     /// 从文件加载设置
@@ -234,6 +307,7 @@ impl AppSettings {
             "backgroundImagePath": self.background_image_path,
             "toggleShortcut": self.toggle_shortcut,
             "numberShortcuts": self.number_shortcuts,
+            "numberShortcutsModifier": self.number_shortcuts_modifier,
             "clipboardMonitor": self.clipboard_monitor,
             "ignoreDuplicates": self.ignore_duplicates,
             "saveImages": self.save_images,
@@ -242,7 +316,6 @@ impl AppSettings {
             "soundVolume": self.sound_volume,
             "copySoundPath": self.copy_sound_path,
             "pasteSoundPath": self.paste_sound_path,
-            "soundPreset": self.sound_preset,
             "screenshot_enabled": self.screenshot_enabled,
             "screenshot_shortcut": self.screenshot_shortcut,
             "screenshot_quality": self.screenshot_quality,
@@ -266,6 +339,7 @@ impl AppSettings {
             "aiNewlineMode": self.ai_newline_mode,
             "aiOutputMode": self.ai_output_mode,
             "mouseMiddleButtonEnabled": self.mouse_middle_button_enabled,
+            "mouseMiddleButtonModifier": self.mouse_middle_button_modifier,
             "clipboardAnimationEnabled": self.clipboard_animation_enabled,
             "autoScrollToTopOnShow": self.auto_scroll_to_top_on_show,
             "windowPositionMode":self.window_position_mode,
@@ -276,6 +350,21 @@ impl AppSettings {
             "appFilterMode":self.app_filter_mode,
             "appFilterList":self.app_filter_list,
             "titleBarPosition":self.title_bar_position,
+            "edgeHideEnabled":self.edge_hide_enabled,
+            "autoFocusSearch":self.auto_focus_search,
+            "sidebarHoverDelay":self.sidebar_hover_delay,
+            "pasteWithFormat":self.paste_with_format,
+            "imageDataPriorityApps":self.image_data_priority_apps,
+            "navigateUpShortcut":self.navigate_up_shortcut,
+            "navigateDownShortcut":self.navigate_down_shortcut,
+            "tabLeftShortcut":self.tab_left_shortcut,
+            "tabRightShortcut":self.tab_right_shortcut,
+            "focusSearchShortcut":self.focus_search_shortcut,
+            "hideWindowShortcut":self.hide_window_shortcut,
+            "executeItemShortcut":self.execute_item_shortcut,
+            "previousGroupShortcut":self.previous_group_shortcut,
+            "nextGroupShortcut":self.next_group_shortcut,
+            "togglePinShortcut":self.toggle_pin_shortcut,
         })
     }
 
@@ -305,10 +394,7 @@ impl AppSettings {
         if let Some(v) = json.get("opacity").and_then(|v| v.as_f64()) {
             self.opacity = v;
         }
-        if let Some(v) = json
-            .get("backgroundImagePath")
-            .and_then(|v| v.as_str())
-        {
+        if let Some(v) = json.get("backgroundImagePath").and_then(|v| v.as_str()) {
             self.background_image_path = v.to_string();
         }
         if let Some(v) = json.get("toggleShortcut").and_then(|v| v.as_str()) {
@@ -316,6 +402,9 @@ impl AppSettings {
         }
         if let Some(v) = json.get("numberShortcuts").and_then(|v| v.as_bool()) {
             self.number_shortcuts = v;
+        }
+        if let Some(v) = json.get("numberShortcutsModifier").and_then(|v| v.as_str()) {
+            self.number_shortcuts_modifier = v.to_string();
         }
         if let Some(v) = json.get("clipboardMonitor").and_then(|v| v.as_bool()) {
             self.clipboard_monitor = v;
@@ -342,9 +431,6 @@ impl AppSettings {
         }
         if let Some(v) = json.get("pasteSoundPath").and_then(|v| v.as_str()) {
             self.paste_sound_path = v.to_string();
-        }
-        if let Some(v) = json.get("soundPreset").and_then(|v| v.as_str()) {
-            self.sound_preset = v.to_string();
         }
 
         // 截屏设置
@@ -425,15 +511,18 @@ impl AppSettings {
             self.mouse_middle_button_enabled = v;
         }
         if let Some(v) = json
+            .get("mouseMiddleButtonModifier")
+            .and_then(|v| v.as_str())
+        {
+            self.mouse_middle_button_modifier = v.to_string();
+        }
+        if let Some(v) = json
             .get("clipboardAnimationEnabled")
             .and_then(|v| v.as_bool())
         {
             self.clipboard_animation_enabled = v;
         }
-        if let Some(v) = json
-            .get("autoScrollToTopOnShow")
-            .and_then(|v| v.as_bool())
-        {
+        if let Some(v) = json.get("autoScrollToTopOnShow").and_then(|v| v.as_bool()) {
             self.auto_scroll_to_top_on_show = v;
         }
         if let Some(v) = json.get("windowPositionMode").and_then(|v| v.as_str()) {
@@ -456,7 +545,7 @@ impl AppSettings {
                 }
             }
         }
-        
+
         // 应用黑白名单设置
         if let Some(v) = json.get("appFilterEnabled").and_then(|v| v.as_bool()) {
             self.app_filter_enabled = v;
@@ -470,10 +559,68 @@ impl AppSettings {
                 .filter_map(|item| item.as_str().map(|s| s.to_string()))
                 .collect();
         }
-        
+
         // 标题栏位置设置
         if let Some(v) = json.get("titleBarPosition").and_then(|v| v.as_str()) {
             self.title_bar_position = v.to_string();
+        }
+
+        // 贴边隐藏设置
+        if let Some(v) = json.get("edgeHideEnabled").and_then(|v| v.as_bool()) {
+            self.edge_hide_enabled = v;
+        }
+
+        // 窗口行为设置
+        if let Some(v) = json.get("autoFocusSearch").and_then(|v| v.as_bool()) {
+            self.auto_focus_search = v;
+        }
+        if let Some(v) = json.get("sidebarHoverDelay").and_then(|v| v.as_f64()) {
+            // 确保延迟时间在有效范围内 (0-10秒)
+            self.sidebar_hover_delay = v.max(0.0).min(10.0);
+        }
+
+        // 格式设置
+        if let Some(v) = json.get("pasteWithFormat").and_then(|v| v.as_bool()) {
+            self.paste_with_format = v;
+        }
+        if let Some(v) = json.get("imageDataPriorityApps").and_then(|v| v.as_array()) {
+            self.image_data_priority_apps = v
+                .iter()
+                .filter_map(|item| item.as_str())
+                .map(|s| s.to_string())
+                .collect();
+        }
+
+        // 剪贴板窗口快捷键设置
+        if let Some(v) = json.get("navigateUpShortcut").and_then(|v| v.as_str()) {
+            self.navigate_up_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("navigateDownShortcut").and_then(|v| v.as_str()) {
+            self.navigate_down_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("tabLeftShortcut").and_then(|v| v.as_str()) {
+            self.tab_left_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("tabRightShortcut").and_then(|v| v.as_str()) {
+            self.tab_right_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("focusSearchShortcut").and_then(|v| v.as_str()) {
+            self.focus_search_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("hideWindowShortcut").and_then(|v| v.as_str()) {
+            self.hide_window_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("executeItemShortcut").and_then(|v| v.as_str()) {
+            self.execute_item_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("previousGroupShortcut").and_then(|v| v.as_str()) {
+            self.previous_group_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("nextGroupShortcut").and_then(|v| v.as_str()) {
+            self.next_group_shortcut = v.to_string();
+        }
+        if let Some(v) = json.get("togglePinShortcut").and_then(|v| v.as_str()) {
+            self.toggle_pin_shortcut = v.to_string();
         }
     }
 }
@@ -508,4 +655,128 @@ pub fn update_global_settings_from_json(json: &serde_json::Value) -> Result<(), 
     let mut settings = get_global_settings();
     settings.update_from_json(json);
     update_global_settings(settings)
+}
+
+/// 获取当前数据存储目录（全局函数）
+pub fn get_data_directory() -> Result<PathBuf, String> {
+    let settings = get_global_settings();
+    settings.get_data_directory()
+}
+
+impl AppSettings {
+    /// 设置自定义存储路径并迁移数据
+    pub async fn set_custom_storage_path(
+        &mut self,
+        new_path: String,
+        app: Option<tauri::AppHandle>,
+    ) -> Result<(), String> {
+        let new_dir = PathBuf::from(&new_path);
+
+        // 验证新路径
+        if !new_dir.exists() {
+            fs::create_dir_all(&new_dir).map_err(|e| format!("创建新存储目录失败: {}", e))?;
+        }
+
+        if !new_dir.is_dir() {
+            return Err("指定的路径不是有效的目录".to_string());
+        }
+
+        // 获取当前存储目录
+        let current_dir = self.get_data_directory()?;
+
+        // 如果新路径与当前路径相同，无需迁移
+        if current_dir == new_dir {
+            return Ok(());
+        }
+
+        // 先执行数据迁移
+        crate::data_migration::DataMigrationService::migrate_data(&current_dir, &new_dir, None)
+            .await?;
+
+        // 更新设置
+        self.custom_storage_path = Some(new_path);
+        self.use_custom_storage = true;
+
+        // 立即更新全局设置缓存，确保 get_data_directory() 返回新路径
+        {
+            let mut global_settings = GLOBAL_SETTINGS.lock().unwrap();
+            *global_settings = self.clone();
+        }
+
+        // 设置更新后重新初始化数据库并刷新窗口
+        crate::database::reinitialize_database()
+            .map_err(|e| format!("重新初始化数据库失败: {}", e))?;
+
+        if let Some(app_handle) = app {
+            println!("刷新所有窗口以显示新位置的数据...");
+            if let Err(e) = crate::commands::refresh_all_windows(app_handle) {
+                println!("刷新窗口失败: {}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 重置为默认存储位置
+    pub async fn reset_to_default_storage(
+        &mut self,
+        app: Option<tauri::AppHandle>,
+    ) -> Result<(), String> {
+        let default_dir = Self::get_default_data_directory()?;
+        let current_dir = self.get_data_directory()?;
+
+        // 如果当前已经是默认位置，无需操作
+        if current_dir == default_dir {
+            return Ok(());
+        }
+
+        // 先执行数据迁移
+        crate::data_migration::DataMigrationService::migrate_data(&current_dir, &default_dir, None)
+            .await?;
+
+        // 更新设置
+        self.custom_storage_path = None;
+        self.use_custom_storage = false;
+
+        // 立即更新全局设置缓存，确保 get_data_directory() 返回新路径
+        {
+            let mut global_settings = GLOBAL_SETTINGS.lock().unwrap();
+            *global_settings = self.clone();
+        }
+
+        // 设置更新后重新初始化数据库并刷新窗口
+        crate::database::reinitialize_database()
+            .map_err(|e| format!("重新初始化数据库失败: {}", e))?;
+
+        if let Some(app_handle) = app {
+            println!("刷新所有窗口以显示新位置的数据...");
+            if let Err(e) = crate::commands::refresh_all_windows(app_handle) {
+                println!("刷新窗口失败: {}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 获取存储信息
+    pub fn get_storage_info(&self) -> Result<StorageInfo, String> {
+        let current_dir = self.get_data_directory()?;
+        let default_dir = Self::get_default_data_directory()?;
+
+        Ok(StorageInfo {
+            current_path: current_dir.to_string_lossy().to_string(),
+            default_path: default_dir.to_string_lossy().to_string(),
+            is_default: !self.use_custom_storage,
+            custom_path: self.custom_storage_path.clone(),
+        })
+    }
+}
+
+/// 存储信息
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct StorageInfo {
+    pub current_path: String,
+    pub default_path: String,
+    pub is_default: bool,
+    pub custom_path: Option<String>,
 }

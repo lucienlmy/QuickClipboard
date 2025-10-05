@@ -46,11 +46,12 @@
 body.theme-dark {
   background: transparent;
   color: var(--text-primary);
-  border-color: var(--border-primary) !important;
+  /* border-color: var(--border-primary) !important; */
 }
 
 .theme-dark .container {
   background-color: rgba(30, 30, 30, 1) !important;
+  border-color: rgba(255 255, 255, 0.2);
 }
 
 /* =================== 标题栏 =================== */
@@ -59,6 +60,8 @@ body.theme-dark {
   background-color: var(--bg-tertiary);
   border-bottom-color: var(--border-primary);
   color: var(--text-primary);
+  border-color: rgba(255 255, 255, 0.2);
+
 }
 .theme-dark .tools-panel{
   background-color: color-mix(in srgb, var(--bg-tertiary) 50%, transparent) !important;
@@ -629,26 +632,20 @@ body.theme-dark {
   border-color: var(--border-secondary);
 }
 
-.theme-dark .shortcut-clear {
-  color: var(--text-secondary);
-}
-
-.theme-dark .shortcut-clear:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
 
 /* =================== 音效相关 =================== */
 .theme-dark .sound-input,
 .theme-dark .sound-browse-btn,
-.theme-dark .sound-test-btn {
+.theme-dark .sound-test-btn,
+.theme-dark .sound-reset-btn {
   background: transparent !important;
   color: var(--text-secondary) !important;
   border-color: var(--border-secondary);
 }
 
 .theme-dark .sound-browse-btn:hover,
-.theme-dark .sound-test-btn:hover {
+.theme-dark .sound-test-btn:hover,
+.theme-dark .sound-reset-btn:hover {
   background: var(--bg-secondary) !important;
   border-color: var(--primary-color);
   color: var(--primary-color) !important;

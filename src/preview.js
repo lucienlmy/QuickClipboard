@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { createFileIconElement } from './js/fileIconUtils.js';
+import { initDisableBrowserShortcuts } from './js/utils/disableBrowserShortcuts.js';
 
 // =================== 启动横幅 ===================
 function printPreviewBanner() {
@@ -77,6 +78,9 @@ async function loadPreviewSettings() {
 document.addEventListener('DOMContentLoaded', async () => {
   // 输出启动横幅
   printPreviewBanner();
+
+  // 禁用浏览器默认快捷键
+  initDisableBrowserShortcuts();
 
   // console.log('预览窗口开始初始化');
   previewList = document.getElementById('preview-list');
@@ -339,7 +343,8 @@ function createPreviewItem(item, index, position = 'current') {
   // 所有项目都使用 content
   const itemText = item.content || '';
   const isQuickText = !!item.title; // 判断是否为常用文本
-  const contentType = getContentType(itemText);
+  // 直接使用后端返回的content_type字段
+  const contentType = item.content_type || 'text';
 
   // 添加序号指示器
   const indexIndicator = document.createElement('div');
@@ -372,7 +377,7 @@ function createPreviewItem(item, index, position = 'current') {
 
     previewItem.appendChild(imgElement);
     previewItem.appendChild(textElement);
-  } else if (contentType === 'files') {
+  } else if (contentType === 'file') {
     // 解析文件数据
     try {
       const filesJson = itemText.substring(6); // 去掉 "files:" 前缀
@@ -448,29 +453,6 @@ function createPreviewItem(item, index, position = 'current') {
   return previewItem;
 }
 
-// 获取内容类型
-function getContentType(text) {
-  if (text.startsWith('data:image/') || text.startsWith('image:')) {
-    return 'image';
-  }
-
-  if (text.startsWith('files:')) {
-    return 'files';
-  }
-
-  // 检测HTTP/HTTPS链接
-  const urlPattern = /^https?:\/\/[^\s]+$/i;
-  if (urlPattern.test(text.trim())) {
-    return 'link';
-  }
-
-  // 检测其他常见的URL格式
-  if (text.trim().startsWith('www.') && text.includes('.') && !text.includes(' ')) {
-    return 'link';
-  }
-
-  return 'text';
-}
 
 // 根据图片ID加载图片
 async function loadImageById(imgElement, imageId, useThumbnail = true) {
@@ -551,6 +533,9 @@ function showEmptyState() {
 
 // 页面加载完成后初始化
 window.addEventListener('DOMContentLoaded', async () => {
+  // 禁用浏览器默认快捷键
+  initDisableBrowserShortcuts();
+
   // 初始化主题管理器
   const { initThemeManager } = await import('./js/themeManager.js');
   initThemeManager();

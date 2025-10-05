@@ -35,25 +35,6 @@
         "visibleOnAllWorkspaces": true
       },
       {
-        "label": "settings",
-        "title": "设置 - 快速剪贴板",
-        "url": "settings.html",
-        "width": 900,
-        "height": 630,
-        "minWidth": 800,
-        "minHeight": 600,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": false,
-        "skipTaskbar": false,
-        "center": true,
-        "visible": false,
-        "resizable": false,
-        "focus": true,
-        "maximizable": false,
-        "dragDropEnabled": false
-      },
-      {
         "label": "preview",
         "title": "快速预览",
         "url": "preview.html",
@@ -75,6 +56,27 @@
         "maximizable": false,
         "minimizable": false,
         "dragDropEnabled": false
+      },
+      {
+        "label": "screenshot",
+        "title": "截屏窗口",
+        "url": "screenshot/index.html",
+        "width": 1920,
+        "height": 1080,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "center": false,
+        "visible": false,
+        "resizable": false,
+        "focus": false,
+        "maximizable": false,
+        "minimizable": false,
+        "dragDropEnabled": false,
+        "fullscreen": false,
+        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {
@@ -83,15 +85,25 @@
         "default",
         "settings",
         "preview",
-        "text-editor"
-      ]
+        "text-editor",
+        "screenshot",
+        "pin-image"
+      ],
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": [
+            "**"
+          ]
+        }
+      }
     }
   },
   "bundle": {
     "active": true,
     "targets": [
-      "nsis",
       "msi",
+      "nsis",
       "app"
     ],
     "publisher": "MoSheng",

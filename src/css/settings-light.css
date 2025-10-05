@@ -89,6 +89,94 @@
   color: #d32f2f;
 }
 
+/* =================== 搜索功能亮色主题适配 =================== */
+.theme-light .search-input {
+  background-color: var(--bg-primary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.theme-light .search-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(74, 137, 220, 0.1);
+  background-color: var(--bg-active);
+}
+
+.theme-light .search-input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.theme-light .search-icon {
+  color: var(--text-secondary);
+}
+
+.theme-light .search-clear {
+  color: var(--text-secondary);
+}
+
+.theme-light .search-clear:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.theme-light .search-results {
+  background-color: var(--dropdown-bg);
+  border-color: var(--border-primary);
+  box-shadow: 0 4px 20px var(--shadow-secondary);
+}
+
+.theme-light .search-result-item {
+  border-bottom-color: var(--border-secondary);
+}
+
+.theme-light .search-result-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.theme-light .search-result-item.active {
+  background-color: var(--bg-active);
+  border-color: var(--primary-color);
+}
+
+.theme-light .search-result-title {
+  color: var(--text-primary);
+}
+
+.theme-light .search-result-path {
+  color: var(--text-secondary);
+}
+
+.theme-light .search-result-description {
+  color: var(--text-tertiary);
+}
+
+.theme-light .search-highlight {
+  background: rgba(74, 137, 220, 0.2);
+  color: var(--primary-color);
+}
+
+.theme-light .search-no-results {
+  color: var(--text-secondary);
+}
+
+.theme-light .no-results-icon {
+  color: var(--text-muted);
+}
+
+.theme-light .no-results-text {
+  color: var(--text-secondary);
+}
+
+.theme-light .no-results-tip {
+  color: var(--text-muted);
+}
+
+.theme-light .setting-highlight {
+  background-color: var(--bg-active) !important;
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 4px 12px var(--shadow-hover) !important;
+}
+
 /* =================== 侧边栏 =================== */
 .theme-light .settings-sidebar {
   background-color: var(--bg-primary);
@@ -327,14 +415,16 @@
 }
 
 .theme-light .sound-browse-btn,
-.theme-light .sound-test-btn {
+.theme-light .sound-test-btn,
+.theme-light .sound-reset-btn {
   background: var(--bg-primary);
   border-color: var(--border-secondary);
   color: var(--text-secondary);
 }
 
 .theme-light .sound-browse-btn:hover,
-.theme-light .sound-test-btn:hover {
+.theme-light .sound-test-btn:hover,
+.theme-light .sound-reset-btn:hover {
   background: var(--bg-secondary);
   border-color: var(--primary-color);
   color: var(--primary-color);

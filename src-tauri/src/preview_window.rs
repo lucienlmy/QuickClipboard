@@ -97,9 +97,6 @@ pub async fn show_preview_window(app: AppHandle) -> Result<(), String> {
             .map_err(|e| format!("显示预览窗口失败: {}", e))?;
         println!("窗口显示命令已发送");
 
-        // 暂时跳过窗口样式修改，先让窗口正常显示
-        println!("跳过窗口样式修改，保持默认设置");
-
         // 设置窗口属性
         #[cfg(windows)]
         set_preview_window_properties(window)?;

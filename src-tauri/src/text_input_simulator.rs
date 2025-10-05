@@ -555,7 +555,7 @@ pub async fn simulate_text_chunk_input_smart(chunk: &str) -> Result<(), String> 
     let has_special_chars = chunk.chars().any(|c| c.is_control() || !c.is_ascii());
     let is_long_text = chunk.len() > 50;
 
-    // 简化的输入策略调试（仅在包含换行符时输出）
+    // 输入策略调试（仅在包含换行符时输出）
     if has_newlines {
         let strategy = if has_newlines || has_special_chars {
             "精确输入"

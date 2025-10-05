@@ -194,6 +194,17 @@ impl ImageManager {
         Ok(format!("data:image/png;base64,{}", base64_string))
     }
 
+    /// 获取图片文件路径
+    pub fn get_image_file_path(&self, image_id: &str) -> Result<String, String> {
+        let file_path = self.images_dir.join(format!("{}.png", image_id));
+        
+        if !file_path.exists() {
+            return Err("图片文件不存在".to_string());
+        }
+        
+        Ok(file_path.to_string_lossy().to_string())
+    }
+
     /// 复制图片，返回新的图片ID
     pub fn copy_image(&self, source_image_id: &str) -> Result<ImageInfo, String> {
         let source_file_path = self.images_dir.join(format!("{}.png", source_image_id));
@@ -305,14 +316,7 @@ impl ImageManager {
 
 /// 获取应用数据目录
 fn get_app_data_dir() -> Result<PathBuf, String> {
-    // 使用本地数据目录 (AppData\Local\quickclipboard)，与其他组件保持一致
-    let app_data_dir = dirs::data_local_dir()
-        .ok_or_else(|| "无法获取本地数据目录".to_string())?
-        .join("quickclipboard");
-
-    fs::create_dir_all(&app_data_dir).map_err(|e| format!("创建应用数据目录失败: {}", e))?;
-
-    Ok(app_data_dir)
+    crate::settings::get_data_directory()
 }
 
 use once_cell::sync::Lazy;

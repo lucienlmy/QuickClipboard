@@ -22,6 +22,16 @@
           <i class="ti ti-settings"></i>
           <h1>设置</h1>
         </div>
+        <div class="header-search">
+          <div class="search-container">
+            <i class="ti ti-search search-icon"></i>
+            <input type="text" class="search-input" id="settings-search" placeholder="搜索设置项..." />
+            <button class="search-clear" id="search-clear" style="display: none;">
+              <i class="ti ti-x"></i>
+            </button>
+          </div>
+          <div class="search-results" id="search-results" style="display: none;"></div>
+        </div>
         <div class="header-controls">
           <button class="control-button minimize-btn" id="minimize-btn" title="最小化">
             <i class="ti ti-minus"></i>
@@ -132,7 +142,7 @@
               </div>
             </div>
 
-            <div class="setting-item">
+            <div class="setting-item" style="display: none;">
               <div class="setting-info">
                 <label class="setting-label">以管理员运行</label>
                 <p class="setting-description">如果无法在某些软件中使用快捷键请启用该项</p>
@@ -161,7 +171,7 @@
             <div class="setting-item">
               <div class="setting-info">
                 <label class="setting-label">剪贴板历史数量</label>
-                <p class="setting-description">保存的剪贴板历史记录数量</p>
+                <p class="setting-description">保存的剪贴板历史记录数量，选择"不限"将保存所有历史记录</p>
               </div>
               <div class="setting-control">
                 <select id="history-limit" class="setting-select">
@@ -170,6 +180,7 @@
                   <option value="200">200 条</option>
                   <option value="500">500 条</option>
                   <option value="9999">9999 条</option>
+                  <option value="999999">不限</option>
                 </select>
               </div>
             </div>
@@ -262,10 +273,15 @@
         <div class="settings-section" id="shortcuts-section">
           <div class="section-header">
             <h2>快捷键设置</h2>
-            <p>自定义全局快捷键</p>
+            <p>自定义所有快捷键</p>
           </div>
 
+          <!-- 全局快捷键 -->
           <div class="settings-group">
+            <div class="group-header">
+              <h3>全局快捷键</h3>
+              <p>在任何应用程序中都可以使用的快捷键</p>
+            </div>
             <div class="setting-item">
               <div class="setting-info">
                 <label class="setting-label">显示/隐藏窗口</label>
@@ -280,7 +296,7 @@
                 </div> -->
                 <div class="shortcut-input-group">
                   <input type="text" id="toggle-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
-                  <button class="shortcut-clear" title="恢复默认">
+                  <button class="sound-reset-btn" title="恢复默认">
                     <i class="ti ti-refresh"></i>
                   </button>
                 </div>
@@ -296,8 +312,46 @@
 
             <div class="setting-item">
               <div class="setting-info">
+                <label class="setting-label">显示预览窗口</label>
+                <p class="setting-description">设置显示预览窗口的全局快捷键</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="preview-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" id="clear-preview-shortcut" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">截屏快捷键</label>
+                <p class="setting-description">设置全局截屏快捷键</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="screenshot-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" id="clear-screenshot-shortcut" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 数字快捷键设置 -->
+          <div class="settings-group">
+            <div class="group-header">
+              <h3>数字快捷键</h3>
+              <p>使用数字键快速操作剪贴板项目</p>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
                 <label class="setting-label">启用数字快捷键</label>
-                <p class="setting-description">使用 Ctrl+数字 快速复制剪贴板项目</p>
+                <p class="setting-description">使用数字快捷键快速复制剪贴板项目</p>
               </div>
               <div class="setting-control">
                 <label class="toggle-switch">
@@ -309,14 +363,215 @@
 
             <div class="setting-item">
               <div class="setting-info">
+                <label class="setting-label">数字快捷键修饰键</label>
+                <p class="setting-description">选择数字快捷键的修饰键组合</p>
+              </div>
+              <div class="setting-control">
+                <select id="number-shortcuts-modifier" class="setting-select">
+                  <option value="Ctrl">Ctrl + 数字</option>
+                  <option value="Alt">Alt + 数字</option>
+                  <option value="Shift">Shift + 数字</option>
+                  <option value="Ctrl+Shift">Ctrl + Shift + 数字</option>
+                  <option value="Ctrl+Alt">Ctrl + Alt + 数字</option>
+                  <option value="Alt+Shift">Alt + Shift + 数字</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 鼠标快捷键设置 -->
+          <div class="settings-group">
+            <div class="group-header">
+              <h3>鼠标快捷键</h3>
+              <p>使用鼠标操作快速访问功能</p>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
                 <label class="setting-label">启用鼠标中键显示剪贴板</label>
-                <p class="setting-description">点击鼠标中键快速显示/隐藏剪贴板窗口</p>
+                <p class="setting-description">使用鼠标中键快速显示/隐藏剪贴板窗口</p>
               </div>
               <div class="setting-control">
                 <label class="toggle-switch">
                   <input type="checkbox" id="mouse-middle-button-enabled">
                   <span class="toggle-slider"></span>
                 </label>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">鼠标中键修饰键</label>
+                <p class="setting-description">选择鼠标中键的修饰键组合</p>
+              </div>
+              <div class="setting-control">
+                <select id="mouse-middle-button-modifier" class="setting-select">
+                  <option value="None">单独中键</option>
+                  <option value="Ctrl">Ctrl + 中键</option>
+                  <option value="Alt">Alt + 中键</option>
+                  <option value="Shift">Shift + 中键</option>
+                  <option value="Ctrl+Shift">Ctrl + Shift + 中键</option>
+                  <option value="Ctrl+Alt">Ctrl + Alt + 中键</option>
+                  <option value="Alt+Shift">Alt + Shift + 中键</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 剪贴板窗口快捷键设置 -->
+          <div class="settings-group">
+            <div class="group-header">
+              <h3>剪贴板窗口快捷键</h3>
+              <p>在剪贴板窗口内使用的操作快捷键</p>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">向上导航</label>
+                <p class="setting-description">在剪贴板项目列表中向上移动选择</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="navigate-up-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">向下导航</label>
+                <p class="setting-description">在剪贴板项目列表中向下移动选择</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="navigate-down-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">切换标签页（左）</label>
+                <p class="setting-description">切换到左侧标签页（剪贴板/常用文本）</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="tab-left-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">切换标签页（右）</label>
+                <p class="setting-description">切换到右侧标签页（剪贴板/常用文本）</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="tab-right-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">聚焦搜索框</label>
+                <p class="setting-description">将光标定位到搜索输入框</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="focus-search-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">隐藏窗口</label>
+                <p class="setting-description">隐藏剪贴板窗口</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="hide-window-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">执行选中项目</label>
+                <p class="setting-description">粘贴当前选中的剪贴板项目</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="execute-item-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">切换到上一个分组</label>
+                <p class="setting-description">在常用文本中切换到上一个分组</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="previous-group-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">切换到下一个分组</label>
+                <p class="setting-description">在常用文本中切换到下一个分组</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="next-group-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">切换窗口固定状态</label>
+                <p class="setting-description">切换剪贴板窗口的固定/取消固定状态</p>
+              </div>
+              <div class="setting-control">
+                <div class="shortcut-input-group">
+                  <input type="text" id="toggle-pin-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
+                  <button class="sound-reset-btn" title="恢复默认">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -346,7 +601,7 @@
             <div class="setting-item" style="display: none;">
               <div class="setting-info">
                 <label class="setting-label">忽略重复内容</label>
-                <p class="setting-description">复制重复内容时自动移动到列表顶部（保留此设置以兼容旧版本）</p>
+                <p class="setting-description">复制重复内容时自动移动到列表顶部</p>
               </div>
               <div class="setting-control">
                 <label class="toggle-switch">
@@ -379,6 +634,25 @@
                   <input type="checkbox" id="show-image-preview">
                   <span class="toggle-slider"></span>
                 </label>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">优先粘贴图像数据的应用</label>
+                <p class="setting-description">当粘贴图片时，这些应用将优先使用剪贴板内嵌的图像数据而非文件拖放格式</p>
+              </div>
+              <div class="setting-control">
+                <div class="setting-textarea-wrapper">
+                  <textarea
+                    id="image-data-priority-apps"
+                    class="setting-textarea"
+                    rows="4"
+                    placeholder="每行一个应用进程名，例如：
+wechat.exe
+qq.exe"
+                  ></textarea>
+                </div>
               </div>
             </div>
 
@@ -433,6 +707,45 @@
                   <option value="left">左侧</option>
                   <option value="right">右侧</option>
                 </select>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">贴边隐藏</label>
+                <p class="setting-description">开启后拖拽窗口到屏幕边缘时自动隐藏，鼠标移入边缘区域时自动显示</p>
+              </div>
+              <div class="setting-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="edge-hide-enabled">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">自动聚焦搜索框</label>
+                <p class="setting-description">窗口显示时自动将光标定位到搜索框，隐藏时移除焦点</p>
+              </div>
+              <div class="setting-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="auto-focus-search">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">侧边栏悬停延迟</label>
+                <p class="setting-description">鼠标悬停多长时间后显示分组侧边栏（秒，范围：0-10）</p>
+              </div>
+              <div class="setting-control">
+                <div class="input-with-unit">
+                  <input type="number" id="sidebar-hover-delay" min="0" max="10" step="0.1" value="0.5" class="setting-input number-input">
+                  <span class="input-unit">秒</span>
+                </div>
               </div>
             </div>
           </div>
@@ -689,6 +1002,9 @@
                   <button class="sound-test-btn" id="test-copy-sound">
                     <i class="ti ti-player-play"></i>
                   </button>
+                  <button class="sound-reset-btn" id="reset-copy-sound" title="恢复默认音效">
+                    <i class="ti ti-refresh"></i>
+                  </button>
                 </div>
               </div>
             </div>
@@ -707,22 +1023,13 @@
                   <button class="sound-test-btn" id="test-paste-sound">
                     <i class="ti ti-player-play"></i>
                   </button>
+                  <button class="sound-reset-btn" id="reset-paste-sound" title="恢复默认音效">
+                    <i class="ti ti-refresh"></i>
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-label">预设音效</label>
-                <p class="setting-description">选择内置的音效方案</p>
-              </div>
-              <div class="setting-control">
-                <select id="sound-preset" class="setting-select">
-                  <option value="">自定义</option>
-                  <option value="default">默认音效</option>
-                </select>
-              </div>
-            </div>
 
             <div class="setting-item">
               <div class="setting-info">
@@ -760,20 +1067,6 @@
               </div>
             </div>
 
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-label">预览快捷键</label>
-                <p class="setting-description">设置显示预览窗口的全局快捷键</p>
-              </div>
-              <div class="setting-control">
-                <div class="shortcut-input-group">
-                  <input type="text" id="preview-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
-                  <button class="shortcut-clear-btn" id="clear-preview-shortcut">
-                    <i class="ti ti-x"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
 
             <div class="setting-item">
               <div class="setting-info">
@@ -830,6 +1123,9 @@
                   <button class="sound-test-btn" id="test-preview-scroll-sound">
                     <i class="ti ti-player-play"></i>
                   </button>
+                  <button class="sound-reset-btn" id="reset-preview-scroll-sound" title="恢复默认音效">
+                    <i class="ti ti-refresh"></i>
+                  </button>
                 </div>
               </div>
             </div>
@@ -857,22 +1153,8 @@
               </div>
             </div>
 
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-label">截屏快捷键</label>
-                <p class="setting-description">设置全局截屏快捷键</p>
-              </div>
-              <div class="setting-control">
-                <div class="shortcut-input-group">
-                  <input type="text" id="screenshot-shortcut" placeholder="点击设置快捷键" class="shortcut-input" readonly>
-                  <button class="shortcut-clear-btn" id="clear-screenshot-shortcut">
-                    <i class="ti ti-x"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
 
-            <div class="setting-item">
+            <div class="setting-item" style="display: none;">
               <div class="setting-info">
                 <label class="setting-label">截屏质量</label>
                 <p class="setting-description">设置截屏图片的压缩质量</p>
@@ -888,7 +1170,7 @@
               </div>
             </div>
 
-            <div class="setting-item">
+            <div class="setting-item" style="display: none;">
               <div class="setting-info">
                 <label class="setting-label">自动保存到剪贴板</label>
                 <p class="setting-description">截屏后自动将图片保存到剪贴板历史</p>
@@ -901,7 +1183,7 @@
               </div>
             </div>
 
-            <div class="setting-item">
+            <div class="setting-item" style="display: none;">
               <div class="setting-info">
                 <label class="setting-label">显示截屏提示</label>
                 <p class="setting-description">截屏时显示操作提示信息</p>
@@ -1155,39 +1437,13 @@
 
             <div class="setting-item">
               <div class="setting-info">
-                <label>导出选项</label>
+                <label>导出全部数据</label>
                 <span class="setting-description">
-                  选择要导出的数据类型
+                  将所有数据导出为ZIP文件，包含完整备份
                 </span>
               </div>
               <div class="setting-control">
-                <div class="checkbox-group">
-                  <label class="checkbox-item">
-                    <input type="checkbox" id="export-clipboard-history" checked>
-                    <span class="checkmark"></span>
-                    剪贴板历史
-                  </label>
-                  <label class="checkbox-item">
-                    <input type="checkbox" id="export-quick-texts" checked>
-                    <span class="checkmark"></span>
-                    常用文本
-                  </label>
-                  <label class="checkbox-item">
-                    <input type="checkbox" id="export-groups" checked>
-                    <span class="checkmark"></span>
-                    分组数据
-                  </label>
-                  <label class="checkbox-item">
-                    <input type="checkbox" id="export-settings" checked>
-                    <span class="checkmark"></span>
-                    应用设置
-                  </label>
-                  <label class="checkbox-item">
-                    <input type="checkbox" id="export-images" checked>
-                    <span class="checkmark"></span>
-                    图片数据
-                  </label>
-                </div>
+                <p class="setting-description">导出包含：剪贴板历史、常用文本、分组数据、应用设置、图片数据</p>
               </div>
             </div>
           </div>
@@ -1233,6 +1489,58 @@
                     合并数据
                   </label>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="group-header">
+              <h3>数据存储位置</h3>
+              <p>管理应用数据的存储位置</p>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>当前存储位置</label>
+                <span class="setting-description" id="current-storage-path">
+                  正在获取当前存储位置...
+                </span>
+              </div>
+              <div class="setting-control">
+                <button class="secondary-button" id="open-storage-folder">
+                  <i class="ti ti-folder-open"></i>
+                  打开文件夹
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>更改存储位置</label>
+                <span class="setting-description">
+                  选择新的目录存储应用数据，系统将自动迁移现有数据
+                </span>
+              </div>
+              <div class="setting-control">
+                <button class="primary-button" id="change-storage-location">
+                  <i class="ti ti-folder-plus"></i>
+                  选择新位置
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>重置为默认位置</label>
+                <span class="setting-description">
+                  将数据存储位置重置为系统默认的AppData目录
+                </span>
+              </div>
+              <div class="setting-control">
+                <button class="secondary-button" id="reset-storage-location">
+                  <i class="ti ti-home"></i>
+                  重置位置
+                </button>
               </div>
             </div>
           </div>

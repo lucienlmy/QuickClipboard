@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{RwLock, OnceLock as OnceCell};
 
 // =================== 全局状态变量 ===================
 
@@ -29,6 +30,10 @@ pub static PREVIEW_SHORTCUT_HELD: AtomicBool = AtomicBool::new(false);
 // 预览窗口是否被用户取消（用于防止松开快捷键时自动粘贴）
 #[cfg(windows)]
 pub static PREVIEW_CANCELLED_BY_USER: AtomicBool = AtomicBool::new(false);
+
+// 快捷键录制状态（当设置页面正在录制快捷键时为true）
+#[cfg(windows)]
+pub static SHORTCUT_RECORDING: AtomicBool = AtomicBool::new(false);
 
 // 预览窗口快捷键配置
 #[cfg(windows)]
@@ -151,10 +156,10 @@ pub fn parse_shortcut(shortcut: &str) -> Option<ParsedShortcut> {
                     "end" => 0x23,
                     "pageup" | "pgup" => 0x21,
                     "pagedown" | "pgdn" => 0x22,
-                    "up" => 0x26,
-                    "down" => 0x28,
-                    "left" => 0x25,
-                    "right" => 0x27,
+                    "up" | "arrowup" => 0x26,
+                    "down" | "arrowdown" => 0x28,
+                    "left" | "arrowleft" => 0x25,
+                    "right" | "arrowright" => 0x27,
                     "`" | "backtick" => 0xC0,
                     "-" | "minus" => 0xBD,
                     "=" | "equals" => 0xBB,
@@ -209,10 +214,33 @@ pub fn update_preview_shortcut_config(shortcut: &str) {
     }
 }
 
+// 数字快捷键修饰键配置
+static NUMBER_SHORTCUTS_MODIFIER: OnceCell<RwLock<String>> = OnceCell::new();
+
 // 启用/禁用数字快捷键
 #[cfg(windows)]
 pub fn set_number_shortcuts_enabled(enabled: bool) {
     NUMBER_SHORTCUTS_ENABLED.store(enabled, Ordering::SeqCst);
+}
+
+// 更新数字快捷键修饰键配置
+#[cfg(windows)]
+pub fn update_number_shortcuts_modifier(modifier: &str) {
+    let modifier_lock = NUMBER_SHORTCUTS_MODIFIER.get_or_init(|| RwLock::new("Ctrl".to_string()));
+    if let Ok(mut modifier_config) = modifier_lock.write() {
+        *modifier_config = modifier.to_string();
+    }
+}
+
+// 获取当前数字快捷键修饰键配置
+#[cfg(windows)]
+pub fn get_number_shortcuts_modifier() -> String {
+    let modifier_lock = NUMBER_SHORTCUTS_MODIFIER.get_or_init(|| RwLock::new("Ctrl".to_string()));
+    if let Ok(modifier_config) = modifier_lock.read() {
+        modifier_config.clone()
+    } else {
+        "Ctrl".to_string()
+    }
 }
 
 // 检查数字快捷键是否启用
@@ -265,6 +293,14 @@ pub fn set_number_shortcuts_enabled(_enabled: bool) {}
 #[cfg(not(windows))]
 pub fn is_number_shortcuts_enabled() -> bool {
     false
+}
+
+#[cfg(not(windows))]
+pub fn update_number_shortcuts_modifier(_modifier: &str) {}
+
+#[cfg(not(windows))]
+pub fn get_number_shortcuts_modifier() -> String {
+    "Ctrl".to_string()
 }
 
 #[cfg(not(windows))]

@@ -1,4 +1,6 @@
 // 可展开工具面板模块
+import { setPasteWithFormat, getPasteWithFormat } from './config.js';
+import { invoke } from '@tauri-apps/api/core';
 
 let toolsPanelToggle = null;
 let toolsPanel = null;
@@ -20,17 +22,20 @@ export function initToolsPanel() {
     togglePanel();
   });
 
-  // 点击面板外部关闭
+  // 点击面板外部关闭（使用捕获阶段，避免被内部stopPropagation影响）
   document.addEventListener('click', (e) => {
-    if (isPanelOpen && !toolsPanel.contains(e.target) && !toolsPanelToggle.contains(e.target)) {
+    if (!isPanelOpen) return;
+    const target = e.target;
+    if (!toolsPanel.contains(target) && !toolsPanelToggle.contains(target)) {
       closePanel();
     }
-  });
+  }, true);
 
   // 阻止面板内部点击事件冒泡
   toolsPanel.addEventListener('click', (e) => {
     e.stopPropagation();
   });
+
 
   // 键盘事件
   document.addEventListener('keydown', (e) => {
@@ -90,4 +95,18 @@ export function forceClosePanel() {
 // 强制打开面板（供其他模块调用）
 export function forceOpenPanel() {
   openPanel();
+}
+
+
+// 获取格式模式状态（供其他模块调用）
+export function getFormatModeStatus() {
+  return getPasteWithFormat();
+}
+
+// 更新格式按钮状态
+export function updateFormatButtonStatus() {
+  // 由工具管理器的 updateFormatButtonStatus() 处理
+  if (window.toolManager && window.toolManager.updateFormatButtonStatus) {
+    window.toolManager.updateFormatButtonStatus();
+  }
 }

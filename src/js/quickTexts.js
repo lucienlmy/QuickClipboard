@@ -13,14 +13,17 @@ import {
   modalTitle,
   quickTextTitleInput,
   quickTextContentInput,
-  quickTextGroupSelect
+  quickTextGroupSelect,
+  pasteWithFormat
 } from './config.js';
-import { getContentType, loadImageById } from './clipboard.js';
-import { showAlertModal, showConfirmModal, showNotification } from './ui.js';
+import { loadImageById } from './clipboard.js';
+import { showAlertModal, showNotification, showPasteIndicator, hidePasteIndicator, showPasteLoading, hidePasteLoading } from './notificationManager.js';
+import { showConfirmModal } from './ui.js';
 import { getCurrentGroupId, updateGroupSelects, getGroups } from './groups.js';
 import { escapeHtml, formatTimestamp } from './utils/formatters.js';
-import { highlightMultipleSearchTerms, highlightMultipleSearchTermsWithPosition, getCurrentSearchTerms } from './utils/highlight.js';
+import { highlightMultipleSearchTerms, highlightMultipleSearchTermsWithPosition, highlightMultipleSearchTermsInHTML, getCurrentSearchTerms } from './utils/highlight.js';
 import { processHTMLImages } from './utils/htmlProcessor.js';
+import { matchesFilter, matchesSearch } from './utils/typeFilter.js';
 import { VirtualList } from './virtualList.js';
 import { shouldTranslateText, safeTranslateAndInputText, showTranslationIndicator, hideTranslationIndicator } from './aiTranslation.js';
 import { showContextMenu } from './contextMenu.js';
@@ -31,26 +34,27 @@ let quickTextsVirtualList = null;
 
 // 生成常用文本项目HTML字符串
 function generateQuickTextItemHTML(text, index) {
-  const contentType = getContentType(text.content);
+  // 直接使用后端返回的content_type字段
+  const contentType = text.content_type || 'text';
 
   let contentHTML = '';
 
   // 生成内容HTML
   if (contentType === 'image') {
     contentHTML = generateQuickTextImageHTML(text);
-  } else if (contentType === 'files') {
+  } else if (contentType === 'file') {
     contentHTML = generateQuickTextFilesHTML(text);
   } else {
-    // 检查是否有HTML内容
-    if (text.html_content) {
-      // 如果有HTML内容，处理HTML显示
+    // 检查是否有HTML内容且开启格式显示
+    if (text.html_content && pasteWithFormat) {
+      // 如果有HTML内容且开启格式显示，处理HTML显示
       const searchTerms = getCurrentSearchTerms();
       const titleResult = highlightMultipleSearchTermsWithPosition(text.title, searchTerms);
       let displayHTML = text.html_content;
       
       // 对HTML内容应用搜索高亮
       if (searchTerms.length > 0) {
-        displayHTML = highlightMultipleSearchTerms(displayHTML, searchTerms);
+        displayHTML = highlightMultipleSearchTermsInHTML(displayHTML, searchTerms);
       }
       
       // 处理HTML内容中的图片，添加错误处理和安全属性
@@ -86,7 +90,7 @@ function generateQuickTextItemHTML(text, index) {
 
   // 生成日期时间HTML
   // 对于文件类型，时间戳会在文件HTML内部显示，所以这里不显示
-  const timestampHTML = contentType === 'files' ? '' : `<div class="quick-text-timestamp">${formatTimestamp(text.created_at)}</div>`;
+  const timestampHTML = contentType === 'file' ? '' : `<div class="quick-text-timestamp">${formatTimestamp(text.created_at)}</div>`;
 
   // 在"全部"分组中显示分组标签
   const groupBadgeHTML = generateGroupBadgeHTML(text);
@@ -205,12 +209,13 @@ function generateQuickTextFilesHTML(text) {
     // 顶部显示：时间和文件数量
     filesHTML += `<div class="file-summary">${timeStr} • ${filesData.files.length} 个文件</div>`;
     filesHTML += '<div class="files-container">';
+    filesHTML += '<div class="clipboard-files-inner">';
 
     filesData.files.forEach(file => {
       const iconHTML = generateFileIconHTML(file, 'medium');
       const fileSize = formatFileSize(file.size || 0);
       filesHTML += `
-        <div class="file-item">
+        <div class="file-item" data-path="${escapeHtml(file.path)}">
           ${iconHTML}
           <div class="file-info">
             <div class="file-name">${escapeHtml(file.name)} <span class="file-size">${fileSize}</span></div>
@@ -220,6 +225,7 @@ function generateQuickTextFilesHTML(text) {
       `;
     });
 
+    filesHTML += '</div>';
     filesHTML += '</div>';
     return filesHTML;
   } catch (error) {
@@ -239,82 +245,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// =================== 粘贴加载状态管理 ===================
-
-// 显示粘贴加载状态
-function showPasteLoading(element, message = '正在粘贴...') {
-  // 给元素添加加载状态
-  if (element) {
-    element.classList.add('paste-loading');
-  }
-
-  // 显示全局加载指示器
-  showPasteIndicator(message);
-}
-
-// 隐藏粘贴加载状态
-function hidePasteLoading(element, success = true, message = null) {
-  // 移除元素的加载状态
-  if (element) {
-    element.classList.remove('paste-loading');
-  }
-
-  // 显示结果状态
-  if (success) {
-    showPasteIndicator(message || '粘贴成功', 'success', 1500);
-  } else {
-    showPasteIndicator(message || '粘贴失败', 'error', 2000);
-  }
-}
-
-// 显示粘贴指示器
-function showPasteIndicator(message, type = 'loading', duration = 0) {
-  // 移除现有的指示器
-  const existingIndicator = document.querySelector('.paste-loading-indicator');
-  if (existingIndicator) {
-    existingIndicator.remove();
-  }
-
-  // 创建新的指示器
-  const indicator = document.createElement('div');
-  indicator.className = `paste-loading-indicator ${type}`;
-
-  if (type === 'loading') {
-    indicator.innerHTML = `
-      <div class="loading-spinner"></div>
-      <span>${message}</span>
-    `;
-  } else {
-    indicator.innerHTML = `<span>${message}</span>`;
-  }
-
-  document.body.appendChild(indicator);
-
-  // 显示动画
-  setTimeout(() => {
-    indicator.classList.add('show');
-  }, 10);
-
-  // 自动隐藏
-  if (duration > 0) {
-    setTimeout(() => {
-      hidePasteIndicator();
-    }, duration);
-  }
-}
-
-// 隐藏粘贴指示器
-function hidePasteIndicator() {
-  const indicator = document.querySelector('.paste-loading-indicator');
-  if (indicator) {
-    indicator.classList.remove('show');
-    setTimeout(() => {
-      if (indicator.parentNode) {
-        indicator.remove();
-      }
-    }, 300);
-  }
-}
+// =================== 常用文本操作函数 ===================
 
 // 刷新常用文本列表
 export async function refreshQuickTexts() {
@@ -414,7 +345,7 @@ export async function editQuickText(text) {
         // 获取编辑器窗口并发送数据
         const { emit } = await import('@tauri-apps/api/event');
         await emit('editor-data', editorData);
-        console.log('已发送常用文本编辑数据到文本编辑器');
+        // 编辑数据已发送
       } catch (error) {
         console.error('发送编辑数据失败:', error);
         showNotification('打开编辑器失败', 'error');
@@ -474,13 +405,13 @@ export async function saveQuickText() {
           id: editingQuickTextId,
           title,
           content,
-          group_name: null
+          groupName: null
         });
       } else {
         await invoke('add_quick_text', {
           title,
           content,
-          group_name: null
+          groupName: null
         });
       }
       hideQuickTextModal();
@@ -549,20 +480,11 @@ export async function updateQuickTextsOrder(oldIndex, newIndex) {
       return;
     }
 
-    // 找到移动项目在全部数据中的实际索引
-    const allQuickTexts = quickTexts;
-    const actualOldIndex = allQuickTexts.findIndex(item => item.id === movedItem.id);
-    
-    if (actualOldIndex === -1) {
-      console.error('在全部数据中找不到要移动的项目');
-      return;
-    }
-
     // 在"全部"分组中，检查是否跨分组拖拽
     const currentGroupId = getCurrentGroupId();
     if (currentGroupId === '全部') {
-          const movedItemGroupId = movedItem.group_name || '全部';
-    const targetItemGroupId = targetItem ? (targetItem.group_name || '全部') : movedItemGroupId;
+      const movedItemGroupId = movedItem.group_name || '全部';
+      const targetItemGroupId = targetItem ? (targetItem.group_name || '全部') : movedItemGroupId;
 
       if (movedItemGroupId !== targetItemGroupId) {
         // 跨分组拖拽：将项目移动到目标分组并排序到正确位置
@@ -576,54 +498,41 @@ export async function updateQuickTextsOrder(oldIndex, newIndex) {
             groupName: targetItemGroupId
           });
 
-          // 刷新数据以获取最新的分组内容
-          await refreshQuickTexts();
-
-          // 如果需要在分组内排序到特定位置
-          if (targetPositionInGroup > 0) {
-            // 获取目标分组的所有项目
-            const targetGroupTexts = await invoke('get_quick_texts_by_group', {
-              groupName: targetItemGroupId
-            });
-
-            // 找到刚移动的项目在目标分组中的当前位置（应该是第一个）
-            const currentIndex = targetGroupTexts.findIndex(t => t.id === movedItem.id);
-
-            if (currentIndex !== -1 && currentIndex !== targetPositionInGroup) {
-              // 使用现有的move_quick_text_item命令在分组内排序
-              await invoke('move_quick_text_item', {
-                itemIndex: actualOldIndex,
-                toIndex: targetPositionInGroup
-              });
-            }
-          }
+          // 在目标分组内排序到特定位置
+          await invoke('move_quick_text_item', {
+            itemId: movedItem.id,
+            toIndex: targetPositionInGroup
+          });
 
           // 显示成功提示
           const { getGroups } = await import('./groups.js');
           const groups = getGroups();
           const targetGroupName = groups.find(g => g.id === targetItemGroupId)?.name || '分组';
-          const { showNotification } = await import('./ui.js');
+          const { showNotification } = await import('./notificationManager.js');
           showNotification(`已移动到 ${targetGroupName}`, 'success');
 
           await refreshQuickTexts();
           return;
         } catch (error) {
           console.error('跨分组移动失败:', error);
-          const { showNotification } = await import('./ui.js');
+          const { showNotification } = await import('./notificationManager.js');
           showNotification('移动到分组失败，请重试', 'error');
           return;
         }
       }
     }
 
-    console.log('oldIndex', oldIndex);
-    console.log('newIndex', newIndex);
-    console.log('actualOldIndex', actualOldIndex);
-    
     // 同分组内的排序
+    const movedItemGroupId = movedItem.group_name || '全部';
+    let targetIndexInGroup = newIndex;
+
+    if (currentGroupId === '全部') {
+      targetIndexInGroup = calculateTargetPositionInGroup(filteredData, newIndex, movedItemGroupId);
+    }
+
     await invoke('move_quick_text_item', {
-      itemIndex: actualOldIndex,
-      toIndex: newIndex
+      itemId: movedItem.id,
+      toIndex: targetIndexInGroup
     });
 
     await refreshQuickTexts();
@@ -715,39 +624,15 @@ function getFilteredQuickTextsData() {
   const currentGroupId = getCurrentGroupId();
 
   let filteredTexts = quickTexts.filter(text => {
-    const contentType = getContentType(text.content);
+    const contentType = text.content_type || 'text';
 
     // 类型筛选
-    if (filterType !== 'all' && contentType !== filterType) {
+    if (!matchesFilter(contentType, filterType, text)) {
       return false;
     }
 
-    // 搜索过滤：支持文本、链接和文件类型
-    if (searchTerm) {
-      if (contentType === 'files') {
-        // 文件类型：搜索标题和文件内容
-        try {
-          const filesJson = text.content.substring(6); // 去掉 "files:" 前缀
-          const filesData = JSON.parse(filesJson);
-          const searchableText = filesData.files.map(file =>
-            `${file.name} ${file.path} ${file.file_type}`
-          ).join(' ').toLowerCase();
-          return text.title.toLowerCase().includes(searchTerm) ||
-            searchableText.includes(searchTerm);
-        } catch (error) {
-          return text.title.toLowerCase().includes(searchTerm);
-        }
-      } else if (contentType === 'image') {
-        // 图片类型：只搜索标题
-        return text.title.toLowerCase().includes(searchTerm);
-      } else {
-        // 文本和链接类型：搜索标题和内容
-        return text.title.toLowerCase().includes(searchTerm) ||
-          text.content.toLowerCase().includes(searchTerm);
-      }
-    }
-
-    return true;
+    // 搜索筛选
+    return matchesSearch(text, searchTerm, contentType);
   });
 
   // 如果是"全部"分组，按分组顺序重新排列数据
@@ -797,7 +682,6 @@ function sortTextsByGroupOrder(texts) {
   }
 }
 
-// 渲染常用文本列表
 // 异步加载文件图标和图片
 async function loadFileIcons() {
   // 加载文件图标
@@ -839,6 +723,26 @@ async function loadFileIcons() {
   }
 }
 
+// 检查文件是否存在并更新UI
+async function checkFilesExistence() {
+  const fileItems = document.querySelectorAll('#quick-texts-list .file-item[data-path]');
+  for (const item of fileItems) {
+    const path = item.dataset.path;
+    if (path) {
+      try {
+        const exists = await invoke('file_exists', { path });
+        if (!exists) {
+          item.classList.add('file-not-exist');
+        } else {
+          item.classList.remove('file-not-exist');
+        }
+      } catch (error) {
+        console.warn(`检查文件是否存在失败: ${path}`, error);
+      }
+    }
+  }
+}
+
 export function renderQuickTexts() {
   if (!quickTextsVirtualList) {
     initQuickTextsVirtualList();
@@ -847,9 +751,10 @@ export function renderQuickTexts() {
     quickTextsVirtualList.updateData(filteredData);
   }
 
-  // 异步加载文件图标
+  // 异步加载文件图标和检查文件是否存在
   setTimeout(() => {
     loadFileIcons();
+    checkFilesExistence();
   }, 0);
 
   // 通知导航模块列表已更新
@@ -890,14 +795,14 @@ function handleQuickTextItemContextMenu(index, event) {
 async function handleQuickTextItemPaste(text, element = null) {
   try {
     // 检查是否需要AI翻译
-    const contentType = getContentType(text.content);
+    const contentType = text.content_type || 'text';
     const isTextContent = contentType === 'text';
     const translationCheck = isTextContent ? shouldTranslateText(text.content, 'paste') : { should: false, reason: '非文本内容' };
     const needsTranslation = translationCheck.should;
 
     // 根据内容类型确定加载消息
     let loadingMessage = '正在粘贴...';
-    if (contentType === 'files') {
+    if (contentType === 'file') {
       loadingMessage = '正在粘贴文件...';
     } else if (contentType === 'image') {
       loadingMessage = '正在粘贴图片...';
@@ -910,7 +815,6 @@ async function handleQuickTextItemPaste(text, element = null) {
 
     if (needsTranslation) {
       // 使用AI翻译并流式输入
-      console.log('开始AI翻译:', text.content, '原因:', translationCheck.reason);
       showTranslationIndicator('正在翻译...');
 
       // 定义降级回调函数
@@ -918,7 +822,7 @@ async function handleQuickTextItemPaste(text, element = null) {
         await invoke('paste_content', {
           params: {
             content: text.content,
-            html_content: text.html_content || null,
+            html_content: pasteWithFormat ? (text.html_content || null) : null,
             one_time: false,
             quick_text_id: text.id
           }
@@ -929,11 +833,6 @@ async function handleQuickTextItemPaste(text, element = null) {
         const result = await safeTranslateAndInputText(text.content, fallbackPaste);
 
         if (result.success) {
-          if (result.method === 'translation') {
-            console.log('AI翻译成功完成');
-          } else if (result.method === 'fallback') {
-            console.log('使用降级处理完成粘贴:', result.error);
-          }
 
           // 一次性粘贴：翻译成功后删除该常用文本项
           if (isOneTimePaste) {
@@ -970,7 +869,7 @@ async function handleQuickTextItemPaste(text, element = null) {
       await invoke('paste_content', {
         params: {
           content: text.content,
-          html_content: text.html_content || null,
+          html_content: pasteWithFormat ? (text.html_content || null) : null,
           one_time: false,
           quick_text_id: text.id
         }
@@ -978,7 +877,7 @@ async function handleQuickTextItemPaste(text, element = null) {
 
       // 根据内容类型显示成功消息
       let successMessage = '粘贴成功';
-      if (contentType === 'files') {
+      if (contentType === 'file') {
         successMessage = '文件粘贴成功';
       } else if (contentType === 'image') {
         successMessage = '图片粘贴成功';
@@ -1014,17 +913,18 @@ async function handleQuickTextItemPaste(text, element = null) {
 
 // 显示常用文本右键菜单
 function showQuickTextContextMenu(event, text) {
-  const contentType = getContentType(text.content);
+  // 直接使用后端返回的content_type字段
+  const contentType = text.content_type || 'text';
   let menuItems = [];
 
   if (contentType === 'image') {
     // 图片类型菜单
     menuItems = [
       {
-        icon: 'ti-eye',
-        text: '查看原图',
-        onClick: () => {
-          viewOriginalImage(text);
+        icon: 'ti-pin',
+        text: '钉到屏幕',
+        onClick: async () => {
+          await pinImageToScreen(text);
         }
       },
       {
@@ -1043,7 +943,7 @@ function showQuickTextContextMenu(event, text) {
         }
       }
     ];
-  } else if (contentType === 'files') {
+  } else if (contentType === 'file') {
     // 文件类型菜单
     menuItems = [
       {
@@ -1077,11 +977,11 @@ function showQuickTextContextMenu(event, text) {
       }
     ];
   } else {
-    // 文本和链接类型菜单
+    // 文本、链接和富文本类型菜单
     menuItems = [
       {
         icon: 'ti-edit',
-        text: '编辑',
+        text: contentType === 'rich_text' ? '编辑纯文本' : '编辑',
         onClick: () => {
           editQuickText(text);
         }
@@ -1099,49 +999,17 @@ function showQuickTextContextMenu(event, text) {
 
   showContextMenu(event, {
     content: text.content,
+    html_content: text.html_content,
+    content_type: contentType,
     items: menuItems
   });
 }
 
 
 
-// 查看原图
-function viewOriginalImage(text) {
-  try {
-    if (text.content.startsWith('image:')) {
-      // 新格式：image:id，需要通过后端获取完整图片
-      const imageId = text.content.substring(6);
-      // 创建一个新窗口显示图片
-      const newWindow = window.open('', '_blank');
-      newWindow.document.write(`
-        <html>
-          <head><title>查看原图</title></head>
-          <body style="margin:0;padding:20px;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-            <img id="fullImage" style="max-width:100%;max-height:100%;object-fit:contain;" alt="原图" />
-            <div id="loading" style="color:white;font-size:18px;">加载中...</div>
-          </body>
-        </html>
-      `);
-
-      // 加载完整图片
-      loadImageById(newWindow.document.getElementById('fullImage'), imageId, false);
-      newWindow.document.getElementById('loading').style.display = 'none';
-    } else if (text.content.startsWith('data:image/')) {
-      // 旧格式：完整的data URL
-      const newWindow = window.open('', '_blank');
-      newWindow.document.write(`
-        <html>
-          <head><title>查看原图</title></head>
-          <body style="margin:0;padding:20px;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-            <img src="${text.content}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="原图" />
-          </body>
-        </html>
-      `);
-    }
-  } catch (error) {
-    console.error('查看原图失败:', error);
-    showNotification('查看原图失败', 'error');
-  }
+// 钉图片到屏幕
+async function pinImageToScreen(text) {
+  showNotification('钉图片功能已移除，不再支持外部截屏程序', 'warning');
 }
 
 // 另存为图片
@@ -1228,3 +1096,8 @@ async function copyFilePaths(text) {
     showNotification('复制文件路径失败', 'error');
   }
 }
+
+// 监听格式模式变化事件
+window.addEventListener('format-mode-changed', (event) => {
+  renderQuickTexts();
+});

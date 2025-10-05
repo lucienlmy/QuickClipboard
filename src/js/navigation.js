@@ -6,6 +6,10 @@ import { togglePin } from './window.js';
 let currentSelectedIndex = -1;
 let navigationMode = false;
 let currentTabItems = [];
+let isKeyboardNavigation = false; // 标记是否正在使用键盘导航
+let keyboardNavigationTimeout = null; // 键盘导航超时定时器
+let isScrolling = false; // 标记是否正在滚动
+let scrollTimeout = null; // 滚动超时定时器
 
 // 节流相关变量
 let lastNavigationTime = 0;
@@ -14,6 +18,12 @@ let pendingNavigationUpdate = null;
 let isUpdating = false;
 let clickSyncSetup = false;
 let preserveNavigationOnUpdate = false;
+
+// 鼠标悬停优化变量
+let hoverDebounceTimeout = null;
+let lastHoverIndex = -1;
+let cachedTabItems = null;
+let cacheInvalidationTimeout = null;
 
 // 分组侧边栏状态
 let isGroupSidebarVisible = false;
@@ -28,33 +38,10 @@ let isFirstLaunch = false;
 // 初始化导航系统
 export async function initNavigation() {
   try {
-    // 监听导航按键事件
-    await listen('navigation-key-pressed', (event) => {
-      const { key } = event.payload;
 
-      // 处理Ctrl组合键
-      if (key.startsWith('Ctrl')) {
-        handleCtrlCombination(key);
-        return;
-      }
-
-      // 对于方向键使用节流，其他按键立即执行
-      if (key === 'ArrowUp' || key === 'ArrowDown') {
-        handleThrottledNavigation(key);
-      } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
-        // 左右方向键用于切换标签页，立即执行
-        handleTabSwitch(key);
-      } else {
-        // 立即执行非导航按键
-        switch (key) {
-          case 'Escape':
-            hideWindow();
-            break;
-          case 'Tab':
-            focusSearchBox();
-            break;
-        }
-      }
+    // 监听导航动作事件
+    await listen('navigation-action', (event) => {
+      handleNavigationAction(event.payload);
     });
 
     // 设置点击同步
@@ -66,6 +53,47 @@ export async function initNavigation() {
     console.error('初始化导航系统失败:', error);
   }
 }
+
+// 处理导航动作事件
+  function handleNavigationAction(actionEvent) {
+    const action = actionEvent.action;
+    
+  switch (action) {
+    case 'navigate-up':
+      handleThrottledNavigation('up');
+      break;
+    case 'navigate-down':
+      handleThrottledNavigation('down');
+      break;
+    case 'tab-left':
+      handleTabSwitch('left');
+      break;
+    case 'tab-right':
+      handleTabSwitch('right');
+      break;
+    case 'focus-search':
+      focusSearchBox();
+      break;
+    case 'hide-window':
+      hideWindow();
+      break;
+    case 'execute-item':
+      executeCurrentItem();
+      break;
+    case 'previous-group':
+      switchToPreviousGroup();
+      showGroupSidebarTemporarily();
+      break;
+    case 'next-group':
+      switchToNextGroup();
+      showGroupSidebarTemporarily();
+      break;
+    case 'toggle-pin':
+      togglePin();
+      break;
+  }
+}
+
 
 // 节流处理导航按键
 function handleThrottledNavigation(key) {
@@ -94,42 +122,17 @@ function executeNavigation(key) {
   lastNavigationTime = Date.now();
 
   switch (key) {
+    case 'up':
     case 'ArrowUp':
       navigateUp();
       break;
+    case 'down':
     case 'ArrowDown':
       navigateDown();
       break;
   }
 }
 
-// 处理Ctrl组合键
-function handleCtrlCombination(key) {
-  switch (key) {
-    case 'CtrlEnter':
-      // Ctrl+Enter：执行当前选中项目
-      executeCurrentItem();
-      break;
-    case 'CtrlArrowUp':
-      // Ctrl+上方向键：切换到上一个分组并临时显示分组列表
-      switchToPreviousGroup();
-      showGroupSidebarTemporarily();
-      break;
-    case 'CtrlArrowDown':
-      // Ctrl+下方向键：切换到下一个分组并临时显示分组列表
-      switchToNextGroup();
-      showGroupSidebarTemporarily();
-      break;
-    case 'CtrlP':
-      // Ctrl+P：切换窗口固定状态
-      togglePin();
-      break;
-    case 'CtrlArrowLeft':
-    case 'CtrlArrowRight':
-      // Ctrl+左右方向键：暂时不处理，避免与标签页切换冲突
-      break;
-  }
-}
 
 // 临时显示分组侧边栏1秒
 let groupSidebarTimer = null;
@@ -254,10 +257,10 @@ function handleTabSwitch(key) {
   if (currentTabIndex === -1) return;
 
   let nextTabIndex;
-  if (key === 'ArrowLeft') {
+  if (key === 'left' || key === 'ArrowLeft') {
     // 向左切换，循环到最后一个
     nextTabIndex = currentTabIndex === 0 ? tabs.length - 1 : currentTabIndex - 1;
-  } else if (key === 'ArrowRight') {
+  } else if (key === 'right' || key === 'ArrowRight') {
     // 向右切换，循环到第一个
     nextTabIndex = currentTabIndex === tabs.length - 1 ? 0 : currentTabIndex + 1;
   }
@@ -282,6 +285,28 @@ function getCurrentTabItems() {
   }
 
   return [];
+}
+
+// 获取当前标签页的项目列表（带缓存优化）
+function getCurrentTabItemsOptimized() {
+  // 如果缓存有效，直接返回缓存
+  if (cachedTabItems && cachedTabItems.length > 0) {
+    return cachedTabItems;
+  }
+  
+  // 否则重新查询并缓存
+  cachedTabItems = getCurrentTabItems();
+  
+  // 设置缓存失效定时器（100ms后清除缓存，确保DOM更新后能获取到最新元素）
+  if (cacheInvalidationTimeout) {
+    clearTimeout(cacheInvalidationTimeout);
+  }
+  cacheInvalidationTimeout = setTimeout(() => {
+    cachedTabItems = null;
+    cacheInvalidationTimeout = null;
+  }, 100);
+  
+  return cachedTabItems;
 }
 
 // 获取当前标签页的数据长度
@@ -327,6 +352,9 @@ function navigateUp() {
   const dataLength = getCurrentTabDataLength();
   if (dataLength === 0) return;
 
+  // 设置键盘导航标记
+  setKeyboardNavigationMode();
+
   const oldIndex = currentSelectedIndex;
 
   if (currentSelectedIndex === -1) {
@@ -347,6 +375,9 @@ function navigateUp() {
 function navigateDown() {
   const dataLength = getCurrentTabDataLength();
   if (dataLength === 0) return;
+
+  // 设置键盘导航标记
+  setKeyboardNavigationMode();
 
   const oldIndex = currentSelectedIndex;
 
@@ -379,16 +410,20 @@ function updateSelection() {
   }
 
   requestAnimationFrame(() => {
-    // 首先检查目标元素是否已经在DOM中
-    const items = getCurrentTabItems();
+    // 使用缓存的DOM查询结果
+    const items = getCurrentTabItemsOptimized();
     let targetElementExists = false;
+    let targetElement = null;
 
-    items.forEach((item) => {
+    // 优化：只遍历一次，同时检查存在性和获取元素
+    for (const item of items) {
       const dataIndex = parseInt(item.getAttribute('data-index'));
       if (dataIndex === currentSelectedIndex) {
         targetElementExists = true;
+        targetElement = item;
+        break;
       }
-    });
+    }
 
     // 只有当目标元素不存在时才滚动
     let didScroll = false;
@@ -398,19 +433,32 @@ function updateSelection() {
 
     // 定义更新选择状态的函数
     const updateSelectionState = () => {
-      const items = getCurrentTabItems();
+      const items = getCurrentTabItemsOptimized();
       let selectedItem = null;
 
-      // 清除所有选择状态并查找目标项
-      items.forEach((item) => {
+      // 批量处理DOM更新，减少重排重绘
+      const toAdd = [];
+      const toRemove = [];
+
+      // 优化：预先分类需要添加和移除类的元素
+      for (const item of items) {
         const dataIndex = parseInt(item.getAttribute('data-index'));
+        const hasSelected = item.classList.contains('keyboard-selected');
+        
         if (dataIndex === currentSelectedIndex) {
-          item.classList.add('keyboard-selected');
+          if (!hasSelected) {
+            toAdd.push(item);
+          }
           selectedItem = item;
-        } else {
-          item.classList.remove('keyboard-selected');
+        } else if (hasSelected) {
+          toRemove.push(item);
         }
-      });
+      }
+
+      // 批量移除类
+      toRemove.forEach(item => item.classList.remove('keyboard-selected'));
+      // 批量添加类
+      toAdd.forEach(item => item.classList.add('keyboard-selected'));
 
       // 如果找到了选中的元素但不在视口内，进行微调滚动
       if (selectedItem && !isElementInViewport(selectedItem)) {
@@ -499,7 +547,7 @@ async function executeCurrentItem() {
 }
 
 // 聚焦搜索框
-async function focusSearchBox() {
+export async function focusSearchBox() {
   const activeTab = document.querySelector('.tab-content.active');
   if (!activeTab) return;
 
@@ -533,10 +581,29 @@ async function hideWindow() {
   }
 }
 
+// 清除DOM缓存
+function clearDOMCache() {
+  cachedTabItems = null;
+  lastHoverIndex = -1;
+  
+  if (cacheInvalidationTimeout) {
+    clearTimeout(cacheInvalidationTimeout);
+    cacheInvalidationTimeout = null;
+  }
+  
+  if (hoverDebounceTimeout) {
+    clearTimeout(hoverDebounceTimeout);
+    hoverDebounceTimeout = null;
+  }
+}
+
 // 重置导航状态
 export function resetNavigation() {
   currentSelectedIndex = -1;
   navigationMode = false;
+  
+  // 清除DOM缓存和相关定时器
+  clearDOMCache();
 
   const items = getCurrentTabItems();
   items.forEach(item => {
@@ -551,6 +618,9 @@ export function onTabSwitch() {
 
 // 当列表内容更新时重置导航
 export function onListUpdate() {
+  // 列表更新时清除DOM缓存，确保获取最新的DOM元素
+  clearDOMCache();
+  
   // 如果设置了保持导航状态，跳过重置逻辑
   if (preserveNavigationOnUpdate) {
     preserveNavigationOnUpdate = false;
@@ -580,12 +650,97 @@ export function getCurrentSelectedIndex() {
   return currentSelectedIndex;
 }
 
+// 设置键盘导航模式
+function setKeyboardNavigationMode() {
+  isKeyboardNavigation = true;
+  
+  // 清除之前的超时
+  if (keyboardNavigationTimeout) {
+    clearTimeout(keyboardNavigationTimeout);
+  }
+  
+  // 2秒后清除键盘导航标记，允许鼠标悬停生效
+  keyboardNavigationTimeout = setTimeout(() => {
+    isKeyboardNavigation = false;
+  }, 2000);
+}
+
+// 设置滚动状态（用于避免滚动时的抖动）
+export function setScrollingState(scrolling) {
+  isScrolling = scrolling;
+  
+  if (scrolling) {
+    // 开始滚动时清除之前的超时
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = null;
+    }
+  } else {
+    // 滚动结束后稍作延迟再允许鼠标悬停更新，确保滚动完全停止
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+    }
+    scrollTimeout = setTimeout(() => {
+      isScrolling = false;
+    }, 50);
+  }
+}
+
+// 设置当前选中索引（用于鼠标悬停同步）
+export function setCurrentSelectedIndex(index) {
+  if (typeof index !== 'number' || index < -1) return;
+  
+  // 如果正在键盘导航，忽略鼠标悬停
+  if (isKeyboardNavigation) {
+    return;
+  }
+  
+  // 如果索引没有变化，直接返回避免不必要的处理
+  if (index === lastHoverIndex) {
+    return;
+  }
+  
+  lastHoverIndex = index;
+  
+  // 清除之前的防抖定时器
+  if (hoverDebounceTimeout) {
+    clearTimeout(hoverDebounceTimeout);
+  }
+  
+  // 使用防抖来减少频繁的更新操作
+  hoverDebounceTimeout = setTimeout(() => {
+    const oldIndex = currentSelectedIndex;
+    currentSelectedIndex = index;
+    
+    // 如果索引发生变化，更新选择状态
+    if (oldIndex !== currentSelectedIndex && currentSelectedIndex >= 0) {
+      navigationMode = true;
+      
+      // 如果正在滚动，只更新索引，不触发视觉更新（避免滚动抖动）
+      if (isScrolling) {
+        return;
+      }
+      
+      updateSelection();
+    }
+    
+    hoverDebounceTimeout = null;
+  }, 10); // 10ms的防抖延迟，既能避免频繁调用又不影响用户体验
+}
+
 // 同步点击的项目到导航状态
 export function syncClickedItem(clickedElement) {
   // 从data-index属性获取真实的数据索引
   const dataIndex = parseInt(clickedElement.getAttribute('data-index'));
 
   if (!isNaN(dataIndex) && dataIndex >= 0) {
+    // 清除键盘导航标记，因为用户使用了鼠标
+    isKeyboardNavigation = false;
+    if (keyboardNavigationTimeout) {
+      clearTimeout(keyboardNavigationTimeout);
+      keyboardNavigationTimeout = null;
+    }
+    
     resetNavigation();
     currentSelectedIndex = dataIndex;
     navigationMode = true;
@@ -669,6 +824,15 @@ export function initShortcutsHelpPanel() {
   // 检查是否是首次启动
   checkFirstLaunch();
 
+  // 事件处理：点击显示/关闭快捷键帮助
+  const helpIcon = footer.querySelector('.shortcuts-help-icon');
+  if (helpIcon) {
+    helpIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleShortcutsHelp();
+    });
+  }
+
   // 点击关闭按钮
   shortcutsHelpClose.addEventListener('click', (e) => {
     console.log('用户点击关闭按钮');
@@ -676,30 +840,14 @@ export function initShortcutsHelpPanel() {
     hideShortcutsHelp();
   });
 
-  // 监听footer的鼠标离开事件，延迟移除隐藏状态
-  footer.addEventListener('mouseleave', () => {
-    setTimeout(() => {
-      // 检查鼠标是否还在帮助内容上
-      if (!shortcutsHelpContent.matches(':hover')) {
-        shortcutsHelpContent.classList.remove('hidden');
-      }
-    }, 100);
+  // 点击帮助内容外部区域关闭帮助
+  document.addEventListener('click', (e) => {
+    if (shortcutsHelpContent.classList.contains('visible') &&
+      !shortcutsHelpContent.contains(e.target) &&
+      !(helpIcon && helpIcon.contains(e.target))) {
+      hideShortcutsHelp();
+    }
   });
-
-  // 事件模拟：
-  const helpIcon = footer.querySelector('.shortcuts-help-icon');
-  if (helpIcon) {
-    const show = () => shortcutsHelpContent.classList.add('visible');
-    const hide = () => {
-      if (!shortcutsHelpContent.matches(':hover')) {
-        shortcutsHelpContent.classList.remove('visible');
-      }
-    };
-    helpIcon.addEventListener('mouseenter', show);
-    helpIcon.addEventListener('mouseleave', () => setTimeout(hide, 120));
-    shortcutsHelpContent.addEventListener('mouseleave', () => setTimeout(hide, 120));
-    shortcutsHelpContent.addEventListener('mouseenter', () => shortcutsHelpContent.classList.add('visible'));
-  }
 
   // 首次启动时自动显示
   if (isFirstLaunch) {
@@ -724,7 +872,7 @@ function showShortcutsHelpFirstTime() {
 
   // 添加首次显示的特殊样式
   shortcutsHelpContent.classList.add('first-show');
-  shortcutsHelpContent.classList.add('visible');
+  showShortcutsHelp();
 
   // 3秒后自动隐藏
   setTimeout(() => {
@@ -732,8 +880,27 @@ function showShortcutsHelpFirstTime() {
   }, 3000);
 }
 
+// 切换快捷键帮助面板显示状态
+function toggleShortcutsHelp() {
+  if (!shortcutsHelpContent) return;
+
+  if (shortcutsHelpContent.classList.contains('visible')) {
+    hideShortcutsHelp();
+  } else {
+    showShortcutsHelp();
+  }
+}
+
+// 显示快捷键帮助面板
+function showShortcutsHelp() {
+  if (!shortcutsHelpContent) return;
+
+  shortcutsHelpContent.classList.remove('hidden');
+  shortcutsHelpContent.classList.add('visible');
+}
+
 // 隐藏快捷键帮助面板
-function hideShortcutsHelp() {
+export function hideShortcutsHelp() {
   if (!shortcutsHelpContent) return;
 
   console.log('隐藏快捷键帮助面板');

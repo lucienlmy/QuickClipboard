@@ -89,18 +89,17 @@ pub fn delete_quick_text(id: &str) -> Result<(), String> {
 
 // 移动常用文本在同一分组内的位置
 pub fn move_quick_text_within_group(
-    item_index: usize,
+    item_id: &str,
     new_index: usize,
 ) -> Result<(), String> {
     // 获取所有常用文本
     let all_texts = database::get_all_favorite_items()?;
-    println!("item_index: {}, new_index: {}", item_index, new_index);
-    if item_index >= all_texts.len() {
-        return Err("无效的项目索引".to_string());
-    }
 
-    // 获取要移动的项目
-    let moved_item = &all_texts[item_index];
+    // 找到要移动的项目
+    let moved_item = all_texts
+        .iter()
+        .find(|t| t.id == item_id)
+        .ok_or_else(|| format!("常用文本 {} 不存在", item_id))?;
     let item_group_name = &moved_item.group_name;
 
     // 获取同一分组的所有项目

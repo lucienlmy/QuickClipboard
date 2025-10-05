@@ -2,32 +2,33 @@
 
 #[cfg(windows)]
 pub fn windows_paste() -> bool {
-    use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-        KEYEVENTF_KEYUP, VK_CONTROL, VK_V,
+        KEYEVENTF_KEYUP, VK_CONTROL, VK_V, VK_MENU,
     };
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SendMessageW, WM_PASTE};
 
     unsafe {
-        // 确保当前窗口有焦点
-        let hwnd = GetForegroundWindow();
-        if hwnd == HWND(0) {
-            println!("无法获取前台窗口");
-            return false;
-        }
 
-        // 优先尝试 WM_PASTE
-        let res = SendMessageW(hwnd, WM_PASTE, WPARAM(0), LPARAM(0));
-        if res.0 != 0 {
-            return true;
-        }
-
-        // 判断 Ctrl 当前是否已按下
+        // 判断当前按键状态
         let ctrl_pressed = (GetAsyncKeyState(VK_CONTROL.0 as i32) & 0x8000u16 as i16) != 0;
+        let alt_pressed = (GetAsyncKeyState(VK_MENU.0 as i32) & 0x8000u16 as i16) != 0;
 
         // 生成按键序列
         let mut inputs: Vec<INPUT> = Vec::new();
+
+        // 如果Alt键被按下，先释放它以避免干扰粘贴操作
+        if alt_pressed {
+            let mut alt_up = INPUT::default();
+            alt_up.r#type = INPUT_KEYBOARD;
+            alt_up.Anonymous.ki = KEYBDINPUT {
+                wVk: VK_MENU,
+                wScan: 0,
+                dwFlags: KEYEVENTF_KEYUP,
+                time: 0,
+                dwExtraInfo: 0,
+            };
+            inputs.push(alt_up);
+        }
 
         if !ctrl_pressed {
             // 按下 Ctrl
@@ -79,6 +80,20 @@ pub fn windows_paste() -> bool {
                 dwExtraInfo: 0,
             };
             inputs.push(ctrl_up);
+        }
+
+        // 如果Alt键之前被按下，恢复它的状态
+        if alt_pressed {
+            let mut alt_down = INPUT::default();
+            alt_down.r#type = INPUT_KEYBOARD;
+            alt_down.Anonymous.ki = KEYBDINPUT {
+                wVk: VK_MENU,
+                wScan: 0,
+                dwFlags: KEYBD_EVENT_FLAGS(0),
+                time: 0,
+                dwExtraInfo: 0,
+            };
+            inputs.push(alt_down);
         }
 
         let result = SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);

@@ -1,22 +1,31 @@
 import { invoke } from '@tauri-apps/api/core';
-import { screenshotButton } from './config.js';
-import { showNotification } from './ui.js';
+import { showNotification } from './notificationManager.js';
 
-// 初始化截屏功能
-export function initScreenshot() {
-  if (screenshotButton) {
-    screenshotButton.addEventListener('click', startNativeScreenshot);
+// 启动内置截屏窗口
+export async function startBuiltinScreenshot() {
+  try {
+    console.log('启动内置截屏窗口...');
+    await invoke('start_builtin_screenshot');
+  } catch (error) {
+    console.error('启动内置截屏窗口失败:', error);
+    showNotification(`启动内置截屏窗口失败: ${error}`, 'error');
   }
 }
 
-// 启动原生截屏
+// 启动内置截屏窗口
 export async function startNativeScreenshot() {
   try {
-    console.log('启动原生截屏...');
-    await invoke('start_native_screenshot');
-    // 原生截屏成功后会自动显示通知，这里不需要额外显示
+    console.log('启动内置截屏窗口...');
+    setTimeout(async () => {
+      await invoke('start_builtin_screenshot');
+    }, 600);
   } catch (error) {
-    console.error('原生截屏失败:', error);
-    showNotification(`原生截屏失败: ${error}`, 'error');
+    console.error('启动截屏失败:', error);
+    showNotification(`启动截屏失败: ${error}`, 'error');
   }
+}
+
+// 默认使用内置截屏
+export async function startScreenshot() {
+  await startBuiltinScreenshot();
 }

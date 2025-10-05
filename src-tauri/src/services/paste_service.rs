@@ -30,7 +30,11 @@ pub async fn paste_content(
 }
 
 /// 粘贴文本内容
-pub async fn paste_text_with_html(text_content: String, html_content: Option<String>, window: &WebviewWindow) -> Result<(), String> {
+pub async fn paste_text_with_html(
+    text_content: String,
+    html_content: Option<String>,
+    window: &WebviewWindow,
+) -> Result<(), String> {
     // 检查是否需要翻译
     let settings = crate::settings::get_global_settings();
     let should_translate = crate::ai_translator::is_translation_config_valid(&settings)
@@ -63,7 +67,6 @@ pub async fn paste_text_with_html(text_content: String, html_content: Option<Str
     paste_text_without_translation_internal_with_html(text_content, html_content, window).await
 }
 
-
 /// 粘贴文本内容
 async fn paste_text_without_translation_internal_with_html(
     text_content: String,
@@ -73,13 +76,20 @@ async fn paste_text_without_translation_internal_with_html(
     // 开始粘贴操作，增加粘贴计数器
     crate::clipboard_monitor::start_pasting_operation();
 
+    // 获取格式设置
+    let settings = crate::settings::get_global_settings();
+    let use_html = html_content.is_some() && settings.paste_with_format;
+
     // 将文本设置到剪贴板（不添加到历史记录，避免重复）
-    let result = if html_content.is_some() {
-        crate::clipboard_content::set_clipboard_content_no_history_with_html(text_content, html_content)
+    let result = if use_html {
+        crate::clipboard_content::set_clipboard_content_no_history_with_html(
+            text_content,
+            html_content,
+        )
     } else {
         crate::clipboard_content::set_clipboard_content_no_history(text_content)
     };
-    
+
     if let Err(e) = result {
         crate::clipboard_monitor::end_pasting_operation();
         return Err(e);
@@ -145,18 +155,29 @@ pub async fn paste_image(image_content: String, window: &WebviewWindow) -> Resul
             use crate::clipboard_content::{
                 data_url_to_bgra_and_png, set_windows_clipboard_image_with_file,
             };
+            use crate::utils::window_utils::get_active_window_process_name;
+            let settings = crate::settings::get_global_settings();
+            let prefers_image_data = get_active_window_process_name()
+                .map(|process| {
+                    settings
+                        .image_data_priority_apps
+                        .iter()
+                        .any(|app| process.contains(&app.to_lowercase()))
+                })
+                .unwrap_or(false);
             let (bgra, png_bytes, width, height) =
                 data_url_to_bgra_and_png(&image_data).map_err(|e| {
                     crate::clipboard_monitor::end_pasting_operation();
                     e
                 })?;
-            if let Err(e) = set_windows_clipboard_image_with_file(
-                &bgra,
-                &png_bytes,
-                width,
-                height,
-                Some(&image_info.file_path),
-            ) {
+            let file_path = if prefers_image_data {
+                None
+            } else {
+                Some(image_info.file_path.as_str())
+            };
+            if let Err(e) =
+                set_windows_clipboard_image_with_file(&bgra, &png_bytes, width, height, file_path)
+            {
                 crate::clipboard_monitor::end_pasting_operation();
                 return Err(e);
             }
@@ -227,7 +248,12 @@ pub async fn paste_files(files_data: String, window: &WebviewWindow) -> Result<(
         .map(|path| path.to_string())
         .collect();
 
-    if file_paths.is_empty() {
+    let valid_file_paths: Vec<String> = file_paths
+        .into_iter()
+        .filter(|path| std::path::Path::new(path).exists())
+        .collect();
+
+    if valid_file_paths.is_empty() {
         return Err("没有找到有效的文件路径".to_string());
     }
 
@@ -235,7 +261,7 @@ pub async fn paste_files(files_data: String, window: &WebviewWindow) -> Result<(
     crate::clipboard_monitor::start_pasting_operation();
 
     // 设置剪贴板文件
-    if let Err(e) = crate::file_handler::set_clipboard_files(&file_paths) {
+    if let Err(e) = crate::file_handler::set_clipboard_files(&valid_file_paths) {
         crate::clipboard_monitor::end_pasting_operation();
         return Err(e);
     }
@@ -263,7 +289,7 @@ pub async fn paste_files(files_data: String, window: &WebviewWindow) -> Result<(
 
 /// 处理粘贴后的窗口状态
 fn handle_window_after_paste(window: &WebviewWindow) -> Result<(), String> {
-    let is_pinned = crate::window_management::get_window_pinned();
+    let is_pinned = crate::state_manager::is_window_pinned();
     if !is_pinned {
         // 使用专门的窗口隐藏逻辑
         crate::window_management::hide_webview_window(window.clone());

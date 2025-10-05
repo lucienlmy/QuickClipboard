@@ -36,6 +36,54 @@ pub fn is_target_file_manager() -> bool {
     false
 }
 
+/// 获取当前活动窗口的进程可执行名（小写）
+#[cfg(windows)]
+pub fn get_active_window_process_name() -> Option<String> {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
+    use windows::Win32::System::Threading::{
+        OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd == HWND(0) {
+            return None;
+        }
+
+        let mut process_id: u32 = 0;
+        GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+        if process_id == 0 {
+            return None;
+        }
+
+        if let Ok(process_handle) = OpenProcess(
+            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+            false,
+            process_id,
+        ) {
+            let mut buffer = [0u16; 260];
+            let len = GetModuleFileNameExW(process_handle, None, &mut buffer);
+            if len > 0 {
+                if let Some(name) = String::from_utf16_lossy(&buffer[..len as usize])
+                    .rsplit('\\')
+                    .next()
+                {
+                    return Some(name.to_lowercase());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(not(windows))]
+pub fn get_active_window_process_name() -> Option<String> {
+    None
+}
+
 #[cfg(not(windows))]
 pub fn is_target_file_manager() -> bool {
     // 非Windows系统暂时返回false，不延迟

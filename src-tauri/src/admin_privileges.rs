@@ -88,7 +88,7 @@ pub fn restart_as_admin() -> Result<(), String> {
     Err("管理员权限功能仅在Windows平台可用".to_string())
 }
 
-/// 这个函数可以用来检测是否有管理员权限的应用程序在运行
+/// 用来检测是否有管理员权限的应用程序在运行
 #[cfg(windows)]
 pub fn check_admin_required_for_hooks() -> bool {
     true

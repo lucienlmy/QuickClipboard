@@ -1,4 +1,4 @@
-﻿// 主入口文件 - 协调各个模块
+// 主入口文件 - 协调各个模块
 
 // =================== 启动横幅 ===================
 function printStartupBanner() {
@@ -20,6 +20,7 @@ import { initThemeManager } from './js/themeManager.js';
 import './js/fileIconUtils.js';
 import './js/utils/htmlProcessor.js';
 import { initNavigation, initShortcutsHelpPanel } from './js/navigation.js';
+import { initShortcutDisplay } from './js/shortcutDisplay.js';
 import { invoke } from '@tauri-apps/api/core';
 import {
   initDOMReferences,
@@ -34,7 +35,6 @@ import {
   quickTextsSearch,
   quickTextsFilter,
   quickTextsFilterContainer,
-  oneTimePasteButton,
   isOneTimePaste
 } from './js/config.js';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -86,13 +86,13 @@ import {
 
 
 import { initInputFocusManagement } from './js/focus.js';
-import { setupWindowControls } from './js/window.js';
 import { initGroups } from './js/groups.js';
-import { initScreenshot } from './js/screenshot.js';
-import { initToolsPanel } from './js/toolsPanel.js';
+import { initToolsPanel, updateFormatButtonStatus } from './js/toolsPanel.js';
 import { initTitlebarDrag } from './js/titlebarDrag.js';
+import { initToolManager } from './js/toolManager.js';
 
 import { initExternalScrollbars } from './js/scrollbar.js';
+import { initSidebarHover } from './js/sidebarHover.js';
 import {
   initializeSettingsManager,
   initializeTheme,
@@ -123,16 +123,6 @@ async function waitForBackendInitialization() {
   }
 }
 
-// 更新一次性粘贴按钮状态
-function updateOneTimePasteButtonState() {
-  if (oneTimePasteButton) {
-    if (isOneTimePaste) {
-      oneTimePasteButton.classList.add('active');
-    } else {
-      oneTimePasteButton.classList.remove('active');
-    }
-  }
-}
 
 // 初始化应用
 async function initApp() {
@@ -141,7 +131,9 @@ async function initApp() {
   setupCustomWindowDrag();
 
   // 设置窗口动画监听器
+  const { setupWindowAnimationListeners, setupAnimationFallback } = await import('./js/windowAnimation.js');
   setupWindowAnimationListeners();
+  setupAnimationFallback();
 
   // 等待后端初始化完成，然后获取数据
   await waitForBackendInitialization();
@@ -154,6 +146,9 @@ async function initApp() {
 
   // 初始化设置管理器
   await initializeSettingsManager();
+
+  // 初始化快捷键显示
+  await initShortcutDisplay();
 
   // 更新快捷键显示
   updateShortcutDisplay();
@@ -170,6 +165,9 @@ async function initApp() {
   // 初始化分组功能（必须在常用文本之前）
   await initGroups();
 
+  // 初始化侧边栏悬停延迟功能
+  initSidebarHover();
+
   // 预先初始化虚拟列表，让用户立即看到界面结构
   renderClipboardItems();
   renderQuickTexts();
@@ -185,6 +183,17 @@ async function initApp() {
 
   // 数据获取完成后自动更新显示（refreshClipboardHistory和refreshQuickTexts内部会调用render函数）
   await dataPromise;
+
+  // 从localStorage恢复筛选状态到config.js
+  const savedClipboardFilter = localStorage.getItem('clipboard-current-filter') || 'all';
+  setCurrentFilter(savedClipboardFilter);
+  const savedQuickTextsFilter = localStorage.getItem('quicktexts-current-filter') || 'all';
+  setCurrentQuickTextsFilter(savedQuickTextsFilter);
+
+  // 根据持久化的筛选状态，在初始加载时就过滤列表
+  filterClipboardItems();
+  filterQuickTexts();
+
   // 数据渲染后刷新外置滚动条
   if (window.refreshExternalScrollbars) window.refreshExternalScrollbars();
 
@@ -212,12 +221,20 @@ async function initApp() {
     { value: 'row-height-medium', text: '中' },
     { value: 'row-height-small', text: '小' }
   ];
+  
+  // 文件样式选项
+  const fileStyleOptions = [
+    { value: 'file-style-detailed', text: '详细信息' },
+    { value: 'file-style-icons-only', text: '仅图标' }
+  ];
+  
   if (contentFilterContainer) {
     contentCustomFilter = new CustomSelect(contentFilterContainer, {
       isMenuType: true,
       enableHover: true,
       options: [
-        { value: 'row-height', text: '行高', children: rowHeightOptions }
+        { value: 'row-height', text: '行高', children: rowHeightOptions },
+        { value: 'file-style', text: '文件样式', children: fileStyleOptions }
       ],
       placeholder: '行高'
     });
@@ -228,7 +245,8 @@ async function initApp() {
       isMenuType: true,
       enableHover: true,
       options: [
-        { value: 'row-height', text: '行高', children: rowHeightOptions }
+        { value: 'row-height', text: '行高', children: rowHeightOptions },
+        { value: 'file-style', text: '文件样式', children: fileStyleOptions }
       ],
       placeholder: '行高'
     });
@@ -245,17 +263,6 @@ async function initApp() {
     updateFilterTabsActiveState(getActiveTabName(), getActiveTabName() === 'clipboard' ? clipboardFilter : quickTextsFilter);
   }, 200);
 
-  // 设置一次性粘贴按钮
-  if (oneTimePasteButton) {
-    oneTimePasteButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const newState = !isOneTimePaste;
-      setIsOneTimePaste(newState);
-      updateOneTimePasteButtonState();
-    });
-    // 初始化按钮状态
-    updateOneTimePasteButtonState();
-  }
 
   // 初始化AI翻译功能
   await initAiTranslation();
@@ -296,8 +303,6 @@ async function initApp() {
 
 
 
-  // 设置窗口控制按钮
-  setupWindowControls();
 
   // 监听剪贴板变化事件
   setupClipboardEventListener();
@@ -319,8 +324,9 @@ async function initApp() {
   // 初始化快捷键帮助面板
   initShortcutsHelpPanel();
 
-  // 初始化截屏功能
-  initScreenshot();
+
+  // 初始化统一工具管理器（需要在其他初始化之前）
+  initToolManager();
 
   // 初始化工具面板
   initToolsPanel();
@@ -343,6 +349,7 @@ async function initApp() {
   // 设置窗口大小和位置监听器
   setupWindowSizeAndPositionListeners();
 
+
 }
 
 // 设置窗口可见性监听器
@@ -363,59 +370,6 @@ function setupWindowVisibilityListener() {
   });
 }
 
-// 设置窗口动画监听器
-async function setupWindowAnimationListeners() {
-  try {
-    // console.log('开始设置窗口动画监听器...');
-    const { listen } = await import('@tauri-apps/api/event');
-
-    // 监听窗口显示动画事件
-    await listen('window-show-animation', () => {
-      // console.log('收到窗口显示动画事件');
-      playWindowShowAnimation();
-    });
-
-    // 监听窗口隐藏动画事件
-    await listen('window-hide-animation', () => {
-      // console.log('收到窗口隐藏动画事件');
-      playWindowHideAnimation();
-    });
-
-    // console.log('窗口动画监听器设置完成');
-  } catch (error) {
-    console.error('设置窗口动画监听器失败:', error);
-  }
-}
-
-// 播放窗口显示动画
-async function playWindowShowAnimation() {
-  const container = document.querySelector('body');
-  if (!container) return;
-
-  // 重置动画状态
-  container.classList.remove('window-hide-animation', 'window-show-animation');
-
-  // 强制重绘
-  container.offsetHeight;
-
-  // 添加显示动画类
-  container.classList.add('window-show-animation');
-}
-
-// 播放窗口隐藏动画
-async function playWindowHideAnimation() {
-  const container = document.querySelector('body');
-  if (!container) return;
-
-  // 重置动画状态
-  container.classList.remove('window-hide-animation', 'window-show-animation');
-
-  // 强制重绘
-  container.offsetHeight;
-
-  // 添加隐藏动画类
-  container.classList.add('window-hide-animation');
-}
 
 // 设置文件图标刷新事件监听器
 async function setupFileIconRefreshListener() {
@@ -584,4 +538,5 @@ function moveFilterTabsIndicator() {
   indicator.style.height = height + 'px';
   indicator.style.opacity = '1';
 }
+
 
