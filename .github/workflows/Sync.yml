@@ -1,4 +1,4 @@
-name: Sync Fork (Multi-branch with Auto PR & Upstream Fallback)
+name: Sync Fork (Auto PR & Upstream Fallback)
 
 on:
   schedule:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: true   # ✅ 保留 GitHub Token 凭证
           fetch-depth: 0
 
       - name: Set up Git
@@ -25,7 +25,6 @@ jobs:
 
       - name: Detect or fallback upstream repo
         run: |
-          set -e
           FALLBACK="https://github.com/原作者/仓库名.git"
           UPSTREAM=$(curl -s https://api.github.com/repos/${{ github.repository }} | jq -r '.parent.clone_url // empty')
 
@@ -39,9 +38,8 @@ jobs:
           git remote get-url upstream || git remote add upstream $UPSTREAM
           git fetch upstream
 
-      - name: Create sync branch
+      - name: Create sync branch and merge upstream
         run: |
-          set -e
           BRANCH="sync-${{ matrix.branch }}-$(date +%Y%m%d%H%M%S)"
 
           if ! git ls-remote --exit-code origin ${{ matrix.branch }} >/dev/null 2>&1; then
