@@ -127,7 +127,7 @@
 
 /* 标题栏在上方 - 面板在下方展开 */
 .titlebar-top .tools-panel {
-  top: 40px; /* 标题栏高度 */
+  top: 34px; /* 标题栏高度 */
   left: 0;
   right: 0;
   transform: translateY(-100%);
@@ -306,4 +306,37 @@
 .titlebar-left .shortcuts-help-content,
 .titlebar-right .shortcuts-help-content {
   width: calc(100% - 40px);
+}
+
+/* =================== 音乐面板位置适配 =================== */
+
+/* 标题栏在下方 */
+.titlebar-bottom .music-panel {
+  bottom: 40px;
+  top: auto;
+  min-height: calc(100vh - 90px) !important;
+}
+
+/* 标题栏在左侧 */
+.titlebar-left .music-panel {
+  top: 50px;
+  left: 50px;
+  width: calc(100vw - 60px) !important;
+  min-height: calc(100vh - 80px) !important;
+}
+.titlebar-left .title-bar .title .app-original-icon.minimized {
+  top: -12px;
+  left: -6px;
+}
+/* 标题栏在右侧  */
+.titlebar-right .music-panel {
+  top: 50px;
+  right: 50px;
+  left: auto;
+  width: calc(100vw - 60px) !important;
+  min-height: calc(100vh - 80px) !important;
+}
+.titlebar-right .title-bar .title .app-original-icon.minimized {
+  top: -12px;
+  left: 12px;
 }

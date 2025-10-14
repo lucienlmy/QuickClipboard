@@ -1,10 +1,5 @@
 /**
  * AI配置管理模块
- * 
- * 提供通用的AI配置管理功能，可以被各种AI功能复用。
- * 包括配置加载、保存、验证、模型管理等功能。
- * 
- * @module aiConfig
  */
 
 import { invoke } from '@tauri-apps/api/core';
@@ -12,19 +7,10 @@ import { emit, listen } from '@tauri-apps/api/event';
 
 /**
  * AI配置对象
- * @typedef {Object} AIConfig
- * @property {boolean} enabled - AI功能是否启用
- * @property {string} apiKey - API密钥
- * @property {string} model - AI模型名称
- * @property {string} baseUrl - API基础URL
- * @property {number} timeoutSecs - 请求超时时间（秒）
- * @property {number} temperature - 模型温度参数
- * @property {number} maxTokens - 最大输出token数量
  */
 
 /**
  * 默认AI配置
- * @type {AIConfig}
  */
 const DEFAULT_AI_CONFIG = {
   enabled: false,
@@ -38,23 +24,20 @@ const DEFAULT_AI_CONFIG = {
 
 /**
  * 当前AI配置
- * @type {AIConfig}
  */
 let currentAIConfig = { ...DEFAULT_AI_CONFIG };
 
 /**
  * AI配置变更监听器列表
- * @type {Array<Function>}
  */
 const configChangeListeners = [];
 
 /**
  * 初始化AI配置管理器
- * @returns {Promise<void>}
  */
-export async function initAIConfig() {
+export async function initAIConfig(settings = null) {
   try {
-    await loadAIConfig();
+    await loadAIConfig(settings);
     setupEventListeners();
   } catch (error) {
     console.error('AI配置管理器初始化失败:', error);
@@ -64,14 +47,15 @@ export async function initAIConfig() {
 
 /**
  * 加载AI配置
- * @returns {Promise<AIConfig>}
  */
-export async function loadAIConfig() {
+export async function loadAIConfig(settings = null) {
   try {
-    const settings = await invoke('get_settings');
+    if (!settings) {
+      settings = await invoke('get_settings');
+    }
 
     currentAIConfig = {
-      enabled: !!(settings.aiApiKey && settings.aiApiKey.trim() !== ''), // 基于API密钥是否配置来判断AI功能是否可用
+      enabled: !!(settings.aiApiKey && settings.aiApiKey.trim() !== ''),
       apiKey: settings.aiApiKey || '',
       model: settings.aiModel || DEFAULT_AI_CONFIG.model,
       baseUrl: settings.aiBaseUrl || DEFAULT_AI_CONFIG.baseUrl,
@@ -89,8 +73,6 @@ export async function loadAIConfig() {
 
 /**
  * 保存AI配置
- * @param {Partial<AIConfig>} config - 要保存的配置
- * @returns {Promise<void>}
  */
 export async function saveAIConfig(config) {
   try {
@@ -126,7 +108,6 @@ export async function saveAIConfig(config) {
 
 /**
  * 获取当前AI配置
- * @returns {AIConfig}
  */
 export function getCurrentAIConfig() {
   return { ...currentAIConfig };
@@ -134,8 +115,6 @@ export function getCurrentAIConfig() {
 
 /**
  * 验证AI配置是否有效
- * @param {AIConfig} config - 要验证的配置
- * @returns {boolean}
  */
 export function isAIConfigValid(config = currentAIConfig) {
   return !!(
@@ -154,7 +133,6 @@ export function isAIConfigValid(config = currentAIConfig) {
 
 /**
  * 获取可用的AI模型列表
- * @returns {Promise<string[]>}
  */
 export async function getAvailableAIModels() {
   try {
@@ -168,8 +146,6 @@ export async function getAvailableAIModels() {
 
 /**
  * 测试AI配置
- * @param {AIConfig} config - 要测试的配置（可选，默认使用当前配置）
- * @returns {Promise<boolean>}
  */
 export async function testAIConfig(config = null) {
   try {
@@ -188,7 +164,6 @@ export async function testAIConfig(config = null) {
 
 /**
  * 获取推荐的AI模型列表
- * @returns {string[]}
  */
 export function getRecommendedAIModels() {
   return [
@@ -208,8 +183,6 @@ export function getRecommendedAIModels() {
 
 /**
  * 获取模型的友好显示名称
- * @param {string} modelId - 模型ID
- * @returns {string}
  */
 export function getModelDisplayName(modelId) {
   const modelNames = {
@@ -237,7 +210,6 @@ export function getModelDisplayName(modelId) {
 
 /**
  * 添加配置变更监听器
- * @param {Function} listener - 监听器函数
  */
 export function addConfigChangeListener(listener) {
   if (typeof listener === 'function') {
@@ -247,7 +219,6 @@ export function addConfigChangeListener(listener) {
 
 /**
  * 移除配置变更监听器
- * @param {Function} listener - 监听器函数
  */
 export function removeConfigChangeListener(listener) {
   const index = configChangeListeners.indexOf(listener);
@@ -258,7 +229,6 @@ export function removeConfigChangeListener(listener) {
 
 /**
  * 通知配置变更
- * @param {AIConfig} config - 变更后的配置
  */
 function notifyConfigChange(config) {
   configChangeListeners.forEach(listener => {
@@ -298,7 +268,6 @@ function setupEventListeners() {
 
 /**
  * 重置AI配置为默认值
- * @returns {Promise<void>}
  */
 export async function resetAIConfig() {
   try {
@@ -311,7 +280,6 @@ export async function resetAIConfig() {
 
 /**
  * 导出AI配置
- * @returns {AIConfig}
  */
 export function exportAIConfig() {
   return { ...currentAIConfig };
@@ -319,8 +287,6 @@ export function exportAIConfig() {
 
 /**
  * 导入AI配置
- * @param {AIConfig} config - 要导入的配置
- * @returns {Promise<void>}
  */
 export async function importAIConfig(config) {
   try {

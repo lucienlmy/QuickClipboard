@@ -6,7 +6,7 @@ use std::sync::{
 };
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 
 use crate::clipboard_content::image_to_data_url;
 use crate::clipboard_history;
@@ -29,16 +29,18 @@ static MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 static LAST_CLIPBOARD_CONTENT: Lazy<Arc<Mutex<String>>> =
     Lazy::new(|| Arc::new(Mutex::new(String::new())));
 
-// 粘贴状态计数器 - 用于区分真正的复制和粘贴过程中的剪贴板设置
-// 使用计数器而不是布尔值，避免并发粘贴操作的竞态条件
+// 粘贴状态计数器
 static PASTING_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 // 上次忽略的缓存文件路径 - 避免重复检测相同的缓存文件
 static LAST_IGNORED_CACHE_FILES: Lazy<Arc<Mutex<Vec<String>>>> =
     Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
 
+// 上次处理的文件路径列表
+static LAST_FILE_PATHS: Lazy<Arc<Mutex<Vec<String>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
+
 #[cfg(windows)]
-// Windows特定的剪贴板图片获取函数，支持更多格式
 fn try_get_windows_clipboard_image() -> Option<arboard::ImageData<'static>> {
     unsafe {
         if OpenClipboard(HWND(0)).is_err() {
@@ -47,19 +49,15 @@ fn try_get_windows_clipboard_image() -> Option<arboard::ImageData<'static>> {
 
         let mut result = None;
 
-        // 尝试多种图片格式
         let formats_to_try = [
-            // PNG格式
             RegisterClipboardFormatW(w!("PNG")),
-            // DIB格式 (Device Independent Bitmap)
-            8u32, // CF_DIB
-            // Bitmap格式
-            2u32, // CF_BITMAP
+            8u32,
+            2u32,
         ];
 
         for &format in &formats_to_try {
             if format == 0 {
-                continue; // 跳过注册失败的格式
+                continue;
             }
 
             if IsClipboardFormatAvailable(format).is_ok() {
@@ -99,11 +97,8 @@ fn process_clipboard_format(
         let data_slice = std::slice::from_raw_parts(ptr as *const u8, size);
 
         let result = match format {
-            // PNG格式
             format if format == RegisterClipboardFormatW(w!("PNG")) => process_png_data(data_slice),
-            // DIB格式
             8 => process_dib_data(data_slice),
-            // 其他格式暂时跳过
             _ => None,
         };
 
@@ -141,22 +136,19 @@ fn process_dib_data(data: &[u8]) -> Option<arboard::ImageData<'static>> {
     use std::borrow::Cow;
 
     if data.len() < 40 {
-        return None; // DIB头至少40字节
+        return None; 
     }
 
-    // 解析BITMAPINFOHEADER
     let width = i32::from_le_bytes([data[4], data[5], data[6], data[7]]) as u32;
     let height_raw = i32::from_le_bytes([data[8], data[9], data[10], data[11]]);
     let height = height_raw.abs() as u32;
-    let is_bottom_up = height_raw > 0; // 正数表示bottom-up，负数表示top-down
+    let is_bottom_up = height_raw > 0;
     let bit_count = u16::from_le_bytes([data[14], data[15]]);
 
     if bit_count != 32 && bit_count != 24 {
-        println!("不支持的位深度: {}", bit_count);
         return None;
     }
 
-    // 计算像素数据偏移
     let header_size = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
     let colors_used = u32::from_le_bytes([data[32], data[33], data[34], data[35]]) as usize;
     let color_table_size = if colors_used == 0 && bit_count <= 8 {
@@ -173,26 +165,18 @@ fn process_dib_data(data: &[u8]) -> Option<arboard::ImageData<'static>> {
 
     let pixel_data = &data[pixel_offset..];
     let bytes_per_pixel = (bit_count / 8) as usize;
-    let row_size = ((width as usize * bytes_per_pixel + 3) / 4) * 4; // 4字节对齐
+    let row_size = ((width as usize * bytes_per_pixel + 3) / 4) * 4;
 
     if pixel_data.len() < row_size * height as usize {
-        println!(
-            "像素数据不足: 需要{}, 实际{}",
-            row_size * height as usize,
-            pixel_data.len()
-        );
         return None;
     }
 
     let mut rgba_data = Vec::with_capacity((width * height * 4) as usize);
 
     for y in 0..height {
-        // 根据DIB格式确定实际的行索引
         let actual_y = if is_bottom_up {
-            // bottom-up: 第0行对应DIB数据的最后一行
             height - 1 - y
         } else {
-            // top-down: 第0行对应DIB数据的第一行
             y
         };
 
@@ -203,7 +187,6 @@ fn process_dib_data(data: &[u8]) -> Option<arboard::ImageData<'static>> {
             if pixel_start + bytes_per_pixel <= pixel_data.len() {
                 match bit_count {
                     32 => {
-                        // DIB中的BGRA格式，转换为RGBA
                         let b = pixel_data[pixel_start];
                         let g = pixel_data[pixel_start + 1];
                         let r = pixel_data[pixel_start + 2];
@@ -211,19 +194,14 @@ fn process_dib_data(data: &[u8]) -> Option<arboard::ImageData<'static>> {
                         rgba_data.extend_from_slice(&[r, g, b, a]);
                     }
                     24 => {
-                        // DIB中的BGR格式，转换为RGBA并添加alpha通道
                         let b = pixel_data[pixel_start];
                         let g = pixel_data[pixel_start + 1];
                         let r = pixel_data[pixel_start + 2];
-                        rgba_data.extend_from_slice(&[r, g, b, 255]); // 完全不透明
+                        rgba_data.extend_from_slice(&[r, g, b, 255]);
                     }
-                    _ => {
-                        // 不支持的格式，使用白色像素
-                        rgba_data.extend_from_slice(&[255, 255, 255, 255]);
-                    }
+                    _ => rgba_data.extend_from_slice(&[255, 255, 255, 255]),
                 }
             } else {
-                // 数据不足，使用白色像素
                 rgba_data.extend_from_slice(&[255, 255, 255, 255]);
             }
         }
@@ -236,9 +214,7 @@ fn process_dib_data(data: &[u8]) -> Option<arboard::ImageData<'static>> {
     })
 }
 
-// 启动剪贴板监听器
 pub fn start_clipboard_monitor(app_handle: AppHandle) {
-    // 如果已经在运行，直接返回
     if MONITOR_RUNNING.load(Ordering::Relaxed) {
         println!("剪贴板监听器已在运行");
         return;
@@ -247,14 +223,11 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
     MONITOR_RUNNING.store(true, Ordering::Relaxed);
     println!("启动剪贴板监听器");
 
-    // 在后台线程中运行监听循环
     thread::spawn(move || {
         clipboard_monitor_loop(app_handle);
     });
 }
 
-
-// 剪贴板监听循环
 fn clipboard_monitor_loop(app_handle: AppHandle) {
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
@@ -278,45 +251,67 @@ fn clipboard_monitor_loop(app_handle: AppHandle) {
             continue;
         }
 
-        // 尝试获取剪贴板内容
         let current_content = get_clipboard_content(&mut clipboard);
 
         if let Some((content, html_content)) = current_content {
-            // 检查内容是否发生变化
             let mut last_content = LAST_CLIPBOARD_CONTENT.lock().unwrap();
             if *last_content != content {
-                // println!("检测到剪贴板内容变化");
 
-                // 更新最后的内容
                 *last_content = content.clone();
-                drop(last_content); // 释放锁
+                drop(last_content); 
 
-                // 添加到历史记录，并检查是否真的添加了新内容
-                // 如果正在粘贴，不移动重复内容的位置
+                let is_existing = matches!(
+                    crate::database::clipboard_item_exists(&content),
+                    Ok(Some(_))
+                );
+
                 let move_duplicates = !is_pasting_internal();
                 let was_added =
                     clipboard_history::add_to_history_with_check_and_move_html(content, html_content, move_duplicates);
 
-                // 只有在真正添加了新内容且非粘贴状态下才播放复制音效
-                if was_added && !is_pasting_internal() {
+                if was_added && !is_pasting_internal() && !is_existing {
                     crate::sound_manager::play_copy_sound();
                 }
 
-                // 发射事件通知前端
-                if let Err(e) = app_handle.emit("clipboard-changed", ()) {
-                    println!("发射剪贴板变化事件失败: {}", e);
+                if was_added {
+                    if let Ok(items) = crate::database::get_clipboard_history(Some(1)) {
+                        if let Some(latest_item) = items.first() {
+                            use tauri::Emitter;
+                            #[derive(Clone, serde::Serialize)]
+                            struct ClipboardUpdatePayload {
+                                item: crate::database::ClipboardItem,
+                                is_new: bool,
+                            }
+                            
+                            if is_existing {
+                                let payload = ClipboardUpdatePayload {
+                                    item: latest_item.clone(),
+                                    is_new: false,
+                                };
+                                
+                                if let Err(e) = app_handle.emit("clipboard-item-moved", payload) {
+                                    println!("发射剪贴板移动事件失败: {}", e);
+                                }
+                            } else {
+                                let payload = ClipboardUpdatePayload {
+                                    item: latest_item.clone(),
+                                    is_new: true,
+                                };
+                                
+                                if let Err(e) = app_handle.emit("clipboard-item-added", payload) {
+                                    println!("发射剪贴板新增事件失败: {}", e);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // 等待一段时间再检查
         thread::sleep(Duration::from_millis(200));
     }
-
-    println!("剪贴板监听循环结束");
 }
 
-// Windows HTML剪贴板读取函数
 #[cfg(windows)]
 fn try_get_windows_clipboard_html() -> Option<String> {
     unsafe {
@@ -326,7 +321,6 @@ fn try_get_windows_clipboard_html() -> Option<String> {
 
         let mut result = None;
 
-        // 注册HTML格式
         let html_format = RegisterClipboardFormatW(w!("HTML Format"));
 
         if html_format != 0 && IsClipboardFormatAvailable(html_format).is_ok() {
@@ -353,12 +347,8 @@ fn try_get_windows_clipboard_html() -> Option<String> {
     }
 }
 
-
-
-// 从Windows HTML格式中提取HTML片段
 #[cfg(windows)]
 fn extract_html_fragment(html_format: &str) -> String {
-    // Windows HTML格式包含头部信息，需要提取实际的HTML内容
     if let Some(start_fragment_pos) = html_format.find("StartFragment:") {
         if let Some(end_fragment_pos) = html_format.find("EndFragment:") {
             let start_line = &html_format[start_fragment_pos..];
@@ -379,7 +369,6 @@ fn extract_html_fragment(html_format: &str) -> String {
         }
     }
     
-    // 如果无法解析头部信息，尝试查找<html>或其他HTML标签
     if html_format.contains("<html") || html_format.contains("<HTML") {
         if let Some(html_start) = html_format.find("<html") {
             return html_format[html_start..].to_string();
@@ -389,44 +378,45 @@ fn extract_html_fragment(html_format: &str) -> String {
         }
     }
     
-    // 最后尝试查找任何HTML标签
     if html_format.contains('<') && html_format.contains('>') {
         return html_format.to_string();
     }
     
-    // 如果都没找到，返回原始内容
     html_format.to_string()
 }
 
-// 获取剪贴板内容（文本、HTML、图片或文件）
 fn get_clipboard_content(clipboard: &mut Clipboard) -> Option<(String, Option<String>)> {
-    // 首先尝试获取文件
     if let Ok(file_paths) = crate::file_handler::get_clipboard_files() {
         if !file_paths.is_empty() {
-            // 检查是否所有文件都来自图片缓存目录
             let all_from_cache = file_paths.iter().all(|path| is_from_image_cache(path));
 
-            // 如果所有文件都来自图片缓存目录，检查是否与上次相同
             if all_from_cache {
                 let mut last_ignored = LAST_IGNORED_CACHE_FILES.lock().unwrap();
 
-                // 检查文件路径是否与上次相同
                 let paths_changed = last_ignored.len() != file_paths.len()
                     || !file_paths.iter().all(|path| last_ignored.contains(path));
 
                 if paths_changed {
-                    // 文件路径发生了变化，更新记录
                     *last_ignored = file_paths.clone();
                 }
-                // 无论是否变化，都忽略这次剪贴板变化
                 return None;
             } else {
-                // 不是缓存文件，清空上次忽略的记录
                 let mut last_ignored = LAST_IGNORED_CACHE_FILES.lock().unwrap();
                 last_ignored.clear();
             }
 
-            // 处理文件列表
+            {
+                let mut last_paths = LAST_FILE_PATHS.lock().unwrap();
+                let paths_changed = last_paths.len() != file_paths.len()
+                    || !file_paths.iter().all(|path| last_paths.contains(path));
+                
+                if !paths_changed {
+                    return None;
+                }
+
+                *last_paths = file_paths.clone();
+            }
+
             let mut file_infos = Vec::new();
             for path in &file_paths {
                 if let Ok(file_info) = crate::file_handler::get_file_info(path) {
@@ -440,7 +430,6 @@ fn get_clipboard_content(clipboard: &mut Clipboard) -> Option<(String, Option<St
                     operation: "copy".to_string(),
                 };
 
-                // 序列化文件数据
                 if let Ok(json_str) = serde_json::to_string(&file_data) {
                     return Some((format!("files:{}", json_str), None));
                 }
@@ -448,127 +437,189 @@ fn get_clipboard_content(clipboard: &mut Clipboard) -> Option<(String, Option<St
         }
     }
 
-    // 尝试获取文本和HTML
     if let Ok(text) = clipboard.get_text() {
-        // 过滤空白内容：检查去除空白字符后是否为空
         if !text.is_empty() && !text.trim().is_empty() {
-            // 尝试获取HTML格式
+            if let Ok(mut last_paths) = LAST_FILE_PATHS.lock() {
+                last_paths.clear();
+            }
+            
             #[cfg(windows)]
             let html_content = try_get_windows_clipboard_html();
             #[cfg(not(windows))]
             let html_content = None;
             
-            // 直接使用系统提供的纯文本
             return Some((text, html_content));
         }
     }
 
-    // 尝试获取图片
     if clipboard_history::is_save_images() {
-        // 尝试Windows特定的方法获取图片
         #[cfg(windows)]
         if let Some(img) = try_get_windows_clipboard_image() {
-            let data_url = image_to_data_url(&img);
-
-            // 尝试使用图片管理器保存图片
-            if let Ok(image_manager) = get_image_manager() {
-                if let Ok(manager) = image_manager.lock() {
-                    match manager.save_image(&data_url) {
-                        Ok(image_info) => {
-                            return Some((format!("image:{}", image_info.id), None));
-                        }
-                        Err(e) => {
-                            println!("保存图片失败: {}, 使用原始data URL", e);
-                            return Some((data_url, None));
-                        }
-                    }
-                }
+            if let Ok(mut last_paths) = LAST_FILE_PATHS.lock() {
+                last_paths.clear();
             }
-            return Some((data_url, None));
+            return save_image_optimized(&img);
         }
 
-        // 回退到arboard方法
         if let Ok(img) = clipboard.get_image() {
-            println!(
-                "通过arboard成功获取剪贴板图片: {}x{}",
-                img.width, img.height
-            );
-            // 将图片转换为 data URL
-            let data_url = image_to_data_url(&img);
-
-            // 尝试使用图片管理器保存图片
-            if let Ok(image_manager) = get_image_manager() {
-                if let Ok(manager) = image_manager.lock() {
-                    match manager.save_image(&data_url) {
-                        Ok(image_info) => {
-                            // 返回图片引用而不是完整的data URL
-                            return Some((format!("image:{}", image_info.id), None));
-                        }
-                        Err(e) => {
-                            println!("保存图片失败: {}, 使用原始data URL", e);
-                            return Some((data_url, None));
-                        }
-                    }
-                }
+            if let Ok(mut last_paths) = LAST_FILE_PATHS.lock() {
+                last_paths.clear();
             }
-
-            // 如果图片管理器不可用，回退到原始方式
-            return Some((data_url, None));
+            return save_image_optimized(&img);
         }
     }
 
     None
 }
 
+#[cfg(windows)]
+fn try_get_raw_clipboard_image_data() -> Option<(Vec<u8>, Vec<u8>, u32, u32)> {
+    use windows::Win32::System::DataExchange::*;
+    use windows::Win32::Foundation::*;
+    use windows::Win32::System::Memory::*;
+    
+    use crate::clipboard_content::CLIPBOARD_LOCK;
+    let _lock = CLIPBOARD_LOCK.lock().ok()?;
+    
+    unsafe {
+        if OpenClipboard(HWND(0)).is_err() {
+            return None;
+        }
 
-// 开始粘贴操作 - 增加粘贴计数器
+        struct ClipboardGuard;
+        impl Drop for ClipboardGuard {
+            fn drop(&mut self) {
+                unsafe {
+                    let _ = CloseClipboard();
+                }
+            }
+        }
+        let _guard = ClipboardGuard;
+
+        let mut bgra_data: Option<Vec<u8>> = None;
+        let mut png_data: Option<Vec<u8>> = None;
+        let mut width: u32 = 0;
+        let mut height: u32 = 0;
+
+        const CF_DIB: u32 = 8;
+        if IsClipboardFormatAvailable(CF_DIB).is_ok() {
+            if let Ok(handle) = GetClipboardData(CF_DIB) {
+                if handle.0 != 0 {
+                    let hglobal = HGLOBAL(handle.0 as *mut std::ffi::c_void);
+                    let size = GlobalSize(hglobal);
+                    if size > 0 {
+                        let ptr = GlobalLock(hglobal);
+                        if !ptr.is_null() {
+                            let data_slice = std::slice::from_raw_parts(ptr as *const u8, size);
+                            
+                            if data_slice.len() >= 40 {
+                                width = i32::from_le_bytes([data_slice[4], data_slice[5], data_slice[6], data_slice[7]]) as u32;
+                                let height_raw = i32::from_le_bytes([data_slice[8], data_slice[9], data_slice[10], data_slice[11]]);
+                                height = height_raw.abs() as u32;
+                                
+                                bgra_data = Some(data_slice.to_vec());
+                            }
+                            
+                            let _ = GlobalUnlock(hglobal);
+                        }
+                    }
+                }
+            }
+        }
+
+        let png_format = RegisterClipboardFormatW(w!("PNG"));
+        if IsClipboardFormatAvailable(png_format).is_ok() {
+            if let Ok(handle) = GetClipboardData(png_format) {
+                if handle.0 != 0 {
+                    let hglobal = HGLOBAL(handle.0 as *mut std::ffi::c_void);
+                    let size = GlobalSize(hglobal);
+                    if size > 0 {
+                        let ptr = GlobalLock(hglobal);
+                        if !ptr.is_null() {
+                            let data_slice = std::slice::from_raw_parts(ptr as *const u8, size);
+                            png_data = Some(data_slice.to_vec());
+                            let _ = GlobalUnlock(hglobal);
+                        }
+                    }
+                }
+            }
+        }
+
+        if let (Some(bgra), Some(png)) = (bgra_data, png_data) {
+            if width > 0 && height > 0 {
+                return Some((bgra, png, width, height));
+            }
+        }
+
+        None
+    }
+}
+
+fn save_image_optimized(img: &arboard::ImageData) -> Option<(String, Option<String>)> {
+    #[cfg(windows)]
+    {
+        if let Some((bgra_data, png_data, width, height)) = try_get_raw_clipboard_image_data() {
+            if let Ok(image_manager) = get_image_manager() {
+                if let Ok(manager) = image_manager.lock() {
+                    if let Ok(image_id) = manager.save_image_from_raw_data(width, height, bgra_data, png_data) {
+                        return Some((format!("image:{}", image_id), None));
+                    }
+                }
+            }
+        }
+    }
+    
+    let rgba_data = img.bytes.to_vec();
+    if let Ok(image_manager) = get_image_manager() {
+        if let Ok(manager) = image_manager.lock() {
+            if let Ok(image_id) = manager.save_image_from_rgba_sync(img.width, img.height, &rgba_data) {
+                return Some((format!("image:{}", image_id), None));
+            }
+        }
+    }
+    
+    Some((image_to_data_url(img), None))
+}
+
 pub fn start_pasting_operation() {
     PASTING_COUNT.fetch_add(1, Ordering::Relaxed);
 }
 
-// 结束粘贴操作 - 减少粘贴计数器
 pub fn end_pasting_operation() {
     PASTING_COUNT.fetch_sub(1, Ordering::Relaxed);
 }
 
-// 检查是否正在粘贴（内部使用）
 fn is_pasting_internal() -> bool {
     PASTING_COUNT.load(Ordering::Relaxed) > 0
 }
 
-// 检查是否正在粘贴（公开接口）
 pub fn is_currently_pasting() -> bool {
     PASTING_COUNT.load(Ordering::Relaxed) > 0
 }
 
-// 初始化最后的剪贴板内容，避免启动时重复添加
 pub fn initialize_last_content(content: String) {
     if let Ok(mut last_content) = LAST_CLIPBOARD_CONTENT.lock() {
         *last_content = content;
     }
 }
 
-// 初始化剪贴板状态 - 获取当前剪贴板内容并添加到历史记录，同时初始化监听器状态
 pub fn initialize_clipboard_state() {
     if let Ok(mut clipboard) = Clipboard::new() {
-        // 使用与监听器相同的逻辑获取剪贴板内容
         if let Some((content, html_content)) = get_clipboard_content(&mut clipboard) {
-            // 过滤空白内容：检查去除空白字符后是否为空
             if !content.trim().is_empty() {
-                // 使用与监听器相同的逻辑：检查重复并决定是否添加/移动
-                // 初始化时不移动重复内容，只是确保内容在历史记录中
                 let _was_added =
                     clipboard_history::add_to_history_with_check_and_move_html(content.clone(), html_content, false);
-                // 初始化监听器的最后内容，避免重复添加
                 initialize_last_content(content);
             }
         }
     }
 }
 
-// 检查文件路径是否来自图片缓存目录
 fn is_from_image_cache(file_path: &str) -> bool {
-    // 获取图片缓存目录路径
+    if file_path.contains("scrolling_screenshots") || file_path.contains("pin_images") {
+        return false;
+    }
+    
     if let Some(app_data_dir) = dirs::data_local_dir() {
         let cache_dir = app_data_dir.join("quickclipboard").join("clipboard_images");
         if let Ok(cache_path) = cache_dir.canonicalize() {

@@ -10,111 +10,10 @@ import {
   confirmCallback,
   setConfirmCallback
 } from './config.js';
+import { showNotification } from './notificationManager.js';
 
-// 显示通知消息
-export function showNotification(message, type = 'info', duration = 3000) {
-  // 移除已存在的通知，避免堆叠
-  const existingNotifications = document.querySelectorAll('.notification');
-  existingNotifications.forEach(n => {
-    if (n.parentNode) {
-      n.parentNode.removeChild(n);
-    }
-  });
-
-  // 创建通知元素
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-
-  // 创建图标
-  const icon = document.createElement('i');
-  if (type === 'success') {
-    icon.className = 'ti ti-check';
-  } else if (type === 'error') {
-    icon.className = 'ti ti-alert-circle';
-  } else if (type === 'warning') {
-    icon.className = 'ti ti-alert-triangle';
-  } else {
-    icon.className = 'ti ti-info-circle';
-  }
-
-  // 创建消息文本
-  const messageSpan = document.createElement('span');
-  messageSpan.textContent = message;
-
-  // 组装通知内容
-  notification.appendChild(icon);
-  notification.appendChild(messageSpan);
-
-  // 添加样式
-  notification.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 999999999;
-    opacity: 0;
-    transform: translateX(100%);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(10px);
-    max-width: 300px;
-    word-wrap: break-word;
-  `;
-
-  // 根据类型设置背景色和边框
-  if (type === 'success') {
-    notification.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-    notification.style.border = '1px solid rgba(40, 167, 69, 0.3)';
-  } else if (type === 'error') {
-    notification.style.background = 'linear-gradient(135deg, #dc3545, #e74c3c)';
-    notification.style.border = '1px solid rgba(220, 53, 69, 0.3)';
-  } else if (type === 'warning') {
-    notification.style.background = 'linear-gradient(135deg, #ffc107, #ffb300)';
-    notification.style.border = '1px solid rgba(255, 193, 7, 0.3)';
-    notification.style.color = '#212529';
-  } else {
-    notification.style.background = 'linear-gradient(135deg, #4a89dc, #007bff)';
-    notification.style.border = '1px solid rgba(74, 137, 220, 0.3)';
-  }
-
-  // 添加到页面
-  document.body.appendChild(notification);
-
-  // 显示动画
-  setTimeout(() => {
-    notification.style.opacity = '1';
-    notification.style.transform = 'translateX(0)';
-  }, 10);
-
-  // 自动隐藏
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 300);
-  }, duration);
-
-  // 点击关闭
-  notification.addEventListener('click', () => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 300);
-  });
-}
+// 导出统一的通知函数
+export { showNotification };
 
 // 设置标签页切换
 export function setupTabSwitching() {
@@ -168,7 +67,7 @@ export function setupTabSwitching() {
 
       import('./navigation.js').then(module => {
         module.onTabSwitch();
-      });
+      }).catch(console.error);
 
       notifyPreviewWindowTabChange(tabName);
 
@@ -202,6 +101,7 @@ async function notifyPreviewWindowTabChange(tabName) {
     });
   } catch (error) {
     // 预览窗口可能未打开，忽略错误
+    console.debug('通知预览窗口标签切换失败:', error);
   }
 }
 

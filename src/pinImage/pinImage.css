@@ -1,0 +1,74 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    position: relative;
+    border: none !important;
+    height: 100vh;
+    width: 100vw;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+    transition: outline-color 0.15s;
+    z-index: 999;
+}
+
+body:hover::after {
+    outline-color: #328DFC;
+}
+
+#pinImage {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: fill;
+    cursor: move;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    -webkit-font-smoothing: subpixel-antialiased;
+}
+
+.size-indicator {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 12px;
+    font-family: 'Segoe UI', sans-serif;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1000;
+    line-height: 1.5;
+    cursor: default;
+}
+
+.size-indicator.show {
+    opacity: 1;
+    pointer-events: auto;
+}

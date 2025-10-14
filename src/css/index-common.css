@@ -25,17 +25,30 @@ body {
   line-height: 1.5;
   font-weight: 400;
 
-  /* 初始状态 - 完全收起 */
-  transform: scaleY(0);
-  transform-origin: top center;
+  /* 初始状态 */
   opacity: 0;
+  height: 0;
+  max-height: 0;
+  overflow: hidden;
 
-  transition: all var(--transition-duration) ease;
+  transition: none;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+  
+  /* 500ms后自动回退为可见状态（避免永远不可见） */
+  animation: fallbackJsShow 0.01s ease 0.5s forwards;
+}
+
+/* 回退动画 - 确保界面最终可见 */
+@keyframes fallbackJsShow {
+  to {
+    height: 100vh;
+    max-height: 100vh;
+    opacity: 1;
+  }
 }
 
 /* =================== CSS变量定义 =================== */
@@ -85,48 +98,16 @@ body {
   --z-overlay: 10;
 
   /* 筛选激活 */
-  --filter-active-color: rgba(70, 135, 215, 0.8);
+  --filter-active-color: rgba(0, 114, 253, 0.8);
 
   /* 模糊度 */
   --blur-radius: 5px;
 }
 
-/* =================== 窗口动画 =================== */
-@keyframes scrollDown {
-  0% {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-
-  30% {
-    transform: scaleY(0.3);
-    opacity: 0.3;
-  }
-
-  100% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-}
-
-@keyframes scrollUp {
-  0% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-}
-
-.window-show-animation {
-  animation: scrollDown 0.3s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-}
-
-.window-hide-animation {
-  animation: scrollUp 0.2s cubic-bezier(0.755, 0.05, 0.855, 0.06) forwards;
+/* =================== 窗口动画（JavaScript控制） =================== */
+.js-animating {
+  /* 动画进行中的状态标记 */
+  overflow: hidden;
 }
 
 /* =================== 标题栏 =================== */
@@ -134,10 +115,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--padding-medium) var(--padding-large);
+  padding: var(--padding-small) var(--padding-large);
   border-radius: var(--border-radius-large) var(--border-radius-large) 0 0;
   cursor: grab;
   z-index: var(--z-root);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 0px;
 }
 
 .title-bar:active {
@@ -145,20 +128,8 @@ body {
 }
 
 .title {
-  font-weight: 600;
-  font-size: 16px;
   display: flex;
   align-items: center;
-  gap: 2px;
-  font-family: "Comic Sans MS", "Marker Felt", cursive;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  pointer-events: none;
-  /* 立体字体 */
-  text-shadow:
-    0 0 1px rgba(0, 0, 0, 0.55),
-    0 1px 2px rgba(0, 0, 0, 0.35),
-    0 0 1px rgba(255, 255, 255, 0.25);
 }
 
 .controls {
@@ -168,7 +139,7 @@ body {
   right: 8px;
   z-index: var(--z-controls);
   justify-content: flex-end;
-  min-width: 50%;
+  min-width: 85%;
   backdrop-filter: blur(10px);
 }
 
@@ -222,6 +193,7 @@ body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  top: 0;
 }
 
 .tool-item {
@@ -278,7 +250,8 @@ body {
   box-sizing: border-box;
   border-radius: 0 0 var(--border-radius-large) var(--border-radius-large);
   cursor: grab;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-top: 0px;
 }
 
 .container:active {
@@ -392,7 +365,7 @@ body {
   display: flex;
   gap: var(--padding-medium);
   align-items: center;
-  z-index:99 !important;
+  z-index: 99 !important;
 }
 
 #search-input,
@@ -656,6 +629,7 @@ body {
   margin-bottom: var(--padding-medium);
   gap: 6px;
   border: 1px solid var(--primary-light);
+  flex-wrap: nowrap;
 }
 
 .tab-switch-group {
@@ -665,6 +639,7 @@ body {
   flex: 1 1 50%;
   min-width: 0;
   position: relative;
+  white-space: nowrap;
 }
 
 /* 标签页滑动指示器 */
@@ -951,7 +926,7 @@ body {
 .clipboard-item:hover,
 .quick-text-item:hover {
   cursor: grab;
-  transform: translateY(-3px);
+  /* transform: translateY(-3px); */
 }
 
 .clipboard-item:active,
@@ -971,9 +946,9 @@ body {
   color: white;
   border-color: #108FEB;
   box-shadow: 0 0 0 2px rgba(16, 143, 235, 0.3);
-  transform: scale(0.98);
-  transition: all 0.1s ease;
-  font-weight: bold;
+  /* transform: scale(0.98); */
+  /* transition: all 0.1s ease; */
+  /* font-weight: bold; */
 }
 
 .clipboard-item.keyboard-selected:hover,
@@ -1093,7 +1068,77 @@ body {
   image-rendering: crisp-edges;
 }
 
-/* =================== 文件列表样式 =================== */
+/* =================== 图片懒加载优化 =================== */
+.clipboard-image,
+.quick-text-image,
+.file-icon {
+  transform: translateZ(0);
+  will-change: opacity;
+  content-visibility: auto;
+}
+
+/* 加载中状态 */
+.image-loading {
+  background: linear-gradient(
+    90deg,
+    rgba(240, 240, 240, 0.8) 25%,
+    rgba(250, 250, 250, 0.9) 50%,
+    rgba(240, 240, 240, 0.8) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 已加载状态 */
+.image-loaded {
+  animation: fadeIn 0.4s ease-out;
+  opacity: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 加载失败状态 */
+.image-error {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+/* 针对大图片的特殊优化 */
+.clipboard-image.lazy,
+.quick-text-image.lazy {
+  contain: layout style paint;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* 减少重绘 */
+.clipboard-item,
+.quick-text-item {
+  contain: layout style paint;
+  content-visibility: auto;
+}
+
+/* 默认文件容器样式（详细信息模式） */
 .clipboard-files {
   display: flex;
   flex-direction: column;
@@ -1115,6 +1160,9 @@ body {
   border-radius: var(--border-radius-small);
   border: 0.1px solid transparent;
   transition: all var(--transition-duration) ease;
+  align-items: center;
+  justify-content: center;
+  position: relative; /* 为提示信息定位 */
 }
 
 .file-icon {
@@ -1154,6 +1202,56 @@ body {
   text-overflow: ellipsis;
 }
 
+/* 不存在的文件样式 */
+.file-item.file-not-exist {
+  opacity: 0.8;
+  cursor: not-allowed;
+  pointer-events: none; /* 禁止点击等交互 */
+}
+
+/* 详细模式下的样式 */
+.file-style-detailed .file-item.file-not-exist .file-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--color-text-error, #ff4d4f);
+}
+
+.file-style-detailed .file-item.file-not-exist::after {
+  content: '源文件不存在';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--color-text-error, #ff4d4f);
+  background-color: var(--color-bg-error-light, rgba(255, 77, 79, 0.1));
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+/* 仅图标模式下的样式 */
+.file-style-icons-only .file-item.file-not-exist {
+  position: relative; /* 确保伪元素可以定位 */
+  border: 2px dashed #ff4d4f;
+  box-shadow: 0 0 5px rgba(255, 77, 79, 0.3);
+}
+
+.file-style-icons-only .file-item.file-not-exist::after {
+  content: '🚫'; 
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 14px;
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
 .file-more {
   font-size: 11px;
   text-align: center;
@@ -1183,6 +1281,35 @@ body {
   line-height: 1.3;
 }
 
+/* =================== 文件样式 - 详细信息（默认样式） */
+/* 文件样式 - 仅图标 */
+/* 保持滚动条在左侧 */
+.file-style-icons-only .clipboard-files,
+.file-style-icons-only .files-container {
+  direction: rtl !important;
+  overflow-y: auto !important;
+}
+
+/* 内部包装层，确保内容从左到右排列 */
+.file-style-icons-only .clipboard-files-inner {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 4px;
+  padding: 8px;
+  max-height: none !important;
+  overflow-y: visible !important;
+  justify-content: center;
+  align-items: center;
+  direction: ltr !important;
+  padding: 0;
+}
+
+.file-style-icons-only .file-info {
+  display: none;
+}
+.file-style-icons-only .file-item {
+  padding: 20px !important;
+}
 /* =================== 分组标签样式 =================== */
 .group-badge {
   position: absolute;
@@ -1457,7 +1584,7 @@ body {
   right: 0;
   padding: 4px 10px;
   transition: all var(--transition-slow) ease;
-  z-index: 99 ;
+  z-index: 99;
   /* overflow: hidden; */
   border-radius: 0 0 8px 8px;
   cursor: grab;
@@ -1490,13 +1617,9 @@ body {
   font-size: 16px;
   color: red;
   transition: all var(--transition-duration) ease;
-  cursor: help;
+  cursor: pointer;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.01);
-}
-
-.shortcuts-help-icon:hover {
-  color: #007acc;
 }
 
 .shortcuts-help-content {
@@ -1519,7 +1642,6 @@ body {
   backdrop-filter: blur(var(--blur-radius));
 }
 
-.shortcuts-help-content:hover,
 .shortcuts-help-content.visible {
   opacity: 1;
   visibility: visible;
@@ -1723,7 +1845,7 @@ body {
   right: 0;
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(58, 128, 249, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(var(--blur-radius));
 }
 
@@ -1737,8 +1859,8 @@ body {
 
 .external-scrollbar__thumb {
   position: absolute;
-  left: -1.6px;
-  width: 140%;
+  left: 0px;
+  width: 100%;
   min-height: 20px;
   border-radius: 3px;
   background: rgba(58, 128, 249, 0.5);
@@ -2006,12 +2128,6 @@ body {
   cursor: pointer;
 }
 
-.sidebar-trigger:hover+.groups-sidebar:not(.pinned),
-.groups-sidebar:not(.pinned):hover {
-  z-index: var(--z-tooltip);
-  transform: translateX(0);
-  right: 0;
-}
 
 .groups-sidebar.pinned {
   transform: translateX(0) !important;
@@ -2178,33 +2294,6 @@ body {
   border: 2px dashed #1890ff !important;
 }
 
-/* =================== 右键菜单样式 =================== */
-.context-menu {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  border: 1px solid transparent;
-  border-radius: var(--border-radius-large);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
-}
-
-.context-menu-item {
-  transition: background-color 0.15s ease;
-  border-bottom: 1px solid #f5f5f5;
-}
-
-.context-menu-item:last-child {
-  border-bottom: none;
-}
-
-.context-menu-item:hover {
-  background-color: #f8f9fa !important;
-}
-
-.context-menu-item i {
-  width: 16px;
-  height: 16px;
-  opacity: 0.7;
-}
 
 /* =================== 加载指示器样式 =================== */
 .loading-indicator {
@@ -2306,10 +2395,15 @@ body {
   -webkit-box-orient: unset !important;
   overflow: auto;
   direction: rtl;
+  position: relative;
+  contain: layout style;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .clipboard-html>* {
   direction: ltr !important;
+  position: static !important;
 }
 
 .clipboard-html div {
@@ -2318,6 +2412,9 @@ body {
 
 .clipboard-html * {
   pointer-events: auto;
+  max-width: 100% !important;
+  float: none !important;
+  position: static !important;
 }
 
 .clipboard-html a * {
@@ -2326,18 +2423,21 @@ body {
 
 /* =================== 常用文本HTML内容样式 =================== */
 .quick-text-html {
-  /* 重置白空格处理，让HTML正常渲染 */
   white-space: normal !important;
-  /* 取消line-clamp限制以正确显示HTML */
   display: block !important;
   -webkit-line-clamp: unset !important;
   -webkit-box-orient: unset !important;
   overflow: auto;
   direction: rtl;
+  position: relative;
+  contain: layout style;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .quick-text-html>* {
   direction: ltr !important;
+  position: static !important;
 }
 
 .quick-text-html div {
@@ -2346,6 +2446,9 @@ body {
 
 .quick-text-html * {
   pointer-events: auto;
+  max-width: 100% !important;
+  float: none !important;
+  position: static !important;
 }
 
 .quick-text-html a * {
@@ -2405,7 +2508,7 @@ body.dragging .title-bar {
   transition: all 0.2s ease;
 }
 
-/* Sortable 拖拽样式 - 简化并确保高层级 */
+/* Sortable 拖拽样式 */
 .sortable-ghost {
   opacity: 0.3;
   background: var(--primary-color) !important;
@@ -2415,7 +2518,6 @@ body.dragging .title-bar {
 
 .sortable-chosen {
   cursor: grabbing !important;
-  z-index: 10002 !important;
   position: relative;
 }
 
@@ -2423,7 +2525,6 @@ body.dragging .title-bar {
   opacity: 0.9;
   transform: rotate(2deg);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-  z-index: 10002 !important;
   position: relative;
 }
 
@@ -2479,7 +2580,7 @@ body.dragging .tools-panel-content {
 /* 拖拽目标容器样式 - 绿色边框表示可放置 */
 body.dragging .controls.drag-target,
 body.dragging .tools-panel-content.drag-target {
-  border: 2px dashed var(--primary-green) !important;
+  border: 1px dashed var(--primary-green) !important;
   background: rgba(42, 235, 49, 0.1) !important;
   border-radius: 6px !important;
   transition: all 0.2s ease !important;
@@ -2495,7 +2596,7 @@ body.dragging .tools-panel-content.drag-target:hover {
 /* 拖拽源容器样式 - 蓝色边框表示当前拖拽来源 */
 body.dragging .controls.drag-source,
 body.dragging .tools-panel-content.drag-source {
-  border: 2px dashed var(--primary-color) !important;
+  border: 1px dashed var(--primary-color) !important;
   background: rgba(74, 137, 220, 0.1) !important;
   border-radius: 6px !important;
   transition: all 0.2s ease !important;
@@ -2506,4 +2607,50 @@ body.dragging .tools-panel-content.drag-source:hover {
   border-color: var(--primary-hover) !important;
   background: rgba(74, 137, 220, 0.2) !important;
   box-shadow: 0 0 10px rgba(74, 137, 220, 0.3) !important;
+}
+
+/* =================== 颜色预览样式 =================== */
+.color-preview-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  vertical-align: middle;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.color-preview-swatch {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.color-preview-value {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.clipboard-text .color-preview-container,
+.quick-text-content .color-preview-container {
+  margin: 0 2px;
+  display: inline-flex;
+}
+
+.clipboard-text > div,
+.quick-text-content > div {
+  display: flex;
+  align-items: center;
 }

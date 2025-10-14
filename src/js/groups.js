@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { setCurrentTab } from './config.js';
-import { showAlertModal, showConfirmModal, showNotification } from './ui.js';
+import { showNotification } from './notificationManager.js';
+import { showConfirmModal, showAlertModal } from './ui.js';
 
 // 分组相关的全局状态
 let groups = [];
@@ -326,6 +327,11 @@ function pinGroupSidebar() {
     pinGroupBtn.title = '固定侧边栏';
     pinGroupBtn.innerHTML = '<i class="ti ti-pin"></i>';
   }
+  
+  // 更新侧边栏悬停行为
+  import('./sidebarHover.js').then(module => {
+    module.updateSidebarHoverBehavior();
+  });
 }
 
 // 显示分组模态框

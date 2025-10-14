@@ -277,7 +277,6 @@ export function applyTitleBarColors(colors) {
   if (colors.accentLight) document.documentElement.style.setProperty('--primary-light', colors.accentLight);
   if (colors.accentDark) document.documentElement.style.setProperty('--primary-dark', colors.accentDark);
   document.body.classList.add('has-dynamic-titlebar');
-  console.log('已应用动态标题栏颜色:', colors);
 }
 
 export function removeTitleBarColors() {
@@ -289,5 +288,4 @@ export function removeTitleBarColors() {
   document.documentElement.style.removeProperty('--primary-light');
   document.documentElement.style.removeProperty('--primary-dark');
   document.body.classList.remove('has-dynamic-titlebar');
-  console.log('已移除动态标题栏颜色');
 }

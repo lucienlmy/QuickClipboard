@@ -84,23 +84,26 @@ pub fn update_quick_text(
 // 删除常用文本
 pub fn delete_quick_text(id: &str) -> Result<(), String> {
     database::delete_favorite_item(id)?;
+    
+    // 清理未使用的图片
+    cleanup_orphaned_images();
+    
     Ok(())
 }
 
 // 移动常用文本在同一分组内的位置
 pub fn move_quick_text_within_group(
-    item_index: usize,
+    item_id: &str,
     new_index: usize,
 ) -> Result<(), String> {
     // 获取所有常用文本
     let all_texts = database::get_all_favorite_items()?;
-    println!("item_index: {}, new_index: {}", item_index, new_index);
-    if item_index >= all_texts.len() {
-        return Err("无效的项目索引".to_string());
-    }
 
-    // 获取要移动的项目
-    let moved_item = &all_texts[item_index];
+    // 找到要移动的项目
+    let moved_item = all_texts
+        .iter()
+        .find(|t| t.id == item_id)
+        .ok_or_else(|| format!("常用文本 {} 不存在", item_id))?;
     let item_group_name = &moved_item.group_name;
 
     // 获取同一分组的所有项目
@@ -128,41 +131,6 @@ pub fn move_quick_text_within_group(
     database::reorder_favorite_items(&group_texts)
 }
 
-// 重新排序常用文本
-pub fn reorder_quick_texts(items: Vec<FavoriteItem>) -> Result<(), String> {
-    // 验证传入的项目，确保它们都存在且 group_name 一致
-    let mut group_name_check: Option<String> = None;
-    for item in &items {
-        if let Ok(exists) = database::favorite_item_exists(&item.id) {
-            if !exists {
-                return Err(format!("常用文本 {} 不存在", item.id));
-            }
-
-            if let Ok(existing_texts) = database::get_all_favorite_items() {
-                if let Some(existing) = existing_texts.iter().find(|t| t.id == item.id) {
-                    if group_name_check.is_none() {
-                        group_name_check = Some(existing.group_name.clone());
-                    } else if group_name_check.as_ref() != Some(&existing.group_name) {
-                        return Err("不能跨分组排序常用文本".to_string());
-                    }
-                }
-            }
-        } else {
-            return Err(format!("验证常用文本 {} 失败", item.id));
-        }
-    }
-
-    database::reorder_favorite_items(&items)?;
-
-    let group_name = group_name_check.unwrap_or_else(|| "未知".to_string());
-    println!(
-        "已在数据库中重新排序分组 {} 中的 {} 个常用文本",
-        group_name,
-        items.len()
-    );
-    Ok(())
-}
-
 // 移动常用文本到指定分组
 pub fn move_quick_text_to_group(id: String, group_name: String) -> Result<(), String> {
     // 获取现有的常用文本
@@ -188,4 +156,9 @@ pub fn move_quick_text_to_group(id: String, group_name: String) -> Result<(), St
         id, old_group_name, group_name
     );
     Ok(())
+}
+
+// 清理未使用的图片文件（孤儿图片）
+fn cleanup_orphaned_images() {
+    crate::clipboard_history::cleanup_orphaned_images();
 }

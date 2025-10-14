@@ -1,6 +1,10 @@
-import { invoke } from '@tauri-apps/api/core';
+
+import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { createFileIconElement } from './js/fileIconUtils.js';
+import { initDisableBrowserShortcuts } from './js/utils/disableBrowserShortcuts.js';
 
 // =================== 启动横幅 ===================
 function printPreviewBanner() {
@@ -78,6 +82,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 输出启动横幅
   printPreviewBanner();
 
+  // 禁用浏览器默认快捷键
+  initDisableBrowserShortcuts();
+
   // console.log('预览窗口开始初始化');
   previewList = document.getElementById('preview-list');
 
@@ -154,7 +161,7 @@ async function setupEventListeners() {
     // 重置索引
     currentIndex = 0;
 
-    // 根据新的数据源刷新数据
+    // 根据数据源刷新数据
     await refreshDataSource(tab, groupId);
   });
 }
@@ -339,7 +346,8 @@ function createPreviewItem(item, index, position = 'current') {
   // 所有项目都使用 content
   const itemText = item.content || '';
   const isQuickText = !!item.title; // 判断是否为常用文本
-  const contentType = getContentType(itemText);
+  // 直接使用后端返回的content_type字段
+  const contentType = item.content_type || 'text';
 
   // 添加序号指示器
   const indexIndicator = document.createElement('div');
@@ -358,10 +366,10 @@ function createPreviewItem(item, index, position = 'current') {
     imgElement.className = 'preview-image';
 
     if (item.image_id) {
-      loadImageById(imgElement, item.image_id, true);
+      loadImageById(imgElement, item.image_id);
     } else if (itemText.startsWith('image:')) {
       const imageId = itemText.substring(6);
-      loadImageById(imgElement, imageId, true);
+      loadImageById(imgElement, imageId);
     } else if (itemText.startsWith('data:image/')) {
       imgElement.src = itemText;
     }
@@ -372,7 +380,7 @@ function createPreviewItem(item, index, position = 'current') {
 
     previewItem.appendChild(imgElement);
     previewItem.appendChild(textElement);
-  } else if (contentType === 'files') {
+  } else if (contentType === 'file') {
     // 解析文件数据
     try {
       const filesJson = itemText.substring(6); // 去掉 "files:" 前缀
@@ -394,7 +402,7 @@ function createPreviewItem(item, index, position = 'current') {
         const fileContainer = document.createElement('div');
         fileContainer.className = 'preview-file-container';
 
-        // 文件图标 - 使用新的工具函数
+        // 文件图标 - 使用工具函数
         const fileIcon = createFileIconElement(firstFile, 'medium');
         fileIcon.className = 'preview-file-icon';
 
@@ -448,36 +456,13 @@ function createPreviewItem(item, index, position = 'current') {
   return previewItem;
 }
 
-// 获取内容类型
-function getContentType(text) {
-  if (text.startsWith('data:image/') || text.startsWith('image:')) {
-    return 'image';
-  }
-
-  if (text.startsWith('files:')) {
-    return 'files';
-  }
-
-  // 检测HTTP/HTTPS链接
-  const urlPattern = /^https?:\/\/[^\s]+$/i;
-  if (urlPattern.test(text.trim())) {
-    return 'link';
-  }
-
-  // 检测其他常见的URL格式
-  if (text.trim().startsWith('www.') && text.includes('.') && !text.includes(' ')) {
-    return 'link';
-  }
-
-  return 'text';
-}
 
 // 根据图片ID加载图片
-async function loadImageById(imgElement, imageId, useThumbnail = true) {
+async function loadImageById(imgElement, imageId) {
   try {
-    const command = useThumbnail ? 'get_image_thumbnail_url' : 'get_image_data_url';
-    const dataUrl = await invoke(command, { imageId });
-    imgElement.src = dataUrl;
+    const filePath = await invoke('get_image_file_path', { content: `image:${imageId}` });
+    const assetUrl = convertFileSrc(filePath, 'asset');
+    imgElement.src = assetUrl;
   } catch (error) {
     console.error('加载图片失败:', error);
     imgElement.alt = '图片加载失败';
@@ -551,6 +536,9 @@ function showEmptyState() {
 
 // 页面加载完成后初始化
 window.addEventListener('DOMContentLoaded', async () => {
+  // 禁用浏览器默认快捷键
+  initDisableBrowserShortcuts();
+
   // 初始化主题管理器
   const { initThemeManager } = await import('./js/themeManager.js');
   initThemeManager();

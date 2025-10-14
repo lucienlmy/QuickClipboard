@@ -2,7 +2,7 @@ use once_cell::sync::OnceCell;
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, WebviewWindowBuilder};
 
 // 预览窗口状态
 pub static PREVIEW_WINDOW_VISIBLE: AtomicBool = AtomicBool::new(false);
@@ -16,6 +16,59 @@ static MAIN_WINDOW_STATE: OnceCell<Mutex<MainWindowState>> = OnceCell::new();
 struct MainWindowState {
     tab: String,
     group_id: String,
+}
+
+// 预览窗口尺寸配置
+struct PreviewWindowSize {
+    width: u32,
+    height: u32,
+}
+
+// 计算预览窗口尺寸
+fn calculate_preview_window_size() -> PreviewWindowSize {
+    let settings = crate::settings::get_global_settings();
+    
+    // 根据屏幕DPI调整宽度
+    let base_width = 350.0;
+    let scale_factor = get_screen_scale_factor();
+    let width = ((base_width * scale_factor).round() as u32).clamp(350, 550);
+    
+    let item_height = 35;
+    let item_gap = 4;
+    let padding = 16;
+    let extra = 10 * (item_height + item_gap);
+    
+    let height = padding 
+        + (settings.preview_items_count * item_height)
+        + (settings.preview_items_count.saturating_sub(1) * item_gap)
+        + extra;
+    
+    PreviewWindowSize { width, height }
+}
+
+// 获取屏幕缩放因子
+fn get_screen_scale_factor() -> f64 {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, ReleaseDC, LOGPIXELSX};
+        use windows::Win32::Foundation::HWND;
+        
+        unsafe {
+            let hdc = GetDC(HWND(0));
+            if !hdc.is_invalid() {
+                let dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+                let _ = ReleaseDC(HWND(0), hdc);
+                
+                let scale = (dpi as f64 / 96.0).clamp(1.0, 2.5);
+                return scale;
+            }
+        }
+    }
+    
+    #[cfg(not(windows))]
+    return 1.0;
+    
+    1.0
 }
 
 // 初始化预览窗口句柄存储
@@ -32,7 +85,6 @@ pub fn init_preview_window() {
 
 // 显示预览窗口
 pub async fn show_preview_window(app: AppHandle) -> Result<(), String> {
-    // 检查预览窗口是否启用
     let settings = crate::settings::get_global_settings();
     if !settings.preview_enabled {
         return Ok(());
@@ -41,99 +93,48 @@ pub async fn show_preview_window(app: AppHandle) -> Result<(), String> {
     // 防止快速连续调用导致的竞态条件
     tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
-    // 根据当前设置调整窗口尺寸
-    let width = 350.0;
-    let item_height = 35.0; // 每个项目的实际高度
-    let item_gap = 4.0; // 项目间隔
-    let container_padding = 16.0; // 容器上下内边距
-
-    // 计算总高度：容器内边距 + (项目数量 * 项目高度) + ((项目数量-1) * 间隔) + 额外高度
-    let extra_height = 10.0 * (item_height + item_gap);
-    let height = container_padding
-        + (settings.preview_items_count as f64 * item_height)
-        + ((settings.preview_items_count as f64 - 1.0).max(0.0) * item_gap)
-        + extra_height;
-    println!(
-        "根据项目数量({})调整窗口尺寸: {}x{}",
-        settings.preview_items_count, width, height
-    );
-
+    let size = calculate_preview_window_size();
     let window_handle = PREVIEW_WINDOW_HANDLE.get().unwrap();
     let mut window_guard = window_handle.lock().unwrap();
 
-    // 如果窗口不存在，获取已存在的窗口
+    // 获取或创建窗口
     if window_guard.is_none() {
-        println!("预览窗口句柄不存在，尝试获取已存在的窗口");
-        if let Some(window) = app.get_webview_window("preview") {
-            println!("找到已存在的预览窗口");
-            *window_guard = Some(window);
+        let window = if let Some(w) = app.get_webview_window("preview") {
+            w
         } else {
-            println!("预览窗口不存在，开始创建");
-            let window = create_preview_window(app).await?;
-            *window_guard = Some(window);
-            println!("预览窗口创建完成");
-        }
+            create_preview_window(app).await?
+        };
+        *window_guard = Some(window);
     }
 
     if let Some(window) = window_guard.as_ref() {
-        println!("开始定位和显示预览窗口");
-
         // 调整窗口尺寸
-        window
-            .set_size(tauri::Size::Physical(tauri::PhysicalSize {
-                width: width as u32,
-                height: height as u32,
-            }))
-            .map_err(|e| format!("设置窗口尺寸失败: {}", e))?;
-        println!("窗口尺寸已调整为: {}x{}", width, height);
+        window.set_size(tauri::Size::Physical(PhysicalSize {
+            width: size.width,
+            height: size.height,
+        }))
+        .map_err(|e| format!("设置窗口尺寸失败: {}", e))?;
 
-        // 定位窗口到屏幕右下角
+        // 定位窗口
         position_preview_window(window)?;
-        println!("窗口定位完成");
 
         // 显示窗口
-        window
-            .show()
-            .map_err(|e| format!("显示预览窗口失败: {}", e))?;
-        println!("窗口显示命令已发送");
-
-        // 暂时跳过窗口样式修改，先让窗口正常显示
-        println!("跳过窗口样式修改，保持默认设置");
-
-        // 设置窗口属性
-        #[cfg(windows)]
-        set_preview_window_properties(window)?;
+        window.show().map_err(|e| format!("显示预览窗口失败: {}", e))?;
 
         PREVIEW_WINDOW_VISIBLE.store(true, Ordering::SeqCst);
-
-        // 重置索引
         PREVIEW_CURRENT_INDEX.store(0, Ordering::SeqCst);
 
-        // 重置用户取消标志
-        #[cfg(windows)]
-        crate::global_state::PREVIEW_CANCELLED_BY_USER
-            .store(false, std::sync::atomic::Ordering::SeqCst);
-
-        // 通知前端索引已重置
-        let _ = window.emit("preview-index-changed", serde_json::json!({ "index": 0 }));
-
-        // 启用鼠标监听以捕获滚轮事件
         #[cfg(windows)]
         {
+            crate::global_state::PREVIEW_CANCELLED_BY_USER.store(false, std::sync::atomic::Ordering::SeqCst);
             crate::mouse_hook::request_mouse_monitoring("preview_window");
         }
 
-        // 通知前端刷新数据
+        let _ = window.emit("preview-index-changed", json!({ "index": 0 }));
         let _ = window.emit("clipboard-history-updated", ());
 
-        // 在开发模式下打开开发者工具
         #[cfg(debug_assertions)]
-        {
-            let _ = window.open_devtools();
-            println!("预览窗口开发者工具已打开");
-        }
-
-        println!("预览窗口已显示");
+        window.open_devtools();
     }
 
     Ok(())
@@ -145,18 +146,11 @@ pub async fn hide_preview_window() -> Result<(), String> {
     let window_guard = window_handle.lock().unwrap();
 
     if let Some(window) = window_guard.as_ref() {
-        window
-            .hide()
-            .map_err(|e| format!("隐藏预览窗口失败: {}", e))?;
+        window.hide().map_err(|e| format!("隐藏预览窗口失败: {}", e))?;
         PREVIEW_WINDOW_VISIBLE.store(false, Ordering::SeqCst);
 
-        // 释放预览窗口的鼠标监听请求
         #[cfg(windows)]
-        {
-            crate::mouse_hook::release_mouse_monitoring("preview_window");
-        }
-
-        println!("预览窗口已隐藏");
+        crate::mouse_hook::release_mouse_monitoring("preview_window");
     }
 
     Ok(())
@@ -164,34 +158,12 @@ pub async fn hide_preview_window() -> Result<(), String> {
 
 // 创建预览窗口
 async fn create_preview_window(app: AppHandle) -> Result<WebviewWindow, String> {
-    // 获取预览窗口设置
     let settings = crate::settings::get_global_settings();
-
-    // 根据项目数量动态计算窗口尺寸
-    let width = 400.0; // 固定宽度
-    let item_height = 35.0; // 每个项目的实际高度（内边距16px + 文本17px + 边框2px）
-    let item_gap = 4.0; // 项目间隔
-    let container_padding = 16.0; // 容器上下内边距（8px * 2）
-
-    // 计算总高度：容器内边距 + (项目数量 * 项目高度) + ((项目数量-1) * 间隔) + 额外高度
-    let extra_height = 10.0 * (item_height + item_gap);
-    let height = container_padding
-        + (settings.preview_items_count as f64 * item_height)
-        + ((settings.preview_items_count as f64 - 1.0).max(0.0) * item_gap)
-        + extra_height;
-
-    println!("开始创建预览窗口，使用配置:");
-    println!("- 项目数量: {}", settings.preview_items_count);
-    println!("- 计算尺寸: {}x{}", width, height);
-    println!("- 透明: true");
-    println!("- 置顶: true");
-    println!("- 无焦点: true");
-    println!("- 启用状态: {}", settings.preview_enabled);
-
-    // 如果预览功能被禁用，返回错误
     if !settings.preview_enabled {
         return Err("预览窗口功能已禁用".to_string());
     }
+
+    let size = calculate_preview_window_size();
 
     let window = WebviewWindowBuilder::new(
         &app,
@@ -199,112 +171,76 @@ async fn create_preview_window(app: AppHandle) -> Result<WebviewWindow, String> 
         tauri::WebviewUrl::App("preview.html".into()),
     )
     .title("快速预览")
-    .inner_size(width, height)
-    .min_inner_size(width, height)
-    .max_inner_size(width, height)
+    .inner_size(size.width as f64, size.height as f64)
+    .min_inner_size(size.width as f64, size.height as f64)
+    .max_inner_size(size.width as f64, size.height as f64)
     .resizable(false)
     .decorations(false)
     .transparent(true)
     .always_on_top(true)
     .skip_taskbar(true)
     .focused(false)
+    .focusable(false)
     .visible(false)
-    // .shadow(false) // 禁用阴影
+    .shadow(false)
     .build()
     .map_err(|e| format!("创建预览窗口失败: {}", e))?;
-
+    
+    let _ = window.set_focusable(false);
     Ok(window)
 }
 
 // 定位预览窗口到鼠标位置
 fn position_preview_window(window: &WebviewWindow) -> Result<(), String> {
+    // 获取窗口实际尺寸
+    let window_size = window.outer_size().map_err(|e| format!("获取窗口尺寸失败: {}", e))?;
+    let win_width = window_size.width as i32;
+    let win_height = window_size.height as i32;
+
     #[cfg(windows)]
     {
         use windows::Win32::Foundation::POINT;
-        use windows::Win32::UI::WindowsAndMessaging::{
-            GetCursorPos, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
-        };
+        use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
         unsafe {
-            // 获取当前鼠标位置
-            let mut cursor_pos = POINT { x: 0, y: 0 };
-            if GetCursorPos(&mut cursor_pos).is_ok() {
-                // 获取屏幕尺寸
-                let screen_width = GetSystemMetrics(SM_CXSCREEN);
-                let screen_height = GetSystemMetrics(SM_CYSCREEN);
-
-                // 窗口尺寸
-                let window_width = 350;
-                let window_height = 180;
-
-                // 计算窗口位置，确保不超出屏幕边界
-                let mut x = cursor_pos.x + 10; // 鼠标右侧偏移10像素
-                let mut y = cursor_pos.y - window_height / 2; // 鼠标垂直居中
-
-                // 边界检查
-                if x + window_width > screen_width {
-                    x = cursor_pos.x - window_width - 10; // 显示在鼠标左侧
-                }
-                if y < 0 {
-                    y = 10; // 距离顶部10像素
-                } else if y + window_height > screen_height {
-                    y = screen_height - window_height - 10; // 距离底部10像素
-                }
-
-                println!(
-                    "鼠标位置: ({}, {}), 窗口位置: ({}, {})",
-                    cursor_pos.x, cursor_pos.y, x, y
-                );
-
-                window
-                    .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
-                    .map_err(|e| format!("设置窗口位置失败: {}", e))?;
-            } else {
-                // 如果获取鼠标位置失败，使用屏幕中心
-                let x = (GetSystemMetrics(SM_CXSCREEN) - 350) / 2;
-                let y = (GetSystemMetrics(SM_CYSCREEN) - 180) / 2;
-
-                window
-                    .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
-                    .map_err(|e| format!("设置窗口位置失败: {}", e))?;
+            let mut cursor = POINT { x: 0, y: 0 };
+            if GetCursorPos(&mut cursor).is_err() {
+                // 获取失败，使用屏幕中心
+                let x = (GetSystemMetrics(SM_CXSCREEN) - win_width) / 2;
+                let y = (GetSystemMetrics(SM_CYSCREEN) - win_height) / 2;
+                return window.set_position(tauri::Position::Physical(PhysicalPosition { x, y }))
+                    .map_err(|e| format!("设置窗口位置失败: {}", e));
             }
+
+            let screen_w = GetSystemMetrics(SM_CXSCREEN);
+            let screen_h = GetSystemMetrics(SM_CYSCREEN);
+            let margin = 10;
+
+            // 优先在鼠标右侧，垂直居中
+            let mut x = cursor.x + margin;
+            let mut y = cursor.y - win_height / 2;
+
+            // 水平边界检查：如果右侧放不下，放到左侧
+            if x + win_width > screen_w {
+                x = cursor.x - win_width - margin;
+            }
+            
+            // 垂直边界检查
+            y = y.max(margin).min(screen_h - win_height - margin);
+
+            window.set_position(tauri::Position::Physical(PhysicalPosition { x, y }))
+                .map_err(|e| format!("设置窗口位置失败: {}", e))?;
         }
     }
 
     #[cfg(not(windows))]
     {
-        // 非Windows平台的简单实现 - 屏幕中心
-        window
-            .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                x: 500,
-                y: 300,
-            }))
-            .map_err(|e| format!("设置窗口位置失败: {}", e))?;
-    }
-
-    Ok(())
-}
-
-// 设置预览窗口属性（Windows特定）
-#[cfg(windows)]
-fn set_preview_window_properties(window: &WebviewWindow) -> Result<(), String> {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE,
-        WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    };
-
-    if let Ok(hwnd) = window.hwnd() {
-        let hwnd = HWND(hwnd.0 as isize);
-
-        unsafe {
-            // 设置扩展样式：无焦点、工具窗口、置顶
-            let ex_style = WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0;
-            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style as isize);
-
-            // 设置为最顶层
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE).ok();
-        }
+        // 非Windows平台：屏幕中心
+        window.set_position(tauri::Position::Physical(PhysicalPosition {
+            x: 500,
+            y: 300,
+        }))
+        .map_err(|e| format!("设置窗口位置失败: {}", e))?;
     }
 
     Ok(())
@@ -316,59 +252,32 @@ pub fn handle_preview_scroll(direction: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    // println!("处理预览窗口滚动: {}", direction);
-
-    // 获取当前数据源的长度
     let data_length = get_current_data_source_length();
-
-    // 如果数据为空，不处理滚动
     if data_length == 0 {
         return Ok(());
     }
 
-    // 更新当前索引（支持循环滚动）
     let current_index = PREVIEW_CURRENT_INDEX.load(Ordering::SeqCst);
     let max_index = data_length.saturating_sub(1);
 
     let new_index = match direction {
-        "up" => {
-            if current_index > 0 {
-                current_index - 1
-            } else {
-                // 到达顶部，循环到底部
-                max_index
-            }
-        }
-        "down" => {
-            if current_index < max_index {
-                current_index + 1
-            } else {
-                // 到达底部，循环到顶部
-                0
-            }
-        }
+        "up" => if current_index > 0 { current_index - 1 } else { max_index },
+        "down" => if current_index < max_index { current_index + 1 } else { 0 },
         _ => current_index,
     };
 
     if new_index != current_index {
         PREVIEW_CURRENT_INDEX.store(new_index, Ordering::SeqCst);
-        // println!("预览索引更新: {} -> {}", current_index, new_index);
 
         let window_handle = PREVIEW_WINDOW_HANDLE.get().unwrap();
         let window_guard = window_handle.lock().unwrap();
 
         if let Some(window) = window_guard.as_ref() {
-            // 发送滚动事件到前端
-            let _ = window.emit(
-                "preview-scroll",
-                serde_json::json!({
-                    "direction": direction,
-                    "newIndex": new_index
-                }),
-            );
+            let _ = window.emit("preview-scroll", json!({
+                "direction": direction,
+                "newIndex": new_index
+            }));
         }
-    } else {
-        println!("预览索引未变化: {}", current_index);
     }
 
     Ok(())
@@ -490,26 +399,17 @@ pub fn is_preview_window_visible() -> bool {
 
 // 取消预览（不粘贴直接隐藏）
 pub async fn cancel_preview() -> Result<(), String> {
-    println!("用户取消预览，设置取消标志并隐藏窗口");
-
-    // 设置用户取消标志，防止松开快捷键时自动粘贴
     #[cfg(windows)]
     crate::global_state::PREVIEW_CANCELLED_BY_USER.store(true, std::sync::atomic::Ordering::SeqCst);
 
-    // 隐藏预览窗口
-    hide_preview_window().await?;
-
-    Ok(())
+    hide_preview_window().await
 }
 
 // 粘贴当前预览项
 pub async fn paste_current_preview_item() -> Result<(), String> {
-    // 检查自动粘贴设置
     let settings = crate::settings::get_global_settings();
     if !settings.preview_auto_paste {
-        println!("自动粘贴已禁用，只隐藏预览窗口");
-        hide_preview_window().await?;
-        return Ok(());
+        return hide_preview_window().await;
     }
 
     let index = get_preview_index();
@@ -531,43 +431,16 @@ pub async fn paste_current_preview_item() -> Result<(), String> {
         if state.tab == "clipboard" {
             // 粘贴剪贴板历史项
             if let Some(main_window) = crate::mouse_hook::MAIN_WINDOW_HANDLE.get() {
-                // 获取历史记录内容
-                let (content, html_content) = {
-                    match crate::database::get_clipboard_history(None) {
-                        Ok(items) => {
-                            if index < items.len() {
-                                let item = &items[index];
-                                (Some(item.content.clone()), item.html_content.clone())
-                            } else {
-                                (None, None)
-                            }
-                        }
-                        Err(_) => (None, None),
-                    }
-                };
-
-                if let Some(content) = content {
-                    // 检查是否为文本内容，如果是则使用带翻译支持的粘贴
-                    if !content.starts_with("files:")
-                        && !content.starts_with("data:image/")
-                        && !content.starts_with("image:")
-                    {
-                        // 文本内容，使用带HTML和翻译支持的粘贴
-                        crate::services::paste_service::paste_text_with_html(
-                            content,
-                            html_content.clone(),
-                            &main_window,
-                        )
-                        .await?;
-                    } else {
-                        // 非文本内容，使用普通粘贴
-                        let params = crate::services::paste_service::PasteContentParams {
-                            content,
-                            html_content,
-                            quick_text_id: None,
-                        };
-                        crate::commands::paste_content(params, main_window.clone()).await?;
-                    }
+                // 获取剪贴板历史项ID
+                let items = crate::database::get_clipboard_history(None)?;
+                if index < items.len() {
+                    let params = crate::services::paste_service::PasteContentParams {
+                        clipboard_id: Some(items[index].id),
+                        quick_text_id: None,
+                    };
+                    crate::commands::paste_content(params, main_window.clone()).await?;
+                } else {
+                    return Err(format!("索引 {} 超出范围", index));
                 }
             }
         } else if state.tab == "quick-texts" {
@@ -581,10 +454,9 @@ pub async fn paste_current_preview_item() -> Result<(), String> {
             if index < quick_texts.len() {
                 let quick_text = &quick_texts[index];
                 if let Some(main_window) = crate::mouse_hook::MAIN_WINDOW_HANDLE.get() {
-                    // 使用统一的粘贴命令，支持HTML格式
+                    // 使用统一的粘贴命令
                     let params = crate::services::paste_service::PasteContentParams {
-                        content: quick_text.content.clone(),
-                        html_content: quick_text.html_content.clone(),
+                        clipboard_id: None,
                         quick_text_id: Some(quick_text.id.clone()),
                     };
                     crate::commands::paste_content(params, main_window.clone()).await?;

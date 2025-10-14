@@ -48,6 +48,35 @@ static WIN_V_INTERCEPTED: AtomicBool = AtomicBool::new(false);
 #[cfg(windows)]
 static V_KEY_PRESSED: AtomicBool = AtomicBool::new(false);
 
+// =================== 辅助函数 ===================
+
+// 检查是否匹配导航快捷键
+#[cfg(windows)]
+fn matches_navigation_shortcut(
+    vk_code: u32,
+    ctrl_pressed: bool,
+    shift_pressed: bool,
+    alt_pressed: bool,
+    win_pressed: bool,
+    shortcut_str: &str,
+) -> bool {
+    if let Some(parsed) = crate::global_state::parse_shortcut(shortcut_str) {
+        // 检查修饰键是否匹配
+        if ctrl_pressed != parsed.ctrl
+            || shift_pressed != parsed.shift
+            || alt_pressed != parsed.alt
+            || win_pressed != parsed.win
+        {
+            return false;
+        }
+        
+        // 检查主键是否匹配
+        vk_code == parsed.key_code
+    } else {
+        false
+    }
+}
+
 // =================== 键盘钩子函数 ===================
 
 #[cfg(windows)]
@@ -248,83 +277,62 @@ unsafe extern "system" fn shortcut_hook_proc(
             if let Some(window) = MAIN_WINDOW_HANDLE.get() {
                 // 检查窗口是否应该接收导航按键
                 if crate::window_management::should_receive_navigation_keys(window) {
-                    match vk_code {
-                        0x26 => {
-                            // VK_UP
-                            if wparam.0 as u32 == WM_KEYDOWN {
-                                if ctrl_pressed {
-                                    emit_navigation_event("CtrlArrowUp");
-                                } else {
-                                    emit_navigation_event("ArrowUp");
-                                }
-                                return LRESULT(1); // 阻止事件传播
-                            }
+                    // 获取当前设置
+                    let settings = crate::settings::get_global_settings();
+                    
+                    if wparam.0 as u32 == WM_KEYDOWN {
+                        // 检查各种导航快捷键并直接发送动作事件
+                        if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.navigate_up_shortcut) {
+                            emit_navigation_action("navigate-up");
+                            return LRESULT(1);
                         }
-                        0x28 => {
-                            // VK_DOWN
-                            if wparam.0 as u32 == WM_KEYDOWN {
-                                if ctrl_pressed {
-                                    emit_navigation_event("CtrlArrowDown");
-                                } else {
-                                    emit_navigation_event("ArrowDown");
-                                }
-                                return LRESULT(1);
-                            }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.navigate_down_shortcut) {
+                            emit_navigation_action("navigate-down");
+                            return LRESULT(1);
                         }
-                        0x25 => {
-                            // VK_LEFT
-                            if wparam.0 as u32 == WM_KEYDOWN {
-                                if ctrl_pressed {
-                                    emit_navigation_event("CtrlArrowLeft");
-                                } else {
-                                    emit_navigation_event("ArrowLeft");
-                                }
-                                return LRESULT(1);
-                            }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.tab_left_shortcut) {
+                            emit_navigation_action("tab-left");
+                            return LRESULT(1);
                         }
-                        0x27 => {
-                            // VK_RIGHT
-                            if wparam.0 as u32 == WM_KEYDOWN {
-                                if ctrl_pressed {
-                                    emit_navigation_event("CtrlArrowRight");
-                                } else {
-                                    emit_navigation_event("ArrowRight");
-                                }
-                                return LRESULT(1);
-                            }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.tab_right_shortcut) {
+                            emit_navigation_action("tab-right");
+                            return LRESULT(1);
                         }
-                        0x0D => {
-                            // VK_RETURN - 需要Ctrl+回车才确定
-                            if wparam.0 as u32 == WM_KEYDOWN && ctrl_pressed {
-                                emit_navigation_event("CtrlEnter");
-                                return LRESULT(1);
-                            }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.focus_search_shortcut) {
+                            emit_navigation_action("focus-search");
+                            return LRESULT(1);
                         }
-                        0x1B => {
-                            // VK_ESCAPE
-                            if wparam.0 as u32 == WM_KEYDOWN {
-                                emit_navigation_event("Escape");
-                                return LRESULT(1);
-                            }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.hide_window_shortcut) {
+                            emit_navigation_action("hide-window");
+                            return LRESULT(1);
                         }
-                        0x09 => {
-                            // VK_TAB
-                            if wparam.0 as u32 == WM_KEYDOWN {
-                                emit_navigation_event("Tab");
-                                return LRESULT(1);
-                            }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.execute_item_shortcut) {
+                            emit_navigation_action("execute-item");
+                            return LRESULT(1);
                         }
-
-                        0x50 => {
-                            // VK_P - Ctrl+P 切换固定状态
-                            if wparam.0 as u32 == WM_KEYDOWN && ctrl_pressed {
-                                emit_navigation_event("CtrlP");
-                                return LRESULT(1);
-                            }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.previous_group_shortcut) {
+                            emit_navigation_action("previous-group");
+                            return LRESULT(1);
                         }
-                        _ => {}
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.next_group_shortcut) {
+                            emit_navigation_action("next-group");
+                            return LRESULT(1);
+                        }
+                        else if matches_navigation_shortcut(vk_code, ctrl_pressed, shift_pressed, alt_pressed, win_pressed, &settings.toggle_pin_shortcut) {
+                            emit_navigation_action("toggle-pin");
+                            return LRESULT(1);
+                        }
                     }
                 }
+            }
+        }
+
+        // 监听 Ctrl+V 触发粘贴音效（不拦截事件）
+        if wparam.0 as u32 == WM_KEYDOWN {
+            if vk_code == 0x56 && ctrl_pressed && !shift_pressed && !alt_pressed && !win_pressed {
+                std::thread::spawn(|| {
+                    crate::sound_manager::play_paste_sound();
+                });
             }
         }
     }
@@ -332,30 +340,31 @@ unsafe extern "system" fn shortcut_hook_proc(
     CallNextHookEx(None, code, wparam, lparam)
 }
 
-// 发送导航事件到前端
+// 发送导航动作事件到前端
 #[cfg(windows)]
-fn emit_navigation_event(key: &str) {
+fn emit_navigation_action(action: &str) {
     use tauri::Emitter;
 
     if let Some(window) = MAIN_WINDOW_HANDLE.get() {
         let _ = window.emit(
-            "navigation-key-pressed",
+            "navigation-action",
             serde_json::json!({
-                "key": key
+                "action": action
             }),
         );
     }
 }
 
+
 // 发送Win键松开事件
 #[cfg(windows)]
 fn send_win_key_up() {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_LWIN,
+        SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_LWIN,
     };
 
     unsafe {
-        let mut input = INPUT {
+        let input = INPUT {
             r#type: INPUT_KEYBOARD,
             Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                 ki: KEYBDINPUT {
@@ -401,21 +410,6 @@ pub fn install_shortcut_hook() {
     }
 }
 
-// 卸载快捷键钩子
-#[cfg(windows)]
-pub fn uninstall_shortcut_hook() {
-    use windows::Win32::UI::WindowsAndMessaging::UnhookWindowsHookEx;
-
-    SHORTCUT_INTERCEPTION_ENABLED.store(false, Ordering::SeqCst);
-
-    let mut hook_handle = SHORTCUT_HOOK_HANDLE.lock().unwrap();
-    if let Some(hook) = hook_handle.take() {
-        unsafe {
-            let _ = UnhookWindowsHookEx(hook);
-        }
-    }
-}
-
 // 启用快捷键拦截
 #[cfg(windows)]
 pub fn enable_shortcut_interception() {
@@ -426,9 +420,12 @@ pub fn enable_shortcut_interception() {
 #[cfg(windows)]
 pub fn disable_shortcut_interception() {
     SHORTCUT_INTERCEPTION_ENABLED.store(false, Ordering::SeqCst);
-    SHORTCUT_TRIGGERED.store(false, Ordering::SeqCst);
-    WIN_V_INTERCEPTED.store(false, Ordering::SeqCst);
-    V_KEY_PRESSED.store(false, Ordering::SeqCst);
+}
+
+// 查询快捷键拦截是否启用
+#[cfg(windows)]
+pub fn is_interception_enabled() -> bool {
+    SHORTCUT_INTERCEPTION_ENABLED.load(Ordering::SeqCst)
 }
 
 // 更新要拦截的快捷键
@@ -449,11 +446,6 @@ pub fn update_preview_shortcut_to_intercept(shortcut: &str) {
     }
 }
 
-#[cfg(windows)]
-pub fn is_interception_enabled() -> bool {
-    SHORTCUT_INTERCEPTION_ENABLED.load(Ordering::Relaxed)
-}
-
 // 启用导航按键监听
 #[cfg(windows)]
 pub fn enable_navigation_keys() {
@@ -466,22 +458,10 @@ pub fn disable_navigation_keys() {
     NAVIGATION_KEYS_ENABLED.store(false, Ordering::SeqCst);
 }
 
-// 检查导航按键监听是否启用
-#[cfg(windows)]
-pub fn is_navigation_keys_enabled() -> bool {
-    NAVIGATION_KEYS_ENABLED.load(Ordering::Relaxed)
-}
-
 // 设置翻译进行状态（禁用导航按键）
 #[cfg(windows)]
 pub fn set_translation_in_progress(in_progress: bool) {
     TRANSLATION_IN_PROGRESS.store(in_progress, Ordering::SeqCst);
-}
-
-// 检查翻译是否正在进行
-#[cfg(windows)]
-pub fn is_translation_in_progress() -> bool {
-    TRANSLATION_IN_PROGRESS.load(Ordering::Relaxed)
 }
 
 // 非Windows平台的空实现

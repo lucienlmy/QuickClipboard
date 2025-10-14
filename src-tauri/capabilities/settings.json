@@ -19,6 +19,9 @@
     "core:window:allow-destroy",
     "opener:default",
     "dialog:allow-save",
-    "dialog:default"
+    "dialog:default",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

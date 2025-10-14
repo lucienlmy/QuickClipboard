@@ -2,10 +2,6 @@
 
 /**
  * 高亮文本中的搜索关键字
- * @param {string} text - 原始文本
- * @param {string} searchTerm - 搜索关键字
- * @param {string} highlightClass - 高亮CSS类名
- * @returns {string} 高亮后的HTML字符串
  */
 export function highlightSearchTerm(text, searchTerm, highlightClass = 'search-highlight') {
   if (!searchTerm || !text) {
@@ -22,10 +18,6 @@ export function highlightSearchTerm(text, searchTerm, highlightClass = 'search-h
 
 /**
  * 高亮多个搜索关键字
- * @param {string} text - 原始文本
- * @param {string[]} searchTerms - 搜索关键字数组
- * @param {string} highlightClass - 高亮CSS类名
- * @returns {string} 高亮后的HTML字符串
  */
 export function highlightMultipleSearchTerms(text, searchTerms, highlightClass = 'search-highlight') {
   if (!searchTerms || searchTerms.length === 0 || !text) {
@@ -48,11 +40,72 @@ export function highlightMultipleSearchTerms(text, searchTerms, highlightClass =
 }
 
 /**
+ * 高亮HTML内容中的搜索关键字
+ */
+export function highlightMultipleSearchTermsInHTML(htmlContent, searchTerms, highlightClass = 'search-highlight') {
+  if (!searchTerms || searchTerms.length === 0 || !htmlContent) {
+    return htmlContent;
+  }
+
+  const TEMP_IMG_SRC_ATTR = 'data-quickclipboard-temp-src';
+
+  const sanitizedHtmlContent = htmlContent.replace(/<img\b[^>]*?>/gi, (tag) => {
+    if (!/\ssrc\s*=/.test(tag)) {
+      return tag;
+    }
+    return tag.replace(/(\s)src(\s*=)/i, `$1${TEMP_IMG_SRC_ATTR}$2`);
+  });
+
+  // 创建临时DOM元素来解析HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = sanitizedHtmlContent;
+
+  // 递归处理文本节点
+  function highlightTextNodes(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      if (text && text.trim()) {
+        let highlightedText = text;
+        
+        // 按长度排序搜索词，避免短词覆盖长词
+        const sortedTerms = [...searchTerms].sort((a, b) => b.length - a.length);
+        
+        sortedTerms.forEach(term => {
+          if (term.trim()) {
+            const regex = new RegExp(`(${term.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            highlightedText = highlightedText.replace(regex, `<span class="${highlightClass}">$1</span>`);
+          }
+        });
+
+        // 如果文本被修改了，替换原节点
+        if (highlightedText !== text) {
+          const wrapper = document.createElement('span');
+          wrapper.innerHTML = highlightedText;
+          
+          // 将wrapper的所有子节点插入到原位置
+          const parent = node.parentNode;
+          const fragment = document.createDocumentFragment();
+          while (wrapper.firstChild) {
+            fragment.appendChild(wrapper.firstChild);
+          }
+          parent.replaceChild(fragment, node);
+        }
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      // 递归处理子节点（从后往前，避免索引问题）
+      const children = Array.from(node.childNodes);
+      for (let i = children.length - 1; i >= 0; i--) {
+        highlightTextNodes(children[i]);
+      }
+    }
+  }
+
+  highlightTextNodes(tempDiv);
+  return tempDiv.innerHTML.replace(new RegExp(TEMP_IMG_SRC_ATTR, 'gi'), 'src');
+}
+
+/**
  * 高亮多个搜索关键字并返回位置信息
- * @param {string} text - 原始文本
- * @param {string[]} searchTerms - 搜索关键字数组
- * @param {string} highlightClass - 高亮CSS类名
- * @returns {object} 包含高亮文本和第一个关键词位置的对象
  */
 export function highlightMultipleSearchTermsWithPosition(text, searchTerms, highlightClass = 'search-highlight') {
   if (!searchTerms || searchTerms.length === 0 || !text) {
@@ -89,8 +142,6 @@ export function highlightMultipleSearchTermsWithPosition(text, searchTerms, high
 
 /**
  * 转义HTML特殊字符
- * @param {string} text - 需要转义的文本
- * @returns {string} 转义后的文本
  */
 function escapeHtml(text) {
   if (typeof text !== 'string') {
@@ -104,7 +155,6 @@ function escapeHtml(text) {
 
 /**
  * 获取当前搜索关键字
- * @returns {string} 当前搜索关键字
  */
 export function getCurrentSearchTerm() {
   const clipboardSearch = document.getElementById('search-input');
@@ -122,7 +172,6 @@ export function getCurrentSearchTerm() {
 
 /**
  * 获取当前搜索关键字数组（按空格分割）
- * @returns {string[]} 搜索关键字数组
  */
 export function getCurrentSearchTerms() {
   const searchTerm = getCurrentSearchTerm();
@@ -133,8 +182,6 @@ export function getCurrentSearchTerms() {
 
 /**
  * 自动滚动到第一个关键词位置
- * @param {HTMLElement} container - 包含关键词的容器元素
- * @param {number} keywordPosition - 关键词在文本中的位置
  */
 export function scrollToKeyword(container, keywordPosition) {
   if (!container || keywordPosition === -1) return;

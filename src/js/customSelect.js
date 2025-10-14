@@ -42,6 +42,21 @@ export class CustomSelect {
     // 初始化行高管理器
     this.currentRowHeight = localStorage.getItem('app-row-height') || 'medium';
     this.applyRowHeightClass(this.currentRowHeight);
+    
+    // 初始化文件样式管理器
+    this.currentFileStyle = localStorage.getItem('app-file-style') || 'detailed';
+    this.applyFileStyleClass(this.currentFileStyle);
+  }
+  
+  applyFileStyleClass(style) {
+    const body = document.body;
+    body.classList.remove('file-style-detailed', 'file-style-icons-only');
+    body.classList.add(`file-style-${style}`);
+    this.currentFileStyle = style;
+    localStorage.setItem('app-file-style', style);
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('file-style-changed', { detail: { style } }));
+    }, 50);
   }
 
   applyRowHeightClass(size) {
@@ -436,8 +451,14 @@ export class CustomSelect {
       return childValue === `row-height-${currentRowHeight}`;
     }
     
+    // 对于文件样式选项，检查是否与当前文件样式设置匹配
+    if (childValue.startsWith('file-style-')) {
+      const currentFileStyle = localStorage.getItem('app-file-style') || 'detailed';
+      return childValue === `file-style-${currentFileStyle}`;
+    }
+    
     // 对于筛选选项，需要从config中获取当前筛选值
-    if (['all', 'text', 'image', 'files', 'link'].includes(childValue)) {
+    if (['all', 'text', 'image', 'file', 'link'].includes(childValue)) {
       try {
         // 根据容器ID判断是剪贴板还是常用文本筛选器
         const isClipboard = this.container.closest('#content-filter');
@@ -477,6 +498,12 @@ export class CustomSelect {
     if (value === 'row-height-large' || value === 'row-height-medium' || value === 'row-height-small') {
       const size = value.replace('row-height-', '');
       this.applyRowHeightClass(size);
+    }
+    
+    // 处理文件样式选项
+    if (value === 'file-style-detailed' || value === 'file-style-icons-only') {
+      const style = value.replace('file-style-', '');
+      this.applyFileStyleClass(style);
     }
     
     this.value = value;

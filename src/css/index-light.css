@@ -16,8 +16,8 @@
   --bg-active: #f0f7ff;
 
   /* 边框颜色 */
-  --border-primary: #e8e9ea;
-  --border-secondary: #e0e0e0;
+  --border-primary: #d7d7d7;
+  --border-secondary: #c3c3c3;
   --border-hover: #d0d7de;
   --border-active: var(--primary-color);
 
@@ -108,6 +108,7 @@ body.theme-light {
 /* =================== 标签页导航 =================== */
 .theme-light .tab-navigation {
   background: var(--bg-secondary);
+  border: 1px solid var(--border-primary) !important;
 }
 
 .theme-light .tab-button {
@@ -203,7 +204,7 @@ body.theme-light {
 }
 
 .theme-light .custom-select-option.selected {
-  background-color: var(--primary-light);
+  background-color: var(--dropdown-bg);
   color: var(--primary-color);
 }
 
@@ -445,20 +446,6 @@ body.theme-light {
   color: #fff;
 }
 
-/* =================== 右键菜单 =================== */
-.theme-light .context-menu {
-  background: #ffffff !important;
-  border-color: var(--border-primary) !important;
-  color: var(--text-primary);
-}
-
-.theme-light .context-menu-item {
-  border-bottom-color: var(--border-primary);
-}
-
-.theme-light .context-menu-item:hover {
-  background-color: var(--bg-secondary) !important;
-}
 
 /* =================== 图标网格 =================== */
 .theme-light .icon-grid {
@@ -488,12 +475,6 @@ body.theme-light {
 .theme-light .icon-option:hover i,
 .theme-light .icon-option.active i {
   color: #1890ff;
-}
-
-/* =================== 外置滚动条 =================== */
-.theme-light .external-scrollbar__track {
-  background: rgba(0, 0, 0, 0.1);
-  border-color: rgba(58, 128, 249, 0.5);
 }
 
 /* =================== 占位符文本 =================== */
@@ -577,26 +558,20 @@ body.theme-light {
   border-color: var(--border-secondary);
 }
 
-.theme-light .shortcut-clear {
-  color: var(--text-secondary);
-}
-
-.theme-light .shortcut-clear:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
 
 /* =================== 音效相关 =================== */
 .theme-light .sound-input,
 .theme-light .sound-browse-btn,
-.theme-light .sound-test-btn {
+.theme-light .sound-test-btn,
+.theme-light .sound-reset-btn {
   background: var(--bg-primary) !important;
   color: var(--text-primary) !important;
   border-color: var(--border-secondary);
 }
 
 .theme-light .sound-browse-btn:hover,
-.theme-light .sound-test-btn:hover {
+.theme-light .sound-test-btn:hover,
+.theme-light .sound-reset-btn:hover {
   background: var(--bg-secondary) !important;
   border-color: var(--primary-color);
   color: var(--primary-color) !important;

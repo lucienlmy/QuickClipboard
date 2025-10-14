@@ -15,6 +15,7 @@ export let currentFilter = 'all'; // 当前剪贴板筛选类型：all, text, im
 export let currentQuickTextsFilter = 'all'; // 当前常用文本筛选类型：all, text, image, link
 export let isOneTimePaste = false; // 一次性粘贴开关状态
 export let isAiTranslationEnabled = false; // AI翻译开关状态
+export let pasteWithFormat = true; // 格式开关状态，true=带格式，false=纯文本
 
 
 
@@ -23,9 +24,6 @@ export let searchInput;
 export let contentFilter;
 export let contentFilterContainer;
 export let clipboardList;
-export let pinButton;
-export let oneTimePasteButton;
-export let aiTranslationButton;
 export let quickTextsSearch;
 export let quickTextsFilter;
 export let quickTextsFilterContainer;
@@ -50,7 +48,6 @@ export let groupModalTitle;
 export let groupNameInput;
 export let groupIconSelect;
 export let quickTextGroupSelect;
-export let screenshotButton;
 // 当前设置
 export let currentSettings = {
   theme: 'system',
@@ -115,6 +112,14 @@ export function getIsAiTranslationEnabled() {
   return isAiTranslationEnabled;
 }
 
+export function setPasteWithFormat(withFormat) {
+  pasteWithFormat = withFormat;
+}
+
+export function getPasteWithFormat() {
+  return pasteWithFormat;
+}
+
 
 
 export function setConfirmCallback(callback) {
@@ -131,9 +136,6 @@ export function initDOMReferences() {
   contentFilter = document.querySelector('#content-filter');
   contentFilterContainer = document.querySelector('#content-filter');
   clipboardList = document.querySelector('#clipboard-list');
-  pinButton = document.querySelector('#pin-button');
-  oneTimePasteButton = document.querySelector('#one-time-paste-button');
-  aiTranslationButton = document.querySelector('#ai-translation-button');
   quickTextsSearch = document.querySelector('#quick-texts-search');
   quickTextsFilter = document.querySelector('#quick-texts-filter');
   quickTextsFilterContainer = document.querySelector('#quick-texts-filter');
@@ -155,5 +157,4 @@ export function initDOMReferences() {
   groupNameInput = document.querySelector('#group-name');
   groupIconSelect = document.querySelector('#group-icon');
   quickTextGroupSelect = document.querySelector('#quick-text-group');
-  screenshotButton = document.querySelector('#screenshot-button');
 }

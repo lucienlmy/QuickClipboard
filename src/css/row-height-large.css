@@ -59,3 +59,19 @@
     font-size: 11px !important;
     margin-top: 8px !important;
 }
+
+/* 颜色预览 */
+.row-height-large .color-preview-container {
+    gap: 8px !important;
+    padding: 4px 10px !important;
+}
+
+.row-height-large .color-preview-swatch {
+    width: 24px !important;
+    height: 24px !important;
+}
+
+.row-height-large .color-preview-value {
+    padding: 3px 8px !important;
+    font-size: 13px !important;
+}

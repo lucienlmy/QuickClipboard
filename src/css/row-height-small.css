@@ -16,11 +16,18 @@
 .row-height-small .clipboard-timestamp {
     display: none !important;
 }
-.row-height-small .clipboard-text{
+
+.row-height-small .clipboard-text {
     font-size: 12px !important;
 }
+
 .row-height-small .file-summary {
     display: none !important;
+}
+
+.row-height-small.file-style-icons-only .clipboard-files-inner {
+    grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)) !important;
+
 }
 
 .row-height-small .file-item {
@@ -45,9 +52,11 @@
     padding: 8px !important;
     height: 50px !important;
 }
-.row-height-small .quick-text-timestamp{
+
+.row-height-small .quick-text-timestamp {
     display: none !important;
 }
+
 .row-height-small .quick-text-title {
     font-size: 12px !important;
     line-height: 1.2 !important;
@@ -62,9 +71,27 @@
     overflow: hidden !important;
     font-weight: bold !important;
 }
-.row-height-small .quick-text-image{
+
+.row-height-small .quick-text-image {
     height: 100%;
 }
+
 .row-height-small .quick-text-meta {
     display: none !important;
+}
+
+/* 颜色预览 */
+.row-height-small .color-preview-container {
+    gap: 6px !important;
+    padding: 2px 6px !important;
+}
+
+.row-height-small .color-preview-swatch {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.row-height-small .color-preview-value {
+    padding: 1px 4px !important;
+    font-size: 10px !important;
 }

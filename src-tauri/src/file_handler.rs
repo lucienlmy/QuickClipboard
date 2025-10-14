@@ -261,25 +261,7 @@ pub fn get_file_icon(path: &str) -> Result<String, String> {
 
     let path_obj = Path::new(path);
 
-    // 检查是否为图片文件，如果是则根据设置决定返回预览图还是图标
-    if path_obj.exists() && is_image_file(path) {
-        // 获取当前设置
-        let settings = crate::settings::get_global_settings();
-
-        // 如果启用了图片预览
-        if settings.show_image_preview {
-            // 检查文件大小，如果太大则使用默认图标
-            if !is_file_size_suitable_for_direct_access(path) {
-                // 文件太大，使用默认图片图标
-                return Ok(get_default_image_icon());
-            }
-
-            // 返回特殊的文件路径格式，让前端知道这是一个图片文件
-            return Ok(format!("image_file://{}", path));
-        }
-        // 如果未启用图片预览，继续使用系统图标逻辑
-    }
-
+    
     // 如果文件不存在，使用扩展名获取图标
     let use_file_attributes = !path_obj.exists();
 
@@ -307,7 +289,28 @@ pub fn get_file_icon(path: &str) -> Result<String, String> {
             flags,
         );
 
-        if result == 0 || file_info.hIcon.is_invalid() {
+        // 如果第一次失败且文件存在，尝试使用SHGFI_USEFILEATTRIBUTES标志重试
+        if (result == 0 || file_info.hIcon.is_invalid()) && path_obj.exists() && !use_file_attributes {
+            
+            let mut file_info_retry: SHFILEINFOW = std::mem::zeroed();
+            let flags_retry = SHGFI_ICON | SHGFI_USEFILEATTRIBUTES;
+            
+            let result_retry = SHGetFileInfoW(
+                windows::core::PCWSTR(wide_path.as_ptr()),
+                FILE_FLAGS_AND_ATTRIBUTES(0),
+                Some(&mut file_info_retry),
+                std::mem::size_of::<SHFILEINFOW>() as u32,
+                flags_retry,
+            );
+            
+            if result_retry != 0 && !file_info_retry.hIcon.is_invalid() {
+                // 重试成功，使用重试的结果
+                file_info = file_info_retry;
+            } else {
+                // 重试也失败，回退到简单图标
+                return Ok(get_fallback_icon(path));
+            }
+        } else if result == 0 || file_info.hIcon.is_invalid() {
             // 如果获取系统图标失败，回退到简单图标
             return Ok(get_fallback_icon(path));
         }
@@ -432,7 +435,9 @@ pub fn get_file_icon(path: &str) -> Result<String, String> {
                         let base64_data = general_purpose::STANDARD.encode(&png_data);
                         Ok(format!("data:image/png;base64,{}", base64_data))
                     }
-                    Err(_) => Ok(get_fallback_icon(path)),
+                    Err(_) => {
+                        Ok(get_fallback_icon(path))
+                    },
                 }
             }
             None => Ok(get_fallback_icon(path)),
@@ -532,14 +537,17 @@ fn get_default_file_icon() -> String {
     "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjEyIiBoZWlnaHQ9IjEyIiBmaWxsPSIjQ0NDQ0NDIi8+Cjwvc3ZnPgo=".to_string()
 }
 
+#[allow(dead_code)]
 fn get_default_image_icon() -> String {
     "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiBmaWxsPSIjNDI4NWY0IiBzdHJva2U9IiM0Mjg1ZjQiIHN0cm9rZS13aWR0aD0iMiIgcng9IjIiLz4KPGNpcmNsZSBjeD0iOSIgY3k9IjkiIHI9IjIiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Im0yMSAxNS0zLjA4Ni0zLjA4NmEyIDIgMCAwIDAtMi44MjggMEwxMiAxNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+".to_string()
 }
 
 // 图片文件大小限制常量
+#[allow(dead_code)]
 const MAX_IMAGE_SIZE_FOR_DIRECT_ACCESS: u64 = 10 * 1024 * 1024; // 10MB
 
 // 检查文件是否为图片类型
+#[allow(dead_code)]
 fn is_image_file(path: &str) -> bool {
     use std::path::Path;
 
@@ -557,6 +565,7 @@ fn is_image_file(path: &str) -> bool {
 }
 
 // 检查文件大小是否适合直接访问
+#[allow(dead_code)]
 fn is_file_size_suitable_for_direct_access(path: &str) -> bool {
     if let Ok(metadata) = fs::metadata(path) {
         metadata.len() <= MAX_IMAGE_SIZE_FOR_DIRECT_ACCESS
@@ -566,7 +575,8 @@ fn is_file_size_suitable_for_direct_access(path: &str) -> bool {
 }
 
 // 复制文件到目标位置
-pub fn copy_files_to_target(files: &[String], target_dir: &str) -> Result<Vec<String>, String> {
+    #[allow(dead_code)]
+    pub fn copy_files_to_target(files: &[String], target_dir: &str) -> Result<Vec<String>, String> {
     let target_path = Path::new(target_dir);
 
     if !target_path.exists() {
@@ -610,6 +620,7 @@ pub fn copy_files_to_target(files: &[String], target_dir: &str) -> Result<Vec<St
 }
 
 // 递归复制目录
+#[allow(dead_code)]
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     fs::create_dir_all(dst).map_err(|e| format!("创建目录失败 {}: {}", dst.display(), e))?;
 

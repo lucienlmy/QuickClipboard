@@ -1,5 +1,7 @@
 /* =================== 主题管理器 =================== */
 
+import { applyThemeWithTransition, getClickPosition } from './themeTransition.js';
+
 // 主题类型枚举
 export const THEMES = {
   AUTO: 'auto',      // 跟随系统
@@ -32,7 +34,6 @@ export async function initThemeManager() {
   // 从设置中加载主题
   await loadThemeFromSettings();
 
-  console.log('主题管理器初始化完成');
 }
 
 /**
@@ -70,13 +71,13 @@ async function loadThemeFromSettings() {
     const settings = await invoke('get_settings');
 
     if (settings && settings.theme) {
-      setTheme(settings.theme);
+      setTheme(settings.theme, { withAnimation: false });
     } else {
-      setTheme(THEMES.AUTO);
+      setTheme(THEMES.AUTO, { withAnimation: false });
     }
   } catch (error) {
     console.warn('加载主题设置失败，使用默认主题:', error);
-    setTheme(THEMES.AUTO);
+    setTheme(THEMES.AUTO, { withAnimation: false });
   }
 }
 
@@ -94,16 +95,31 @@ async function saveThemeToSettings(theme) {
 
 /**
  * 设置主题
- * @param {string} theme - 主题名称
  */
-export function setTheme(theme) {
+export async function setTheme(theme, options = {}) {
   if (!Object.values(THEMES).includes(theme)) {
     console.warn('无效的主题:', theme);
     return;
   }
 
+  const { withAnimation = true, event = null } = options;
+
   currentTheme = theme;
-  applyTheme(theme);
+
+  if (withAnimation) {
+    // 使用圆形扩展动画
+    const clickPos = event ? getClickPosition(event) : {};
+    await applyThemeWithTransition(() => {
+      applyTheme(theme);
+    }, {
+      ...clickPos,
+      duration: 600
+    });
+  } else {
+    // 直接切换，无动画
+    applyTheme(theme);
+  }
+
   saveThemeToSettings(theme);
   notifyThemeChange();
 }
@@ -127,7 +143,6 @@ export function getEffectiveTheme() {
 
 /**
  * 应用主题到DOM
- * @param {string} theme - 主题名称
  */
 function applyTheme(theme) {
   const body = document.body;
@@ -159,12 +174,10 @@ function applyTheme(theme) {
       break;
   }
 
-  console.log(`主题已应用: ${theme} (实际: ${getEffectiveTheme()})`);
 }
 
 /**
  * 添加主题变更监听器
- * @param {Function} listener - 监听器函数
  */
 export function addThemeChangeListener(listener) {
   themeChangeListeners.add(listener);
@@ -172,7 +185,6 @@ export function addThemeChangeListener(listener) {
 
 /**
  * 移除主题变更监听器
- * @param {Function} listener - 监听器函数
  */
 export function removeThemeChangeListener(listener) {
   themeChangeListeners.delete(listener);
@@ -197,9 +209,8 @@ async function notifyThemeChange() {
   try {
     const { emit } = await import('@tauri-apps/api/event');
     await emit('theme-changed', effectiveTheme);
-    console.log('已发送主题变化事件:', effectiveTheme);
   } catch (error) {
-    console.error('发送主题变化事件失败:', error);
+    // 静默处理错误
   }
 }
 
@@ -215,7 +226,6 @@ export function toggleTheme() {
 
 /**
  * 获取主题显示名称
- * @param {string} theme - 主题名称
  */
 export function getThemeDisplayName(theme) {
   switch (theme) {
@@ -261,7 +271,6 @@ export function isTransparentTheme() {
 
 /**
  * 为其他窗口应用主题
- * @param {Document} targetDocument - 目标文档对象
  */
 export function applyThemeToWindow(targetDocument) {
   if (!targetDocument || !targetDocument.body) {

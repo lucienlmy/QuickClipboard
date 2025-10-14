@@ -35,25 +35,6 @@
         "visibleOnAllWorkspaces": true
       },
       {
-        "label": "settings",
-        "title": "设置 - 快速剪贴板",
-        "url": "settings.html",
-        "width": 900,
-        "height": 630,
-        "minWidth": 800,
-        "minHeight": 600,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": false,
-        "skipTaskbar": false,
-        "center": true,
-        "visible": false,
-        "resizable": false,
-        "focus": true,
-        "maximizable": false,
-        "dragDropEnabled": false
-      },
-      {
         "label": "preview",
         "title": "快速预览",
         "url": "preview.html",
@@ -75,6 +56,27 @@
         "maximizable": false,
         "minimizable": false,
         "dragDropEnabled": false
+      },
+      {
+        "label": "screenshot",
+        "title": "截屏窗口",
+        "url": "screenshot/index.html",
+        "width": 1920,
+        "height": 1080,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "center": false,
+        "visible": false,
+        "resizable": false,
+        "focus": false,
+        "maximizable": false,
+        "minimizable": false,
+        "dragDropEnabled": false,
+        "fullscreen": false,
+        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {
@@ -83,18 +85,30 @@
         "default",
         "settings",
         "preview",
-        "text-editor"
-      ]
+        "text-editor",
+        "screenshot",
+        "pin-image",
+        "input-dialog",
+        "context-menu"
+      ],
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": [
+            "**"
+          ]
+        }
+      }
     }
   },
   "bundle": {
     "active": true,
     "targets": [
-      "nsis",
       "msi",
-      "app"
+      "nsis"
     ],
     "publisher": "MoSheng",
+    "homepage": "https://github.com/mosheng1/QuickClipboard",
     "copyright": "Copyright © 2025 MoSheng. All rights reserved.",
     "icon": [
       "icons/icon32.png",
@@ -118,6 +132,19 @@
       },
       "wix": {
         "language": "zh-CN"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/mosheng1/QuickClipboard/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlBRjJDNjRFN0RGNUI2MDUKUldRRnR2VjlUc2J5bWtnYmlnbzZuUHpjN3dYSFJuQU5vbmY5RUpzVDN6Q1B6OFF5LzVIRG0zRUMK",
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

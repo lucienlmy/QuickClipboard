@@ -40,7 +40,7 @@ pub fn add_to_history(text: String) {
         return;
     }
 
-    if let Err(e) = database::add_clipboard_item(text) {
+    if let Err(e) = database::add_clipboard_item_smart(text, None) {
         println!("添加剪贴板历史失败: {}", e);
     }
 }
@@ -76,12 +76,8 @@ pub fn add_to_history_with_check_and_move_html(text: String, html_content: Optio
             }
         }
         Ok(None) => {
-            // 新文本：添加到历史
-            let result = if html_content.is_some() {
-                database::add_clipboard_item_with_html(text, html_content)
-            } else {
-                database::add_clipboard_item(text)
-            };
+            // 新文本：使用智能添加函数根据内容类型自动判断
+            let result = database::add_clipboard_item_smart(text, html_content);
             
             if let Err(e) = result {
                 println!("添加剪贴板历史失败: {}", e);
@@ -181,24 +177,15 @@ pub fn move_item(from_index: usize, to_index: usize) -> Result<(), String> {
     let moved_item = reordered_items.remove(from_index);
     reordered_items.insert(to_index, moved_item);
 
-    let item_texts: Vec<String> = reordered_items
+    let item_ids: Vec<i64> = reordered_items
         .iter()
-        .map(|item| item.content.clone())
+        .map(|item| item.id)
         .collect();
 
-    database::reorder_clipboard_items(&item_texts)
+    database::reorder_clipboard_items_by_ids(&item_ids)
         .map_err(|e| format!("数据库重新排序失败: {}", e))?;
 
     Ok(())
-}
-
-// 重新排序历史记录
-pub fn reorder_history(items: Vec<String>) {
-    if let Err(e) = database::reorder_clipboard_items(&items) {
-        println!("数据库重新排序失败: {}", e);
-    } else {
-        println!("剪贴板历史顺序已在数据库中更新");
-    }
 }
 
 // 设置剪贴板监听状态
@@ -217,11 +204,6 @@ pub fn set_ignore_duplicates(enabled: bool) {
     println!("忽略重复内容设置: {}", enabled);
 }
 
-// 检查是否忽略重复内容
-pub fn is_ignore_duplicates() -> bool {
-    IGNORE_DUPLICATES.load(Ordering::Relaxed)
-}
-
 // 设置保存图片状态
 pub fn set_save_images(enabled: bool) {
     SAVE_IMAGES.store(enabled, Ordering::Relaxed);
@@ -233,91 +215,91 @@ pub fn is_save_images() -> bool {
     SAVE_IMAGES.load(Ordering::Relaxed)
 }
 
-// 根据索引删除剪贴板项目
-pub fn delete_item_by_index(index: usize) -> Result<(), String> {
-    // 获取当前历史记录以找到对应的数据库ID
-    let items = database::get_clipboard_history(None)?;
-
-    if index >= items.len() {
-        return Err("索引超出范围".to_string());
-    }
-
-    let item = &items[index];
-
-    // 如果是图片，删除对应的图片文件
-    if item.is_image {
-        if let Some(image_id) = &item.image_id {
-            match get_image_manager() {
-                Ok(image_manager) => {
-                    if let Ok(manager) = image_manager.lock() {
-                        if let Err(e) = manager.delete_image(image_id) {
-                            println!("删除图片文件失败: {}", e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("获取图片管理器失败: {}", e);
-                }
-            }
-        }
-    }
-
-    // 从数据库删除
-    database::delete_clipboard_item(item.id)?;
-
-    println!("已删除索引为 {} 的剪贴板项目", index);
-    Ok(())
-}
 
 // 清空所有剪贴板历史
 pub fn clear_all() -> Result<(), String> {
-    // 获取所有图片项目并删除对应的图片文件
-    let items = database::get_clipboard_history(None)?;
-
-    for item in &items {
-        if item.is_image {
-            if let Some(image_id) = &item.image_id {
-                match get_image_manager() {
-                    Ok(image_manager) => {
-                        if let Ok(manager) = image_manager.lock() {
-                            if let Err(e) = manager.delete_image(image_id) {
-                                println!("删除图片文件失败: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        println!("获取图片管理器失败: {}", e);
-                    }
-                }
-            }
-        }
-    }
-
     // 清空数据库
     database::clear_clipboard_history()?;
+
+    // 清理未使用的图片
+    cleanup_orphaned_images();
 
     println!("已清空所有剪贴板历史记录");
     Ok(())
 }
 
-// 更新剪贴板项目内容
-pub fn update_item_content(index: usize, new_content: String) -> Result<(), String> {
-    // 获取当前历史记录以找到对应的数据库ID
-    let items = database::get_clipboard_history(None)?;
-
-    if index >= items.len() {
-        return Err(format!(
-            "索引 {} 超出范围，当前历史记录数量: {}",
-            index,
-            items.len()
-        ));
+// 清理未使用的图片文件（孤儿图片）
+pub fn cleanup_orphaned_images() {
+    // 收集所有正在使用的图片ID
+    let mut used_image_ids = Vec::new();
+    
+    // 从剪贴板历史中收集图片ID
+    if let Ok(clipboard_items) = database::get_clipboard_history(None) {
+        for item in clipboard_items {
+            // 从image_id字段收集（纯图片类型）
+            if item.content_type == crate::database::ContentType::Image {
+                if let Some(image_id) = item.image_id {
+                    used_image_ids.push(image_id);
+                }
+            }
+            
+            // 从html_content字段中提取图片ID（富文本中的图片）
+            if let Some(html) = &item.html_content {
+                extract_image_ids_from_html(html, &mut used_image_ids);
+            }
+        }
     }
+    
+    // 从常用文本中收集图片ID
+    if let Ok(quick_texts) = crate::database::get_all_favorite_items() {
+        for text in quick_texts {
+            // 检查content是否为图片引用格式 "image:id"
+            if text.content.starts_with("image:") {
+                let image_id = text.content.strip_prefix("image:").unwrap_or("");
+                if !image_id.is_empty() {
+                    used_image_ids.push(image_id.to_string());
+                }
+            }
+            
+            // 从html_content字段中提取图片ID（富文本中的图片）
+            if let Some(html) = &text.html_content {
+                extract_image_ids_from_html(html, &mut used_image_ids);
+            }
+        }
+    }
+    
+    // 调用图片管理器清理未使用的图片
+    if let Ok(image_manager) = get_image_manager() {
+        if let Ok(manager) = image_manager.lock() {
+            if let Err(e) = manager.cleanup_unused_images(&used_image_ids) {
+                println!("清理未使用的图片失败: {}", e);
+            } else {
+                println!("已清理未使用的图片，保留 {} 个正在使用的图片", used_image_ids.len());
+            }
+        }
+    }
+}
 
-    let item = &items[index];
-
-    // 更新数据库中的内容
-    database::update_clipboard_item(item.id, new_content)?;
-
-    println!("已更新索引为 {} 的剪贴板项目内容", index);
-    Ok(())
+// 从HTML内容中提取所有图片ID
+fn extract_image_ids_from_html(html: &str, image_ids: &mut Vec<String>) {
+    // 也匹配 onerror 等属性中的图片ID
+    let patterns = [
+        r#"src="image-id:([a-f0-9]+)""#,
+        r#"src='image-id:([a-f0-9]+)'"#,
+        r#"onerror="[^"]*image-id:([a-f0-9]+)[^"]*""#,
+        r#"onerror='[^']*image-id:([a-f0-9]+)[^']*'"#,
+    ];
+    
+    for pattern in &patterns {
+        if let Ok(re) = regex::Regex::new(pattern) {
+            for cap in re.captures_iter(html) {
+                if let Some(id) = cap.get(1) {
+                    let image_id = id.as_str().to_string();
+                    if !image_ids.contains(&image_id) {
+                        image_ids.push(image_id);
+                    }
+                }
+            }
+        }
+    }
 }

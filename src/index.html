@@ -5,7 +5,6 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/x-icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='8' y='2' width='8' height='4' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/></rect></svg>">
-  <link rel="stylesheet" href="./assets/icons/icons-webfont/dist/tabler-icons.min.css">
   <link rel="stylesheet" href="css/index-common.css" />
   <link rel="stylesheet" href="css/index-light.css" id="theme-style">
   <link rel="stylesheet" href="css/index-dark.css" id="theme-style">
@@ -14,6 +13,8 @@
   <link rel="stylesheet" href="css/row-height-medium.css">
   <link rel="stylesheet" href="css/row-height-large.css">
   <link rel="stylesheet" href="css/titlebar-positions.css">
+  <link rel="stylesheet" href="css/searchEngineSelector.css">
+  <link rel="stylesheet" href="css/musicPlayer.css">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>快速剪贴板</title>
@@ -22,40 +23,19 @@
 
 <body>
   <div class="title-bar" id="titlebar">
-    <div class="title"><img src="./assets/icon1024.png" style="width: 18px; height: 18px;" alt="">QuickClipboard</div>
+    <div class="title"><img src="./assets/icon1024.png" style="width: 28px; height: 28px;-webkit-user-drag: none;" alt=""></div>
     <div class="controls" id="titlebar-controls">
       <!-- 工具面板切换按钮 -->
       <button id="tools-panel-toggle" class="control-button" title="工具面板"><i class="ti ti-apps"></i></button>
       
-      <button id="settings-button" class="control-button" title="设置" draggable="true"><i class="ti ti-settings"></i></button>
-
-      <button id="pin-button" class="control-button" title="固定" draggable="true"><i class="ti ti-pin"></i></button>
+      <!-- 其他工具按钮将动态生成 -->
     </div>
   </div>
 
   <!-- 工具面板 -->
   <div class="tools-panel" id="tools-panel">
     <div class="tools-panel-content" id="tools-panel-content">
-      <!-- 截屏按钮 -->
-      <div class="tool-item" draggable="true">
-        <button id="screenshot-button" class="tool-button" title="截屏">
-          <i class="ti ti-screenshot"></i>
-        </button>
-      </div>
-
-      <!-- 一次性粘贴按钮 -->
-      <div class="tool-item" draggable="true">
-        <button id="one-time-paste-button" class="tool-button toggle-button" title="一次性粘贴 - 开启后粘贴项目会自动删除">
-          <i class="ti ti-trash"></i>
-        </button>
-      </div>
-
-      <!-- AI翻译按钮 -->
-      <div class="tool-item" draggable="true">
-        <button id="ai-translation-button" class="tool-button toggle-button" title="AI翻译 - 开启AI自动翻译功能">
-          <i class="ti ti-language"></i>
-        </button>
-      </div>
+      <!-- 工具按钮将动态生成 -->
     </div>
   </div>
 
@@ -83,7 +63,7 @@
         <button class="filter-tab" data-filter="all" title="全部"><i class="ti ti-category"></i><span>全部</span></button>
         <button class="filter-tab" data-filter="text" title="文本"><i class="ti ti-file-text"></i><span>文本</span></button>
         <button class="filter-tab" data-filter="image" title="图片"><i class="ti ti-photo"></i><span>图片</span></button>
-        <button class="filter-tab" data-filter="files" title="文件"><i class="ti ti-folder"></i><span>文件</span></button>
+        <button class="filter-tab" data-filter="file" title="文件"><i class="ti ti-folder"></i><span>文件</span></button>
         <button class="filter-tab" data-filter="link" title="链接"><i class="ti ti-link"></i><span>链接</span></button>
       </div>
     </div>
@@ -127,7 +107,7 @@
       <div class="shortcuts-info">
         <span id="toggle-shortcut-display">Win+V: 显示/隐藏</span>
         <span>Ctrl+数字: 粘贴对应历史</span>
-        <i class="ti ti-keyboard shortcuts-help-icon" title="悬停查看所有快捷键"></i>
+        <i class="ti ti-keyboard shortcuts-help-icon" title="点击查看所有快捷键"></i>
       </div>
     </div>
   </main>
@@ -142,49 +122,49 @@
     <div class="shortcuts-help-body">
       <div class="shortcuts-section">
         <h4>基础导航</h4>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="global-toggle-shortcut-display">
           <kbd>Win</kbd> + <kbd>V</kbd>
           <span>显示/隐藏QuickClipboard</span>
         </div>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="navigate-shortcut-display">
           <kbd>↑</kbd> / <kbd>↓</kbd>
           <span>在项目间导航</span>
         </div>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="tab-shortcut-display">
           <kbd>←</kbd> / <kbd>→</kbd>
           <span>在标签页间切换</span>
         </div>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="focus-search-shortcut-display">
           <kbd>Tab</kbd>
           <span>聚焦搜索框</span>
         </div>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="hide-window-shortcut-display">
           <kbd>ESC</kbd>
           <span>隐藏窗口</span>
         </div>
       </div>
       <div class="shortcuts-section">
         <h4>高级功能</h4>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="execute-item-shortcut-display">
           <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
           <span>执行选中项目</span>
         </div>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="previous-group-shortcut-display">
           <kbd>Ctrl</kbd> + <kbd>↑</kbd>
           <span>切换到上一个分组</span>
         </div>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="next-group-shortcut-display">
           <kbd>Ctrl</kbd> + <kbd>↓</kbd>
           <span>切换到下一个分组</span>
         </div>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="toggle-pin-shortcut-display">
           <kbd>Ctrl</kbd> + <kbd>P</kbd>
           <span>切换窗口固定状态</span>
         </div>
       </div>
       <div class="shortcuts-section">
         <h4>数字快捷键</h4>
-        <div class="shortcut-item">
+        <div class="shortcut-item" id="number-shortcut-display">
           <kbd>Ctrl</kbd> + <kbd>1-9</kbd>
           <span>粘贴对应序号项目</span>
         </div>

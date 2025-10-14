@@ -1,9 +1,10 @@
 import Clusterize from 'clusterize.js';
 import Sortable from 'sortablejs';
+import LazyLoad from 'vanilla-lazyload';
+import * as navigation from './navigation.js';
 
 /**
  * 虚拟滚动列表类
- * 结合 Clusterize.js 和 SortableJS 实现高性能的可拖拽虚拟滚动列表
  */
 export class VirtualList {
   constructor(options) {
@@ -19,9 +20,14 @@ export class VirtualList {
     this.clusterize = null;
     this.sortable = null;
     this.isDragging = false;
-    
+    this.lazyLoad = null;
+
     // 维护当前行高状态
     this.currentRowHeightSetting = localStorage.getItem('app-row-height') || 'medium';
+    
+    // 鼠标悬停优化
+    this.hoverDebounceTimeout = null;
+    this.lastHoverTarget = null;
 
     this.init();
   }
@@ -48,8 +54,8 @@ export class VirtualList {
     // 监听行高变化
     this.bindRowHeightListener();
 
-    // 初始化时触发图片加载
-    this.triggerImageLoad();
+    // 初始化懒加载
+    this.initLazyLoad();
   }
 
   initSortable() {
@@ -97,7 +103,7 @@ export class VirtualList {
             if (elements[i] && elements[i] !== evt.item) {
               const refIndex = parseInt(elements[i].getAttribute('data-index'));
               // 向下拖拽时直接使用参考元素索引，不加1
-              realNewIndex = isForward ? refIndex : refIndex; 
+              realNewIndex = isForward ? refIndex : refIndex;
               break;
             }
           }
@@ -112,6 +118,9 @@ export class VirtualList {
           if (realOldIndex !== realNewIndex) {
             console.log('oldIndex:', realOldIndex, 'newIndex:', realNewIndex);
             this.onSort(realOldIndex, realNewIndex);
+
+            // 拖拽完成后重新设置data-index
+            this.updateDataIndexesAfterDrag(realOldIndex, realNewIndex);
 
             // 拖拽完成后设置该项为激活状态
             setTimeout(() => {
@@ -203,18 +212,55 @@ export class VirtualList {
   // 设置拖拽项为激活状态
   setDraggedItemActive(draggedElement, newIndex) {
     try {
-      // 动态导入navigation模块以避免循环依赖
-      import('./navigation.js').then(navigationModule => {
-        // 更新拖拽元素的data-index属性为新索引
-        draggedElement.setAttribute('data-index', newIndex.toString());
-
-        // 调用navigation模块的syncClickedItem函数设置激活状态
-        navigationModule.syncClickedItem(draggedElement);
-      }).catch(error => {
-        console.warn('设置拖拽项激活状态失败:', error);
-      });
+      // 更新拖拽元素的data-index属性为新索引
+      draggedElement.setAttribute('data-index', newIndex.toString());
+      navigation.syncClickedItem(draggedElement);
     } catch (error) {
       console.warn('设置拖拽项激活状态失败:', error);
+    }
+  }
+
+  // 拖拽完成后更新所有相关元素的data-index
+  updateDataIndexesAfterDrag(oldIndex, newIndex) {
+    try {
+      const contentElement = document.getElementById(this.contentId);
+      if (!contentElement) return;
+
+      const items = contentElement.querySelectorAll('[data-index]');
+      if (!items || items.length === 0) return;
+
+      // 确定索引范围
+      const startIndex = Math.min(oldIndex, newIndex);
+      const endIndex = Math.max(oldIndex, newIndex);
+
+      // 更新受影响范围内的所有元素的data-index
+      items.forEach(item => {
+        const currentIndex = parseInt(item.getAttribute('data-index'));
+        if (!isNaN(currentIndex)) {
+          // 如果是拖拽元素本身，设置为新索引
+          if (currentIndex === oldIndex) {
+            item.setAttribute('data-index', newIndex.toString());
+          }
+          // 如果元素在拖拽路径上，根据拖拽方向调整索引
+          else if (currentIndex >= startIndex && currentIndex <= endIndex) {
+            if (oldIndex < newIndex) {
+              // 向下拖拽，被拖拽元素经过的元素索引减1
+              if (currentIndex > oldIndex && currentIndex <= newIndex) {
+                item.setAttribute('data-index', (currentIndex - 1).toString());
+              }
+            } else {
+              // 向上拖拽，被拖拽元素经过的元素索引加1
+              if (currentIndex >= newIndex && currentIndex < oldIndex) {
+                item.setAttribute('data-index', (currentIndex + 1).toString());
+              }
+            }
+          }
+        }
+      });
+
+      console.log(`拖拽后更新索引: ${oldIndex} -> ${newIndex}`);
+    } catch (error) {
+      console.warn('更新拖拽后的data-index失败:', error);
     }
   }
 
@@ -246,6 +292,47 @@ export class VirtualList {
       }
     });
 
+    // 使用事件委托处理鼠标悬停事件，同步键盘选中状态
+    contentElement.addEventListener('mouseenter', (e) => {
+      if (this.isDragging) return;
+
+      const item = e.target.closest('[data-index]');
+      if (item) {
+        // 如果是同一个元素，直接返回避免重复处理
+        if (this.lastHoverTarget === item) {
+          return;
+        }
+        
+        this.lastHoverTarget = item;
+        const index = parseInt(item.getAttribute('data-index'));
+        
+        if (!isNaN(index)) {
+          // 清除之前的防抖定时器
+          if (this.hoverDebounceTimeout) {
+            clearTimeout(this.hoverDebounceTimeout);
+          }
+          
+          // 使用较短的防抖延迟，既能避免频繁调用又不影响响应性
+          this.hoverDebounceTimeout = setTimeout(() => {
+            navigation.setCurrentSelectedIndex(index);
+            this.hoverDebounceTimeout = null;
+          }, 5); // 5ms防抖延迟
+        }
+      }
+    }, true); // 使用捕获模式确保能够正确处理嵌套元素
+    
+    // 添加鼠标离开事件，清理状态
+    contentElement.addEventListener('mouseleave', (e) => {
+      if (this.isDragging) return;
+      
+      // 清除防抖定时器和缓存
+      if (this.hoverDebounceTimeout) {
+        clearTimeout(this.hoverDebounceTimeout);
+        this.hoverDebounceTimeout = null;
+      }
+      this.lastHoverTarget = null;
+    }, true);
+
     // 使用事件委托处理拖拽开始事件
     contentElement.addEventListener('dragstart', (e) => {
       const item = e.target.closest('[data-index]');
@@ -255,16 +342,22 @@ export class VirtualList {
       }
     });
 
-    // 监听滚动事件，触发图片加载
+    // 监听滚动事件，触发图片加载和管理滚动状态
     const scrollElement = document.getElementById(this.scrollId);
     if (scrollElement) {
       let scrollTimeout;
       scrollElement.addEventListener('scroll', () => {
+        // 通知导航模块正在滚动
+        navigation.setScrollingState(true);
+        
         // 防抖处理，避免频繁触发
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(() => {
           this.triggerImageLoad();
-        }, 100);
+          
+          // 滚动结束，通知导航模块
+          navigation.setScrollingState(false);
+        }, 150); // 增加延迟确保滚动完全停止
       });
     }
   }
@@ -276,7 +369,6 @@ export class VirtualList {
 
     return this.data.map((item, index) => {
       const html = this.renderItem(item, index);
-      // renderItem应该已经包含了正确的data-index属性，不需要重复添加
       return html;
     });
   }
@@ -286,7 +378,7 @@ export class VirtualList {
     const rows = this.generateRows();
     this.clusterize.update(rows);
 
-    // 更新数据后触发图片加载
+    // 更新数据后刷新懒加载
     this.triggerImageLoad();
   }
 
@@ -328,12 +420,15 @@ export class VirtualList {
     if (this.clusterize) {
       this.clusterize.destroy();
     }
-    
+    if (this.lazyLoad) {
+      this.lazyLoad.destroy();
+    }
+
     // 清理行高变化监听器
     if (this.rowHeightChangeHandler) {
       window.removeEventListener('row-height-changed', this.rowHeightChangeHandler);
     }
-    
+
     // 清理标签页切换监听器
     if (this.tabSwitchHandler) {
       window.removeEventListener('tab-switched', this.tabSwitchHandler);
@@ -363,7 +458,7 @@ export class VirtualList {
     // 计算目标滚动位置 - 让目标元素显示在视口顶部偏下一点
     const targetScrollTop = index * itemHeight;
     const containerHeight = scrollElement.clientHeight;
-    
+
     // 添加小量偏移，避免元素刚好贴在视口顶部
     const offset = itemHeight * 0.1;
     const adjustedScrollTop = Math.max(0, targetScrollTop - offset);
@@ -389,7 +484,7 @@ export class VirtualList {
   // 根据当前行高设置获取项目高度
   getCurrentRowHeight() {
     const currentRowHeight = localStorage.getItem('app-row-height') || 'medium';
-    
+
     switch (currentRowHeight) {
       case 'large':
         return 120; // 大
@@ -405,7 +500,7 @@ export class VirtualList {
   // 根据行高名称获取对应的数值
   getCurrentRowHeightFromEvent(rowHeightName) {
     if (!rowHeightName) return 90; // 默认中等
-    
+
     switch (rowHeightName) {
       case 'large':
         return 120; // 大
@@ -422,32 +517,32 @@ export class VirtualList {
   getFirstVisibleElementIndex() {
     const scrollElement = document.getElementById(this.scrollId);
     const contentElement = document.getElementById(this.contentId);
-    
+
     if (!scrollElement || !contentElement) {
       return 0;
     }
-    
+
     const scrollTop = scrollElement.scrollTop;
     const viewportHeight = scrollElement.clientHeight;
-    
+
     // 如果滚动到顶部，直接返回0
     if (scrollTop <= 0) {
       return 0;
     }
-    
+
     // 查找所有有效的项目元素
     const items = contentElement.querySelectorAll('[data-index]');
     let firstVisibleIndex = null;
-    
+
     // 使用更精确的可见性检测
     for (let item of items) {
       const itemRect = item.getBoundingClientRect();
       const containerRect = scrollElement.getBoundingClientRect();
-      
+
       // 计算相对于容器的位置
       const itemTop = itemRect.top - containerRect.top;
       const itemBottom = itemRect.bottom - containerRect.top;
-      
+
       // 检查元素是否在视口内可见
       if (itemBottom > 0 && itemTop < viewportHeight) {
         const index = parseInt(item.getAttribute('data-index'));
@@ -458,16 +553,16 @@ export class VirtualList {
         }
       }
     }
-    
+
     // 如果找到了可见元素，返回最小的索引
     if (firstVisibleIndex !== null) {
       return firstVisibleIndex;
     }
-    
+
     // 如果没找到，回退到基于滚动位置的计算
     const avgRowHeight = this.getCurrentRowHeight();
     const calculatedIndex = Math.floor(scrollTop / avgRowHeight);
-    
+
     // 确保计算出的索引在有效范围内
     return Math.max(0, Math.min(calculatedIndex, this.data.length - 1));
   }
@@ -479,33 +574,33 @@ export class VirtualList {
       setTimeout(() => {
         const scrollElement = document.getElementById(this.scrollId);
         const contentElement = document.getElementById(this.contentId);
-        
+
         if (scrollElement && contentElement && this.data && this.data.length > 0) {
           // 保存当前滚动位置
           const currentScrollTop = scrollElement.scrollTop;
-          
+
           // 获取旧行高和新行高
           const oldRowHeight = this.getCurrentRowHeightFromEvent(this.currentRowHeightSetting);
           const newRowHeightName = localStorage.getItem('app-row-height') || 'medium';
           const newRowHeight = this.getCurrentRowHeightFromEvent(newRowHeightName);
-          
+
           // 根据旧行高计算当前可见的第一个项目索引
           const firstVisibleIndex = Math.floor(currentScrollTop / oldRowHeight);
-          
+
           // 确保索引在有效范围内
           const validIndex = Math.max(0, Math.min(firstVisibleIndex, this.data.length - 1));
-          
+
           // 更新当前行高设置
           this.currentRowHeightSetting = newRowHeightName;
-          
+
           // 强制刷新虚拟列表以重新计算块布局
           this.clusterize.refresh(true);
-          
+
           // 根据新的行高和目标元素索引计算新的滚动位置
           setTimeout(() => {
             // 使用 scrollToIndex 方法精确定位到指定元素
             this.scrollToIndex(validIndex);
-            
+
             // 再次刷新以确保虚拟列表正确渲染
             setTimeout(() => {
               this.clusterize.refresh(true);
@@ -514,7 +609,7 @@ export class VirtualList {
         }
       }, 150);
     };
-    
+
     // 监听标签页切换事件，在切换时刷新虚拟列表并回到顶部
     this.tabSwitchHandler = () => {
       setTimeout(() => {
@@ -525,10 +620,10 @@ export class VirtualList {
             top: 0,
             behavior: 'instant'
           });
-          
+
           // 强制刷新虚拟列表布局
           this.clusterize.refresh(true);
-          
+
           // 再次确保滚动位置正确
           setTimeout(() => {
             scrollElement.scrollTop = 0;
@@ -537,116 +632,93 @@ export class VirtualList {
         }
       }, 50);
     };
-    
+
     window.addEventListener('row-height-changed', this.rowHeightChangeHandler);
     // 监听标签页切换
     window.addEventListener('tab-switched', this.tabSwitchHandler);
   }
 
-  // 触发图片加载
+  // 初始化懒加载
+  initLazyLoad() {
+    if (this.lazyLoad) {
+      this.lazyLoad.destroy();
+    }
+
+    const scrollElement = document.getElementById(this.scrollId);
+    if (!scrollElement) return;
+
+    // 创建懒加载实例
+    this.lazyLoad = new LazyLoad({
+      elements_selector: '.lazy',
+      container: scrollElement,
+      threshold: 500,
+      thresholds: '0px 500px 1000px',
+      callback_enter: (el) => {
+        const imageId = el.getAttribute('data-image-id');
+        if (imageId) {
+          if (!el.hasAttribute('data-loading')) {
+            el.setAttribute('data-loading', 'true');
+            this.loadImageById(el, imageId);
+          }
+        }
+      },
+      callback_loaded: (el) => {
+        el.classList.remove('image-loading');
+        el.classList.add('image-loaded');
+      },
+      callback_error: (el) => {
+        el.classList.remove('image-loading');
+        el.classList.add('image-error');
+      }
+    });
+  }
+
+  // 异步加载图片
+  async loadImageById(imgElement, imageId) {
+    try {
+      const { invoke, convertFileSrc } = await import('@tauri-apps/api/core');
+      const filePath = await invoke('get_image_file_path', { content: `image:${imageId}` });
+      const assetUrl = convertFileSrc(filePath, 'asset');
+
+      imgElement.setAttribute('data-src', assetUrl);
+      imgElement.classList.remove('lazy'); 
+      const tempImg = new Image();
+      
+      // 监听加载完成
+      tempImg.onload = () => {
+        imgElement.src = assetUrl;
+        imgElement.removeAttribute('data-loading');
+        imgElement.classList.remove('image-loading');
+        imgElement.classList.add('image-loaded');
+      };
+      
+      // 监听加载失败
+      tempImg.onerror = () => {
+        const errorSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZWJlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjYzYyODI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg==';
+        imgElement.src = errorSrc;
+        imgElement.removeAttribute('data-loading');
+        imgElement.classList.remove('image-loading');
+        imgElement.classList.add('image-error');
+      };
+      
+      tempImg.src = assetUrl;
+      
+    } catch (error) {
+      console.warn('获取图片路径失败:', error);
+      const errorSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZWJlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjYzYyODI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg==';
+      imgElement.src = errorSrc;
+      imgElement.removeAttribute('data-loading');
+      imgElement.classList.remove('image-loading');
+      imgElement.classList.add('image-error');
+    }
+  }
+
   triggerImageLoad() {
-    // 延迟执行，确保DOM已更新
     setTimeout(() => {
-      // 根据列表类型触发相应的图片加载
-      if (this.scrollId === 'clipboard-list') {
-        // 触发剪贴板图片加载
-        this.loadClipboardImages();
-      } else if (this.scrollId === 'quick-texts-list') {
-        // 触发常用文本图片加载
-        this.loadQuickTextImages();
+      if (this.lazyLoad) {
+        this.lazyLoad.update();
       }
     }, 50);
   }
 
-  // 加载剪贴板图片
-  async loadClipboardImages() {
-    try {
-      // 动态导入clipboard模块以避免循环依赖
-      const clipboardModule = await import('./clipboard.js');
-
-      // 加载文件图标
-      const fileIcons = document.querySelectorAll('.file-icon[data-needs-load="true"]');
-      for (const icon of fileIcons) {
-        const filePath = icon.getAttribute('data-file-path');
-        if (filePath) {
-          try {
-            const { invoke } = await import('@tauri-apps/api/core');
-            const dataUrl = await invoke('read_image_file', { filePath });
-            icon.src = dataUrl;
-            icon.style.objectFit = 'cover';
-            icon.style.borderRadius = '2px';
-            icon.removeAttribute('data-needs-load');
-            icon.removeAttribute('data-file-path');
-          } catch (error) {
-            console.warn('加载文件图标失败:', error);
-          }
-        }
-      }
-
-      // 加载剪贴板图片
-      const clipboardImages = document.querySelectorAll('.clipboard-image[data-needs-load="true"]');
-      for (const img of clipboardImages) {
-        const imageId = img.getAttribute('data-image-id');
-        if (imageId) {
-          try {
-            await clipboardModule.loadImageById(img, imageId, true);
-            img.removeAttribute('data-needs-load');
-            img.removeAttribute('data-image-id');
-          } catch (error) {
-            console.warn('加载剪贴板图片失败:', error);
-            img.alt = '图片加载失败';
-            img.style.backgroundColor = '#e0e0e0';
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('加载剪贴板图片模块失败:', error);
-    }
-  }
-
-  // 加载常用文本图片
-  async loadQuickTextImages() {
-    try {
-      // 动态导入quickTexts模块以避免循环依赖
-      const quickTextsModule = await import('./quickTexts.js');
-
-      // 加载常用文本中的图片
-      const quickTextImages = document.querySelectorAll('.quick-text-image[data-needs-load="true"]');
-      for (const img of quickTextImages) {
-        const imageId = img.getAttribute('data-image-id');
-        if (imageId) {
-          try {
-            await quickTextsModule.loadImageById(img, imageId, true);
-            img.removeAttribute('data-needs-load');
-            img.removeAttribute('data-image-id');
-          } catch (error) {
-            console.warn('加载常用文本图片失败:', error);
-            img.alt = '图片加载失败';
-            img.style.backgroundColor = '#e0e0e0';
-          }
-        }
-      }
-
-      // 加载常用文本中的文件图标
-      const fileIcons = document.querySelectorAll('.file-icon[data-needs-load="true"]');
-      for (const icon of fileIcons) {
-        const filePath = icon.getAttribute('data-file-path');
-        if (filePath) {
-          try {
-            const { invoke } = await import('@tauri-apps/api/core');
-            const dataUrl = await invoke('read_image_file', { filePath });
-            icon.src = dataUrl;
-            icon.style.objectFit = 'cover';
-            icon.style.borderRadius = '2px';
-            icon.removeAttribute('data-needs-load');
-            icon.removeAttribute('data-file-path');
-          } catch (error) {
-            console.warn('加载文件图标失败:', error);
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('加载常用文本图片模块失败:', error);
-    }
-  }
 }

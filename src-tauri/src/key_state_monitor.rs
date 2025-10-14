@@ -166,6 +166,21 @@ pub fn start_keyboard_polling_system() {
     }
 }
 
+// 停止基于轮询的备用快捷键系统
+pub fn stop_keyboard_polling_system() {
+    POLLING_ACTIVE.store(false, Ordering::SeqCst);
+    if let Ok(mut handle) = POLLING_THREAD_HANDLE.lock() {
+        if let Some(join_handle) = handle.take() {
+            let _ = join_handle.join();
+        }
+    }
+}
+
+// 查询备用快捷键系统是否处于活动状态
+pub fn is_polling_active() -> bool {
+    POLLING_ACTIVE.load(Ordering::SeqCst)
+}
+
 // 获取当前按键状态
 fn get_current_key_state() -> KeyState {
     unsafe {
@@ -427,7 +442,25 @@ fn check_shortcut_combo(state: &KeyState, config: &crate::global_state::PreviewS
 fn handle_number_shortcuts_change(last_state: &KeyState, current_state: &KeyState) {
     use crate::global_state::*;
 
-    if !NUMBER_SHORTCUTS_ENABLED.load(Ordering::SeqCst) || !current_state.ctrl {
+    if !NUMBER_SHORTCUTS_ENABLED.load(Ordering::SeqCst) {
+        return;
+    }
+
+    // 获取当前配置的修饰键
+    let modifier = get_number_shortcuts_modifier();
+    
+    // 检查修饰键是否匹配
+    let modifier_matches = match modifier.as_str() {
+        "Ctrl" => current_state.ctrl && !current_state.shift && !current_state.alt && !current_state.win,
+        "Alt" => !current_state.ctrl && !current_state.shift && current_state.alt && !current_state.win,
+        "Shift" => !current_state.ctrl && current_state.shift && !current_state.alt && !current_state.win,
+        "Ctrl+Shift" => current_state.ctrl && current_state.shift && !current_state.alt && !current_state.win,
+        "Ctrl+Alt" => current_state.ctrl && !current_state.shift && current_state.alt && !current_state.win,
+        "Alt+Shift" => !current_state.ctrl && current_state.shift && current_state.alt && !current_state.win,
+        _ => current_state.ctrl && !current_state.shift && !current_state.alt && !current_state.win, // 默认为Ctrl
+    };
+
+    if !modifier_matches {
         return;
     }
 
@@ -484,45 +517,26 @@ fn handle_number_shortcut_paste(index: usize) {
             let hwnd = unsafe { GetForegroundWindow() };
             set_last_focus_hwnd(hwnd.0);
 
-            // 获取历史记录内容
-            let (content, html_content) = {
-                match crate::database::get_clipboard_history(None) {
-                    Ok(items) => {
-                        if index < items.len() {
-                            let item = &items[index];
-                            (Some(item.content.clone()), item.html_content.clone())
-                        } else {
-                            (None, None)
-                        }
+            // 获取剪贴板历史项ID
+            let clipboard_id = match crate::database::get_clipboard_history(None) {
+                Ok(items) => {
+                    if index < items.len() {
+                        Some(items[index].id)
+                    } else {
+                        None
                     }
-                    Err(_) => (None, None),
                 }
+                Err(_) => None,
             };
-
-            if let Some(content) = content {
+            
+            if let Some(id) = clipboard_id {
                 let window_clone = window.clone();
                 tauri::async_runtime::spawn(async move {
-                    // 检查是否为文本内容，如果是则使用带翻译支持的粘贴
-                    if !content.starts_with("files:")
-                        && !content.starts_with("data:image/")
-                        && !content.starts_with("image:")
-                    {
-                        // 文本内容，使用带HTML和翻译支持的粘贴
-                        let _ = crate::services::paste_service::paste_text_with_html(
-                            content,
-                            html_content.clone(),
-                            &window_clone,
-                        )
-                        .await;
-                    } else {
-                        // 非文本内容，使用普通粘贴
-                        let params = crate::services::paste_service::PasteContentParams {
-                            content,
-                            html_content,
-                            quick_text_id: None,
-                        };
-                        let _ = crate::commands::paste_content(params, window_clone).await;
-                    }
+                    let params = crate::services::paste_service::PasteContentParams {
+                        clipboard_id: Some(id),
+                        quick_text_id: None,
+                    };
+                    let _ = crate::commands::paste_content(params, window_clone).await;
                 });
             }
         });
@@ -568,6 +582,11 @@ fn handle_ai_translation_cancel_change(last_state: &KeyState, current_state: &Ke
 }
 // 处理截屏快捷键变化
 fn handle_screenshot_shortcut_change(last_state: &KeyState, current_state: &KeyState) {
+    // 如果正在录制快捷键，跳过处理
+    if crate::global_state::SHORTCUT_RECORDING.load(std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    
     // 获取当前设置的截屏快捷键
     let settings = crate::settings::get_global_settings();
 
@@ -596,11 +615,10 @@ fn handle_screenshot_shortcut_change(last_state: &KeyState, current_state: &KeyS
         if !last_combo && current_combo {
             if let Some(window) = crate::mouse_hook::MAIN_WINDOW_HANDLE.get() {
                 let app_handle = window.app_handle().clone();
-                std::thread::spawn(move || {
-                    let _ = tauri::async_runtime::block_on(
-                        crate::native_screenshot::start_native_screenshot(app_handle),
-                    );
-                });
+                // 启动内置截屏
+                if let Err(e) = crate::commands::start_builtin_screenshot(app_handle) {
+                    eprintln!("截屏失败: {}", e);
+                }
             }
         }
     }

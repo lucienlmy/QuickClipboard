@@ -1,256 +1,222 @@
 use base64::{engine::general_purpose as b64_engine, Engine as _};
-use image::{
-    imageops::FilterType, GenericImageView,
-};
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::{ PathBuf};
-use uuid::Uuid;
+use std::path::PathBuf;
+use image::{ImageEncoder, codecs::png::PngEncoder};
 
 // 图片存储配置
 const IMAGES_DIR: &str = "clipboard_images";
-const THUMBNAILS_DIR: &str = "thumbnails";
-const THUMBNAIL_SIZE: u32 = 150; // 缩略图尺寸
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ImageInfo {
-    pub id: String,             // 图片唯一ID（基于内容hash）
-    pub file_path: String,      // 原图文件路径
-    pub thumbnail_path: String, // 缩略图路径
-    pub width: u32,
-    pub height: u32,
-    pub file_size: u64,  // 文件大小（字节）
-    pub created_at: u64, // 创建时间戳
-}
+const MAX_IMAGE_DATA_COUNT: i64 = 50;
 
 pub struct ImageManager {
     images_dir: PathBuf,
-    thumbnails_dir: PathBuf,
 }
 
 impl ImageManager {
     pub fn new() -> Result<Self, String> {
         let app_data_dir = get_app_data_dir()?;
         let images_dir = app_data_dir.join(IMAGES_DIR);
-        let thumbnails_dir = images_dir.join(THUMBNAILS_DIR);
 
-        // 创建目录
-        fs::create_dir_all(&images_dir).map_err(|e| format!("创建图片目录失败: {}", e))?;
-        fs::create_dir_all(&thumbnails_dir).map_err(|e| format!("创建缩略图目录失败: {}", e))?;
+        fs::create_dir_all(&images_dir)
+            .map_err(|e| format!("创建图片目录失败: {}", e))?;
 
-        Ok(ImageManager {
+        // 清理废弃的缩略图目录
+        let thumbnails_dir = images_dir.join("thumbnails");
+        if thumbnails_dir.exists() {
+            if let Err(e) = fs::remove_dir_all(&thumbnails_dir) {
+                println!("清理废弃的缩略图目录失败: {}", e);
+            } else {
+                println!("已清理废弃的缩略图目录");
+            }
+        }
+
+        Ok(ImageManager { 
             images_dir,
-            thumbnails_dir,
         })
     }
 
-    /// 保存图片并返回图片信息
-    pub fn save_image(&self, data_url: &str) -> Result<ImageInfo, String> {
-        // 解析data URL
-        let (image_data, format) = self.parse_data_url(data_url)?;
+    /// 从Windows剪贴板原始数据保存图片
+    pub fn save_image_from_raw_data(&self, width: u32, height: u32, dib_data: Vec<u8>, png_data: Vec<u8>) -> Result<String, String> {
+        let image_id = self.calculate_image_id(&png_data);
+        let png_path = self.images_dir.join(format!("{}.png", image_id));
 
-        // 计算内容hash作为唯一ID
-        let mut hasher = Sha256::new();
-        hasher.update(&image_data);
-        let hash = format!("{:x}", hasher.finalize());
-        let image_id = hash[..16].to_string(); // 使用前16位作为ID
-
-        // 检查是否已存在
-        let file_path = self.images_dir.join(format!("{}.png", image_id));
-        let thumbnail_path = self.thumbnails_dir.join(format!("{}.png", image_id));
-
-        if file_path.exists() && thumbnail_path.exists() {
-            // 图片已存在，返回现有信息
-            return self.get_image_info(&image_id);
+        if png_path.exists() {
+            return Ok(image_id);
         }
 
-        // 加载图片
-        let img =
-            image::load_from_memory(&image_data).map_err(|e| format!("解析图片失败: {}", e))?;
+        fs::write(&png_path, &png_data)
+            .map_err(|e| format!("写入PNG文件失败: {}", e))?;
 
-        let (width, height) = img.dimensions();
+        save_image_data(image_id.clone(), width, height, dib_data, png_data);
 
-        // 保存原图
+        Ok(image_id)
+    }
+
+    /// 从RGBA数据保存图片
+    pub fn save_image_from_rgba_sync(&self, width: usize, height: usize, rgba_data: &[u8]) -> Result<String, String> {
+        let image_id = self.calculate_image_id(rgba_data);
+        let png_path = self.images_dir.join(format!("{}.png", image_id));
+
+        if png_path.exists() {
+            return Ok(image_id);
+        }
+
+        let mut png_bytes: Vec<u8> = Vec::new();
+        {
+            let encoder = PngEncoder::new_with_quality(
+                &mut png_bytes,
+                image::codecs::png::CompressionType::Default,
+                image::codecs::png::FilterType::Sub,
+            );
+
+            encoder.write_image(
+                rgba_data,
+                width as u32,
+                height as u32,
+                image::ExtendedColorType::Rgba8,
+            ).map_err(|e| format!("编码PNG数据失败: {}", e))?;
+        }
+
+        fs::write(&png_path, &png_bytes)
+            .map_err(|e| format!("写入PNG文件失败: {}", e))?;
+
+        let image_id_clone = image_id.clone();
+        let rgba_data_clone = rgba_data.to_vec();
+        let png_bytes_clone = png_bytes.clone();
+        let width_u32 = width as u32;
+        let height_u32 = height as u32;
+        
+        std::thread::spawn(move || {
+            let bgra = rgba_to_bgra(&rgba_data_clone);
+            save_image_data(image_id_clone, width_u32, height_u32, bgra, png_bytes_clone);
+        });
+
+        Ok(image_id)
+    }
+
+    /// 从data URL保存图片
+    pub fn save_image(&self, data_url: &str) -> Result<String, String> {
+        let image_data = self.parse_data_url(data_url)?;
+        let image_id = self.calculate_image_id(&image_data);
+        let file_path = self.images_dir.join(format!("{}.png", image_id));
+
+        if file_path.exists() {
+            return Ok(image_id);
+        }
+
+        let img = image::load_from_memory(&image_data)
+            .map_err(|e| format!("解析图片失败: {}", e))?;
+        
         img.save_with_format(&file_path, image::ImageFormat::Png)
-            .map_err(|e| format!("保存原图失败: {}", e))?;
+            .map_err(|e| format!("保存图片失败: {}", e))?;
 
-        // 生成并保存缩略图
-        let thumbnail = img.resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, FilterType::Lanczos3);
-        thumbnail
-            .save_with_format(&thumbnail_path, image::ImageFormat::Png)
-            .map_err(|e| format!("保存缩略图失败: {}", e))?;
+        let rgba_img = img.to_rgba8();
+        let (width, height) = rgba_img.dimensions();
+        let rgba_data = rgba_img.into_raw();
+        let png_data = image_data.clone();
+        let image_id_clone = image_id.clone();
+        
+        std::thread::spawn(move || {
+            let bgra = rgba_to_bgra(&rgba_data);
+            save_image_data(image_id_clone, width, height, bgra, png_data);
+        });
 
-        // 获取文件大小
-        let file_size = fs::metadata(&file_path)
-            .map_err(|e| format!("获取文件大小失败: {}", e))?
-            .len();
-
-        let image_info = ImageInfo {
-            id: image_id,
-            file_path: file_path.to_string_lossy().to_string(),
-            thumbnail_path: thumbnail_path.to_string_lossy().to_string(),
-            width,
-            height,
-            file_size,
-            created_at: {
-                let now = chrono::Local::now();
-                (now.timestamp() + now.offset().local_minus_utc() as i64) as u64
-            },
-        };
-
-        Ok(image_info)
+        Ok(image_id)
     }
 
-    /// 获取图片信息
-    pub fn get_image_info(&self, image_id: &str) -> Result<ImageInfo, String> {
+    fn calculate_image_id(&self, data: &[u8]) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        let hash = format!("{:x}", hasher.finalize());
+        hash[..16].to_string()
+    }
+
+    /// 获取图片文件路径
+    pub fn get_image_file_path(&self, image_id: &str) -> Result<String, String> {
         let file_path = self.images_dir.join(format!("{}.png", image_id));
-        let thumbnail_path = self.thumbnails_dir.join(format!("{}.png", image_id));
-
         if !file_path.exists() {
-            return Err("图片文件不存在".to_string());
+            return Err(format!("图片文件不存在: {}", image_id));
         }
-
-        // 读取图片获取尺寸
-        let img = image::open(&file_path).map_err(|e| format!("读取图片失败: {}", e))?;
-        let (width, height) = img.dimensions();
-
-        // 获取文件大小
-        let file_size = fs::metadata(&file_path)
-            .map_err(|e| format!("获取文件大小失败: {}", e))?
-            .len();
-
-        let created_at = fs::metadata(&file_path)
-            .map_err(|e| format!("获取文件创建时间失败: {}", e))?
-            .created()
-            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        Ok(ImageInfo {
-            id: image_id.to_string(),
-            file_path: file_path.to_string_lossy().to_string(),
-            thumbnail_path: thumbnail_path.to_string_lossy().to_string(),
-            width,
-            height,
-            file_size,
-            created_at,
-        })
+        Ok(file_path.to_string_lossy().to_string())
     }
 
-    /// 读取图片为data URL（带缓存）
+    /// 获取图片data URL（用于粘贴）
     pub fn get_image_data_url(&self, image_id: &str) -> Result<String, String> {
-        // 先检查缓存
-        if let Ok(cache) = IMAGE_DATA_CACHE.lock() {
-            if let Some(cached_data) = cache.get(image_id) {
-                return Ok(cached_data.clone());
-            }
-        }
-
         let file_path = self.images_dir.join(format!("{}.png", image_id));
-
         if !file_path.exists() {
-            return Err("图片文件不存在".to_string());
+            return Err(format!("图片文件不存在: {}", image_id));
         }
 
-        let image_data = fs::read(&file_path).map_err(|e| format!("读取图片文件失败: {}", e))?;
-
-        let base64_string = b64_engine::STANDARD.encode(&image_data);
-        let data_url = format!("data:image/png;base64,{}", base64_string);
-
-        // 缓存数据URL（仅缓存较小的图片，避免内存占用过大）
-        if image_data.len() < 5 * 1024 * 1024 {
-            // 5MB以下的图片才缓存
-            if let Ok(mut cache) = IMAGE_DATA_CACHE.lock() {
-                cache.insert(image_id.to_string(), data_url.clone());
-
-                // 限制缓存大小，避免内存泄漏
-                if cache.len() > 50 {
-                    // 移除最旧的缓存项（简单的LRU策略）
-                    let keys_to_remove: Vec<String> = cache.keys().take(10).cloned().collect();
-                    for key in keys_to_remove {
-                        cache.remove(&key);
-                    }
-                }
-            }
-        }
-
-        Ok(data_url)
-    }
-
-    /// 读取缩略图为data URL
-    pub fn get_thumbnail_data_url(&self, image_id: &str) -> Result<String, String> {
-        let thumbnail_path = self.thumbnails_dir.join(format!("{}.png", image_id));
-
-        if !thumbnail_path.exists() {
-            return Err("缩略图文件不存在".to_string());
-        }
-
-        let image_data =
-            fs::read(&thumbnail_path).map_err(|e| format!("读取缩略图文件失败: {}", e))?;
-
+        let image_data = fs::read(&file_path)
+            .map_err(|e| format!("读取图片文件失败: {}", e))?;
         let base64_string = b64_engine::STANDARD.encode(&image_data);
         Ok(format!("data:image/png;base64,{}", base64_string))
     }
 
-    /// 复制图片，返回新的图片ID
-    pub fn copy_image(&self, source_image_id: &str) -> Result<ImageInfo, String> {
-        let source_file_path = self.images_dir.join(format!("{}.png", source_image_id));
-        let source_thumbnail_path = self.thumbnails_dir.join(format!("{}.png", source_image_id));
+    /// 获取BGRA数据和PNG字节（优先从数据库读取）
+    pub fn get_image_bgra_and_png(&self, image_id: &str) -> Result<(Vec<u8>, Vec<u8>, u32, u32), String> {
+        let db_result = crate::database::with_connection(|conn| {
+            conn.query_row(
+                "SELECT bgra_data, png_data, width, height FROM image_data WHERE image_id = ?1",
+                rusqlite::params![image_id],
+                |row| {
+                    Ok((
+                        row.get::<_, Vec<u8>>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, i64>(2)? as u32,
+                        row.get::<_, i64>(3)? as u32,
+                    ))
+                }
+            )
+        });
 
-        if !source_file_path.exists() {
-            return Err("源图片文件不存在".to_string());
+        if let Ok((dib_data, png_bytes, width, height)) = db_result {
+            if let Some(bgra) = extract_bgra_from_dib(&dib_data, width, height) {
+                return Ok((bgra, png_bytes, width, height));
+            } else {
+                return Ok((dib_data, png_bytes, width, height));
+            }
         }
 
-        // 生成新的图片ID
-        let new_image_id = Uuid::new_v4().to_string();
-        let new_file_path = self.images_dir.join(format!("{}.png", new_image_id));
-        let new_thumbnail_path = self.thumbnails_dir.join(format!("{}.png", new_image_id));
-
-        // 复制原图
-        fs::copy(&source_file_path, &new_file_path).map_err(|e| format!("复制原图失败: {}", e))?;
-
-        // 复制缩略图（如果存在）
-        if source_thumbnail_path.exists() {
-            fs::copy(&source_thumbnail_path, &new_thumbnail_path)
-                .map_err(|e| format!("复制缩略图失败: {}", e))?;
+        let file_path = self.images_dir.join(format!("{}.png", image_id));
+        if !file_path.exists() {
+            return Err(format!("图片文件不存在: {}", image_id));
         }
 
-        Ok(ImageInfo {
-            id: new_image_id.clone(),
-            file_path: new_file_path.to_string_lossy().to_string(),
-            thumbnail_path: new_thumbnail_path.to_string_lossy().to_string(),
-            width: 0, 
-            height: 0,
-            file_size: 0,
-            created_at: {
-                let now = chrono::Local::now();
-                (now.timestamp() + now.offset().local_minus_utc() as i64) as u64
-            },
-        })
+        let png_bytes = fs::read(&file_path)
+            .map_err(|e| format!("读取图片文件失败: {}", e))?;
+
+        let img = image::load_from_memory(&png_bytes)
+            .map_err(|e| format!("解析PNG失败: {}", e))?
+            .to_rgba8();
+        
+        let (width, height) = img.dimensions();
+        let bgra = rgba_to_bgra(img.as_raw());
+
+        save_image_data(image_id.to_string(), width, height, bgra.clone(), png_bytes.clone());
+
+        Ok((bgra, png_bytes, width, height))
     }
 
-    /// 删除图片
     pub fn delete_image(&self, image_id: &str) -> Result<(), String> {
+        let _ = crate::database::with_connection(|conn| {
+            conn.execute(
+                "DELETE FROM image_data WHERE image_id = ?1",
+                rusqlite::params![image_id],
+            )
+        });
+        
         let file_path = self.images_dir.join(format!("{}.png", image_id));
-        let thumbnail_path = self.thumbnails_dir.join(format!("{}.png", image_id));
-
         if file_path.exists() {
-            fs::remove_file(&file_path).map_err(|e| format!("删除原图失败: {}", e))?;
+            fs::remove_file(&file_path)
+                .map_err(|e| format!("删除图片失败: {}", e))?;
         }
-
-        if thumbnail_path.exists() {
-            fs::remove_file(&thumbnail_path).map_err(|e| format!("删除缩略图失败: {}", e))?;
-        }
-
         Ok(())
     }
 
-    /// 清理未使用的图片
     pub fn cleanup_unused_images(&self, used_image_ids: &[String]) -> Result<(), String> {
-        let entries =
-            fs::read_dir(&self.images_dir).map_err(|e| format!("读取图片目录失败: {}", e))?;
+        let entries = fs::read_dir(&self.images_dir)
+            .map_err(|e| format!("读取图片目录失败: {}", e))?;
 
         for entry in entries {
             let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
@@ -260,73 +226,155 @@ impl ImageManager {
                 if let Some(file_stem) = path.file_stem() {
                     let image_id = file_stem.to_string_lossy().to_string();
                     if !used_image_ids.contains(&image_id) {
-                        self.delete_image(&image_id)?;
+                        let _ = self.delete_image(&image_id);
                     }
                 }
             }
         }
 
+        let _ = crate::database::with_connection(|conn| {
+            let mut stmt = conn.prepare("SELECT image_id FROM image_data")?;
+            let stored_ids: Vec<String> = stmt
+                .query_map([], |row| row.get(0))?
+                .filter_map(Result::ok)
+                .collect();
+
+            for stored_id in stored_ids {
+                if !used_image_ids.contains(&stored_id) {
+                    let _ = conn.execute(
+                        "DELETE FROM image_data WHERE image_id = ?1",
+                        rusqlite::params![stored_id],
+                    );
+                }
+            }
+
+            Ok(())
+        });
+
         Ok(())
     }
 
-    /// 解析data URL
-    fn parse_data_url(&self, data_url: &str) -> Result<(Vec<u8>, String), String> {
+    fn parse_data_url(&self, data_url: &str) -> Result<Vec<u8>, String> {
         if !data_url.starts_with("data:image/") {
             return Err("不是有效的图片data URL".to_string());
         }
-
-        let comma_pos = data_url
-            .find(',')
+        let comma_pos = data_url.find(',')
             .ok_or_else(|| "无效的data URL格式".to_string())?;
-
-        let header = &data_url[..comma_pos];
-        let encoded = &data_url[(comma_pos + 1)..];
-
-        // 提取格式信息
-        let format = if header.contains("image/png") {
-            "png".to_string()
-        } else if header.contains("image/jpeg") || header.contains("image/jpg") {
-            "jpeg".to_string()
-        } else if header.contains("image/gif") {
-            "gif".to_string()
-        } else if header.contains("image/webp") {
-            "webp".to_string()
-        } else {
-            "png".to_string() // 默认为PNG
-        };
-
-        let image_data = b64_engine::STANDARD
-            .decode(encoded)
-            .map_err(|e| format!("Base64解码失败: {}", e))?;
-
-        Ok((image_data, format))
+        b64_engine::STANDARD.decode(&data_url[(comma_pos + 1)..])
+            .map_err(|e| format!("Base64解码失败: {}", e))
     }
 }
 
-/// 获取应用数据目录
 fn get_app_data_dir() -> Result<PathBuf, String> {
-    // 使用本地数据目录 (AppData\Local\quickclipboard)，与其他组件保持一致
-    let app_data_dir = dirs::data_local_dir()
-        .ok_or_else(|| "无法获取本地数据目录".to_string())?
-        .join("quickclipboard");
-
-    fs::create_dir_all(&app_data_dir).map_err(|e| format!("创建应用数据目录失败: {}", e))?;
-
-    Ok(app_data_dir)
+    crate::settings::get_data_directory()
 }
 
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
-/// 全局图片管理器实例
 use std::sync::Mutex;
-
-// 图片数据缓存，用于提高大图片的加载速度
-static IMAGE_DATA_CACHE: Lazy<Mutex<HashMap<String, String>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
 
 static IMAGE_MANAGER: Lazy<Result<Mutex<ImageManager>, String>> =
     Lazy::new(|| ImageManager::new().map(Mutex::new));
 
 pub fn get_image_manager() -> Result<&'static Mutex<ImageManager>, String> {
     IMAGE_MANAGER.as_ref().map_err(|e| e.clone())
+}
+
+fn save_image_data(image_id: String, width: u32, height: u32, bgra_data: Vec<u8>, png_data: Vec<u8>) {
+    std::thread::spawn(move || {
+        let result = crate::database::with_connection(|conn| {
+            conn.execute(
+                "INSERT OR REPLACE INTO image_data (image_id, width, height, bgra_data, png_data, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![
+                    &image_id,
+                    width as i64,
+                    height as i64,
+                    &bgra_data,
+                    &png_data,
+                    chrono::Utc::now().timestamp_millis()
+                ],
+            )?;
+
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM image_data",
+                [],
+                |row| row.get(0)
+            )?;
+
+            if count > MAX_IMAGE_DATA_COUNT {
+                conn.execute(
+                    "DELETE FROM image_data WHERE image_id IN (
+                        SELECT image_id FROM image_data 
+                        ORDER BY created_at ASC 
+                        LIMIT ?1
+                    )",
+                    rusqlite::params![count - MAX_IMAGE_DATA_COUNT],
+                )?;
+            }
+
+            Ok(())
+        });
+
+        if let Err(e) = result {
+            eprintln!("保存图片数据失败: {}", e);
+        }
+    });
+}
+
+fn extract_bgra_from_dib(dib_data: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
+    const MAX_DIMENSION: u32 = 16384;
+    const MAX_IMAGE_SIZE: usize = 100 * 1024 * 1024;
+
+    if dib_data.len() < 40 || width == 0 || height == 0 || width > MAX_DIMENSION || height > MAX_DIMENSION {
+        return None;
+    }
+
+    let header_size = u32::from_le_bytes([dib_data[0], dib_data[1], dib_data[2], dib_data[3]]) as usize;
+    let bit_count = u16::from_le_bytes([dib_data[14], dib_data[15]]);
+    
+    if header_size < 40 || header_size > dib_data.len() || bit_count != 32 {
+        return None;
+    }
+
+    let colors_used = u32::from_le_bytes([dib_data[32], dib_data[33], dib_data[34], dib_data[35]]) as usize;
+    let color_table_size = if colors_used == 0 && bit_count <= 8 {
+        (1 << bit_count) * 4
+    } else {
+        colors_used * 4
+    };
+    
+    let pixel_offset = header_size.checked_add(color_table_size)?;
+    
+    if pixel_offset > dib_data.len() {
+        return None;
+    }
+
+    let pixel_data = &dib_data[pixel_offset..];
+    let bytes_per_pixel = 4;
+    
+    let row_size = ((width as usize).checked_mul(bytes_per_pixel)?.checked_add(3)? / 4).checked_mul(4)?;
+    let expected_size = row_size.checked_mul(height as usize)?;
+    
+    if expected_size > MAX_IMAGE_SIZE || expected_size > pixel_data.len() {
+        return None;
+    }
+
+    Some(pixel_data[..expected_size].to_vec())
+}
+
+fn rgba_to_bgra(rgba: &[u8]) -> Vec<u8> {
+    use rayon::prelude::*;
+    
+    let mut bgra = vec![0u8; rgba.len()];
+
+    bgra.par_chunks_mut(4)
+        .enumerate()
+        .for_each(|(i, bgra_chunk)| {
+            let offset = i * 4;
+            bgra_chunk[0] = rgba[offset + 2]; // B
+            bgra_chunk[1] = rgba[offset + 1]; // G
+            bgra_chunk[2] = rgba[offset];     // R
+            bgra_chunk[3] = rgba[offset + 3]; // A
+        });
+    
+    bgra
 }

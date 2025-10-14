@@ -1,6 +1,11 @@
+
+import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Window } from '@tauri-apps/api/window';
+import { showNotification } from './js/notificationManager.js';
+import { initDisableBrowserShortcuts } from './js/utils/disableBrowserShortcuts.js';
 document.addEventListener('contextmenu', function (e) {
   e.preventDefault();
 });
@@ -30,6 +35,9 @@ let statusText;
 // 初始化应用
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('文本编辑器初始化...');
+
+  // 禁用浏览器默认快捷键
+  initDisableBrowserShortcuts();
 
   // 初始化DOM引用
   initDOMReferences();
@@ -370,7 +378,7 @@ async function loadGroups() {
     // 添加分组选项
     groups.forEach(group => {
       const option = document.createElement('option');
-      option.value = group.id;
+      option.value = group.name;
       option.textContent = group.name;
       groupSelect.appendChild(option);
     });
@@ -454,8 +462,8 @@ async function handleSave() {
         return;
       }
 
-      // 确保分组ID不为空，如果为空则使用原来的分组ID或默认值
-      finalGroupId = newGroupId || originalData.groupId || 'all';
+      // 确保分组名称不为空，如果为空则使用原来的分组或默认值
+      finalGroupId = newGroupId || originalData.groupId || '全部';
 
       console.log('保存常用文本:', {
         id: originalData.id,
@@ -469,7 +477,7 @@ async function handleSave() {
         id: originalData.id,
         title: newTitle,
         content: newContent,
-        groupId: finalGroupId
+        groupName: finalGroupId
       });
 
       // 通知主窗口刷新常用文本
@@ -478,7 +486,7 @@ async function handleSave() {
     } else {
       // 保存剪贴板内容
       await invoke('update_clipboard_item', {
-        index: originalData.index,
+        id: originalData.id,
         content: newContent
       });
 
@@ -524,73 +532,4 @@ function showLoading(show) {
   cancelBtn.disabled = show;
 }
 
-// 显示通知
-function showNotification(message, type = 'info', duration = 3000) {
-  // 移除已存在的通知
-  const existingNotifications = document.querySelectorAll('.notification');
-  existingNotifications.forEach(n => n.remove());
 
-  // 创建通知元素
-  const notification = document.createElement('div');
-  notification.className = 'notification';
-
-  // 设置样式
-  const colors = {
-    success: '#10b981',
-    error: '#ef4444',
-    info: '#3b82f6',
-    warning: '#f59e0b'
-  };
-
-  notification.style.cssText = `
-    position: fixed;
-    top: 60px;
-    right: 20px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 10000;
-    opacity: 0;
-    transform: translateX(100%);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    max-width: 300px;
-    word-wrap: break-word;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    background-color: ${colors[type] || colors.info};
-  `;
-
-  notification.textContent = message;
-
-  // 添加到页面
-  document.body.appendChild(notification);
-
-  // 显示动画
-  setTimeout(() => {
-    notification.style.opacity = '1';
-    notification.style.transform = 'translateX(0)';
-  }, 10);
-
-  // 自动隐藏
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 300);
-  }, duration);
-
-  // 点击关闭
-  notification.addEventListener('click', () => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 300);
-  });
-}

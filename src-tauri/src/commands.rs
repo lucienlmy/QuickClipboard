@@ -1,20 +1,12 @@
-use arboard::Clipboard;
 use serde::Deserialize;
 use tauri::WebviewWindow;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
-#[cfg(not(debug_assertions))]
-use auto_launch::AutoLaunch;
 
 use crate::admin_privileges;
-use crate::clipboard_content::{image_to_data_url, set_clipboard_content, set_clipboard_content_with_html};
 use crate::clipboard_history::{self, ClipboardItem};
-use crate::groups::{self};
-use crate::image_manager::get_image_manager;
-use crate::mouse_hook::{disable_mouse_monitoring, enable_mouse_monitoring};
-use crate::quick_texts::{self};
-use crate::database::{self, FavoriteItem, GroupInfo};
-use crate::window_management;
+use crate::database::{FavoriteItem, GroupInfo};
+use std::sync::atomic::Ordering;
 
 #[derive(Deserialize)]
 pub struct GroupParams {
@@ -39,118 +31,52 @@ pub struct MoveToGroupParams {
 // 从剪贴板获取文本
 #[tauri::command]
 pub fn get_clipboard_text() -> Result<String, String> {
-    match Clipboard::new() {
-        Ok(mut clipboard) => match clipboard.get_text() {
-            Ok(text) => {
-                // 不在这里添加到历史记录，因为剪贴板监听器已经处理了
-                Ok(text)
-            }
-            Err(_) => Err("剪贴板为空或不是文本格式".into()),
-        },
-        Err(e) => Err(format!("获取剪贴板失败: {}", e)),
-    }
+    crate::services::clipboard_service::ClipboardService::get_text()
 }
 
 // 设置剪贴板文本
 #[tauri::command]
 pub fn set_clipboard_text(text: String) -> Result<(), String> {
-    set_clipboard_content(text)?;
-    Ok(())
+    crate::services::clipboard_service::ClipboardService::set_text(text)
 }
 
-// 设置剪贴板文本
+// 设置剪贴板文本（带HTML）
 #[tauri::command]
 pub fn set_clipboard_text_with_html(text: String, html: Option<String>) -> Result<(), String> {
-    set_clipboard_content_with_html(text, html)?;
-    Ok(())
+    let html_content = html.unwrap_or_default();
+    crate::services::clipboard_service::ClipboardService::set_content_with_html(text, html_content)
 }
 
 // 设置剪贴板图片
 #[tauri::command]
 pub fn set_clipboard_image(data_url: String) -> Result<(), String> {
-    set_clipboard_content(data_url)?;
-    Ok(())
+    crate::services::clipboard_service::ClipboardService::set_image(data_url)
 }
 
 // 移动剪贴板项目到第一位
 #[tauri::command]
 pub fn move_clipboard_item_to_front(text: String) -> Result<(), String> {
-    clipboard_history::move_to_front_if_exists(text);
-    Ok(())
+    crate::services::clipboard_service::ClipboardService::move_to_front(text)
 }
 
 // 获取剪贴板历史
 #[tauri::command]
 pub fn get_clipboard_history() -> Vec<ClipboardItem> {
-    // 获取当前的历史记录数量限制
-    let limit = clipboard_history::get_history_limit();
-
-    // 从数据库获取，使用当前的数量限制
-    match crate::database::get_clipboard_history(Some(limit)) {
-        Ok(items) => {
-            // 转换数据库ID为前端期望的索引
-            items
-                .into_iter()
-                .enumerate()
-                .map(|(index, mut item)| {
-                    // 将数据库ID转换为索引，保持前端兼容性
-                    item.id = index as i64;
-                    item
-                })
-                .collect()
-        }
-        Err(e) => {
-            println!("从数据库获取历史记录失败: {}", e);
-            // 数据库模式下没有后备方案，返回空列表
-            Vec::new()
-        }
-    }
+    crate::services::clipboard_service::ClipboardService::get_history()
 }
 
 // 刷新剪贴板监听函数，只添加新内容
 #[tauri::command]
 pub fn refresh_clipboard() -> Result<(), String> {
-    match Clipboard::new() {
-        Ok(mut clipboard) => {
-            if let Ok(text) = clipboard.get_text() {
-                // 过滤空白内容：检查去除空白字符后是否为空
-                if !text.is_empty() && !text.trim().is_empty() {
-                    clipboard_history::add_to_history(text);
-                    return Ok(());
-                }
-            }
-            // 尝试图片
-            match clipboard.get_image() {
-                Ok(img) => {
-                    let data_url = image_to_data_url(&img);
-                    clipboard_history::add_to_history(data_url);
-                    Ok(())
-                }
-                Err(_) => Ok(()),
-            }
-        }
-        Err(e) => Err(format!("获取剪贴板失败: {}", e)),
-    }
+    crate::services::clipboard_service::ClipboardService::refresh_clipboard()
 }
 
 // 切换窗口显示/隐藏状态
 #[tauri::command]
-pub fn toggle_window_visibility(window: WebviewWindow) -> Result<(), String> {
-    // 先判断是否固定，如果是固定且窗口可见就不隐藏
-    #[cfg(windows)]
-    {
-        if window.is_visible().unwrap_or(true) && window_management::get_window_pinned() {
-            // 固定时不隐藏
-            return Ok(());
-        }
-    }
-
-    // 使用统一的窗口显示/隐藏逻辑
-    window_management::toggle_webview_window_visibility(window);
-    Ok(())
+pub fn toggle_window_visibility(app: tauri::AppHandle) -> Result<(), String> {
+    crate::services::window_service::WindowService::toggle_visibility(&app)
 }
 
-// 保留原有的greet函数以兼容现有代码
 #[tauri::command]
 pub fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -159,34 +85,28 @@ pub fn greet(name: &str) -> String {
 // 窗口管理功能
 #[tauri::command]
 pub fn focus_clipboard_window(window: WebviewWindow) -> Result<(), String> {
-    window_management::focus_clipboard_window(window)
+    crate::services::window_service::WindowService::focus_clipboard_window(window)
 }
 
 #[tauri::command]
 pub fn restore_last_focus() -> Result<(), String> {
-    window_management::restore_last_focus()
+    crate::services::window_service::WindowService::restore_last_focus()
 }
 
 #[tauri::command]
 pub fn set_window_pinned(pinned: bool) -> Result<(), String> {
-    window_management::set_window_pinned(pinned)
+    crate::services::window_service::WindowService::set_pinned(pinned)
 }
 
 #[tauri::command]
 pub fn get_window_pinned() -> bool {
-    window_management::get_window_pinned()
+    crate::services::window_service::WindowService::is_pinned()
 }
 
 // 如果主窗口是自动显示的，则隐藏它
 #[tauri::command]
 pub fn hide_main_window_if_auto_shown(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri::Manager;
-
-    if let Some(main_window) = app.get_webview_window("main") {
-        window_management::hide_main_window_if_auto_shown(&main_window)
-    } else {
-        Err("找不到主窗口".to_string())
-    }
+    crate::services::window_service::WindowService::hide_if_auto_shown(&app)
 }
 
 // =================== 常用文本相关命令 ===================
@@ -194,7 +114,7 @@ pub fn hide_main_window_if_auto_shown(app: tauri::AppHandle) -> Result<(), Strin
 // 获取所有常用文本
 #[tauri::command]
 pub fn get_quick_texts() -> Vec<FavoriteItem> {
-    quick_texts::get_all_quick_texts()
+    crate::services::quick_text_service::QuickTextService::get_all()
 }
 
 // 添加常用文本
@@ -204,8 +124,7 @@ pub fn add_quick_text(
     content: String,
     groupName: String,
 ) -> Result<FavoriteItem, String> {
-    // 直接使用传入的groupName
-    quick_texts::add_quick_text(title, content, groupName)
+    crate::services::quick_text_service::QuickTextService::add(title, content, groupName)
 }
 
 // 更新常用文本
@@ -216,85 +135,19 @@ pub fn update_quick_text(
     content: String,
     groupName: String,
 ) -> Result<FavoriteItem, String> {
-    // 直接使用传入的groupName
-    quick_texts::update_quick_text(id, title, content, Some(groupName))
+    crate::services::quick_text_service::QuickTextService::update(id, title, content, groupName)
 }
 
 // 删除常用文本
 #[tauri::command]
 pub fn delete_quick_text(id: String) -> Result<(), String> {
-    quick_texts::delete_quick_text(&id)
+    crate::services::quick_text_service::QuickTextService::delete(id)
 }
 
 // 将剪贴板历史项添加到常用文本
 #[tauri::command]
-pub fn add_clipboard_to_favorites(index: usize) -> Result<FavoriteItem, String> {
-    // 从数据库获取剪贴板历史
-    let items = crate::database::get_clipboard_history(None)
-        .map_err(|e| format!("获取剪贴板历史失败: {}", e))?;
-
-    if index >= items.len() {
-        return Err(format!("索引 {} 超出历史范围", index));
-    }
-
-    let content = items[index].content.clone();
-    let html_content = items[index].html_content.clone();
-
-    // 处理内容，如果是图片则创建副本
-    let final_content = if content.starts_with("image:") {
-        // 提取图片ID
-        let image_id = content.strip_prefix("image:").unwrap_or("");
-        if !image_id.is_empty() {
-            // 创建图片副本
-            match get_image_manager() {
-                Ok(image_manager) => {
-                    match image_manager.lock() {
-                        Ok(manager) => {
-                            match manager.copy_image(image_id) {
-                                Ok(new_image_info) => {
-                                    format!("image:{}", new_image_info.id)
-                                }
-                                Err(e) => {
-                                    println!("复制图片失败: {}, 使用原始引用", e);
-                                    content // 如果复制失败，使用原始引用
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            println!("获取图片管理器锁失败: {}, 使用原始引用", e);
-                            content
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("获取图片管理器失败: {}, 使用原始引用", e);
-                    content
-                }
-            }
-        } else {
-            content
-        }
-    } else {
-        content.clone()
-    };
-
-    // 生成标题：根据内容类型生成合适的标题
-    let title = if final_content.starts_with("data:image/") || final_content.starts_with("image:") {
-        // 图片内容使用固定标题
-        "图片".to_string()
-    } else if final_content.starts_with("files:") {
-        // 文件内容解析文件名作为标题
-        crate::utils::content_utils::generate_files_title(&final_content)
-    } else if final_content.chars().count() > 30 {
-        // 文本内容取前30个字符作为标题
-        let truncated: String = final_content.chars().take(30).collect();
-        format!("{}...", truncated)
-    } else {
-        final_content.clone()
-    };
-
-    // 添加到常用文本
-    quick_texts::add_quick_text_with_group_and_html(title, final_content, html_content, "全部".to_string())
+pub fn add_clipboard_to_favorites(id: i64) -> Result<FavoriteItem, String> {
+    crate::services::quick_text_service::QuickTextService::add_from_clipboard(id)
 }
 
 // =================== 鼠标监听控制命令 ===================
@@ -302,56 +155,27 @@ pub fn add_clipboard_to_favorites(index: usize) -> Result<FavoriteItem, String> 
 // 启用鼠标监听
 #[tauri::command]
 pub fn enable_mouse_monitoring_command() -> Result<(), String> {
-    #[cfg(windows)]
-    enable_mouse_monitoring();
-    Ok(())
+    crate::services::mouse_service::MouseService::enable_monitoring()
 }
 
 // 禁用鼠标监听
 #[tauri::command]
 pub fn disable_mouse_monitoring_command() -> Result<(), String> {
-    #[cfg(windows)]
-    disable_mouse_monitoring();
-    Ok(())
+    crate::services::mouse_service::MouseService::disable_monitoring()
 }
 
 // =================== 设置相关命令 ===================
 
-// 设置开机自启动
+/// 设置开机自启动
 #[tauri::command]
 pub fn set_startup_launch(enabled: bool) -> Result<(), String> {
-    // 在开发模式下跳过开机自启动设置
-    #[cfg(debug_assertions)]
-    {
-        println!("开发模式下跳过开机自启动设置: enabled = {}", enabled);
-        return Ok(());
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let app_name = "QuickClipboard";
-        let app_path = std::env::current_exe().map_err(|e| format!("获取程序路径失败: {}", e))?;
-
-        let auto_launch = AutoLaunch::new(app_name, &app_path.to_string_lossy(), &[] as &[&str]);
-
-        if enabled {
-            auto_launch
-                .enable()
-                .map_err(|e| format!("启用开机自启动失败: {}", e))?;
-        } else {
-            auto_launch
-                .disable()
-                .map_err(|e| format!("禁用开机自启动失败: {}", e))?;
-        }
-
-        Ok(())
-    }
+    crate::settings::SettingsService::set_startup_launch(enabled)
 }
 
-// 设置历史记录数量限制
+/// 设置历史记录数量限制
 #[tauri::command]
 pub fn set_history_limit(limit: usize) -> Result<(), String> {
-    clipboard_history::set_history_limit(limit);
+    crate::clipboard_history::set_history_limit(limit);
     Ok(())
 }
 
@@ -360,26 +184,13 @@ pub fn set_history_limit(limit: usize) -> Result<(), String> {
 // 移动剪贴板项目到指定位置
 #[tauri::command]
 pub fn move_clipboard_item(from_index: usize, to_index: usize) -> Result<(), String> {
-    clipboard_history::move_item(from_index, to_index)
+    crate::services::drag_sort_service::DragSortService::move_clipboard_item(from_index, to_index)
 }
 
 // 移动常用文本到指定位置
 #[tauri::command]
-pub fn move_quick_text_item(item_index: usize, to_index: usize) -> Result<(), String> {
-    quick_texts::move_quick_text_within_group(item_index, to_index)
-}
-
-// 重新排序剪贴板历史（保留兼容性）
-#[tauri::command]
-pub fn reorder_clipboard_history(items: Vec<String>) -> Result<(), String> {
-    clipboard_history::reorder_history(items);
-    Ok(())
-}
-
-// 重新排序常用文本（保留兼容性）
-#[tauri::command]
-pub fn reorder_quick_texts(items: Vec<FavoriteItem>) -> Result<(), String> {
-    quick_texts::reorder_quick_texts(items)
+pub fn move_quick_text_item(item_id: String, to_index: usize) -> Result<(), String> {
+    crate::services::drag_sort_service::DragSortService::move_quick_text_item(item_id, to_index)
 }
 
 // =================== 分组相关命令 ===================
@@ -387,43 +198,43 @@ pub fn reorder_quick_texts(items: Vec<FavoriteItem>) -> Result<(), String> {
 // 获取所有分组
 #[tauri::command]
 pub fn get_groups() -> Vec<GroupInfo> {
-    database::get_all_groups().unwrap_or_default()
+    crate::services::group_service::GroupService::get_all_groups()
 }
 
 // 添加分组
 #[tauri::command]
 pub fn add_group(name: String, icon: String) -> Result<GroupInfo, String> {
-    groups::add_group(name, icon)
+    crate::services::group_service::GroupService::add_group(name, icon)
 }
 
 // 更新分组
 #[tauri::command]
 pub fn update_group(id: String, name: String, icon: String) -> Result<GroupInfo, String> {
-    groups::update_group(id, name, icon)
+    crate::services::group_service::GroupService::update_group(id, name, icon)
 }
 
 // 删除分组
 #[tauri::command]
 pub fn delete_group(id: String) -> Result<(), String> {
-    groups::delete_group(id)
+    crate::services::group_service::GroupService::delete_group(id)
 }
 
 // 按分组获取常用文本
 #[tauri::command]
 pub fn get_quick_texts_by_group(groupName: String) -> Vec<FavoriteItem> {
-    quick_texts::get_quick_texts_by_group(&groupName)
+    crate::services::group_service::GroupService::get_quick_texts_by_group(groupName)
 }
 
 // 移动常用文本到分组
 #[tauri::command]
 pub fn move_quick_text_to_group(id: String, groupName: String) -> Result<(), String> {
-    quick_texts::move_quick_text_to_group(id, groupName)
+    crate::services::group_service::GroupService::move_quick_text_to_group(id, groupName)
 }
 
-// 打开设置窗口
+/// 打开设置窗口
 #[tauri::command]
 pub async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
-    crate::services::window_service::open_settings_window(app).await
+    crate::settings::SettingsWindow::open(app).await
 }
 
 // =================== 文本编辑窗口命令 ===================
@@ -431,324 +242,114 @@ pub async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
 // 打开文本编辑窗口
 #[tauri::command]
 pub async fn open_text_editor_window(app: tauri::AppHandle) -> Result<(), String> {
-    crate::services::window_service::open_text_editor_window(app).await
+    crate::services::window_service::WindowService::open_text_editor_window(app).await
 }
 
-// 获取设置
+/// 获取设置
 #[tauri::command]
 pub fn get_settings() -> Result<serde_json::Value, String> {
     let settings = crate::settings::get_global_settings();
-    Ok(settings.to_json())
+    Ok(crate::settings::SettingsConverter::to_json(&settings))
 }
 
+/// 重新加载设置
 #[tauri::command]
 pub fn reload_settings() -> Result<serde_json::Value, String> {
-    // 强制从文件重新加载设置
-    let fresh_settings = crate::settings::AppSettings::load();
-
-    // 更新全局设置
+    let fresh_settings = crate::settings::SettingsStorage::load_or_default();
+    
     if let Err(e) = crate::settings::update_global_settings(fresh_settings.clone()) {
         println!("更新全局设置失败: {}", e);
     }
 
-    Ok(fresh_settings.to_json())
+    Ok(crate::settings::SettingsConverter::to_json(&fresh_settings))
 }
 
-// 保存设置
+/// 保存设置
 #[tauri::command]
 pub fn save_settings(
     app_handle: tauri::AppHandle,
     settings: serde_json::Value,
 ) -> Result<(), String> {
-    // 由于设置窗口可能持有过期的窗口尺寸/位置，
-    // 这里过滤掉 savedWindowSize 与 savedWindowPosition，避免覆盖最新值
-    let mut settings_filtered = settings.clone();
-    if let Some(obj) = settings_filtered.as_object_mut() {
-        obj.remove("savedWindowSize");
-        obj.remove("savedWindowPosition");
-    }
-
-    // 更新全局设置（使用过滤后的对象）
-    crate::settings::update_global_settings_from_json(&settings_filtered)?;
-
-    // 获取更新后的设置
-    let app_settings = crate::settings::get_global_settings();
-
-    // 应用各种设置
-    // 1. 历史记录数量限制
-    crate::clipboard_history::set_history_limit(app_settings.history_limit as usize);
-
-    // 2. 开机自启动
-    if let Err(e) = set_startup_launch(app_settings.auto_start) {
-        println!("设置开机自启动失败: {}", e);
-    }
-
-    // 3. 剪贴板监听设置
-    crate::clipboard_history::set_monitoring_enabled(app_settings.clipboard_monitor);
-
-    // 4. 忽略重复内容设置
-    crate::clipboard_history::set_ignore_duplicates(app_settings.ignore_duplicates);
-
-    // 5. 保存图片设置
-    crate::clipboard_history::set_save_images(app_settings.save_images);
-
-    // 6. 数字快捷键设置
-    #[cfg(windows)]
-    crate::global_state::set_number_shortcuts_enabled(app_settings.number_shortcuts);
-
-    // 7. 预览窗口快捷键设置
-    #[cfg(windows)]
-    crate::global_state::update_preview_shortcut_config(&app_settings.preview_shortcut);
-
-    // 6. 更新音效设置
-    let sound_settings = crate::sound_manager::SoundSettings {
-        enabled: app_settings.sound_enabled,
-        volume: (app_settings.sound_volume / 100.0) as f32, // 转换为0.0-1.0范围
-        copy_sound_path: app_settings.copy_sound_path.clone(),
-        paste_sound_path: app_settings.paste_sound_path.clone(),
-        preset: app_settings.sound_preset.clone(),
-    };
-    crate::sound_manager::update_sound_settings(sound_settings);
-
-    // 7. 截屏设置应用
-    // 重新获取最新的设置以确保显示正确的值
-    let updated_settings = crate::settings::get_global_settings();
-    println!(
-        "截屏设置已更新: 启用={}, 快捷键={}, 质量={}",
-        updated_settings.screenshot_enabled,
-        updated_settings.screenshot_shortcut,
-        updated_settings.screenshot_quality
-    );
-
-    // 8. 更新快捷键拦截器配置
-    #[cfg(windows)]
-    {
-        // 更新主窗口快捷键
-        let toggle_shortcut = if app_settings.toggle_shortcut.is_empty() {
-            "Win+V".to_string()
-        } else {
-            app_settings.toggle_shortcut.clone()
-        };
-        crate::shortcut_interceptor::update_shortcut_to_intercept(&toggle_shortcut);
-
-        // 更新预览窗口快捷键
-        let preview_shortcut = if app_settings.preview_shortcut.is_empty() {
-            "Ctrl+`".to_string()
-        } else {
-            app_settings.preview_shortcut.clone()
-        };
-        crate::shortcut_interceptor::update_preview_shortcut_to_intercept(&preview_shortcut);
-    }
-
-    // 9. 检查是否需要刷新文件图标
-    if settings_filtered.get("showImagePreview").is_some() {
-        // 异步刷新文件图标，不阻塞设置保存
-        let app_handle_clone = app_handle.clone();
-        std::thread::spawn(move || {
-            if let Err(e) = refresh_file_icons(app_handle_clone) {
-                println!("刷新文件图标失败: {}", e);
-            }
-        });
-    }
-
-    // 10. 如果设置了显示后滚动到顶部，通知前端（主窗口）更新行为
-    if let Some(main_window) = app_handle.get_webview_window("main") {
-        use tauri::Emitter;
-        let _ = main_window.emit(
-            "settings-changed",
-            app_settings.to_json(),
-        );
-    }
-
-    Ok(())
+    crate::settings::SettingsService::save_settings(app_handle, settings)
 }
 
 // 调试日志
 #[tauri::command]
 pub fn log_debug(message: String) {
-    println!("前端调试: {}", message);
+    crate::services::system_service::SystemService::log_debug(message);
 }
 
 // 浏览音效文件
 #[tauri::command]
-pub async fn browse_sound_file() -> Result<Option<String>, String> {
-    let dialog = rfd::AsyncFileDialog::new()
+pub async fn browse_sound_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    let file = app.dialog()
+        .file()
         .add_filter("音频文件", &["wav", "mp3", "ogg", "flac", "m4a", "aac"])
-        .set_title("选择音效文件");
-
-    if let Some(file) = dialog.pick_file().await {
-        Ok(Some(file.path().to_string_lossy().to_string()))
-    } else {
-        Ok(None)
-    }
+        .set_title("选择音效文件")
+        .blocking_pick_file();
+    
+    Ok(file.and_then(|f| f.as_path().map(|p| p.to_string_lossy().to_string())))
 }
 
 // 浏览背景图片文件
 #[tauri::command]
-pub async fn browse_image_file() -> Result<Option<String>, String> {
-    let dialog = rfd::AsyncFileDialog::new()
+pub async fn browse_image_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    let file = app.dialog()
+        .file()
         .add_filter("图片文件", &["png", "jpg", "jpeg", "bmp", "gif", "webp"])
-        .set_title("选择背景图片");
-
-    if let Some(file) = dialog.pick_file().await {
-        Ok(Some(file.path().to_string_lossy().to_string()))
-    } else {
-        Ok(None)
-    }
+        .set_title("选择背景图片")
+        .blocking_pick_file();
+    
+    Ok(file.and_then(|f| f.as_path().map(|p| p.to_string_lossy().to_string())))
 }
 
 // 测试音效（异步版本）
 #[tauri::command]
 pub async fn test_sound(sound_path: String, volume: f32, sound_type: Option<String>) -> Result<(), String> {
-    let volume_normalized = volume / 100.0; // 将0-100转换为0.0-1.0
-
-    // 在后台线程中播放音效，避免阻塞前端
-    let sound_path_clone = sound_path.clone();
-    let sound_type_clone = sound_type.clone();
-    tokio::task::spawn_blocking(move || {
-        let effective_path = if sound_path_clone.is_empty() {
-            // 根据音效类型选择默认音效
-            match sound_type_clone.as_deref() {
-                Some("paste") => "sounds/paste.mp3".to_string(),
-                Some("preview-scroll") => "sounds/scroll.mp3".to_string(),
-                _ => "sounds/copy.mp3".to_string(), // 默认为复制音效
-            }
-        } else {
-            sound_path_clone
-        };
-
-        // 播放音效文件
-        if let Err(e) =
-            crate::sound_manager::SoundManager::play_sound_sync(&effective_path, volume_normalized)
-        {
-            eprintln!("测试音效失败: {}", e);
-            // 如果文件播放失败，回退到代码生成的音效
-            let frequency = match sound_type_clone.as_deref() {
-                Some("paste") => 600.0,
-                Some("preview-scroll") => 500.0,
-                _ => 700.0,
-            };
-            if let Err(e2) =
-                crate::sound_manager::SoundManager::play_beep(frequency, 200, volume_normalized)
-            {
-                eprintln!("测试默认音效也失败: {}", e2);
-            }
-        }
-    })
-    .await
-    .map_err(|e| format!("音效测试任务失败: {}", e))?;
-
-    Ok(())
+    crate::services::sound_service::SoundService::test_sound(sound_path, volume, sound_type).await
 }
 
 // 播放粘贴音效（供键盘钩子调用）
 #[tauri::command]
 pub fn play_paste_sound() -> Result<(), String> {
-    crate::sound_manager::play_paste_sound();
-    Ok(())
+    crate::services::sound_service::SoundService::play_paste_sound()
 }
 
 // 播放滚动音效（供预览窗口调用）
 #[tauri::command]
 pub fn play_scroll_sound() -> Result<(), String> {
-    crate::sound_manager::play_scroll_sound();
-    Ok(())
+    crate::services::sound_service::SoundService::play_scroll_sound()
 }
 
 // 清理音效缓存
 #[tauri::command]
 pub fn clear_sound_cache() -> Result<(), String> {
-    crate::sound_manager::clear_sound_cache()
+    crate::services::sound_service::SoundService::clear_sound_cache()
 }
 
 // 获取当前活跃音效播放数量
 #[tauri::command]
 pub fn get_active_sound_count() -> usize {
-    crate::sound_manager::get_active_sound_count()
+    crate::services::sound_service::SoundService::get_active_sound_count()
 }
 
 // 从剪贴板历史添加到分组
 #[tauri::command]
 pub fn add_clipboard_to_group(index: usize, groupName: String) -> Result<FavoriteItem, String> {
-    // 从数据库获取剪贴板历史
-    let items = crate::database::get_clipboard_history(None)
-        .map_err(|e| format!("获取剪贴板历史失败: {}", e))?;
-
-    if index >= items.len() {
-        return Err(format!("索引 {} 超出历史范围", index));
-    }
-
-    let content = items[index].content.clone(); // 释放锁
-    let html_content = items[index].html_content.clone();
-
-    // 处理内容，如果是图片则创建副本
-    let final_content = if content.starts_with("image:") {
-        // 提取图片ID
-        let image_id = content.strip_prefix("image:").unwrap_or("");
-        if !image_id.is_empty() {
-            // 创建图片副本
-            match get_image_manager() {
-                Ok(image_manager) => {
-                    match image_manager.lock() {
-                        Ok(manager) => {
-                            match manager.copy_image(image_id) {
-                                Ok(new_image_info) => {
-                                    format!("image:{}", new_image_info.id)
-                                }
-                                Err(e) => {
-                                    println!("复制图片失败: {}, 使用原始引用", e);
-                                    content // 如果复制失败，使用原始引用
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            println!("获取图片管理器锁失败: {}, 使用原始引用", e);
-                            content
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("获取图片管理器失败: {}, 使用原始引用", e);
-                    content
-                }
-            }
-        } else {
-            content
-        }
-    } else {
-        content.clone()
-    };
-
-    // 生成标题：根据内容类型生成合适的标题
-    let title = if final_content.starts_with("data:image/") || final_content.starts_with("image:") {
-        // 图片内容使用固定标题
-        "图片".to_string()
-    } else if final_content.starts_with("files:") {
-        // 文件内容解析文件名作为标题
-        crate::utils::content_utils::generate_files_title(&final_content)
-    } else {
-        // 安全地截取字符串，避免在UTF-8字符中间截断
-        let chars: Vec<char> = final_content.chars().collect();
-        if chars.len() > 30 {
-            format!("{}...", chars.iter().take(30).collect::<String>())
-        } else {
-            final_content.clone()
-        }
-    };
-
-    // 添加到指定分组的常用文本
-    quick_texts::add_quick_text_with_group_and_html(title, final_content, html_content, groupName)
+    crate::services::group_service::GroupService::add_clipboard_to_group(index, groupName)
 }
 
 // 设置主窗口为置顶
 #[tauri::command]
 pub fn set_super_topmost(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
-        #[cfg(windows)]
-        {
-            crate::window_management::setup_window_properties(&window)
-                .map_err(|e| format!("设置窗口属性失败: {}", e))?;
-        }
+        window
+            .set_always_on_top(true)
+            .map_err(|e| format!("设置窗口置顶失败: {}", e))?;
         Ok(())
     } else {
         Err("找不到主窗口".to_string())
@@ -758,100 +359,56 @@ pub fn set_super_topmost(app: tauri::AppHandle) -> Result<(), String> {
 // 获取音效播放状态
 #[tauri::command]
 pub fn get_sound_status() -> Result<serde_json::Value, String> {
-    let active_count = crate::sound_manager::get_active_sound_count();
-    Ok(serde_json::json!({
-        "active_sounds": active_count,
-        "max_concurrent": 3
-    }))
+    crate::services::sound_service::SoundService::get_sound_status()
 }
 
-// 获取图片数据URL
+// 获取图片文件路径
 #[tauri::command]
-pub fn get_image_data_url(image_id: String) -> Result<String, String> {
-    let image_manager = get_image_manager()?;
-    let manager = image_manager
-        .lock()
-        .map_err(|e| format!("获取图片管理器锁失败: {}", e))?;
-    manager.get_image_data_url(&image_id)
-}
-
-// 获取图片缩略图数据URL
-#[tauri::command]
-pub fn get_image_thumbnail_url(image_id: String) -> Result<String, String> {
-    let image_manager = get_image_manager()?;
-    let manager = image_manager
-        .lock()
-        .map_err(|e| format!("获取图片管理器锁失败: {}", e))?;
-    manager.get_thumbnail_data_url(&image_id)
+pub fn get_image_file_path(content: String) -> Result<String, String> {
+    crate::services::image_service::ImageService::get_image_file_path(content)
 }
 
 // 保存图片到指定路径
 #[tauri::command]
 pub fn save_image_to_file(content: String, file_path: String) -> Result<(), String> {
-    use base64::{engine::general_purpose, Engine as _};
-    use std::fs;
-
-    let data_url = if content.starts_with("image:") {
-        // 新格式：通过图片ID获取data URL
-        let image_id = content.strip_prefix("image:").unwrap_or("");
-        let image_manager = get_image_manager()?;
-        let manager = image_manager
-            .lock()
-            .map_err(|e| format!("获取图片管理器锁失败: {}", e))?;
-        manager.get_image_data_url(image_id)?
-    } else if content.starts_with("data:image/") {
-        // 旧格式：直接使用data URL
-        content
-    } else {
-        return Err("不支持的图片格式".to_string());
-    };
-
-    // 解析data URL
-    let comma_pos = data_url
-        .find(',')
-        .ok_or_else(|| "无效的data URL格式".to_string())?;
-
-    let encoded = &data_url[(comma_pos + 1)..];
-    let image_data = general_purpose::STANDARD
-        .decode(encoded)
-        .map_err(|e| format!("Base64解码失败: {}", e))?;
-
-    // 保存到文件
-    fs::write(&file_path, &image_data).map_err(|e| format!("保存文件失败: {}", e))?;
-
-    println!("图片已保存到: {}", file_path);
-    Ok(())
+    crate::services::image_service::ImageService::save_image_to_file(content, file_path)
 }
 
 // 设置预览窗口当前索引
 #[tauri::command]
 pub fn set_preview_index(index: usize) -> Result<(), String> {
-    crate::preview_window::set_preview_index(index);
-    Ok(())
+    crate::services::preview_service::PreviewService::set_preview_index(index)
 }
 
 // 取消预览（不粘贴直接隐藏）
 #[tauri::command]
 pub async fn cancel_preview() -> Result<(), String> {
-    crate::preview_window::cancel_preview().await
+    crate::services::preview_service::PreviewService::cancel_preview()
 }
 
 // 删除剪贴板项目
 #[tauri::command]
-pub fn delete_clipboard_item(id: usize) -> Result<(), String> {
-    clipboard_history::delete_item_by_index(id)
+pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
+    crate::database::delete_clipboard_item(id)
 }
 
 // 更新剪贴板项目内容
 #[tauri::command]
-pub fn update_clipboard_item(index: usize, content: String) -> Result<(), String> {
-    clipboard_history::update_item_content(index, content)
+pub fn update_clipboard_item(id: i64, content: String) -> Result<(), String> {
+    crate::database::update_clipboard_item(id, content)
 }
 
 // 清空剪贴板历史
 #[tauri::command]
 pub fn clear_clipboard_history() -> Result<(), String> {
     clipboard_history::clear_all()
+}
+
+// 手动清理未使用的图片
+#[tauri::command]
+pub fn cleanup_unused_images() -> Result<String, String> {
+    crate::clipboard_history::cleanup_orphaned_images();
+    Ok("清理完成".to_string())
 }
 
 // 发送剪贴板更新事件
@@ -893,13 +450,13 @@ pub async fn emit_quick_texts_updated(app: tauri::AppHandle) -> Result<(), Strin
 // 通知预览窗口标签切换
 #[tauri::command]
 pub fn notify_preview_tab_change(tab: String, groupName: String) -> Result<(), String> {
-    crate::preview_window::update_preview_source(tab, groupName)
+    crate::services::preview_service::PreviewService::notify_preview_tab_change(tab, groupName)
 }
 
 // 获取主窗口当前状态
 #[tauri::command]
 pub fn get_main_window_state() -> Result<serde_json::Value, String> {
-    crate::preview_window::get_main_window_state()
+    crate::services::preview_service::PreviewService::get_main_window_state()
 }
 
 // 更新主题设置
@@ -921,6 +478,7 @@ pub fn get_app_version(app: tauri::AppHandle) -> Result<serde_json::Value, Strin
     });
     Ok(version_info)
 }
+
 
 // =================== 管理员权限相关命令 ===================
 
@@ -999,52 +557,7 @@ pub fn send_startup_notification(app: tauri::AppHandle) -> Result<(), String> {
 /// 测试AI翻译配置
 #[tauri::command]
 pub async fn test_ai_translation() -> Result<String, String> {
-    let settings = crate::settings::get_global_settings();
-
-    // 检查配置是否有效
-    if !crate::ai_translator::is_translation_config_valid(&settings) {
-        return Err("AI翻译配置不完整，请检查API密钥、模型和目标语言设置".to_string());
-    }
-
-    // 创建翻译配置
-    let config = crate::ai_translator::config_from_settings(&settings);
-
-    // 创建翻译器
-    let translator = match crate::ai_translator::AITranslator::new(config) {
-        Ok(t) => t,
-        Err(e) => return Err(format!("创建翻译器失败: {}", e)),
-    };
-
-    // 测试翻译
-    let test_text = "Hello, this is a test message for AI translation.";
-
-    match translator.translate_stream(test_text).await {
-        Ok(mut receiver) => {
-            let mut result = String::new();
-
-            // 收集流式响应
-            while let Some(translation_result) = receiver.recv().await {
-                match translation_result {
-                    crate::ai_translator::TranslationResult::Chunk(chunk) => {
-                        result.push_str(&chunk);
-                    }
-                    crate::ai_translator::TranslationResult::Complete => {
-                        break;
-                    }
-                    crate::ai_translator::TranslationResult::Error(e) => {
-                        return Err(format!("翻译失败: {}", e));
-                    }
-                }
-            }
-
-            if result.is_empty() {
-                Err("翻译结果为空".to_string())
-            } else {
-                Ok(format!("测试成功！翻译结果：{}", result))
-            }
-        }
-        Err(e) => Err(format!("启动翻译失败: {}", e)),
-    }
+    crate::services::translation_service::test_ai_translation().await
 }
 
 /// 取消正在进行的翻译
@@ -1056,17 +569,13 @@ pub fn cancel_translation() -> Result<(), String> {
 /// 启用AI翻译取消快捷键
 #[tauri::command]
 pub fn enable_ai_translation_cancel_shortcut() -> Result<(), String> {
-    #[cfg(windows)]
-    crate::global_state::enable_ai_translation_cancel();
-    Ok(())
+    crate::services::translation_service::enable_ai_translation_cancel_shortcut()
 }
 
 /// 禁用AI翻译取消快捷键
 #[tauri::command]
 pub fn disable_ai_translation_cancel_shortcut() -> Result<(), String> {
-    #[cfg(windows)]
-    crate::global_state::disable_ai_translation_cancel();
-    Ok(())
+    crate::services::translation_service::disable_ai_translation_cancel_shortcut()
 }
 
 /// 翻译文本并直接粘贴（非流式）
@@ -1102,8 +611,7 @@ pub fn is_currently_pasting() -> bool {
 /// 检查AI翻译配置是否有效
 #[tauri::command]
 pub fn check_ai_translation_config() -> Result<bool, String> {
-    let settings = crate::settings::get_global_settings();
-    Ok(crate::ai_translator::is_translation_config_valid(&settings))
+    crate::services::translation_service::check_ai_translation_config()
 }
 
 // =================== 文件处理命令 ===================
@@ -1113,41 +621,28 @@ pub async fn copy_files_to_directory(
     files: Vec<String>,
     target_dir: String,
 ) -> Result<Vec<String>, String> {
-    crate::file_handler::copy_files_to_target(&files, &target_dir)
+    crate::services::file_operation_service::FileOperationService::copy_files_to_directory(files, target_dir).await
 }
 
 #[tauri::command]
 pub async fn get_file_info(path: String) -> Result<crate::file_handler::FileInfo, String> {
-    crate::file_handler::get_file_info(&path)
+    crate::services::file_operation_service::FileOperationService::get_file_info(path).await
 }
 
 #[tauri::command]
 pub async fn get_clipboard_files() -> Result<Vec<String>, String> {
-    crate::file_handler::get_clipboard_files()
+    crate::services::file_operation_service::FileOperationService::get_clipboard_files().await
 }
 
 #[tauri::command]
 pub async fn set_clipboard_files(files: Vec<String>) -> Result<(), String> {
-    crate::file_handler::set_clipboard_files(&files)
+    crate::services::file_operation_service::FileOperationService::set_clipboard_files(files).await
 }
 
 /// 获取可用的AI模型列表
 #[tauri::command]
 pub async fn get_available_ai_models() -> Result<Vec<String>, String> {
-    let settings = crate::settings::get_global_settings();
-    let ai_config = crate::ai_config::create_ai_config_from_settings(&settings);
-
-    if !ai_config.is_valid() {
-        return Err("AI配置无效，请检查API密钥等设置".to_string());
-    }
-
-    let config_manager = crate::ai_config::AIConfigManager::new(ai_config)
-        .map_err(|e| format!("创建AI配置管理器失败: {}", e))?;
-
-    config_manager
-        .get_available_models()
-        .await
-        .map_err(|e| format!("获取模型列表失败: {}", e))
+    crate::services::ai_service::AIService::get_available_ai_models().await
 }
 
 /// 测试AI配置
@@ -1174,93 +669,12 @@ pub async fn test_ai_config() -> Result<bool, String> {
 // 打开文件位置
 #[tauri::command]
 pub async fn open_file_location(file_path: String) -> Result<(), String> {
-    use std::process::Command;
-
-    #[cfg(windows)]
-    {
-        // Windows: 使用 explorer 打开文件位置并选中文件
-        let result = Command::new("explorer")
-            .args(&["/select,", &file_path])
-            .spawn();
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("打开文件位置失败: {}", e)),
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        // macOS: 使用 Finder 打开文件位置
-        let result = Command::new("open").args(&["-R", &file_path]).spawn();
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("打开文件位置失败: {}", e)),
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // Linux: 尝试使用文件管理器打开
-        let result = Command::new("xdg-open")
-            .arg(
-                std::path::Path::new(&file_path)
-                    .parent()
-                    .unwrap_or(std::path::Path::new("/")),
-            )
-            .spawn();
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("打开文件位置失败: {}", e)),
-        }
-    }
+    crate::services::file_operation_service::FileOperationService::open_file_location(file_path).await
 }
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 // 使用默认程序打开文件
 #[tauri::command]
 pub async fn open_file_with_default_program(file_path: String) -> Result<(), String> {
-    use std::process::Command;
-
-    #[cfg(windows)]
-    {
-        // Windows: 使用 start 命令打开文件
-        let result = Command::new("cmd")
-            .args(&["/C", "start", "", &file_path])
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn();
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("打开文件失败: {}", e)),
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        // macOS: 使用 open 命令打开文件
-        let result = Command::new("open").arg(&file_path).spawn();
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("打开文件失败: {}", e)),
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // Linux: 使用 xdg-open 打开文件
-        let result = Command::new("xdg-open").arg(&file_path).spawn();
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("打开文件失败: {}", e)),
-        }
-    }
+    crate::services::file_operation_service::FileOperationService::open_file_with_default_program(file_path).await
 }
 
 // 统一粘贴命令 - 自动识别内容类型并执行相应的粘贴操作
@@ -1275,44 +689,7 @@ pub async fn paste_content(
 // 读取图片文件并返回base64数据
 #[tauri::command]
 pub fn read_image_file(file_path: String) -> Result<String, String> {
-    use std::fs;
-    use std::path::Path;
-
-    let path = Path::new(&file_path);
-
-    // 检查文件是否存在
-    if !path.exists() {
-        return Err("文件不存在".to_string());
-    }
-
-    // 检查文件大小（限制为10MB）
-    if let Ok(metadata) = fs::metadata(&path) {
-        const MAX_SIZE: u64 = 10 * 1024 * 1024; // 10MB
-        if metadata.len() > MAX_SIZE {
-            return Err("文件太大".to_string());
-        }
-    }
-
-    // 读取文件
-    let image_data = fs::read(&path).map_err(|e| format!("读取文件失败: {}", e))?;
-
-    // 根据文件扩展名确定MIME类型
-    let mime_type = match path.extension().and_then(|ext| ext.to_str()) {
-        Some("jpg") | Some("jpeg") => "image/jpeg",
-        Some("png") => "image/png",
-        Some("gif") => "image/gif",
-        Some("bmp") => "image/bmp",
-        Some("webp") => "image/webp",
-        Some("tiff") | Some("tif") => "image/tiff",
-        Some("ico") => "image/x-icon",
-        Some("svg") => "image/svg+xml",
-        _ => "image/png", // 默认
-    };
-
-    // 编码为base64
-    use base64::{engine::general_purpose, Engine as _};
-    let base64_data = general_purpose::STANDARD.encode(&image_data);
-    Ok(format!("data:{};base64,{}", mime_type, base64_data))
+    crate::services::file_operation_service::FileOperationService::read_image_file(file_path)
 }
 
 // =================== 数据管理命令 ===================
@@ -1354,126 +731,81 @@ pub async fn reset_all_data() -> Result<(), String> {
     crate::data_manager::reset_all_data().await
 }
 
+// 恢复默认配置
+#[tauri::command]
+pub async fn reset_settings_to_default() -> Result<(), String> {
+    crate::data_manager::reset_settings_to_default().await
+}
+
 // 获取应用数据目录
 #[tauri::command]
 pub fn get_app_data_dir() -> Result<String, String> {
-    crate::data_manager::get_app_data_dir().map(|path| path.to_string_lossy().to_string())
+    crate::services::system_service::SystemService::get_app_data_dir()
+}
+
+// =================== 存储管理 ===================
+
+/// 检查是否为便携版模式
+#[tauri::command]
+pub fn is_portable_mode() -> bool {
+    crate::settings::SettingsStorage::is_portable_mode()
+}
+
+/// 获取存储信息
+#[tauri::command]
+pub fn get_storage_info() -> Result<crate::settings::StorageInfo, String> {
+    let settings = crate::settings::get_global_settings();
+    settings.get_storage_info()
+}
+
+/// 设置自定义存储位置
+#[tauri::command]
+pub async fn set_custom_storage_location(new_path: String, app: tauri::AppHandle) -> Result<(), String> {
+    // 便携版模式下禁止更改存储位置
+    if crate::settings::SettingsStorage::is_portable_mode() {
+        return Err("便携版模式下无法更改数据存储位置".to_string());
+    }
+    
+    let mut settings = crate::settings::get_global_settings();
+    settings.set_custom_storage_path(new_path, Some(app)).await?;
+    crate::settings::update_global_settings(settings)
+}
+
+/// 重置为默认存储位置
+#[tauri::command]
+pub async fn reset_to_default_storage_location(app: tauri::AppHandle) -> Result<(), String> {
+    // 便携版模式下禁止更改存储位置
+    if crate::settings::SettingsStorage::is_portable_mode() {
+        return Err("便携版模式下无法更改数据存储位置".to_string());
+    }
+    
+    let mut settings = crate::settings::get_global_settings();
+    settings.reset_to_default_storage(Some(app)).await?;
+    crate::settings::update_global_settings(settings)
+}
+
+/// 打开存储文件夹
+#[tauri::command]
+pub async fn open_storage_folder() -> Result<(), String> {
+    let settings = crate::settings::get_global_settings();
+    crate::settings::SettingsStorage::open_folder(&settings)
+}
+
+/// 保存窗口位置
+#[tauri::command]
+pub fn save_window_position(x: i32, y: i32) -> Result<(), String> {
+    crate::settings::save_window_position(x, y)
+}
+
+/// 保存窗口大小
+#[tauri::command]
+pub fn save_window_size(width: u32, height: u32) -> Result<(), String> {
+    crate::settings::save_window_size(width, height)
 }
 
 // 刷新所有文件类型项目的图标
-fn refresh_file_icons(app_handle: tauri::AppHandle) -> Result<(), String> {
-    use crate::database;
-    use crate::file_handler::FileClipboardData;
-
-    println!("开始刷新文件图标...");
-
-    let mut updated_count = 0;
-
-    // 1. 刷新剪贴板历史记录中的文件图标
-    let clipboard_items = database::get_clipboard_history(None)?;
-    for item in clipboard_items {
-        // 检查是否是文件类型的项目
-        if item.content.starts_with("files:") {
-            let json_str = item.content.strip_prefix("files:").unwrap_or("");
-
-            // 解析文件数据
-            if let Ok(mut file_data) = serde_json::from_str::<FileClipboardData>(json_str) {
-                let mut has_changes = false;
-
-                // 为每个文件重新生成图标
-                for file in &mut file_data.files {
-                    if let Ok(new_icon) = crate::file_handler::get_file_icon(&file.path) {
-                        if file.icon_data.as_ref() != Some(&new_icon) {
-                            file.icon_data = Some(new_icon);
-                            has_changes = true;
-                        }
-                    }
-                }
-
-                // 如果有变化，更新数据库
-                if has_changes {
-                    if let Ok(updated_json) = serde_json::to_string(&file_data) {
-                        let updated_text = format!("files:{}", updated_json);
-                        if let Err(e) = database::update_clipboard_item(item.id, updated_text) {
-                            println!("更新剪贴板项目 {} 失败: {}", item.id, e);
-                        } else {
-                            updated_count += 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // 2. 刷新常用文本列表中的文件图标
-    let quick_texts = database::get_all_favorite_items()?;
-    for text in quick_texts {
-        // 检查是否是文件类型的常用文本
-        if text.content.starts_with("files:") {
-            let json_str = text.content.strip_prefix("files:").unwrap_or("");
-
-            // 解析文件数据
-            if let Ok(mut file_data) = serde_json::from_str::<FileClipboardData>(json_str) {
-                let mut has_changes = false;
-
-                // 为每个文件重新生成图标
-                for file in &mut file_data.files {
-                    if let Ok(new_icon) = crate::file_handler::get_file_icon(&file.path) {
-                        if file.icon_data.as_ref() != Some(&new_icon) {
-                            file.icon_data = Some(new_icon);
-                            has_changes = true;
-                        }
-                    }
-                }
-
-                // 如果有变化，更新数据库
-                if has_changes {
-                    if let Ok(updated_json) = serde_json::to_string(&file_data) {
-                        let updated_content = format!("files:{}", updated_json);
-
-                        // 创建更新后的常用文本对象
-                        let mut updated_text = text.clone();
-                        updated_text.content = updated_content;
-                        let now_local = chrono::Local::now();
-                        updated_text.updated_at = now_local.timestamp();
-
-                        if let Err(e) = database::update_favorite_item(&updated_text) {
-                            println!("更新常用文本 {} 失败: {}", text.id, e);
-                        } else {
-                            updated_count += 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    println!("文件图标刷新完成，更新了 {} 个项目", updated_count);
-
-    // 发送事件通知前端刷新数据
-    if let Err(e) = app_handle.emit("file-icons-refreshed", updated_count) {
-        println!("发送文件图标刷新事件失败: {}", e);
-    }
-
-    Ok(())
-}
-
-// 保存窗口位置
-#[tauri::command]
-pub fn save_window_position(x: i32, y: i32) -> Result<(), String> {
-    let mut settings = crate::settings::get_global_settings();
-    settings.saved_window_position = Some((x, y));
-    crate::settings::update_global_settings(settings)?;
-    Ok(())
-}
-
-// 保存窗口大小
-#[tauri::command]
-pub fn save_window_size(width: u32, height: u32) -> Result<(), String> {
-    let mut settings = crate::settings::get_global_settings();
-    settings.saved_window_size = Some((width, height));
-    crate::settings::update_global_settings(settings)?;
-    Ok(())
+pub fn refresh_file_icons(app_handle: tauri::AppHandle) -> Result<(), String> {
+    crate::services::system_service::SystemService::refresh_file_icons(app_handle)
 }
 
 // 获取保存的窗口位置
@@ -1488,4 +820,135 @@ pub fn get_saved_window_position() -> Result<Option<(i32, i32)>, String> {
 pub fn get_saved_window_size() -> Result<Option<(u32, u32)>, String> {
     let settings = crate::settings::get_global_settings();
     Ok(settings.saved_window_size)
+}
+
+// =================== 内置截屏程序命令 ===================
+
+// 启动内置截屏窗口
+#[tauri::command]
+pub fn start_builtin_screenshot(app: tauri::AppHandle) -> Result<(), String> {
+    // 检查窗口是否已显示，防止重复请求
+    if crate::screenshot::ScreenshotWindowManager::is_screenshot_window_visible() {
+        return Ok(()); // 静默忽略重复请求
+    }
+    crate::screenshot::ScreenshotWindowManager::show_screenshot_window(&app)
+}
+
+// =================== 边缘吸附相关命令 ===================
+
+// 初始化边缘吸附
+#[tauri::command]
+pub fn init_edge_snap() -> Result<(), String> {
+    crate::edge_snap::init_edge_snap()
+}
+
+// 检查窗口边缘吸附
+#[tauri::command]
+pub fn check_window_edge_snap(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    
+    if let Some(window) = app.get_webview_window("main") {
+        crate::edge_snap::check_window_snap(&window)
+    } else {
+        Err("找不到主窗口".to_string())
+    }
+}
+
+// 从吸附状态恢复窗口
+#[tauri::command]
+pub fn restore_window_from_snap(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    
+    if let Some(window) = app.get_webview_window("main") {
+        crate::edge_snap::restore_from_snap(&window)
+    } else {
+        Err("找不到主窗口".to_string())
+    }
+}
+
+
+#[tauri::command]
+pub fn get_screen_size() -> Result<(i32, i32), String> {
+    crate::edge_snap::get_screen_size()
+}
+
+#[tauri::command]
+pub fn start_custom_drag(app: tauri::AppHandle, mouse_screen_x: i32, mouse_screen_y: i32) -> Result<(), String> {
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window("main") {
+        crate::window_drag::start_custom_drag(window, mouse_screen_x, mouse_screen_y)
+    } else {
+        Err("找不到主窗口".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn stop_custom_drag() -> Result<(), String> {
+    crate::window_drag::stop_custom_drag()
+}
+
+#[tauri::command]
+pub fn set_edge_hide_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    crate::services::edge_snap_service::EdgeSnapService::set_enabled(&app, enabled)
+}
+
+#[tauri::command]
+pub fn is_edge_hide_enabled() -> bool {
+    crate::services::edge_snap_service::EdgeSnapService::is_enabled()
+}
+
+#[tauri::command]
+pub fn restore_edge_snap_on_startup(app: tauri::AppHandle) -> Result<(), String> {
+    crate::services::edge_snap_service::EdgeSnapService::restore_on_startup(&app)
+}
+
+// 刷新所有窗口
+#[tauri::command]
+pub fn refresh_all_windows(app: tauri::AppHandle) -> Result<(), String> {
+    println!("刷新所有窗口");
+    
+    // 获取所有窗口并刷新
+    for (label, window) in app.webview_windows().iter() {
+        println!("刷新窗口: {}", label);
+        if let Err(e) = window.eval("window.location.reload()") {
+            println!("刷新窗口 {} 失败: {}", label, e);
+        }
+    }
+    
+            Ok(())
+}
+
+// 设置快捷键录制状态
+#[tauri::command]
+pub fn set_shortcut_recording(recording: bool) -> Result<(), String> {
+    crate::global_state::SHORTCUT_RECORDING.store(recording, Ordering::SeqCst);
+    Ok(())
+}
+
+// 检查文件是否存在
+#[tauri::command]
+pub fn file_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
+// 创建贴图窗口
+#[tauri::command]
+pub async fn create_pin_image_window(
+    app: tauri::AppHandle,
+    image_data: Vec<u8>,
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+) -> Result<(), String> {
+    crate::pin_image_window::show_pin_image_window(app, image_data, width, height, x, y).await
+}
+
+// 从文件路径创建贴图窗口
+#[tauri::command]
+pub async fn pin_image_from_file(
+    app: tauri::AppHandle,
+    file_path: String,
+) -> Result<(), String> {
+    crate::pin_image_window::show_pin_image_from_file(app, file_path).await
 }
