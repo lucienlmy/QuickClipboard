@@ -14,6 +14,7 @@
 - [国际化规范](#国际化规范)
 - [状态管理规范](#状态管理规范)
 - [命名规范](#命名规范)
+- [注释规范](#注释规范)
 - [Git 提交规范](#git-提交规范)
 
 ---
@@ -39,6 +40,7 @@
 - ❌ jQuery 或其他 DOM 操作库
 - ❌ 内联样式 `style={{ ... }}`
 - ❌ 传统 CSS 文件（除全局样式外）
+- ❌ JSDoc / TSDoc 风格的注释
 
 ---
 
@@ -610,6 +612,299 @@ const DEFAULT_THEME = 'light'
 
 ---
 
+## 💬 注释规范
+
+### 1. 注释原则
+
+**核心原则：代码应该是自解释的，注释用于解释"为什么"而不是"是什么"。**
+
+#### ✅ 应该注释的情况
+
+1. **复杂的业务逻辑**
+2. **性能优化或 Hack 的原因**
+3. **临时解决方案或待优化的代码**
+4. **不明显的设计决策**
+
+#### ❌ 不应该注释的情况
+
+1. **显而易见的代码**
+2. **可以通过重构让代码更清晰的情况**
+
+### 2. 禁止使用 JSDoc / TSDoc 风格
+
+**⚠️ 严格禁止使用 JSDoc/TSDoc 风格的多行注释！**
+
+#### ❌ 禁止的注释风格
+
+```javascript
+// ❌ 禁止：JSDoc 风格
+/**
+ * 处理点击事件
+ * @param {string} id - 项目 ID
+ * @param {number} index - 索引
+ * @returns {void}
+ */
+function handleClick(id, index) {
+  // ...
+}
+
+// ❌ 禁止：TSDoc 风格
+/**
+ * 用户信息组件
+ * @component
+ * @param {Object} props - 组件属性
+ * @param {User} props.user - 用户对象
+ */
+function UserInfo({ user }) {
+  // ...
+}
+
+// ❌ 禁止：过度注释
+/**
+ * 设置用户名
+ */
+const setUsername = (name) => {
+  // 更新状态
+  setUser({ ...user, name })
+}
+```
+
+### 3. 正确的注释方式
+
+#### ✅ 使用简短的单行注释
+
+```javascript
+// ✅ 正确：解释复杂的业务逻辑
+function calculateDiscount(items) {
+  // 满100减20，但会员额外减5%
+  const baseDiscount = items.total >= 100 ? 20 : 0
+  const memberDiscount = user.isMember ? items.total * 0.05 : 0
+  return baseDiscount + memberDiscount
+}
+
+// ✅ 正确：解释临时方案
+function fetchData() {
+  // TODO: 临时使用轮询，后续改为 WebSocket
+  setInterval(loadData, 5000)
+}
+
+// ✅ 正确：解释不明显的优化
+function processLargeList(items) {
+  // 使用 useMemo 避免每次渲染都重新计算
+  const sortedItems = useMemo(
+    () => items.sort((a, b) => b.date - a.date),
+    [items]
+  )
+  return sortedItems
+}
+```
+
+#### ✅ 结构化注释（组件内部）
+
+```jsx
+function ClipboardList() {
+  // Hooks
+  const { t } = useTranslation()
+  const [items, setItems] = useState([])
+  
+  // Effects
+  useEffect(() => {
+    loadItems()
+  }, [])
+  
+  // Event Handlers
+  const handleDelete = (id) => {
+    setItems(prev => prev.filter(item => item.id !== id))
+  }
+  
+  // Render Helpers
+  const renderEmpty = () => (
+    <div>{t('clipboard.empty')}</div>
+  )
+  
+  // Render
+  return (
+    <div>
+      {items.length === 0 ? renderEmpty() : items.map(/* ... */)}
+    </div>
+  )
+}
+```
+
+### 4. 特殊注释标记
+
+使用标准的注释标记来标识特殊情况：
+
+```javascript
+// TODO: 待实现的功能
+// FIXME: 需要修复的问题
+// HACK: 临时的解决方案
+// NOTE: 重要说明
+// WARNING: 警告信息
+```
+
+#### 示例
+
+```javascript
+// TODO: 添加防抖功能
+const handleSearch = (query) => {
+  search(query)
+}
+
+// FIXME: 在深色模式下颜色不正确
+<div className="bg-white text-black">
+
+// HACK: Radix UI 的 Portal 在 Tauri 中有 bug，暂时使用 document.body
+<Dialog.Portal container={document.body}>
+
+// NOTE: 这里必须使用 useLayoutEffect 而不是 useEffect
+useLayoutEffect(() => {
+  measureElement()
+}, [])
+
+// WARNING: 不要在这里使用 async/await，会导致渲染阻塞
+const loadData = () => {
+  fetch('/api/data').then(/* ... */)
+}
+```
+
+### 5. 组件文件头部注释
+
+**只在必要时添加文件头部注释**，说明复杂组件的用途：
+
+```jsx
+// ClipboardVirtualList.jsx
+// 使用虚拟滚动优化大量剪贴板项的渲染性能
+// 基于 react-window 实现，支持动态高度
+
+import { VariableSizeList } from 'react-window'
+
+function ClipboardVirtualList({ items }) {
+  // ...
+}
+```
+
+### 6. 复杂算法注释
+
+对于复杂的算法或计算，添加必要的解释：
+
+```javascript
+// ✅ 正确：解释算法逻辑
+function calculateLayoutPositions(items) {
+  // 使用瀑布流算法计算每个项目的位置
+  // 1. 维护每列的高度数组
+  const columnHeights = new Array(COLUMN_COUNT).fill(0)
+  
+  // 2. 遍历每个项目，放到最短的列中
+  return items.map(item => {
+    const shortestColumn = columnHeights.indexOf(Math.min(...columnHeights))
+    const position = {
+      x: shortestColumn * COLUMN_WIDTH,
+      y: columnHeights[shortestColumn]
+    }
+    columnHeights[shortestColumn] += item.height
+    return position
+  })
+}
+```
+
+### 7. 避免注释冗余
+
+#### ❌ 不好的注释
+
+```javascript
+// ❌ 冗余：注释只是重复代码
+// 设置 loading 为 true
+setLoading(true)
+
+// 遍历所有项目
+items.forEach(item => {
+  // 处理每个项目
+  processItem(item)
+})
+
+// 如果用户已登录
+if (user.isLoggedIn) {
+  // 显示用户名
+  showUsername()
+}
+```
+
+#### ✅ 好的做法
+
+```javascript
+// ✅ 正确：不需要注释，代码已经很清晰
+setLoading(true)
+items.forEach(processItem)
+if (user.isLoggedIn) {
+  showUsername()
+}
+
+// ✅ 正确：只在需要解释的地方添加注释
+// 预加载下一页数据以提升用户体验
+if (isNearBottom && hasNextPage) {
+  prefetchNextPage()
+}
+```
+
+### 8. 国际化相关注释
+
+由于禁止硬编码文本，注释也应该避免中英文混用：
+
+```jsx
+// ✅ 正确：使用翻译键名作为注释
+function Component() {
+  return (
+    <div>
+      {/* clipboard.history */}
+      <h1>{t('clipboard.history')}</h1>
+      
+      {/* settings.theme.dark */}
+      <p>{t('settings.theme.dark')}</p>
+    </div>
+  )
+}
+
+// 或者完全不注释，翻译键名已经足够清晰
+function Component() {
+  return (
+    <div>
+      <h1>{t('clipboard.history')}</h1>
+      <p>{t('settings.theme.dark')}</p>
+    </div>
+  )
+}
+```
+
+### 9. 临时代码注释
+
+```javascript
+// ✅ 临时禁用的代码应该说明原因和时间
+// 2025-10-29: 暂时禁用自动同步，等待后端 API 修复
+// useEffect(() => {
+//   syncData()
+// }, [])
+
+// ✅ 实验性功能
+// EXPERIMENTAL: 新的虚拟滚动实现，性能提升50%
+const useVirtualScroll = () => {
+  // ...
+}
+```
+
+### 10. 注释检查清单
+
+提交代码前检查：
+
+- [ ] 没有使用 JSDoc/TSDoc 风格的注释
+- [ ] 注释解释了"为什么"而不是"是什么"
+- [ ] 移除了显而易见的注释
+- [ ] 复杂逻辑有适当的注释说明
+- [ ] TODO/FIXME 标记清晰明确
+- [ ] 没有注释掉的废弃代码（应该删除）
+
+---
+
 ## 📦 Git 提交规范
 
 ### Commit Message 格式
@@ -657,6 +952,7 @@ fix(settings): 修复深色模式切换问题
 
 提交代码前必须检查：
 
+### 基础规范
 - [ ] 所有文本都使用了 `t()` 国际化
 - [ ] 没有使用内联样式
 - [ ] 所有样式使用 UnoCSS 类名
@@ -667,6 +963,14 @@ fix(settings): 修复深色模式切换问题
 - [ ] 响应式设计已考虑
 - [ ] 命名符合规范
 - [ ] 代码已格式化
+
+### 注释规范
+- [ ] 没有使用 JSDoc/TSDoc 风格的注释
+- [ ] 注释解释了"为什么"而不是"是什么"
+- [ ] 移除了显而易见的注释
+- [ ] 复杂逻辑有适当的注释说明
+- [ ] TODO/FIXME 标记清晰明确
+- [ ] 没有注释掉的废弃代码（应该删除）
 
 ---
 
@@ -711,6 +1015,32 @@ function ClipboardPage() {
       <ClipboardFooter />
     </div>
   )
+}
+```
+
+### 4. 使用 JSDoc 风格注释
+
+```jsx
+// ❌ 错误：使用 JSDoc 注释
+/**
+ * 删除剪贴板项
+ * @param {string} id - 项目 ID
+ * @returns {void}
+ */
+function deleteItem(id) {
+  // ...
+}
+
+// ✅ 正确：简洁的注释或不注释
+function deleteItem(id) {
+  // 删除时需要同时更新本地存储和远程数据
+  removeFromStorage(id)
+  syncToServer(id)
+}
+
+// 或者函数名已经足够清晰，不需要注释
+function deleteItem(id) {
+  removeFromStorage(id)
 }
 ```
 
