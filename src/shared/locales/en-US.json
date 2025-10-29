@@ -5,6 +5,8 @@
     "description": "This is a basic React project framework"
   },
   "common": {
+    "loading": "Loading...",
+    "loadError": "Load Failed",
     "count": "Count",
     "confirm": "Confirm",
     "cancel": "Cancel",
@@ -17,6 +19,7 @@
     "language": "Language"
   },
   "clipboard": {
+    "title": "Clipboard",
     "history": "Clipboard History",
     "clear": "Clear History",
     "copy": "Copy",
@@ -24,11 +27,30 @@
     "pin": "Pin",
     "unpin": "Unpin"
   },
+  "quickTexts": {
+    "title": "Quick Texts",
+    "empty": "No quick texts yet"
+  },
+  "filter": {
+    "all": "All",
+    "text": "Text",
+    "image": "Image",
+    "file": "File",
+    "link": "Link"
+  },
+  "search": {
+    "placeholder": "Search clipboard..."
+  },
   "screenshot": {
     "take": "Take Screenshot",
     "edit": "Edit",
     "save": "Save",
     "cancel": "Cancel"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "appearance": "Appearance"
   }
 }
 

@@ -20,11 +20,14 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
       '@shared': resolve(__dirname, 'src/shared'),
       '@windows': resolve(__dirname, 'src/windows'),
+      'uno.css': 'virtual:uno.css',
     },
   },
 
   plugins: [
-    UnoCSS(),
+    UnoCSS({
+      mode: 'global', // 使用全局模式，确保样式在所有入口中共享
+    }),
     react(),
     process.env.NODE_ENV === 'production' || (!process.env.TAURI_DEBUG && process.env.NODE_ENV !== 'development')
       ? removeConsole({

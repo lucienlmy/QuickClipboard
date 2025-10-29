@@ -1,4 +1,9 @@
 import { proxy } from 'valtio'
+import { 
+  getClipboardHistory, 
+  deleteClipboardItem as apiDeleteItem,
+  clearClipboardHistory as apiClearHistory 
+} from '@shared/api'
 
 // 剪贴板 Store
 export const clipboardStore = proxy({
@@ -8,8 +13,14 @@ export const clipboardStore = proxy({
   loading: false,
   error: null,
   
-  addItem(item) {
-    this.items.unshift(item)
+  addItem(item, isNew = true) {
+    if (isNew) {
+      // 新增项，添加到开头
+      this.items.unshift(item)
+    } else {
+      // 已存在的项，移动到开头
+      this.items = [item, ...this.items.filter(i => i.id !== item.id)]
+    }
   },
   
   removeItem(id) {
@@ -35,6 +46,13 @@ export const clipboardStore = proxy({
   clearAll() {
     this.items = []
     this.selectedIds.clear()
+  },
+  
+  updateOrder(fromIndex, toIndex) {
+    const newItems = [...this.items]
+    const [movedItem] = newItems.splice(fromIndex, 1)
+    newItems.splice(toIndex, 0, movedItem)
+    this.items = newItems
   }
 })
 
@@ -44,39 +62,42 @@ export async function loadClipboardItems() {
   clipboardStore.error = null
   
   try {
-    // TODO: 调用 Tauri API
-    // const items = await invoke('get_clipboard_history')
-    // clipboardStore.items = items
-
-    clipboardStore.items = [
-      { id: 1, content: 'Hello World', type: 'text', timestamp: Date.now() },
-      { id: 2, content: 'https://example.com', type: 'text', timestamp: Date.now() - 1000 },
-    ]
+    const items = await getClipboardHistory()
+    clipboardStore.items = items
+    console.log('剪贴板历史加载成功，共', items.length, '条')
   } catch (err) {
-    clipboardStore.error = err.message
+    console.error('加载剪贴板历史失败:', err)
+    clipboardStore.error = err.message || '加载失败'
   } finally {
     clipboardStore.loading = false
   }
 }
 
-// 异步操作：保存剪贴板项
-export async function saveClipboardItem(content) {
+// 刷新剪贴板历史
+export async function refreshClipboardHistory() {
+  return await loadClipboardItems()
+}
+
+// 删除剪贴板项
+export async function deleteClipboardItem(id) {
   try {
-    // TODO: 调用 Tauri API
-    // const item = await invoke('save_clipboard_item', { content })
-    
-    // 示例实现
-    const item = {
-      id: Date.now(),
-      content,
-      type: 'text',
-      timestamp: Date.now()
-    }
-    
-    clipboardStore.addItem(item)
-    return item
+    await apiDeleteItem(id)
+    clipboardStore.removeItem(id)
+    return true
   } catch (err) {
-    clipboardStore.error = err.message
+    console.error('删除剪贴板项失败:', err)
+    throw err
+  }
+}
+
+// 清空剪贴板历史
+export async function clearClipboardHistory() {
+  try {
+    await apiClearHistory()
+    clipboardStore.clearAll()
+    return true
+  } catch (err) {
+    console.error('清空剪贴板历史失败:', err)
     throw err
   }
 }

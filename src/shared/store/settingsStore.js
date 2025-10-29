@@ -6,6 +6,7 @@ export const settingsStore = proxy({
   language: 'zh-CN',
   fontSize: 14,
   autoStart: false,
+  rowHeight: 'medium', // 'large' | 'medium' | 'small'
   
   setTheme(theme) {
     this.theme = theme
@@ -25,6 +26,11 @@ export const settingsStore = proxy({
   toggleAutoStart() {
     this.autoStart = !this.autoStart
     localStorage.setItem('autoStart', String(this.autoStart))
+  },
+  
+  setRowHeight(height) {
+    this.rowHeight = height
+    localStorage.setItem('rowHeight', height)
   }
 })
 
@@ -34,10 +40,12 @@ export function initSettings() {
   const language = localStorage.getItem('language')
   const fontSize = localStorage.getItem('fontSize')
   const autoStart = localStorage.getItem('autoStart')
+  const rowHeight = localStorage.getItem('rowHeight')
   
   if (theme) settingsStore.theme = theme
   if (language) settingsStore.language = language
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
   if (autoStart) settingsStore.autoStart = autoStart === 'true'
+  if (rowHeight) settingsStore.rowHeight = rowHeight
 }
 

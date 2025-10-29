@@ -14,9 +14,12 @@
     "close": "关闭",
     "search": "搜索",
     "settings": "设置",
-    "language": "语言"
+    "language": "语言",
+    "loading": "加载中...",
+    "loadError": "加载失败"
   },
   "clipboard": {
+    "title": "剪贴板",
     "history": "剪贴板历史",
     "clear": "清空历史",
     "copy": "复制",
@@ -24,11 +27,34 @@
     "pin": "固定",
     "unpin": "取消固定"
   },
+  "quickTexts": {
+    "title": "常用",
+    "empty": "暂无常用内容"
+  },
+  "filter": {
+    "all": "全部",
+    "text": "文本",
+    "image": "图片",
+    "file": "文件",
+    "link": "链接"
+  },
+  "search": {
+    "placeholder": "搜索剪贴板内容..."
+  },
   "screenshot": {
     "take": "截图",
     "edit": "编辑",
     "save": "保存",
     "cancel": "取消"
+  },
+  "settings": {
+    "title": "设置",
+    "general": "通用",
+    "appearance": "外观"
+  },
+  "footer": {
+    "openClipboard": "显示/隐藏",
+    "pasteShortcut": "粘贴对应历史"
   }
 }
 
