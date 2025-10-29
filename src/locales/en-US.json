@@ -1,0 +1,34 @@
+{
+  "app": {
+    "title": "QuickClipboard",
+    "subtitle": "React Version - In Development",
+    "description": "This is a basic React project framework"
+  },
+  "common": {
+    "count": "Count",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "search": "Search",
+    "settings": "Settings",
+    "language": "Language"
+  },
+  "clipboard": {
+    "history": "Clipboard History",
+    "clear": "Clear History",
+    "copy": "Copy",
+    "paste": "Paste",
+    "pin": "Pin",
+    "unpin": "Unpin"
+  },
+  "screenshot": {
+    "take": "Take Screenshot",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel"
+  }
+}
+
