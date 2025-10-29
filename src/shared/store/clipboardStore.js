@@ -14,13 +14,16 @@ export const clipboardStore = proxy({
   error: null,
   
   addItem(item, isNew = true) {
-    if (isNew) {
-      // 新增项，添加到开头
-      this.items.unshift(item)
-    } else {
-      // 已存在的项，移动到开头
-      this.items = [item, ...this.items.filter(i => i.id !== item.id)]
+    // 检查项是否已存在
+    const existingIndex = this.items.findIndex(i => i.id === item.id)
+    
+    if (existingIndex !== -1) {
+      // 如果已存在，移除旧项
+      this.items.splice(existingIndex, 1)
     }
+    
+    // 无论新增还是移动，都添加到开头
+    this.items.unshift(item)
   },
   
   removeItem(id) {
@@ -64,7 +67,6 @@ export async function loadClipboardItems() {
   try {
     const items = await getClipboardHistory()
     clipboardStore.items = items
-    console.log('剪贴板历史加载成功，共', items.length, '条')
   } catch (err) {
     console.error('加载剪贴板历史失败:', err)
     clipboardStore.error = err.message || '加载失败'

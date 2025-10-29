@@ -10,6 +10,10 @@ import 'uno.css'
 import '@shared/i18n'
 import { initStores } from '@shared/store'
 import { loadClipboardItems } from '@shared/store/clipboardStore'
+import { 
+  setupClipboardEventListener,
+  cleanupEventListeners 
+} from '@shared/services/eventListener'
 
 // 组件
 import App from './App'
@@ -24,17 +28,21 @@ initStores()
 // 渲染应用
 ReactDOM.createRoot(document.getElementById('root')).render(<App />)
 
-// 加载数据
+// 加载数据并设置事件监听
 loadClipboardItems().then(() => {
-  console.log('[Main] 数据加载完成')
+  
+  // 设置事件监听器
+  setupClipboardEventListener()
   
   // 如果是首次加载，自动刷新一次以确保样式完整
   if (isFirstLoad) {
-    console.log('[Main] 首次加载，即将刷新页面以确保样式完整...')
     sessionStorage.setItem(FIRST_LOAD_KEY, 'true')
     setTimeout(() => {
       window.location.reload()
     }, 100)
   }
 })
+
+// 清理事件监听器
+window.addEventListener('beforeunload', cleanupEventListeners)
 
