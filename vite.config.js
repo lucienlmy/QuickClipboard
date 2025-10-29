@@ -14,6 +14,15 @@ export default defineConfig({
 
   envPrefix: ['VITE_', 'TAURI_'],
 
+  // 路径别名
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+      '@shared': resolve(__dirname, 'src/shared'),
+      '@windows': resolve(__dirname, 'src/windows'),
+    },
+  },
+
   plugins: [
     UnoCSS(),
     react(),
@@ -33,13 +42,21 @@ export default defineConfig({
     cssCodeSplit: true,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      // 多窗口入口配置
       input: {
-        main: resolve(__dirname, 'src/index.html'),
+        main: resolve(__dirname, 'src/windows/main/index.html'),
+        settings: resolve(__dirname, 'src/windows/settings/index.html'),
+        preview: resolve(__dirname, 'src/windows/preview/index.html'),
+        screenshot: resolve(__dirname, 'src/windows/screenshot/index.html'),
       },
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
             return 'vendor';
+          }
+          // 将共享代码分离
+          if (id.includes('/shared/')) {
+            return 'shared';
           }
         },
         assetFileNames: 'assets/[name]-[hash][extname]',

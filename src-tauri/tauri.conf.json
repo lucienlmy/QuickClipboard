@@ -15,6 +15,7 @@
       {
         "label": "main",
         "title": "快速剪贴板",
+        "url": "windows/main/index.html",
         "width": 360,
         "height": 520,
         "minWidth": 350,
@@ -37,7 +38,7 @@
       {
         "label": "preview",
         "title": "快速预览",
-        "url": "preview.html",
+        "url": "windows/preview/index.html",
         "width": 400,
         "height": 180,
         "minWidth": 350,
@@ -60,7 +61,7 @@
       {
         "label": "screenshot",
         "title": "截屏窗口",
-        "url": "screenshot/index.html",
+        "url": "windows/screenshot/index.html",
         "width": 1920,
         "height": 1080,
         "decorations": false,
@@ -77,6 +78,23 @@
         "dragDropEnabled": false,
         "fullscreen": false,
         "visibleOnAllWorkspaces": true
+      },
+      {
+        "label": "settings",
+        "title": "设置",
+        "url": "windows/settings/index.html",
+        "width": 800,
+        "height": 600,
+        "minWidth": 600,
+        "minHeight": 400,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "center": true,
+        "visible": false,
+        "resizable": true,
+        "focus": true,
+        "maximizable": true
       }
     ],
     "security": {

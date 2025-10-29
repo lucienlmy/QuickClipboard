@@ -1,23 +1,31 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSnapshot } from 'valtio'
 import { IconLanguage, IconPlus, IconSettings, IconCopy, IconClipboard } from '@tabler/icons-react'
 import * as Switch from '@radix-ui/react-switch'
 import * as Tabs from '@radix-ui/react-tabs'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { settingsStore } from '@shared/store/settingsStore'
 
 function App() {
   const [count, setCount] = useState(0)
-  const [darkMode, setDarkMode] = useState(false)
   const { t, i18n } = useTranslation()
+  const { theme } = useSnapshot(settingsStore)
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'zh-CN' ? 'en-US' : 'zh-CN'
     i18n.changeLanguage(newLang)
+    settingsStore.setLanguage(newLang)
+  }
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark'
+    settingsStore.setTheme(newTheme)
   }
 
   return (
-    <div className={`h-screen w-screen flex flex-col overflow-hidden ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`h-screen w-screen flex flex-col overflow-hidden ${theme === 'dark' ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       <header className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
           <IconClipboard size={32} className="text-blue-500" />
@@ -75,8 +83,8 @@ function App() {
                 <DropdownMenu.Item className="flex items-center justify-between px-3 py-2 outline-none">
                   <span className="text-sm text-gray-700 dark:text-gray-200">Dark Mode</span>
                   <Switch.Root
-                    checked={darkMode}
-                    onCheckedChange={setDarkMode}
+                    checked={theme === 'dark'}
+                    onCheckedChange={toggleTheme}
                     className="w-11 h-6 bg-gray-300 rounded-full relative data-[state=checked]:bg-blue-500 transition-colors"
                   >
                     <Switch.Thumb className="block w-5 h-5 bg-white rounded-full transition-transform translate-x-0.5 data-[state=checked]:translate-x-[22px]" />
