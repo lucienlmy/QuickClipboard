@@ -27,9 +27,32 @@ export async function deleteFavorite(id) {
 
 // 粘贴收藏内容
 export async function pasteFavorite(id) {
-  return await invoke('paste_content', {
-    params: { quick_text_id: id }
-  })
+  try {
+    await invoke('paste_content', {
+      params: { quick_text_id: id }
+    })
+    
+    // 检查是否启用一次性粘贴
+    const { getToolState } = await import('@shared/services/toolActions')
+    const isOneTimePasteEnabled = getToolState('one-time-paste-button')
+    
+    if (isOneTimePasteEnabled) {
+      try {
+        await deleteFavorite(id)
+        const { loadFavorites } = await import('@shared/store/favoritesStore')
+        setTimeout(async () => {
+          await loadFavorites()
+        }, 200)
+      } catch (deleteError) {
+        console.error('一次性粘贴：删除收藏项失败', deleteError)
+      }
+    }
+    
+    return true
+  } catch (error) {
+    console.error('粘贴收藏内容失败:', error)
+    throw error
+  }
 }
 
 // 获取分组列表

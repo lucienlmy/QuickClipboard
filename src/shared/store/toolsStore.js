@@ -1,5 +1,6 @@
 import { proxy } from 'valtio'
 import { TOOL_REGISTRY, DEFAULT_LAYOUT, LAYOUT_STORAGE_KEY } from '@shared/config/tools'
+import { executeToolAction } from '@shared/services/toolActions'
 
 // 工具状态存储
 export const toolsStore = proxy({
@@ -54,14 +55,22 @@ export const toolsStore = proxy({
   },
   
   // 初始化工具状态
-  initStates() {
+  async initStates() {
+    // 先初始化所有toggle工具的默认状态
     Object.values(TOOL_REGISTRY).forEach(tool => {
       if (tool.type === 'toggle') {
-        // 从localStorage读取或使用默认值
-        const savedState = localStorage.getItem(`tool-state-${tool.id}`)
-        this.states[tool.id] = savedState !== null 
-          ? savedState === 'true' 
-          : (tool.defaultActive || false)
+        this.states[tool.id] = tool.defaultActive || false
+      }
+    })
+    
+    // 从后端和localStorage加载实际状态
+    const { initializeToolStates, getToolState } = await import('@shared/services/toolActions')
+    await initializeToolStates()
+    
+    // 同步状态到store
+    Object.values(TOOL_REGISTRY).forEach(tool => {
+      if (tool.type === 'toggle') {
+        this.states[tool.id] = getToolState(tool.id)
       }
     })
   },
@@ -87,7 +96,11 @@ export const toolsStore = proxy({
   setToolState(toolId, state) {
     if (this.states.hasOwnProperty(toolId)) {
       this.states[toolId] = state
-      localStorage.setItem(`tool-state-${toolId}`, String(state))
+      
+      // 同步到 toolActions 的状态管理
+      import('@shared/services/toolActions').then(({ setToolState }) => {
+        setToolState(toolId, state)
+      })
     }
   },
   
@@ -113,13 +126,11 @@ export const toolsStore = proxy({
   
   // 重置为默认布局
   resetLayout() {
-    console.log('重置布局，默认配置:', DEFAULT_LAYOUT)
     this.layout = {
       titlebar: [...DEFAULT_LAYOUT.titlebar],
       panel: [...DEFAULT_LAYOUT.panel]
     }
     this.saveLayout()
-    console.log('重置后布局:', this.layout)
   },
   
   // 切换工具面板展开/折叠
@@ -130,6 +141,27 @@ export const toolsStore = proxy({
   // 折叠工具面板
   collapse() {
     this.isExpanded = false
+  },
+  
+  // 执行工具操作
+  async handleToolClick(toolId) {
+    const tool = TOOL_REGISTRY[toolId]
+    if (!tool) {
+      console.warn(`未知的工具: ${toolId}`)
+      return
+    }
+    
+    try {
+      // 执行工具操作
+      const result = await executeToolAction(toolId)
+      
+      // 如果是toggle类型，更新状态
+      if (tool.type === 'toggle' && result !== null && result !== undefined) {
+        this.setToolState(toolId, result)
+      }
+    } catch (error) {
+      console.error(`工具操作失败 ${toolId}:`, error)
+    }
   }
 })
 

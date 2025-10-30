@@ -13,14 +13,14 @@ function ToolButton({ toolId, location, isDraggable = true, onAction }) {
   const isActive = tool.type === 'toggle' ? states[toolId] : false
   const IconComponent = tool.icon
   
-  const handleClick = (e) => {
+  const handleClick = async (e) => {
     e.preventDefault()
     e.stopPropagation()
     
     if (onAction) {
       onAction(toolId, tool)
-    } else if (tool.type === 'toggle') {
-      toolsStore.toggleToolState(toolId)
+    } else {
+      await toolsStore.handleToolClick(toolId)
     }
   }
   

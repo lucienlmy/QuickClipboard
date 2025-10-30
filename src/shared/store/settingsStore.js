@@ -7,6 +7,7 @@ export const settingsStore = proxy({
   fontSize: 14,
   autoStart: false,
   rowHeight: 'medium', // 'large' | 'medium' | 'small'
+  pasteWithFormat: true,
   
   setTheme(theme) {
     this.theme = theme
@@ -31,6 +32,11 @@ export const settingsStore = proxy({
   setRowHeight(height) {
     this.rowHeight = height
     localStorage.setItem('rowHeight', height)
+  },
+  
+  setPasteWithFormat(withFormat) {
+    this.pasteWithFormat = withFormat
+    localStorage.setItem('pasteWithFormat', String(withFormat))
   }
 })
 
@@ -41,11 +47,13 @@ export function initSettings() {
   const fontSize = localStorage.getItem('fontSize')
   const autoStart = localStorage.getItem('autoStart')
   const rowHeight = localStorage.getItem('rowHeight')
+  const pasteWithFormat = localStorage.getItem('pasteWithFormat')
   
   if (theme) settingsStore.theme = theme
   if (language) settingsStore.language = language
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
   if (autoStart) settingsStore.autoStart = autoStart === 'true'
   if (rowHeight) settingsStore.rowHeight = rowHeight
+  if (pasteWithFormat !== null) settingsStore.pasteWithFormat = pasteWithFormat === 'true'
 }
 

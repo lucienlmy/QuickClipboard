@@ -89,8 +89,13 @@ export function useItemCommon(item) {
     }
 
     // HTML 富文本类型
-    if (contentType === 'rich_text' && item.html_content) {
-      return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} />
+    if (contentType === 'rich_text') {
+      // 根据格式设置决定显示 HTML 还是纯文本
+      if (settings.pasteWithFormat && item.html_content) {
+        return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} />
+      } else {
+        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} />
+      }
     }
 
     // 默认文本类型

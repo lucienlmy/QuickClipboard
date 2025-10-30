@@ -16,6 +16,23 @@ export async function pasteClipboardItem(clipboardId) {
     await invoke('paste_content', { 
       params: { clipboard_id: clipboardId } 
     })
+    
+    // 检查是否启用一次性粘贴
+    const { getToolState } = await import('@shared/services/toolActions')
+    const isOneTimePasteEnabled = getToolState('one-time-paste-button')
+    
+    if (isOneTimePasteEnabled) {
+      try {
+        await deleteClipboardItem(clipboardId)
+        const { loadClipboardItems } = await import('@shared/store/clipboardStore')
+        setTimeout(async () => {
+          await loadClipboardItems()
+        }, 200)
+      } catch (deleteError) {
+        console.error('一次性粘贴：删除失败', deleteError)
+      }
+    }
+    
     return true
   } catch (error) {
     console.error('粘贴失败:', error)
