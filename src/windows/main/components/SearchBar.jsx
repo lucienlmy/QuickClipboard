@@ -2,9 +2,13 @@ import { IconSearch, IconMenu2, IconCheck } from '@tabler/icons-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
+import { useInputFocus } from '@shared/hooks/useInputFocus'
 
 function SearchBar({ value, onChange, placeholder }) {
   const settings = useSnapshot(settingsStore)
+  
+  // 搜索框焦点管理
+  const searchInputRef = useInputFocus()
 
   const rowHeightOptions = [
     { value: 'large', label: '大', height: '120px' },
@@ -21,6 +25,7 @@ function SearchBar({ value, onChange, placeholder }) {
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
           />
           <input
+            ref={searchInputRef}
             type="search"
             value={value}
             onChange={(e) => onChange(e.target.value)}

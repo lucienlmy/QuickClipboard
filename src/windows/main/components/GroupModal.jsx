@@ -3,12 +3,16 @@ import { useTranslation } from 'react-i18next'
 import { IconX } from '@tabler/icons-react'
 import { addGroup, updateGroup } from '@shared/store/groupsStore'
 import { AVAILABLE_ICONS, getIconComponent } from '@shared/utils/iconMapper'
+import { useInputFocus } from '@shared/hooks/useInputFocus'
 
 function GroupModal({ group, onClose, onSave }) {
   const { t } = useTranslation()
   const [name, setName] = useState(group?.name || '')
   const [selectedIcon, setSelectedIcon] = useState(group?.icon || 'ti ti-folder')
   const [saving, setSaving] = useState(false)
+  
+  // 输入框焦点管理
+  const inputRef = useInputFocus()
 
   useEffect(() => {
     if (group) {
@@ -68,7 +72,7 @@ function GroupModal({ group, onClose, onSave }) {
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={handleOverlayClick}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[480px] max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[320px] max-h-[80vh] overflow-hidden flex flex-col">
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -90,6 +94,7 @@ function GroupModal({ group, onClose, onSave }) {
               {t('groups.modal.nameLabel')}
             </label>
             <input
+              ref={inputRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -105,21 +110,21 @@ function GroupModal({ group, onClose, onSave }) {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('groups.modal.iconLabel')}
             </label>
-            <div className="grid grid-cols-8 gap-2 max-h-[300px] overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 rounded-md">
+            <div className="grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 rounded-md">
               {AVAILABLE_ICONS.map(iconName => {
                 const IconComponent = getIconComponent(iconName)
                 return (
                   <button
                     key={iconName}
                     onClick={() => setSelectedIcon(iconName)}
-                    className={`p-3 rounded-md transition-all ${
+                    className={`p-2 rounded-md transition-all flex items-center justify-center ${
                       selectedIcon === iconName
                         ? 'bg-blue-500 text-white shadow-md'
                         : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                     title={iconName}
                   >
-                    <IconComponent size={20} />
+                    <IconComponent size={18} />
                   </button>
                 )
               })}
