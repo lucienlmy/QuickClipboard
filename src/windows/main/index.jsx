@@ -24,18 +24,17 @@ import App from './App'
 const FIRST_LOAD_KEY = 'app_first_load_done'
 const isFirstLoad = !sessionStorage.getItem(FIRST_LOAD_KEY)
 
-// 初始化 stores
-initStores()
-
-// 渲染应用
-ReactDOM.createRoot(document.getElementById('root')).render(<App />)
-
-// 加载数据并设置事件监听
-Promise.all([
-  loadClipboardItems(),
-  loadGroups().then(() => loadFavorites()) // 先加载分组，再加载收藏
-]).then(() => {
+// 初始化 stores，然后加载数据
+initStores().then(() => {
+  // 渲染应用
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />)
   
+  // 加载数据并设置事件监听
+  return Promise.all([
+    loadClipboardItems(),
+    loadGroups().then(() => loadFavorites())
+  ])
+}).then(() => {
   // 设置事件监听器
   setupClipboardEventListener()
   

@@ -18,41 +18,24 @@ import SupportSection from './sections/SupportSection'
 import AboutSection from './sections/AboutSection'
 
 function App() {
-  const { theme } = useSnapshot(settingsStore)
+  const snap = useSnapshot(settingsStore)
   const [activeSection, setActiveSection] = useState('general')
-  
-  // 模拟设置数据（后续会对接真实的设置store）
-  const [settings, setSettings] = useState({
-    autoStart: false,
-    showStartupNotification: true,
-    historyLimit: 100,
-    clipboardAnimationEnabled: true,
-    clipboardMonitor: true,
-    saveImages: true,
-    showImagePreview: false,
-    autoScrollToTopOnShow: false,
-    windowPositionMode: 'smart',
-    soundEnabled: true,
-    soundVolume: 50
-  })
 
-  const handleSettingChange = (key, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }))
+
+  const handleSettingChange = async (key, value) => {
+    await settingsStore.saveSetting(key, value)
   }
 
   const renderSection = () => {
     switch (activeSection) {
       case 'general':
-        return <GeneralSection settings={settings} onSettingChange={handleSettingChange} />
+        return <GeneralSection settings={snap} onSettingChange={handleSettingChange} />
       case 'appearance':
-        return <AppearanceSection settings={settings} onSettingChange={handleSettingChange} />
+        return <AppearanceSection settings={snap} onSettingChange={handleSettingChange} />
       case 'shortcuts':
         return <ShortcutsSection />
       case 'clipboard':
-        return <ClipboardSection settings={settings} onSettingChange={handleSettingChange} />
+        return <ClipboardSection settings={snap} onSettingChange={handleSettingChange} />
       case 'aiConfig':
         return <AIConfigSection />
       case 'translation':
@@ -62,7 +45,7 @@ function App() {
       case 'screenshot':
         return <ScreenshotSection />
       case 'sound':
-        return <SoundSection settings={settings} onSettingChange={handleSettingChange} />
+        return <SoundSection settings={snap} onSettingChange={handleSettingChange} />
       case 'appFilter':
         return <AppFilterSection />
       case 'dataManagement':
@@ -72,12 +55,12 @@ function App() {
       case 'about':
         return <AboutSection />
       default:
-        return <GeneralSection settings={settings} onSettingChange={handleSettingChange} />
+        return <GeneralSection settings={snap} onSettingChange={handleSettingChange} />
     }
   }
 
   return (
-    <div className={`h-screen w-screen flex flex-col overflow-hidden ${theme === 'dark' ? 'dark bg-gray-900' : 'bg-white'}`}>
+    <div className={`h-screen w-screen flex flex-col overflow-hidden ${snap.theme === 'dark' ? 'dark bg-gray-900' : 'bg-white'}`}>
       <SettingsHeader />
       
       <div className="flex-1 flex overflow-hidden">

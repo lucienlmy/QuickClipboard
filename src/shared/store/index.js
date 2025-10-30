@@ -28,8 +28,8 @@ export {
 export { toolsStore, initToolsStore } from './toolsStore'
 
 // 初始化所有 stores
-export function initStores() {
-  initSettingsFunc()
+export async function initStores() {
+  await initSettingsFunc()
   initToolsStoreFunc()
 }
 

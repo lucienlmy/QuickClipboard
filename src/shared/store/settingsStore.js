@@ -1,59 +1,106 @@
 import { proxy } from 'valtio'
+import { 
+  defaultSettings, 
+  loadSettingsFromBackend, 
+  saveSettingsToBackend 
+} from '@shared/services/settingsService'
 
 // 设置 Store
 export const settingsStore = proxy({
-  theme: 'light',
+  ...defaultSettings,
+  
+  // UI 专属设置（localStorage）
   language: 'zh-CN',
   fontSize: 14,
-  autoStart: false,
-  rowHeight: 'medium', // 'large' | 'medium' | 'small'
-  pasteWithFormat: true,
+  rowHeight: 'medium',
   
-  setTheme(theme) {
-    this.theme = theme
-    localStorage.setItem('theme', theme)
+  // 加载设置
+  async loadSettings() {
+    const settings = await loadSettingsFromBackend()
+    
+    // 更新所有设置到 store
+    Object.keys(settings).forEach(key => {
+      if (key in this && key !== 'loadSettings' && key !== 'saveSetting' && key !== 'saveAllSettings' && key !== 'updateSettings') {
+        this[key] = settings[key]
+      }
+    })
+    
+    return settings
   },
   
+  // 保存单个设置项
+  async saveSetting(key, value) {
+    this[key] = value
+    
+    // 收集当前所有设置
+    const currentSettings = this.getAllSettings()
+    const result = await saveSettingsToBackend(currentSettings)
+    
+    return result
+  },
+  
+  // 保存所有设置
+  async saveAllSettings() {
+    const currentSettings = this.getAllSettings()
+    return await saveSettingsToBackend(currentSettings)
+  },
+  
+  // 批量更新设置（不保存）
+  updateSettings(updates) {
+    Object.keys(updates).forEach(key => {
+      if (key in this && key !== 'loadSettings' && key !== 'saveSetting' && key !== 'saveAllSettings' && key !== 'updateSettings' && key !== 'getAllSettings') {
+        this[key] = updates[key]
+      }
+    })
+  },
+  
+  // 获取所有设置（排除方法）
+  getAllSettings() {
+    const settings = {}
+    Object.keys(defaultSettings).forEach(key => {
+      if (key in this) {
+        settings[key] = this[key]
+      }
+    })
+    return settings
+  },
+  
+  // 主题设置
+  setTheme(theme) {
+    this.saveSetting('theme', theme)
+  },
+  
+  // 语言设置
   setLanguage(lang) {
     this.language = lang
     localStorage.setItem('language', lang)
   },
   
+  // 字体大小
   setFontSize(size) {
     this.fontSize = size
     localStorage.setItem('fontSize', String(size))
   },
   
-  toggleAutoStart() {
-    this.autoStart = !this.autoStart
-    localStorage.setItem('autoStart', String(this.autoStart))
-  },
-  
+  // 行高
   setRowHeight(height) {
     this.rowHeight = height
     localStorage.setItem('rowHeight', height)
-  },
-  
-  setPasteWithFormat(withFormat) {
-    this.pasteWithFormat = withFormat
-    localStorage.setItem('pasteWithFormat', String(withFormat))
   }
 })
 
-// 初始化：从本地存储恢复设置
-export function initSettings() {
-  const theme = localStorage.getItem('theme')
+// 初始化设置
+export async function initSettings() {
+  // 从 localStorage 恢复 UI 设置
   const language = localStorage.getItem('language')
   const fontSize = localStorage.getItem('fontSize')
-  const autoStart = localStorage.getItem('autoStart')
   const rowHeight = localStorage.getItem('rowHeight')
-  const pasteWithFormat = localStorage.getItem('pasteWithFormat')
   
-  if (theme) settingsStore.theme = theme
   if (language) settingsStore.language = language
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
-  if (autoStart) settingsStore.autoStart = autoStart === 'true'
   if (rowHeight) settingsStore.rowHeight = rowHeight
-  if (pasteWithFormat !== null) settingsStore.pasteWithFormat = pasteWithFormat === 'true'
+  
+  // 从后端加载所有设置
+  await settingsStore.loadSettings()
 }
 
