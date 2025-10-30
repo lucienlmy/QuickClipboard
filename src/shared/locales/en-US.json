@@ -27,9 +27,11 @@
     "pin": "Pin",
     "unpin": "Unpin"
   },
-  "quickTexts": {
-    "title": "Quick Texts",
-    "empty": "No quick texts yet"
+  "favorites": {
+    "title": "Favorites",
+    "empty": "No favorites yet",
+    "add": "Add Favorite",
+    "edit": "Edit Favorite"
   },
   "filter": {
     "all": "All",

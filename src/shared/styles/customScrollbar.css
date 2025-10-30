@@ -19,7 +19,7 @@
 .custom-scrollbar {
   position: absolute;
   top: 2px;
-  right: 2px;
+  left: 2px;
   bottom: 2px;
   width: 8px;
   z-index: 100;

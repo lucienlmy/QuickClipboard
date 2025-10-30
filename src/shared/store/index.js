@@ -10,6 +10,13 @@ export {
   clearClipboardHistory 
 } from './clipboardStore'
 export { settingsStore, initSettings } from './settingsStore'
+export {
+  favoritesStore,
+  loadFavorites,
+  refreshFavorites,
+  deleteFavorite,
+  pasteFavorite
+} from './favoritesStore'
 
 // 初始化所有 stores
 export function initStores() {

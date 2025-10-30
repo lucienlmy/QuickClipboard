@@ -6,7 +6,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
 
   const tabs = [
     { id: 'clipboard', label: t('clipboard.title') || '剪贴板' },
-    { id: 'quick-texts', label: t('quickTexts.title') || '常用' }
+    { id: 'favorites', label: t('favorites.title') || '收藏' }
   ]
 
   const filters = [

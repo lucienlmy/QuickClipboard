@@ -27,9 +27,11 @@
     "pin": "固定",
     "unpin": "取消固定"
   },
-  "quickTexts": {
-    "title": "常用",
-    "empty": "暂无常用内容"
+  "favorites": {
+    "title": "收藏",
+    "empty": "暂无收藏内容",
+    "add": "添加收藏",
+    "edit": "编辑收藏"
   },
   "filter": {
     "all": "全部",

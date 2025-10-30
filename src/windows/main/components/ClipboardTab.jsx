@@ -5,7 +5,7 @@ import { clipboardStore } from '@shared/store/clipboardStore'
 import SearchBar from './SearchBar'
 import ClipboardList from './ClipboardList'
 
-function ClipboardTab({ filter }) {
+function ClipboardTab({ contentFilter }) {
   const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const snap = useSnapshot(clipboardStore)
@@ -19,7 +19,7 @@ function ClipboardTab({ filter }) {
     
     // 类型过滤
     const contentType = item.content_type || item.type || 'text'
-    if (filter !== 'all' && contentType !== filter) {
+    if (contentFilter !== 'all' && contentType !== contentFilter) {
       return false
     }
     

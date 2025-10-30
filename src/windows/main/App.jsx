@@ -5,7 +5,7 @@ import { settingsStore } from '@shared/store/settingsStore'
 import TitleBar from './components/TitleBar'
 import TabNavigation from './components/TabNavigation'
 import ClipboardTab from './components/ClipboardTab'
-import QuickTextsTab from './components/QuickTextsTab'
+import FavoritesTab from './components/FavoritesTab'
 import FooterBar from './components/FooterBar'
 
 function App() {
@@ -27,10 +27,10 @@ function App() {
       
       <div className="flex-1 overflow-hidden">
         {activeTab === 'clipboard' && (
-          <ClipboardTab filter={contentFilter} />
+          <ClipboardTab contentFilter={contentFilter} />
         )}
-        {activeTab === 'quick-texts' && (
-          <QuickTextsTab />
+        {activeTab === 'favorites' && (
+          <FavoritesTab contentFilter={contentFilter} />
         )}
       </div>
 

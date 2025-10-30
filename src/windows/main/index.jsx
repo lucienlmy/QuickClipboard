@@ -10,6 +10,7 @@ import 'uno.css'
 import '@shared/i18n'
 import { initStores } from '@shared/store'
 import { loadClipboardItems } from '@shared/store/clipboardStore'
+import { loadFavorites } from '@shared/store/favoritesStore'
 import { 
   setupClipboardEventListener,
   cleanupEventListeners 
@@ -29,7 +30,10 @@ initStores()
 ReactDOM.createRoot(document.getElementById('root')).render(<App />)
 
 // 加载数据并设置事件监听
-loadClipboardItems().then(() => {
+Promise.all([
+  loadClipboardItems(),
+  loadFavorites()
+]).then(() => {
   
   // 设置事件监听器
   setupClipboardEventListener()
