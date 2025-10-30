@@ -10,6 +10,7 @@ import ClipboardTab from './components/ClipboardTab'
 import FavoritesTab from './components/FavoritesTab'
 import FooterBar from './components/FooterBar'
 import GroupsPopup from './components/GroupsPopup'
+import ToastContainer from '@shared/components/common/ToastContainer'
 
 function App() {
   const { t } = useTranslation()
@@ -63,6 +64,8 @@ function App() {
           onGroupChange={handleGroupChange} 
         />
       </FooterBar>
+
+      <ToastContainer />
     </div>
   )
 }

@@ -16,6 +16,7 @@ import AppFilterSection from './sections/AppFilterSection'
 import DataManagementSection from './sections/DataManagementSection'
 import SupportSection from './sections/SupportSection'
 import AboutSection from './sections/AboutSection'
+import ToastContainer from '@shared/components/common/ToastContainer'
 
 function App() {
   const snap = useSnapshot(settingsStore)
@@ -73,6 +74,8 @@ function App() {
           {renderSection()}
         </main>
       </div>
+
+      <ToastContainer />
     </div>
   )
 }

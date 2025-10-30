@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
+import { toast } from '@shared/store/toastStore'
 
 // 默认设置配置
 export const defaultSettings = {
@@ -131,10 +132,11 @@ export async function saveSettingsToBackend(settings) {
     // 保存到后端
     await invoke('save_settings', { settings })
     
-    console.log('设置保存成功')
+    toast.success('设置已保存')
     return { success: true }
   } catch (error) {
     console.error('保存设置失败:', error)
+    toast.error('保存设置失败')
     return { success: false, error: error.message }
   }
 }
