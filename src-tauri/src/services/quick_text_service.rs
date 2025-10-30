@@ -32,7 +32,7 @@ impl QuickTextService {
     }
 
     // 将剪贴板历史项添加到常用文本
-    pub fn add_from_clipboard(id: i64) -> Result<FavoriteItem, String> {
+    pub fn add_from_clipboard(id: i64, group_name: String) -> Result<FavoriteItem, String> {
         // 从数据库查询指定ID的剪贴板项
         let (content, html_content) = crate::database::with_connection(|conn| {
             conn.query_row(
@@ -53,8 +53,8 @@ impl QuickTextService {
         // 生成标题
         let title = Self::generate_title(&final_content);
 
-        // 添加到常用文本
-        quick_texts::add_quick_text_with_group_and_html(title, final_content, html_content, "全部".to_string())
+        // 添加到常用文本，使用指定的分组
+        quick_texts::add_quick_text_with_group_and_html(title, final_content, html_content, group_name)
     }
 
     // 处理图片内容，使用图片ID

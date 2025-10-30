@@ -1,6 +1,9 @@
 import { pasteFavorite } from '@shared/store/favoritesStore'
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx'
 import { useSortable, CSS } from '@shared/hooks/useSortable'
+import { useSnapshot } from 'valtio'
+import { groupsStore } from '@shared/store/groupsStore'
+import { showFavoriteItemContextMenu } from '@shared/utils/contextMenu'
 
 function FavoriteItem({ item, index, isDraggable = true }) {
   const {
@@ -10,6 +13,9 @@ function FavoriteItem({ item, index, isDraggable = true }) {
     formatTime,
     renderContent
   } = useItemCommon(item)
+  
+  const groups = useSnapshot(groupsStore)
+  const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部'
   
   // 拖拽功能
   const {
@@ -38,6 +44,13 @@ function FavoriteItem({ item, index, isDraggable = true }) {
     }
   }
 
+  // 处理右键菜单
+  const handleContextMenu = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    await showFavoriteItemContextMenu(e, item, index)
+  }
+
   // 判断是否显示标题（纯文本和富文本显示标题）
   const shouldShowTitle = () => {
     return (contentType === 'text' || contentType === 'rich_text') && item.title
@@ -53,12 +66,18 @@ function FavoriteItem({ item, index, isDraggable = true }) {
         {...listeners}
         className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
       >
-        {/* 浮动的序号 */}
-        <div className="absolute top-1 right-2 pointer-events-none">
+        {/* 浮动的序号和分组 */}
+        <div className="absolute top-1 right-2 flex flex-col items-end gap-0.5 pointer-events-none">
           <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-1 py-0.5 rounded-lg font-semibold min-w-[16px] text-center leading-tight">
             {index + 1}
           </span>
+          {showGroupBadge && (
+            <span className="text-[9px] text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded font-medium leading-tight">
+              {item.group_name}
+            </span>
+          )}
         </div>
 
         {/* 内容区域 */}
@@ -80,12 +99,18 @@ function FavoriteItem({ item, index, isDraggable = true }) {
       {...listeners}
       className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
     >
-      {/* 浮动的序号 */}
-      <div className="absolute top-1 right-2 pointer-events-none">
+      {/* 浮动的序号和分组 */}
+      <div className="absolute top-1 right-2 flex flex-col items-end gap-0.5 pointer-events-none">
         <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-1 py-0.5 rounded-lg font-semibold min-w-[16px] text-center leading-tight">
           {index + 1}
         </span>
+        {showGroupBadge && (
+          <span className="text-[9px] text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded font-medium leading-tight">
+            {item.group_name}
+          </span>
+        )}
       </div>
 
       {/* 时间戳 */}

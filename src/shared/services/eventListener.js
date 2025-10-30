@@ -1,5 +1,6 @@
 import { listen } from '@tauri-apps/api/event'
 import { clipboardStore, loadClipboardItems } from '@shared/store/clipboardStore'
+import { loadFavorites } from '@shared/store/favoritesStore'
 
 let unlisteners = []
 
@@ -9,7 +10,6 @@ export async function setupClipboardEventListener() {
     // 监听剪贴板新增项事件
     const unlisten1 = await listen('clipboard-item-added', (event) => {
       const { item } = event.payload
-      console.log('收到剪贴板新增项通知')
       clipboardStore.addItem(item, true)
     })
     unlisteners.push(unlisten1)
@@ -17,21 +17,24 @@ export async function setupClipboardEventListener() {
     // 监听剪贴板项移动事件
     const unlisten2 = await listen('clipboard-item-moved', (event) => {
       const { item } = event.payload
-      console.log('收到剪贴板项移动通知')
       clipboardStore.addItem(item, false)
     })
     unlisteners.push(unlisten2)
 
     // 监听全量刷新事件
     const unlisten3 = await listen('clipboard-changed', () => {
-      console.log('收到剪贴板全量刷新通知')
       loadClipboardItems()
     })
     unlisteners.push(unlisten3)
 
-    console.log('剪贴板事件监听已设置')
+    // 监听收藏列表更新事件
+    const unlisten4 = await listen('quick-texts-updated', () => {
+      loadFavorites()
+    })
+    unlisteners.push(unlisten4)
+
   } catch (error) {
-    console.error('设置剪贴板事件监听失败:', error)
+    console.error('设置事件监听失败:', error)
   }
 }
 

@@ -59,6 +59,7 @@ export default defineConfig({
     'dark:text-gray-100', 'dark:text-gray-200', 'dark:text-gray-300', 'dark:text-gray-400', 'dark:text-gray-500',
     'text-blue-400', 'text-blue-600', 'text-red-600',
     'dark:text-blue-400',
+    'bg-gray-100', 'dark:bg-gray-700',
     'hover:bg-gray-200', 'dark:hover:bg-gray-500',
     'border', 'border-t', 'border-l', 'border-r',
     'border-gray-200', 'border-gray-300', 'border-gray-700', 'dark:border-gray-700',

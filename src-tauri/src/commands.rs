@@ -146,8 +146,9 @@ pub fn delete_quick_text(id: String) -> Result<(), String> {
 
 // 将剪贴板历史项添加到常用文本
 #[tauri::command]
-pub fn add_clipboard_to_favorites(id: i64) -> Result<FavoriteItem, String> {
-    crate::services::quick_text_service::QuickTextService::add_from_clipboard(id)
+pub fn add_clipboard_to_favorites(id: i64, group_name: Option<String>) -> Result<FavoriteItem, String> {
+    let group_name = group_name.unwrap_or_else(|| "全部".to_string());
+    crate::services::quick_text_service::QuickTextService::add_from_clipboard(id, group_name)
 }
 
 // =================== 鼠标监听控制命令 ===================

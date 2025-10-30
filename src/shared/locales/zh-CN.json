@@ -76,6 +76,21 @@
   "footer": {
     "openClipboard": "显示/隐藏",
     "pasteShortcut": "快速粘贴"
+  },
+  "contextMenu": {
+    "searchWith": "在 {{engine}} 中搜索",
+    "pinToScreen": "钉到屏幕",
+    "saveImage": "另存为图片",
+    "openWithDefault": "使用默认程序打开",
+    "openLocation": "打开文件位置",
+    "copyPath": "复制文件路径",
+    "editText": "编辑",
+    "editPlainText": "编辑纯文本",
+    "addToFavorites": "添加到收藏",
+    "moveToGroup": "移动到分组",
+    "deleteItem": "删除当前项",
+    "clearAll": "清空剪贴板",
+    "delete": "删除"
   }
 }
 

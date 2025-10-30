@@ -76,6 +76,21 @@
   "footer": {
     "openClipboard": "Show/Hide",
     "pasteShortcut": "Paste History"
+  },
+  "contextMenu": {
+    "searchWith": "Search with {{engine}}",
+    "pinToScreen": "Pin to Screen",
+    "saveImage": "Save Image As",
+    "openWithDefault": "Open with Default Program",
+    "openLocation": "Open File Location",
+    "copyPath": "Copy File Path",
+    "editText": "Edit",
+    "editPlainText": "Edit Plain Text",
+    "addToFavorites": "Add to Favorites",
+    "moveToGroup": "Move to Group",
+    "deleteItem": "Delete Item",
+    "clearAll": "Clear Clipboard",
+    "delete": "Delete"
   }
 }
 
