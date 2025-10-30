@@ -70,8 +70,93 @@
   },
   "settings": {
     "title": "设置",
-    "general": "通用",
-    "appearance": "外观"
+    "searchPlaceholder": "搜索设置项...",
+    "sections": {
+      "general": "常规设置",
+      "appearance": "外观主题",
+      "shortcuts": "快捷键",
+      "clipboard": "剪贴板",
+      "aiConfig": "AI配置",
+      "translation": "翻译",
+      "preview": "预览窗口",
+      "screenshot": "截屏设置",
+      "sound": "音效设置",
+      "appFilter": "应用过滤",
+      "dataManagement": "数据管理",
+      "support": "支持作者",
+      "about": "关于"
+    },
+    "general": {
+      "title": "常规设置",
+      "description": "配置应用的基本行为和功能",
+      "autoStart": "开机自启动",
+      "autoStartDesc": "系统启动时自动运行快速剪贴板",
+      "startupNotification": "启动通知",
+      "startupNotificationDesc": "应用启动时显示系统通知",
+      "historyLimit": "剪贴板历史数量",
+      "historyLimitDesc": "保存的剪贴板历史记录数量"
+    },
+    "appearance": {
+      "title": "外观主题",
+      "description": "自定义应用的外观和主题",
+      "themeSelect": "主题选择",
+      "themeSelectDesc": "选择您喜欢的界面主题",
+      "themeAuto": "跟随系统",
+      "themeLight": "浅色主题",
+      "themeDark": "深色主题",
+      "themeBackground": "超级背景",
+      "clipboardAnimation": "启用剪贴板显示/隐藏动画",
+      "clipboardAnimationDesc": "开启或关闭剪贴板窗口的显示和隐藏动画效果"
+    },
+    "shortcuts": {
+      "title": "快捷键设置",
+      "description": "自定义所有快捷键",
+      "global": "全局快捷键",
+      "globalDesc": "在任何应用程序中都可以使用的快捷键",
+      "toggleWindow": "显示/隐藏窗口",
+      "toggleWindowDesc": "快速显示或隐藏剪贴板窗口",
+      "numberShortcuts": "数字快捷键",
+      "numberShortcutsDesc": "使用数字键快速操作剪贴板项目",
+      "enableNumberShortcuts": "启用数字快捷键",
+      "numberShortcutsModifier": "数字快捷键修饰键"
+    },
+    "clipboard": {
+      "title": "剪贴板设置",
+      "description": "配置剪贴板监听和处理选项",
+      "monitor": "监听剪贴板",
+      "monitorDesc": "自动监听系统剪贴板变化",
+      "saveImages": "保存图片",
+      "saveImagesDesc": "自动保存复制的图片到剪贴板历史",
+      "showImagePreview": "显示图片类型文件预览图",
+      "showImagePreviewDesc": "开启后图片文件显示缩略图，关闭时显示文件图标",
+      "autoScrollToTop": "显示后自动滚动到顶部",
+      "autoScrollToTopDesc": "每次显示窗口后，剪贴板列表自动滚动到第一项",
+      "windowPosition": "窗口位置设置",
+      "windowPositionDesc": "选择剪贴板窗口的显示位置策略",
+      "positionSmart": "智能位置（跟随鼠标）",
+      "positionRemember": "记住位置（固定位置）"
+    },
+    "sound": {
+      "title": "音效设置",
+      "description": "配置复制和粘贴操作的音效提示",
+      "enable": "启用音效",
+      "enableDesc": "开启或关闭操作音效提示",
+      "volume": "音量大小",
+      "volumeDesc": "调整音效播放音量",
+      "copySound": "复制音效",
+      "copySoundDesc": "复制操作时播放的音效文件",
+      "pasteSound": "粘贴音效",
+      "pasteSoundDesc": "粘贴操作时播放的音效文件"
+    },
+    "about": {
+      "title": "关于",
+      "description": "应用信息和版本详情",
+      "appName": "快速剪贴板",
+      "version": "版本",
+      "descriptionText": "一个功能强大的剪贴板管理工具，帮助您更高效地管理和使用剪贴板内容。",
+      "checkUpdates": "检查更新",
+      "github": "GitHub"
+    }
   },
   "footer": {
     "openClipboard": "显示/隐藏",

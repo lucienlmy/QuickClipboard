@@ -78,23 +78,6 @@
         "dragDropEnabled": false,
         "fullscreen": false,
         "visibleOnAllWorkspaces": true
-      },
-      {
-        "label": "settings",
-        "title": "设置",
-        "url": "windows/settings/index.html",
-        "width": 800,
-        "height": 600,
-        "minWidth": 600,
-        "minHeight": 400,
-        "decorations": true,
-        "transparent": false,
-        "alwaysOnTop": false,
-        "center": true,
-        "visible": false,
-        "resizable": true,
-        "focus": true,
-        "maximizable": true
       }
     ],
     "security": {

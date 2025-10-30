@@ -17,6 +17,7 @@
     "core:window:allow-maximize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-destroy",
+    "core:window:allow-start-dragging",
     "opener:default",
     "dialog:allow-save",
     "dialog:default",
