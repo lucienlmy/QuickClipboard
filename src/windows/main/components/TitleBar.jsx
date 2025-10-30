@@ -1,14 +1,21 @@
 import { IconApps } from '@tabler/icons-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useTranslation } from 'react-i18next'
+import { useWindowDrag } from '@shared/hooks/useWindowDrag'
 
 function TitleBar() {
   const { t } = useTranslation()
+  
+  // 使用自定义窗口拖拽，排除工具按钮区域
+  const dragRef = useWindowDrag({
+    excludeSelectors: ['button', '[role="button"]'],
+    allowChildren: true
+  })
 
   return (
     <div 
+      ref={dragRef}
       className="flex-shrink-0 h-10 flex items-center justify-between px-2.5 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700"
-      data-tauri-drag-region
     >
       {/* Logo */}
       <div className="flex items-center gap-1.5">

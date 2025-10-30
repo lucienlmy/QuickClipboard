@@ -72,6 +72,10 @@
     "title": "Settings",
     "general": "General",
     "appearance": "Appearance"
+  },
+  "footer": {
+    "openClipboard": "Show/Hide",
+    "pasteShortcut": "Paste History"
   }
 }
 

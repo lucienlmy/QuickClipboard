@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
 import { groupsStore } from '@shared/store/groupsStore'
+import { useWindowDrag } from '@shared/hooks/useWindowDrag'
 import TitleBar from './components/TitleBar'
 import TabNavigation from './components/TabNavigation'
 import ClipboardTab from './components/ClipboardTab'
@@ -15,6 +16,12 @@ function App() {
   const { theme } = useSnapshot(settingsStore)
   const [activeTab, setActiveTab] = useState('clipboard')
   const [contentFilter, setContentFilter] = useState('all')
+  
+  // 主内容区域拖拽，排除所有交互元素和列表项
+  const contentDragRef = useWindowDrag({
+    excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', 'a', 'input', 'textarea'],
+    allowChildren: true
+  })
 
   // 处理分组切换
   const handleGroupChange = async (groupName) => {
@@ -35,7 +42,7 @@ function App() {
         onFilterChange={setContentFilter}
       />
       
-      <div className="flex-1 overflow-hidden relative">
+      <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
         {activeTab === 'clipboard' && (
           <ClipboardTab contentFilter={contentFilter} />
         )}

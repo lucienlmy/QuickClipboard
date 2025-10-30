@@ -28,6 +28,7 @@ function FavoriteItem({ item, index }) {
   if (settings.rowHeight === 'small') {
     return (
       <div
+        data-no-drag
         className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-pointer transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
         onClick={handleClick}
       >
@@ -51,6 +52,7 @@ function FavoriteItem({ item, index }) {
   // 中/大行高模式
   return (
     <div
+      data-no-drag
       className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-pointer transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
       onClick={handleClick}
     >
