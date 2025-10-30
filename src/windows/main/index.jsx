@@ -11,6 +11,7 @@ import '@shared/i18n'
 import { initStores } from '@shared/store'
 import { loadClipboardItems } from '@shared/store/clipboardStore'
 import { loadFavorites } from '@shared/store/favoritesStore'
+import { loadGroups } from '@shared/store/groupsStore'
 import { 
   setupClipboardEventListener,
   cleanupEventListeners 
@@ -32,7 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />)
 // 加载数据并设置事件监听
 Promise.all([
   loadClipboardItems(),
-  loadFavorites()
+  loadGroups().then(() => loadFavorites()) // 先加载分组，再加载收藏
 ]).then(() => {
   
   // 设置事件监听器

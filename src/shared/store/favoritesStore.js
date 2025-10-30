@@ -9,15 +9,10 @@ import {
 // 收藏 Store
 export const favoritesStore = proxy({
   items: [],
-  currentGroup: '全部',
   filter: '',
   selectedIds: new Set(),
   loading: false,
   error: null,
-  
-  setCurrentGroup(groupName) {
-    this.currentGroup = groupName
-  },
   
   setFilter(value) {
     this.filter = value
@@ -46,20 +41,26 @@ export const favoritesStore = proxy({
 })
 
 // 异步操作：加载收藏列表
-export async function loadFavorites() {
+export async function loadFavorites(groupName = null) {
   favoritesStore.loading = true
   favoritesStore.error = null
   
   try {
+    // 如果没有指定分组，从 groupsStore 获取当前分组
+    if (!groupName) {
+      const { groupsStore } = await import('./groupsStore')
+      groupName = groupsStore.currentGroup
+    }
+    
     let items
-    if (favoritesStore.currentGroup === '全部') {
+    if (groupName === '全部') {
       items = await getFavorites()
     } else {
-      items = await getFavoritesByGroup(favoritesStore.currentGroup)
+      items = await getFavoritesByGroup(groupName)
     }
     
     favoritesStore.items = items
-    console.log('收藏列表加载成功，共', items.length, '条')
+    console.log('收藏列表加载成功，共', items.length, '条，分组:', groupName)
   } catch (err) {
     console.error('加载收藏列表失败:', err)
     favoritesStore.error = err.message || '加载失败'

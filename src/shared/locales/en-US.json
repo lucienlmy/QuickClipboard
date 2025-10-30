@@ -33,6 +33,25 @@
     "add": "Add Favorite",
     "edit": "Edit Favorite"
   },
+  "groups": {
+    "title": "Groups",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "pin": "Pin Panel",
+    "unpin": "Unpin",
+    "confirmDelete": "Are you sure you want to delete group \"{{name}}\"? Items in this group will be moved to \"All\".",
+    "deleteFailed": "Failed to delete group, please try again",
+    "modal": {
+      "titleNew": "New Group",
+      "titleEdit": "Edit Group",
+      "nameLabel": "Group Name",
+      "namePlaceholder": "Enter group name",
+      "nameRequired": "Please enter group name",
+      "iconLabel": "Select Icon",
+      "saving": "Saving..."
+    }
+  },
   "filter": {
     "all": "All",
     "text": "Text",

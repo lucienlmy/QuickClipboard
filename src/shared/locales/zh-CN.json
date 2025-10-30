@@ -33,6 +33,25 @@
     "add": "添加收藏",
     "edit": "编辑收藏"
   },
+  "groups": {
+    "title": "分组",
+    "add": "新增",
+    "edit": "编辑",
+    "delete": "删除",
+    "pin": "固定面板",
+    "unpin": "取消固定",
+    "confirmDelete": "确定要删除分组\"{{name}}\"吗？分组中的内容将移动到\"全部\"分组。",
+    "deleteFailed": "删除分组失败，请重试",
+    "modal": {
+      "titleNew": "新增分组",
+      "titleEdit": "编辑分组",
+      "nameLabel": "分组名称",
+      "namePlaceholder": "请输入分组名称",
+      "nameRequired": "请输入分组名称",
+      "iconLabel": "选择图标",
+      "saving": "保存中..."
+    }
+  },
   "filter": {
     "all": "全部",
     "text": "文本",

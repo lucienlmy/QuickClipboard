@@ -17,6 +17,13 @@ export {
   deleteFavorite,
   pasteFavorite
 } from './favoritesStore'
+export {
+  groupsStore,
+  loadGroups,
+  addGroup,
+  updateGroup,
+  deleteGroup
+} from './groupsStore'
 
 // 初始化所有 stores
 export function initStores() {

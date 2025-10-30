@@ -1,5 +1,6 @@
 @import './htmlContent.css';
 @import './customScrollbar.css';
+@import './animations.css';
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
