@@ -91,6 +91,17 @@
     "deleteItem": "Delete Item",
     "clearAll": "Clear Clipboard",
     "delete": "Delete"
+  },
+  "tools": {
+    "panel": "Tools",
+    "reset": "Reset",
+    "pin": "Pin Window",
+    "settings": "Settings",
+    "screenshot": "Screenshot",
+    "oneTimePaste": "One-time Paste",
+    "aiTranslation": "AI Translation",
+    "formatToggle": "Format Paste",
+    "musicPlayer": "Music Player"
   }
 }
 

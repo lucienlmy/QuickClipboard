@@ -1,5 +1,6 @@
 // 导入
 import { initSettings as initSettingsFunc } from './settingsStore'
+import { initToolsStore as initToolsStoreFunc } from './toolsStore'
 
 // 导出所有 stores
 export { 
@@ -24,10 +25,11 @@ export {
   updateGroup,
   deleteGroup
 } from './groupsStore'
+export { toolsStore, initToolsStore } from './toolsStore'
 
 // 初始化所有 stores
 export function initStores() {
   initSettingsFunc()
-  // 其他初始化...
+  initToolsStoreFunc()
 }
 

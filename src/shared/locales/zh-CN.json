@@ -91,6 +91,17 @@
     "deleteItem": "删除当前项",
     "clearAll": "清空剪贴板",
     "delete": "删除"
+  },
+  "tools": {
+    "panel": "工具栏",
+    "reset": "重置",
+    "pin": "固定窗口",
+    "settings": "设置",
+    "screenshot": "截屏",
+    "oneTimePaste": "一次性粘贴",
+    "aiTranslation": "AI翻译",
+    "formatToggle": "格式粘贴",
+    "musicPlayer": "音乐播放器"
   }
 }
 
