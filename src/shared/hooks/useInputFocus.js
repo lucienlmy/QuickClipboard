@@ -78,11 +78,8 @@ async function debouncedRestoreFocus() {
   }, FOCUS_DEBOUNCE_DELAY)
 }
 
-/**
- * 输入框焦点管理 Hook
- * 自动为 input/textarea 元素添加焦点管理
- * 当输入框获得焦点时启用窗口焦点，失去焦点时恢复工具窗口模式
- */
+// 输入框焦点管理 Hook
+// 当输入框获得焦点时启用窗口焦点，失去焦点时恢复工具窗口模式
 export function useInputFocus() {
   const inputRef = useRef(null)
 
@@ -120,9 +117,7 @@ export function useInputFocus() {
   return inputRef
 }
 
-/**
- * 立即启用窗口焦点
- */
+// 立即启用窗口焦点（跳过防抖）
 export async function focusWindowImmediately() {
   if (blurDebounceTimer) {
     clearTimeout(blurDebounceTimer)
@@ -141,9 +136,7 @@ export async function focusWindowImmediately() {
   }
 }
 
-/**
- * 恢复焦点（手动调用）
- */
+// 恢复工具窗口模式
 export async function restoreFocus() {
   try {
     await invoke('restore_last_focus')

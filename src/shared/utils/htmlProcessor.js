@@ -1,10 +1,8 @@
 // HTML 处理工具函数
 
-/**
- * 处理 HTML 内容中的图片
- * - 将 image-id: 格式的图片替换为占位符，并标记待加载
- * - 清理危险的 HTML 内容
- */
+// 处理 HTML 内容中的图片
+// 将 image-id: 格式的图片替换为占位符，并标记待加载
+// 同时清理危险的 HTML 内容
 export function processHTMLImages(htmlContent) {
   // 创建临时 DOM
   const tempDiv = document.createElement('div')
@@ -45,9 +43,7 @@ export function processHTMLImages(htmlContent) {
   return tempDiv.innerHTML
 }
 
-/**
- * HTML 安全清理函数
- */
+// HTML 安全清理函数
 function sanitizeHTML(element) {
   // 移除脚本
   const scripts = element.querySelectorAll('script')

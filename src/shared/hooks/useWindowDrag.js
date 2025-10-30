@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 
-/**
- * 自定义窗口拖拽 Hook
- */
+// 自定义窗口拖拽 Hook
 export function useWindowDrag(options = {}) {
   const { excludeSelectors = [], allowChildren = false } = options
   const elementRef = useRef(null)

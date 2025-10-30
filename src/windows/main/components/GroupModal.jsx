@@ -4,6 +4,7 @@ import { IconX } from '@tabler/icons-react'
 import { addGroup, updateGroup } from '@shared/store/groupsStore'
 import { AVAILABLE_ICONS, getIconComponent } from '@shared/utils/iconMapper'
 import { useInputFocus } from '@shared/hooks/useInputFocus'
+import { showMessage, showError } from '@shared/utils/dialog'
 
 function GroupModal({ group, onClose, onSave }) {
   const { t } = useTranslation()
@@ -26,7 +27,7 @@ function GroupModal({ group, onClose, onSave }) {
     const trimmedName = name.trim()
     
     if (!trimmedName) {
-      alert(t('groups.modal.nameRequired'))
+      await showMessage(t('groups.modal.nameRequired'), t('common.confirm'))
       return
     }
 
@@ -45,7 +46,7 @@ function GroupModal({ group, onClose, onSave }) {
       }
     } catch (error) {
       console.error('保存分组失败:', error)
-      alert(t('groups.deleteFailed'))
+      await showError(t('groups.deleteFailed'), t('common.confirm'))
     } finally {
       setSaving(false)
     }

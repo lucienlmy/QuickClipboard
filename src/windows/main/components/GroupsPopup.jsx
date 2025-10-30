@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { groupsStore } from '@shared/store/groupsStore'
 import { IconFolders, IconPlus, IconEdit, IconTrash, IconPin, IconPinned } from '@tabler/icons-react'
 import { getIconComponent } from '@shared/utils/iconMapper'
+import { showConfirm, showError } from '@shared/utils/dialog'
 import GroupModal from './GroupModal'
 
 function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
@@ -116,7 +117,12 @@ function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
   const handleDeleteGroup = async (e, groupName) => {
     e.stopPropagation()
     
-    if (!confirm(t('groups.confirmDelete', { name: groupName }))) {
+    const confirmed = await showConfirm(
+      t('groups.confirmDelete', { name: groupName }),
+      t('common.confirm')
+    )
+    
+    if (!confirmed) {
       return
     }
 
@@ -129,7 +135,7 @@ function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
       await loadFavorites()
     } catch (error) {
       console.error('删除分组失败:', error)
-      alert(t('groups.deleteFailed'))
+      await showError(t('groups.deleteFailed'), t('common.confirm'))
     }
   }
 
