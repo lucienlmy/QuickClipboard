@@ -16,6 +16,7 @@ function App() {
   const { theme } = useSnapshot(settingsStore)
   const [activeTab, setActiveTab] = useState('clipboard')
   const [contentFilter, setContentFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
   
   // 主内容区域拖拽，排除所有交互元素和列表项
   const contentDragRef = useWindowDrag({
@@ -33,7 +34,11 @@ function App() {
 
   return (
     <div className={`h-screen w-screen flex flex-col overflow-hidden ${theme === 'dark' ? 'dark bg-gray-900' : 'bg-white'}`} style={{ borderRadius: '8px' }}>
-      <TitleBar />
+      <TitleBar 
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={t('search.placeholder')}
+      />
       
       <TabNavigation 
         activeTab={activeTab}
@@ -44,10 +49,10 @@ function App() {
       
       <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
         {activeTab === 'clipboard' && (
-          <ClipboardTab contentFilter={contentFilter} />
+          <ClipboardTab contentFilter={contentFilter} searchQuery={searchQuery} />
         )}
         {activeTab === 'favorites' && (
-          <FavoritesTab contentFilter={contentFilter} />
+          <FavoritesTab contentFilter={contentFilter} searchQuery={searchQuery} />
         )}
       </div>
 

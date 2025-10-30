@@ -9,6 +9,7 @@ import { DragOverlay, useDroppable } from '@dnd-kit/core'
 import { MAX_TITLEBAR_TOOLS } from '@shared/config/tools'
 import logoIcon from '@/assets/icon1024.png'
 import ToolButton from './ToolButton'
+import TitleBarSearch from './TitleBarSearch'
 
 // 可拖拽的工具项
 function SortableToolItem({ toolId, location }) {
@@ -40,7 +41,7 @@ function SortableToolItem({ toolId, location }) {
 }
 
 // 可放置区域（标题栏）
-function DroppableTitlebar({ children }) {
+function DroppableTitlebar({ children, isEmpty }) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'titlebar-drop-zone',
   })
@@ -48,22 +49,21 @@ function DroppableTitlebar({ children }) {
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-center gap-1 min-w-[32px] ${isOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded px-1' : ''}`}
+      className={`flex items-center gap-1 ${isEmpty ? 'w-1 h-8 overflow-visible' : ''} ${isOver && isEmpty ? '!w-auto px-8 bg-blue-50 dark:bg-blue-900/20 rounded' : ''}`}
     >
       {children}
     </div>
   )
 }
 
-function TitleBar() {
+function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
   const { t } = useTranslation()
   const { layout, isExpanded } = useSnapshot(toolsStore)
   const [activeId, setActiveId] = useState(null)
   const containerRef = useRef(null)
   
-  // 使用自定义窗口拖拽，排除工具按钮区域
   const dragRef = useWindowDrag({
-    excludeSelectors: ['button', '[role="button"]', '[data-tool-id]'],
+    excludeSelectors: ['button', '[role="button"]', '[data-tool-id]', 'input', 'textarea'],
     allowChildren: true
   })
   
@@ -158,14 +158,20 @@ function TitleBar() {
       className="flex-shrink-0 h-10 flex items-center justify-between px-2.5 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700"
     >
       {/* Logo */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
         <div className="w-7 h-7 flex items-center justify-center">
           <img src={logoIcon} alt="QuickClipboard" className="w-6 h-6" />
         </div>
       </div>
 
-      {/* 工具按钮容器 */}
-      <div className="flex items-center gap-1 relative" ref={containerRef}>
+      {/* 右侧：搜索 + 工具按钮容器 */}
+      <div className="flex items-center gap-1 relative flex-shrink-0" ref={containerRef}>
+        {/* 搜索（贴着工具栏左侧） */}
+        <TitleBarSearch 
+          value={searchQuery}
+          onChange={onSearchChange}
+          placeholder={searchPlaceholder}
+        />
         <DndContext
           sensors={sensors}
           collisionDetection={collisionDetection}
@@ -175,7 +181,7 @@ function TitleBar() {
         >
           <SortableContext items={allTools}>
             {/* 标题栏工具（带 droppable 区域） */}
-            <DroppableTitlebar>
+            <DroppableTitlebar isEmpty={layout.titlebar.length === 0}>
               {layout.titlebar.map((toolId) => (
                 <SortableToolItem key={toolId} toolId={toolId} location="titlebar" />
               ))}

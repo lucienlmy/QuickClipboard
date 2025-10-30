@@ -1,13 +1,8 @@
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
 import { clipboardStore } from '@shared/store/clipboardStore'
-import SearchBar from './SearchBar'
 import ClipboardList from './ClipboardList'
 
-function ClipboardTab({ contentFilter }) {
-  const { t } = useTranslation()
-  const [searchQuery, setSearchQuery] = useState('')
+function ClipboardTab({ contentFilter, searchQuery }) {
   const snap = useSnapshot(clipboardStore)
 
   // 过滤逻辑
@@ -28,13 +23,6 @@ function ClipboardTab({ contentFilter }) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* 搜索栏 */}
-      <SearchBar 
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder={t('search.placeholder') || '搜索剪贴板内容...'}
-      />
-      
       {/* 列表 */}
       <ClipboardList items={filteredItems} />
     </div>

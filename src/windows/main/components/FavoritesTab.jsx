@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
 import { useSnapshot } from 'valtio'
 import { favoritesStore } from '@shared/store'
-import SearchBar from './SearchBar'
 import FavoritesList from './FavoritesList'
 
-function FavoritesTab({ contentFilter }) {
+function FavoritesTab({ contentFilter, searchQuery }) {
   const snap = useSnapshot(favoritesStore)
 
   // 根据搜索和筛选条件过滤收藏项
@@ -20,8 +19,8 @@ function FavoritesTab({ contentFilter }) {
     }
 
     // 根据搜索关键词筛选
-    if (snap.filter.trim()) {
-      const keyword = snap.filter.toLowerCase()
+    if (searchQuery && searchQuery.trim()) {
+      const keyword = searchQuery.toLowerCase()
       filtered = filtered.filter(item => {
         const title = item.title?.toLowerCase() || ''
         const content = item.content?.toLowerCase() || ''
@@ -30,15 +29,10 @@ function FavoritesTab({ contentFilter }) {
     }
 
     return filtered
-  }, [snap.items, snap.filter, contentFilter])
+  }, [snap.items, searchQuery, contentFilter])
 
   return (
     <div className="h-full flex flex-col">
-      <SearchBar 
-        value={snap.filter} 
-        onChange={(value) => favoritesStore.setFilter(value)}
-        placeholder="搜索收藏内容..."
-      />
       <FavoritesList items={filteredItems} />
     </div>
   )
