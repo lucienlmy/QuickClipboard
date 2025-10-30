@@ -89,6 +89,7 @@ export default defineConfig({
     'hover:bg-red-100', 'dark:hover:bg-red-900/30', 'hover:text-red-600',
     'hover:scale-105',
     'bg-blue-500', 'hover:bg-blue-600', 'text-white',
+    'cursor-move', 'cursor-pointer', 'cursor-grab', 'cursor-grabbing',
     'absolute', 'fixed', 'top-1', 'right-1', 'right-2', 'right-3', 'bottom-7', 'left-2', 'items-end', '-right-1', 'top-1/2', '-translate-y-1/2',
     'translate-x-0', 'translate-x-[120px]',
     'transition-transform', 'transition-opacity', 'transition-all', 'duration-300', 'ease-in-out',

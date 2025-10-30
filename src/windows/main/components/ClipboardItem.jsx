@@ -1,7 +1,8 @@
 import { pasteClipboardItem } from '@shared/api'
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx'
+import { useSortable, CSS } from '@shared/hooks/useSortable'
 
-function ClipboardItem({ item, index, onClick }) {
+function ClipboardItem({ item, index, onClick, sortId }) {
   const {
     settings,
     getHeightClass,
@@ -10,6 +11,24 @@ function ClipboardItem({ item, index, onClick }) {
     formatTime,
     renderContent
   } = useItemCommon(item)
+  
+  // 拖拽功能
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: sortId || `clipboard-${index}` })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || 'transform 200ms ease',
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'move',
+    zIndex: isDragging ? 1000 : 'auto',
+  }
 
   // 处理点击粘贴
   const handleClick = async () => {
@@ -59,9 +78,12 @@ function ClipboardItem({ item, index, onClick }) {
 
   return (
     <div 
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       onClick={handleClick}
-      data-no-drag
-      className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-pointer transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
+      className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
     >
       {/* 悬浮序号和快捷键提示 */}
       <div className="absolute top-1 right-2 flex flex-col items-end gap-1 pointer-events-none">

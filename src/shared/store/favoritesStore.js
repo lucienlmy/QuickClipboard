@@ -37,6 +37,13 @@ export const favoritesStore = proxy({
   clearAll() {
     this.items = []
     this.selectedIds.clear()
+  },
+  
+  updateOrder(fromIndex, toIndex) {
+    const newItems = [...this.items]
+    const [movedItem] = newItems.splice(fromIndex, 1)
+    newItems.splice(toIndex, 0, movedItem)
+    this.items = newItems
   }
 })
 

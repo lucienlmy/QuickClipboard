@@ -1,7 +1,8 @@
 import { pasteFavorite } from '@shared/store/favoritesStore'
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx'
+import { useSortable, CSS } from '@shared/hooks/useSortable'
 
-function FavoriteItem({ item, index }) {
+function FavoriteItem({ item, index, isDraggable = true }) {
   const {
     settings,
     getHeightClass,
@@ -9,6 +10,24 @@ function FavoriteItem({ item, index }) {
     formatTime,
     renderContent
   } = useItemCommon(item)
+  
+  // 拖拽功能
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id, disabled: !isDraggable })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || 'transform 200ms ease',
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'move',
+    zIndex: isDragging ? 1000 : 'auto',
+  }
   
   // 点击粘贴
   const handleClick = async () => {
@@ -28,8 +47,11 @@ function FavoriteItem({ item, index }) {
   if (settings.rowHeight === 'small') {
     return (
       <div
-        data-no-drag
-        className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-pointer transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
         onClick={handleClick}
       >
         {/* 浮动的序号 */}
@@ -52,8 +74,11 @@ function FavoriteItem({ item, index }) {
   // 中/大行高模式
   return (
     <div
-      data-no-drag
-      className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-pointer transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
       onClick={handleClick}
     >
       {/* 浮动的序号 */}
