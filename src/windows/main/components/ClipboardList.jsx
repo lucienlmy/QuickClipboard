@@ -1,16 +1,18 @@
 import { Virtuoso } from 'react-virtuoso'
-import { useRef, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar'
 import ClipboardItem from './ClipboardItem'
 
 function ClipboardList({ items }) {
-  const scrollerRef = useRef(null)
+  const [scrollerElement, setScrollerElement] = useState(null)
   
   // 应用自定义滚动条
-  useCustomScrollbar(scrollerRef)
+  useCustomScrollbar(scrollerElement)
 
   const scrollerRefCallback = useCallback((element) => {
-    scrollerRef.current = element
+    if (element) {
+      setScrollerElement(element)
+    }
   }, [])
 
   if (items.length === 0) {

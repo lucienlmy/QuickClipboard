@@ -6,7 +6,7 @@ function clamp(value, min, max) {
 }
 
 // 创建自定义滚动条 Hook
-export function useCustomScrollbar(containerRef) {
+export function useCustomScrollbar(container) {
   const scrollbarRef = useRef(null)
   const thumbRef = useRef(null)
   const isDraggingRef = useRef(false)
@@ -14,7 +14,6 @@ export function useCustomScrollbar(containerRef) {
   const startScrollTopRef = useRef(0)
 
   useEffect(() => {
-    const container = containerRef.current
     if (!container) return
 
     // 找到父容器（.custom-scrollbar-container）
@@ -166,7 +165,7 @@ export function useCustomScrollbar(containerRef) {
         scrollbar.parentNode.removeChild(scrollbar)
       }
     }
-  }, [containerRef])
+  }, [container])
 
   return scrollbarRef
 }
