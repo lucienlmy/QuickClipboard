@@ -56,7 +56,7 @@ function FooterBar({ children }) {
 
             <DropdownMenu.Portal>
               <DropdownMenu.Content
-                className="min-w-[100px] bg-white dark:bg-gray-800 rounded-lg p-1 shadow-lg border border-gray-200 dark:border-gray-700"
+                className="row-height-menu min-w-[100px] bg-white dark:bg-gray-800 rounded-lg p-1 shadow-lg border border-gray-200 dark:border-gray-700"
                 sideOffset={5}
                 align="end"
                 side="top"

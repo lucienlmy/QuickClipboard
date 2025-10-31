@@ -1,13 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
+import { open } from '@tauri-apps/plugin-dialog'
 import { settingsStore } from '@shared/store/settingsStore'
+import { toast } from '@shared/store/toastStore'
 import SettingsSection from '../components/SettingsSection'
 import SettingItem from '../components/SettingItem'
 import Toggle from '@shared/components/ui/Toggle'
+import { IconPhoto, IconX } from '@tabler/icons-react'
 
 function AppearanceSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
-  const { theme } = useSnapshot(settingsStore)
+  const { theme, backgroundImagePath } = useSnapshot(settingsStore)
 
   const themeOptions = [
     { 
@@ -31,6 +34,38 @@ function AppearanceSection({ settings, onSettingChange }) {
       preview: 'linear-gradient(135deg, #0093E9 0%, #80D0C7 100%)'
     }
   ]
+
+  const handleSelectBackgroundImage = async () => {
+    try {
+      const selected = await open({
+        title: t('settings.appearance.selectBackgroundImage'),
+        multiple: false,
+        filters: [
+          {
+            name: 'Images',
+            extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp']
+          }
+        ]
+      })
+
+      if (selected) {
+        await onSettingChange('backgroundImagePath', selected)
+        toast.success(t('settings.appearance.backgroundImageSet'))
+      }
+    } catch (error) {
+      console.error('Failed to select background image:', error)
+      toast.error(t('settings.appearance.backgroundImageError'))
+    }
+  }
+
+  const handleClearBackgroundImage = async () => {
+    try {
+      await onSettingChange('backgroundImagePath', '')
+      toast.success(t('settings.appearance.backgroundImageCleared'))
+    } catch (error) {
+      console.error('Failed to clear background image:', error)
+    }
+  }
 
   return (
     <SettingsSection
@@ -68,6 +103,43 @@ function AppearanceSection({ settings, onSettingChange }) {
             ))}
           </div>
         </div>
+
+        {theme === 'background' && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-900 dark:text-white">
+              {t('settings.appearance.backgroundImage')}
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('settings.appearance.backgroundImageDesc')}
+            </p>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSelectBackgroundImage}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              >
+                <IconPhoto size={18} />
+                {backgroundImagePath ? t('settings.appearance.changeBackgroundImage') : t('settings.appearance.selectBackgroundImage')}
+              </button>
+
+              {backgroundImagePath && (
+                <button
+                  onClick={handleClearBackgroundImage}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  <IconX size={18} />
+                  {t('settings.appearance.clearBackgroundImage')}
+                </button>
+              )}
+            </div>
+
+            {backgroundImagePath && (
+              <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                {t('settings.appearance.currentImage')}: {backgroundImagePath}
+              </div>
+            )}
+          </div>
+        )}
 
         <SettingItem
           label={t('settings.appearance.clipboardAnimation')}

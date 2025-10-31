@@ -73,7 +73,7 @@ function GroupModal({ group, onClose, onSave }) {
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={handleOverlayClick}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[320px] max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="group-modal bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[320px] max-h-[80vh] overflow-hidden flex flex-col">
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">

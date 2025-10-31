@@ -162,7 +162,7 @@ function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
       {/* 弹出面板 */}
       {isOpen && (
         <div 
-          className={`fixed bottom-7 right-3 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border-l border-r border-t border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
+          className={`groups-panel fixed bottom-7 right-3 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border-l border-r border-t border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
             isClosing ? 'animate-slide-down' : 'animate-slide-up'
           }`}
         >

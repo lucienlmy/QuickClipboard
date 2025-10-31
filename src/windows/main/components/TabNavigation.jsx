@@ -18,7 +18,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
   ]
 
   return (
-    <div className="flex-shrink-0 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700">
+    <div className="tab-navigation flex-shrink-0 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700">
       <div className="flex items-stretch h-11">
         {/* 左侧：标签切换 - 50% */}
         <div className="flex-1 flex items-center justify-center gap-1 px-3">

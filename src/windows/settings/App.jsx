@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
+import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
+import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager'
 import SettingsHeader from './components/SettingsHeader'
 import SettingsSidebar from './components/SettingsSidebar'
 import GeneralSection from './sections/GeneralSection'
@@ -20,8 +22,27 @@ import ToastContainer from '@shared/components/common/ToastContainer'
 
 function App() {
   const snap = useSnapshot(settingsStore)
+  const { theme, backgroundImagePath } = snap
+  const { effectiveTheme, isDark, isBackground } = useTheme()
   const [activeSection, setActiveSection] = useState('general')
 
+  // 应用主题到body
+  useEffect(() => {
+    applyThemeToBody(theme, 'settings')
+  }, [theme, effectiveTheme])
+
+  // 应用背景图片（仅在背景主题时）
+  useEffect(() => {
+    if (isBackground && backgroundImagePath) {
+      applyBackgroundImage({
+        containerSelector: '.settings-container',
+        backgroundImagePath,
+        windowName: 'settings'
+      })
+    } else {
+      clearBackgroundImage('.settings-container')
+    }
+  }, [isBackground, backgroundImagePath])
 
   const handleSettingChange = async (key, value) => {
     await settingsStore.saveSetting(key, value)
@@ -60,8 +81,19 @@ function App() {
     }
   }
 
+  const containerClasses = `
+    settings-container 
+    h-screen w-screen 
+    flex flex-col 
+    overflow-hidden 
+    ${isDark && !isBackground ? 'dark bg-gray-900' : ''}
+    ${!isDark && !isBackground ? 'bg-white' : ''}
+  `.trim().replace(/\s+/g, ' ')
+
   return (
-    <div className={`h-screen w-screen flex flex-col overflow-hidden ${snap.theme === 'dark' ? 'dark bg-gray-900' : 'bg-white'}`}>
+    <div 
+      className={containerClasses}
+    >
       <SettingsHeader />
       
       <div className="flex-1 flex overflow-hidden">
@@ -70,7 +102,13 @@ function App() {
           onSectionChange={setActiveSection}
         />
         
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">
+        <main 
+          className={`flex-1 overflow-y-auto p-6 ${
+            isBackground 
+              ? 'bg-gray-50/50 dark:bg-gray-900/50' 
+              : 'bg-gray-50 dark:bg-gray-900'
+          }`}
+        >
           {renderSection()}
         </main>
       </div>

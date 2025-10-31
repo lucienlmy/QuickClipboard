@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom/client'
 import '@unocss/reset/tailwind.css'
 import '@shared/styles/index.css'
 import 'uno.css'
+import '@shared/styles/theme-background.css'
 
 // 初始化
 import '@shared/i18n'

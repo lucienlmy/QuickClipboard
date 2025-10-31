@@ -51,6 +51,7 @@ export default defineConfig({
     'bg-transparent', 'bg-gray-300/50', 'dark:bg-gray-800/50',
     'bg-white/90', 'dark:bg-gray-900/90',
     'bg-white/70', 'dark:bg-gray-800/70',
+    'bg-gray-50/50', 'dark:bg-gray-900/50',
     'dark:bg-gray-700', 'dark:bg-gray-800', 'dark:bg-gray-900',
     'bg-blue-50', 'dark:bg-blue-900/20', 'dark:bg-blue-900/30',
     'bg-gray-200/50', 'dark:bg-gray-700/50', 'bg-gray-200/60', 'dark:bg-gray-700/60',

@@ -1,7 +1,7 @@
 // 设置区块组件
 function SettingsSection({ title, description, children, className = '' }) {
   return (
-    <div className={`mb-6 ${className}`}>
+    <div className={`settings-section mb-6 ${className}`}>
       <div className="mb-3">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           {title}
@@ -12,7 +12,7 @@ function SettingsSection({ title, description, children, className = '' }) {
           </p>
         )}
       </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="settings-section-content bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
         {children}
       </div>
     </div>

@@ -1,0 +1,360 @@
+/* =================== 超级背景主题样式 =================== */
+
+/* =================== 基础样式 =================== */
+body.theme-background {
+  background: transparent;
+}
+
+/* 容器背景色透明，但保留背景图片 */
+.theme-background .main-container,
+.theme-background .settings-container {
+  background-color: transparent !important;
+}
+
+/* =================== 标题栏和头部 - 使用主色调 =================== */
+.theme-background.has-dynamic-titlebar .title-bar,
+.theme-background.has-dynamic-titlebar .settings-header {
+  background: color-mix(in srgb, var(--titlebar-bg-dynamic, rgb(240, 240, 240)) 90%, transparent) !important;
+  background-color: color-mix(in srgb, var(--titlebar-bg-dynamic, rgb(240, 240, 240)) 90%, transparent) !important;
+  background-image: none !important;
+  color: var(--titlebar-text-dynamic, #666) !important;
+  border-bottom: 1px solid var(--titlebar-border-dynamic, rgba(232, 233, 234, 0.8)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.theme-background.has-dynamic-titlebar .title-bar *,
+.theme-background.has-dynamic-titlebar .settings-header * {
+  color: var(--titlebar-text-dynamic, #666) !important;
+  opacity: 1 !important;
+}
+
+.theme-background.has-dynamic-titlebar .settings-header button:not(.hover\:bg-red-50):not([title*="关闭"]):hover {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-background.has-dynamic-titlebar .settings-header button:not(.hover\:bg-red-50):not([title*="关闭"]):hover svg {
+  color: var(--titlebar-text-dynamic, #666) !important;
+}
+
+.theme-background.has-dynamic-titlebar .settings-header button.hover\:bg-red-50:hover,
+.theme-background.has-dynamic-titlebar .settings-header button[title*="关闭"]:hover {
+  background-color: rgba(244, 67, 54, 0.15) !important;
+}
+
+.theme-background.has-dynamic-titlebar .settings-header button.hover\:bg-red-50:hover svg,
+.theme-background.has-dynamic-titlebar .settings-header button[title*="关闭"]:hover svg {
+  color: #d32f2f !important;
+}
+
+.theme-background.has-dynamic-titlebar .title-bar button:hover:not(.bg-blue-500) {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-background.has-dynamic-titlebar .title-bar button:hover:not(.bg-blue-500),
+.theme-background.has-dynamic-titlebar .title-bar button:hover:not(.bg-blue-500) * {
+  color: var(--titlebar-text-dynamic, #666) !important;
+}
+
+/* 搜索框 - 透明背景和动态文字色 */
+.theme-background.has-dynamic-titlebar .titlebar-search button {
+  background-color: transparent !important;
+}
+
+.theme-background.has-dynamic-titlebar .titlebar-search button:hover {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-background.has-dynamic-titlebar .titlebar-search button,
+.theme-background.has-dynamic-titlebar .titlebar-search button * {
+  color: var(--titlebar-text-dynamic, #666) !important;
+}
+
+/* 搜索框输入框 - 默认完全透明（收起状态） */
+.theme-background.has-dynamic-titlebar .titlebar-search input {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--titlebar-text-dynamic, #666) !important;
+}
+
+/* 搜索框输入框 - 展开状态半透明背景 */
+.theme-background.has-dynamic-titlebar .titlebar-search input.w-30 {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: var(--titlebar-border-dynamic, rgba(229, 231, 235, 0.8)) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.theme-background.has-dynamic-titlebar .titlebar-search input:focus {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: var(--primary-color, #4a89dc) !important;
+  ring-color: var(--primary-color, #4a89dc) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.theme-background.has-dynamic-titlebar .titlebar-search input::placeholder {
+  color: var(--titlebar-text-dynamic, #666) !important;
+  opacity: 0.6 !important;
+}
+
+/* 搜索框清空按钮 */
+.theme-background.has-dynamic-titlebar .titlebar-search button[title="清空"] {
+  background-color: transparent !important;
+}
+
+.theme-background.has-dynamic-titlebar .titlebar-search button[title="清空"]:hover {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 工具面板、分组面板、行高菜单、分组模态框 - 统一使用主色调背景 */
+.theme-background.has-dynamic-titlebar .tools-panel,
+.theme-background.has-dynamic-titlebar .groups-panel,
+.theme-background.has-dynamic-titlebar .row-height-menu,
+.theme-background.has-dynamic-titlebar .group-modal {
+  background-color: color-mix(in srgb, var(--titlebar-bg-dynamic, rgb(240, 240, 240)) 30%, transparent) !important;
+  border-color: var(--titlebar-border-dynamic, rgba(229, 231, 235, 0.8)) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* 面板内的文字使用动态文字色 */
+.theme-background.has-dynamic-titlebar .tools-panel,
+.theme-background.has-dynamic-titlebar .tools-panel *,
+.theme-background.has-dynamic-titlebar .groups-panel,
+.theme-background.has-dynamic-titlebar .groups-panel *,
+.theme-background.has-dynamic-titlebar .row-height-menu,
+.theme-background.has-dynamic-titlebar .row-height-menu *,
+.theme-background.has-dynamic-titlebar .group-modal,
+.theme-background.has-dynamic-titlebar .group-modal * {
+  color: var(--titlebar-text-dynamic, #666) !important;
+}
+
+/* 按钮hover效果使用主题色 */
+.theme-background.has-dynamic-titlebar .tools-panel button:hover,
+.theme-background.has-dynamic-titlebar .groups-panel button:hover,
+.theme-background.has-dynamic-titlebar .row-height-menu [role="menuitem"]:hover,
+.theme-background.has-dynamic-titlebar .group-modal button:hover {
+  color: var(--primary-color, #4a89dc) !important;
+}
+
+/* =================== 侧边栏 - 半透明 + 毛玻璃 =================== */
+.theme-background .settings-sidebar {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-right: 1px solid rgba(229, 231, 235, 0.8) !important;
+}
+
+/* 侧边栏按钮默认不显眼 - 半透明背景 */
+.theme-background .settings-sidebar button {
+  background-color: transparent !important;
+}
+
+.theme-background .settings-sidebar button:hover {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* 只有激活项使用主色调 */
+.theme-background.has-dynamic-titlebar .settings-sidebar button.bg-blue-500 {
+  background-color: var(--titlebar-bg-dynamic, #4a89dc) !important;
+  color: var(--titlebar-text-dynamic, white) !important;
+}
+
+/* =================== 毛玻璃效果 =================== */
+
+/* 主窗口和设置窗口的主区域不模糊 */
+.theme-background .main-container > main,
+.theme-background .settings-container > main,
+.theme-background .settings-main {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 主窗口：只对列表项和 tab 栏模糊，列表容器不模糊 */
+.theme-background .main-container .clipboard-item,
+.theme-background .main-container .favorite-item,
+.theme-background .main-container .group-item,
+.theme-background .main-container .card,
+.theme-background .main-container .tab-navigation {
+  backdrop-filter: blur(3px) !important;
+  -webkit-backdrop-filter: blur(3px) !important;
+}
+
+/* 设置窗口：只对内部模块模糊，main区域不模糊 */
+.theme-background .settings-container .settings-section-content,
+.theme-background .settings-container .card {
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+/* 输入框、文本框、选择框不使用背景模糊 */
+.theme-background input,
+.theme-background textarea,
+.theme-background select {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* =================== 半透明背景 =================== */
+.theme-background [class*="bg-white"]:not(.bg-white\/):not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"] *),
+.theme-background .bg-white:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"] *) {
+  background-color: rgba(255, 255, 255, 0) !important;
+}
+
+/* 灰色背景改为半透明（排除标题栏、侧边栏、搜索框、开关组件、工具面板、分组面板、行高菜单、分组模态框） */
+.theme-background .bg-gray-50:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"]) {
+  background-color: rgba(248, 249, 250, 0.68) !important;
+}
+
+.theme-background .bg-gray-100:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"]) {
+  background-color: rgba(243, 244, 246, 0.68) !important;
+}
+
+.theme-background .bg-gray-200:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"]) {
+  background-color: rgba(229, 231, 235, 0.68) !important;
+}
+
+.theme-background .bg-gray-300:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"]) {
+  background-color: rgba(209, 213, 219, 0.68) !important;
+}
+
+.theme-background .bg-gray-600:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"]) {
+  background-color: rgba(75, 85, 99, 0.68) !important;
+}
+
+.theme-background .bg-gray-800:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *):not([role="switch"]) {
+  background-color: rgba(31, 41, 55, 0.68) !important;
+}
+
+.theme-background [class*="hover:bg-gray"]:hover:not(.settings-sidebar):not(.settings-sidebar *):not(.settings-header):not(.settings-header *):not(.title-bar):not(.title-bar *):not(.titlebar-search):not(.titlebar-search *):not(.tools-panel):not(.tools-panel *):not(.groups-panel):not(.groups-panel *):not(.row-height-menu):not(.row-height-menu *):not(.group-modal):not(.group-modal *) {
+  background-color: rgba(243, 244, 246, 0.8) !important;
+}
+
+/* =================== 动态主题色应用 =================== */
+.theme-background.has-dynamic-titlebar [class*="bg-blue"]:not([role="switch"]):not([role="switch"] *),
+.theme-background.has-dynamic-titlebar .bg-blue-50:not([role="switch"]):not([role="switch"] *) {
+  background-color: var(--primary-light, #e6f7ff) !important;
+}
+
+.theme-background.has-dynamic-titlebar .bg-blue-500:not([role="switch"]):not([role="switch"] *) {
+  background-color: var(--primary-color, #4a89dc) !important;
+}
+
+.theme-background.has-dynamic-titlebar .bg-blue-600:not([role="switch"]):not([role="switch"] *) {
+  background-color: var(--primary-dark, #3b7ac9) !important;
+}
+
+.theme-background.has-dynamic-titlebar .text-blue-500,
+.theme-background.has-dynamic-titlebar .text-blue-600 {
+  color: var(--primary-color, #4a89dc) !important;
+}
+
+.theme-background.has-dynamic-titlebar .border-blue-500,
+.theme-background.has-dynamic-titlebar .border-blue-200 {
+  border-color: var(--primary-color, #4a89dc) !important;
+}
+
+.theme-background.has-dynamic-titlebar [class*="hover:bg-blue"]:hover,
+.theme-background.has-dynamic-titlebar .hover\:bg-blue-500:hover,
+.theme-background.has-dynamic-titlebar .hover\:bg-blue-600:hover {
+  background-color: var(--primary-hover, #3570b8) !important;
+}
+
+/* 开关组件（Toggle/Switch）- 使用主色调 */
+.theme-background button[role="switch"] {
+  background-color: rgba(209, 213, 219, 0.8) !important;
+}
+
+/* 选中状态：使用动态主色调 */
+.theme-background.has-dynamic-titlebar button[role="switch"][data-state="checked"] {
+  background-color: var(--primary-hover, #3570b8) !important;
+}
+
+/* 滑块必须保持白色 */
+.theme-background button[role="switch"] span[data-state="checked"],
+.theme-background button[role="switch"] span[data-state="unchecked"],
+.theme-background button[role="switch"] > span {
+  background-color: white !important;
+  background: white !important;
+}
+
+/* =================== 边框半透明 =================== */
+.theme-background [class*="border"] {
+  border-color: rgba(229, 231, 235, 0.8) !important;
+}
+
+.theme-background .border-gray-200 {
+  border-color: rgba(229, 231, 235, 0.8) !important;
+}
+
+.theme-background .border-gray-300 {
+  border-color: rgba(209, 213, 219, 0.8) !important;
+}
+
+/* =================== 动态文本颜色 =================== */
+/* 侧边栏导航项 */
+.theme-background.has-dynamic-titlebar .settings-sidebar button:not(.bg-blue-500) {
+  color: var(--titlebar-bg-dynamic) !important;
+}
+
+/* 标题 */
+.theme-background.has-dynamic-titlebar h2,
+.theme-background.has-dynamic-titlebar h3 {
+  color: var(--titlebar-bg-dynamic) !important;
+}
+
+/* 设置项标签和描述 */
+.theme-background.has-dynamic-titlebar label,
+.theme-background.has-dynamic-titlebar .text-gray-600,
+.theme-background.has-dynamic-titlebar .text-gray-500,
+.theme-background.has-dynamic-titlebar .text-gray-700 {
+  color: var(--titlebar-bg-dynamic) !important;
+}
+
+/* =================== 文本增强 =================== */
+.theme-background h1,
+.theme-background h2,
+.theme-background h3,
+.theme-background h4,
+.theme-background h5,
+.theme-background h6,
+.theme-background p:not(.title-bar *, .settings-header *),
+.theme-background span:not(.title-bar *, .settings-header *),
+.theme-background div:not(.title-bar *, .settings-header *),
+.theme-background label:not(.title-bar *, .settings-header *),
+.theme-background button:not(.title-bar *, .settings-header *),
+.theme-background input,
+.theme-background textarea,
+.theme-background select {
+  -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.28);
+  text-shadow:
+    0 0 0.5px rgba(0, 0, 0, 0.5),
+    0 0.5px 1px rgba(0, 0, 0, 0.35),
+    0 0 0.5px rgba(255, 255, 255, 0.18);
+}
+
+/* 标题栏内的文字不需要增强 */
+.theme-background.has-dynamic-titlebar .title-bar *,
+.theme-background.has-dynamic-titlebar .settings-header * {
+  -webkit-text-stroke: 0 !important;
+  text-shadow: none !important;
+}
+
+/* =================== 阴影增强 =================== */
+.theme-background [class*="shadow"] {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* =================== 响应式调整 =================== */
+@media (prefers-reduced-transparency) {
+  .theme-background .main-container,
+  .theme-background .settings-container {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: rgba(255, 255, 255, 0.95) !important;
+  }
+}
+

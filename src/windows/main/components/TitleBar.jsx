@@ -155,7 +155,7 @@ function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
   return (
     <div 
       ref={dragRef}
-      className="flex-shrink-0 h-10 flex items-center justify-between px-2.5 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700"
+      className="title-bar flex-shrink-0 h-10 flex items-center justify-between px-2.5 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700"
     >
       {/* Logo */}
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
@@ -205,7 +205,7 @@ function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
             
             {/* 展开面板 */}
             {isExpanded && layout.panel.length > 0 && (
-              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 px-2.5 z-40">
+              <div className="tools-panel absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 px-2.5 z-40">
                 <div className="flex flex-wrap gap-1.5 max-w-[200px]">
                   {layout.panel.map((toolId) => (
                     <SortableToolItem key={toolId} toolId={toolId} location="panel" />

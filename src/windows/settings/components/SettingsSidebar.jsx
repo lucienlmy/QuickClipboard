@@ -35,7 +35,7 @@ function SettingsSidebar({ activeSection, onSectionChange }) {
   const { t } = useTranslation()
 
   return (
-    <aside className="w-56 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+    <aside className="settings-sidebar w-56 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
       <nav className="p-3 space-y-0.5">
         {navigationItems.map(({ id, icon: Icon, labelKey }) => (
           <button

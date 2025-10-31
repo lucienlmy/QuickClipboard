@@ -41,7 +41,7 @@ function TitleBarSearch({ value, onChange, placeholder }) {
     return (
         <div
             ref={searchRef}
-            className="relative flex items-center justify-end w-8"
+            className="titlebar-search relative flex items-center justify-end w-8"
         >
             {/* 输入框 - 从图标左侧展开，绝对定位 */}
             <input

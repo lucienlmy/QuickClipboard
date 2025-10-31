@@ -21,7 +21,7 @@ function SettingsHeader() {
   }
 
   return (
-    <header data-tauri-drag-region className="flex-shrink-0 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-5">
+    <header data-tauri-drag-region className="settings-header flex-shrink-0 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-5">
       <div className="flex items-center gap-3">
         <IconSettings size={20} className="text-gray-600 dark:text-gray-400" />
         <h1 className="text-base font-semibold text-gray-900 dark:text-white">
