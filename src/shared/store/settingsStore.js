@@ -29,12 +29,12 @@ export const settingsStore = proxy({
   },
   
   // 保存单个设置项
-  async saveSetting(key, value) {
+  async saveSetting(key, value, options = {}) {
     this[key] = value
     
     // 收集当前所有设置
     const currentSettings = this.getAllSettings()
-    const result = await saveSettingsToBackend(currentSettings)
+    const result = await saveSettingsToBackend(currentSettings, options)
     
     return result
   },
@@ -86,6 +86,11 @@ export const settingsStore = proxy({
   setRowHeight(height) {
     this.rowHeight = height
     localStorage.setItem('rowHeight', height)
+  },
+  
+  // 粘贴格式
+  setPasteWithFormat(withFormat) {
+    this.saveSetting('pasteWithFormat', withFormat)
   }
 })
 
@@ -100,7 +105,7 @@ export async function initSettings() {
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
   if (rowHeight) settingsStore.rowHeight = rowHeight
   
-  // 从后端加载所有设置
+  // 从后端加载所有配置
   await settingsStore.loadSettings()
 }
 

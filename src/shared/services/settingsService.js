@@ -124,7 +124,9 @@ export async function loadSettingsFromBackend() {
 }
 
 // 保存设置到 Tauri 后端
-export async function saveSettingsToBackend(settings) {
+export async function saveSettingsToBackend(settings, options = {}) {
+  const { showToast = true } = options
+  
   try {
     // 发送事件通知其他窗口
     await emit('settings-changed', settings)
@@ -132,11 +134,15 @@ export async function saveSettingsToBackend(settings) {
     // 保存到后端
     await invoke('save_settings', { settings })
     
-    toast.success('设置已保存')
+    if (showToast) {
+      toast.success('设置已保存')
+    }
     return { success: true }
   } catch (error) {
     console.error('保存设置失败:', error)
-    toast.error('保存设置失败')
+    if (showToast) {
+      toast.error('保存设置失败')
+    }
     return { success: false, error: error.message }
   }
 }

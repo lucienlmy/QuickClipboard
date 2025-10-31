@@ -56,18 +56,12 @@ export const toolsStore = proxy({
   
   // 初始化工具状态
   async initStates() {
-    // 先初始化所有toggle工具的默认状态
-    Object.values(TOOL_REGISTRY).forEach(tool => {
-      if (tool.type === 'toggle') {
-        this.states[tool.id] = tool.defaultActive || false
-      }
-    })
-    
-    // 从后端和localStorage加载实际状态
+    // 先从配置文件同步到 localStorage 缓存
+    const { settingsStore } = await import('@shared/store/settingsStore')
     const { initializeToolStates, getToolState } = await import('@shared/services/toolActions')
-    await initializeToolStates()
+    await initializeToolStates(settingsStore)
     
-    // 同步状态到store
+    // 从 localStorage 读取所有工具状态
     Object.values(TOOL_REGISTRY).forEach(tool => {
       if (tool.type === 'toggle') {
         this.states[tool.id] = getToolState(tool.id)
@@ -87,8 +81,12 @@ export const toolsStore = proxy({
   // 切换工具状态
   toggleToolState(toolId) {
     if (this.states.hasOwnProperty(toolId)) {
-      this.states[toolId] = !this.states[toolId]
-      localStorage.setItem(`tool-state-${toolId}`, String(this.states[toolId]))
+      const newState = !this.states[toolId]
+      this.states[toolId] = newState
+
+      import('@shared/services/toolActions').then(({ setToolState }) => {
+        setToolState(toolId, newState)
+      })
     }
   },
   
@@ -97,7 +95,7 @@ export const toolsStore = proxy({
     if (this.states.hasOwnProperty(toolId)) {
       this.states[toolId] = state
       
-      // 同步到 toolActions 的状态管理
+      // 使用统一的状态管理
       import('@shared/services/toolActions').then(({ setToolState }) => {
         setToolState(toolId, state)
       })

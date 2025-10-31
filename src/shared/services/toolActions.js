@@ -1,23 +1,34 @@
 import { invoke } from '@tauri-apps/api/core'
 
-// 工具状态管理
-const toolStates = {
-  'pin-button': false,
-  'one-time-paste-button': false,
-  'ai-translation-button': false,
-  'format-toggle-button': true,
-  'music-player-button': false
+// 纯 UI 工具状态
+const localStorageTools = ['pin-button', 'one-time-paste-button', 'music-player-button']
+
+// 配置文件工具
+const configFileTools = {
+  'ai-translation-button': { key: 'aiTranslationEnabled', default: false },
+  'format-toggle-button': { key: 'pasteWithFormat', default: true }
 }
 
 // 获取工具状态
 export function getToolState(toolId) {
-  return toolStates[toolId] ?? false
+  try {
+    const saved = localStorage.getItem(`tool-state-${toolId}`)
+    if (saved !== null) {
+      return JSON.parse(saved)
+    }
+  } catch (error) {
+    console.error(`读取工具状态失败 ${toolId}:`, error)
+  }
+  
+  // 返回默认值
+  if (configFileTools[toolId]) {
+    return configFileTools[toolId].default
+  }
+  return false
 }
 
-// 设置工具状态
+// 设置工具状态到 localStorage
 export function setToolState(toolId, state) {
-  toolStates[toolId] = state
- 
   try {
     localStorage.setItem(`tool-state-${toolId}`, JSON.stringify(state))
   } catch (error) {
@@ -25,33 +36,16 @@ export function setToolState(toolId, state) {
   }
 }
 
-// 初始化工具状态
-export async function initializeToolStates() {
-  Object.keys(toolStates).forEach(toolId => {
+// 初始化工具状态：从配置文件同步到 localStorage 缓存（必须在 settingsStore 初始化之后调用）
+export async function initializeToolStates(settingsStore) {
+  // 从配置文件同步工具状态到 localStorage 缓存
+  for (const [toolId, config] of Object.entries(configFileTools)) {
     try {
-      const saved = localStorage.getItem(`tool-state-${toolId}`)
-      if (saved !== null) {
-        toolStates[toolId] = JSON.parse(saved)
-      }
+      const value = settingsStore[config.key]
+      localStorage.setItem(`tool-state-${toolId}`, JSON.stringify(value))
     } catch (error) {
-      console.error(`恢复工具状态失败 ${toolId}:`, error)
+      console.error(`初始化工具状态失败 ${toolId}:`, error)
     }
-  })
-  
-  // 从后端获取设置并同步状态
-  try {
-    const settings = await invoke('get_settings')
-    if (settings.ai_translation_enabled !== undefined) {
-      toolStates['ai-translation-button'] = settings.ai_translation_enabled
-    }
-    if (settings.paste_with_format !== undefined) {
-      toolStates['format-toggle-button'] = settings.paste_with_format
-
-      const { settingsStore } = await import('@shared/store/settingsStore')
-      settingsStore.setPasteWithFormat(settings.paste_with_format)
-    }
-  } catch (error) {
-    console.error('从后端获取设置失败:', error)
   }
 }
 
@@ -117,10 +111,12 @@ export const toolActions = {
         console.warn('AI翻译未配置')
       }
       
-      // 保存到后端设置
-      await invoke('save_settings', {
-        settings: { ai_translation_enabled: newState }
-      })
+      // 保存到配置文件
+      const { settingsStore } = await import('@shared/store/settingsStore')
+      await settingsStore.saveSetting('aiTranslationEnabled', newState, { showToast: false })
+      
+      // 同步到 localStorage 缓存
+      setToolState('ai-translation-button', newState)
       
       // 启用/禁用快捷键
       if (newState) {
@@ -128,8 +124,6 @@ export const toolActions = {
       } else {
         await invoke('disable_ai_translation_cancel_shortcut')
       }
-      
-      setToolState('ai-translation-button', newState)
       
       // 触发自定义事件
       window.dispatchEvent(new CustomEvent('ai-translation-changed', {
@@ -149,15 +143,12 @@ export const toolActions = {
     const newState = !currentState
     
     try {
-      // 保存到后端设置
-      await invoke('save_settings', {
-        settings: { paste_with_format: newState }
-      })
-      
-      setToolState('format-toggle-button', newState)
-      
+      // 保存到配置文件
       const { settingsStore } = await import('@shared/store/settingsStore')
-      settingsStore.setPasteWithFormat(newState)
+      await settingsStore.saveSetting('pasteWithFormat', newState, { showToast: false })
+      
+      // 同步到 localStorage 缓存
+      setToolState('format-toggle-button', newState)
       
       // 触发自定义事件
       window.dispatchEvent(new CustomEvent('format-mode-changed', {

@@ -5,6 +5,7 @@ import { settingsStore } from '@shared/store/settingsStore'
 import { groupsStore } from '@shared/store/groupsStore'
 import { useWindowDrag } from '@shared/hooks/useWindowDrag'
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
+import { useSettingsSync } from '@shared/hooks/useSettingsSync'
 import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager'
 import TitleBar from './components/TitleBar'
 import TabNavigation from './components/TabNavigation'
@@ -21,6 +22,9 @@ function App() {
   const [activeTab, setActiveTab] = useState('clipboard')
   const [contentFilter, setContentFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // 监听设置变更事件（跨窗口同步）
+  useSettingsSync()
   
   // 主内容区域拖拽，排除所有交互元素和列表项
   const contentDragRef = useWindowDrag({

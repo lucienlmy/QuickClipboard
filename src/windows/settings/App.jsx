@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
+import { useSettingsSync } from '@shared/hooks/useSettingsSync'
 import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager'
 import SettingsHeader from './components/SettingsHeader'
 import SettingsSidebar from './components/SettingsSidebar'
@@ -25,6 +26,9 @@ function App() {
   const { theme, backgroundImagePath } = snap
   const { effectiveTheme, isDark, isBackground } = useTheme()
   const [activeSection, setActiveSection] = useState('general')
+
+  // 监听设置变更事件（跨窗口同步）
+  useSettingsSync()
 
   // 应用主题到body
   useEffect(() => {
