@@ -28,10 +28,10 @@ function ToolButton({ toolId, location, isDraggable = true, onAction }) {
   if (location === 'titlebar') {
     return (
       <button
-        className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${
+        className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
           isActive 
             ? 'bg-blue-500 text-white hover:bg-blue-600' 
-            : 'hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300'
+            : 'hover:bg-white/80 dark:hover:bg-gray-700/60 hover:shadow-sm hover:scale-105 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
         }`}
         title={t(tool.titleKey)}
         onClick={handleClick}
@@ -39,7 +39,7 @@ function ToolButton({ toolId, location, isDraggable = true, onAction }) {
         data-tool-type={tool.type}
         data-draggable={isDraggable}
       >
-        <IconComponent size={18} stroke={1.5} />
+        <IconComponent size={16} stroke={1.5} />
       </button>
     )
   }
@@ -47,10 +47,10 @@ function ToolButton({ toolId, location, isDraggable = true, onAction }) {
   // 工具面板样式
   return (
     <button
-      className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${
+      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
         isActive 
           ? 'bg-blue-500 text-white hover:bg-blue-600' 
-          : 'hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300'
+          : 'hover:bg-white/80 dark:hover:bg-gray-700/60 hover:shadow-sm hover:scale-105 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
       }`}
       title={t(tool.titleKey)}
       onClick={handleClick}
@@ -58,7 +58,7 @@ function ToolButton({ toolId, location, isDraggable = true, onAction }) {
       data-tool-type={tool.type}
       data-draggable={isDraggable}
     >
-      <IconComponent size={18} stroke={1.5} />
+      <IconComponent size={16} stroke={1.5} />
     </button>
   )
 }

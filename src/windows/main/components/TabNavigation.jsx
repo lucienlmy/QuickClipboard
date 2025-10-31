@@ -18,18 +18,18 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
   ]
 
   return (
-    <div className="tab-navigation flex-shrink-0 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700">
-      <div className="flex items-stretch h-11">
+    <div className="tab-navigation flex-shrink-0 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm">
+      <div className="flex items-stretch h-9">
         {/* 左侧：标签切换 - 50% */}
-        <div className="flex-1 flex items-center justify-center gap-1 px-3">
+        <div className="flex-1 flex items-center justify-center gap-1 px-2">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex-1 max-w-[140px] py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 max-w-[140px] py-1 text-sm font-medium rounded-lg transition-all duration-200 ${
                 activeTab === tab.id
                   ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-700'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/60 hover:shadow-sm hover:scale-102'
               }`}
             >
               {tab.label}
@@ -38,10 +38,10 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
         </div>
 
         {/* 分隔线 */}
-        <div className="w-px bg-gray-300 dark:bg-gray-600 my-2" />
+        <div className="w-px bg-gradient-to-b from-transparent via-gray-400/60 to-transparent dark:via-gray-600/60 my-1.5" />
 
         {/* 右侧：内容筛选 - 50% */}
-        <div className="flex-1 flex items-center justify-center gap-1 px-3">
+        <div className="flex-1 flex items-center justify-center gap-1 px-2">
           {filters.map(filter => {
             const Icon = filter.icon
             return (
@@ -49,13 +49,13 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
                 key={filter.id}
                 onClick={() => onFilterChange(filter.id)}
                 title={filter.label}
-                className={`flex items-center justify-center w-8 h-8 rounded-md transition-colors ${
+                className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 ${
                   contentFilter === filter.id
                     ? 'bg-blue-500 text-white'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-700'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-white/80 dark:hover:bg-gray-700/60 hover:shadow-sm hover:scale-105 hover:text-gray-800 dark:hover:text-gray-200'
                 }`}
               >
-                <Icon size={18} />
+                <Icon size={16} />
               </button>
             )
           })}

@@ -41,7 +41,7 @@ function TitleBarSearch({ value, onChange, placeholder }) {
     return (
         <div
             ref={searchRef}
-            className="titlebar-search relative flex items-center justify-end w-8"
+            className="titlebar-search relative flex items-center justify-end w-7"
         >
             {/* 输入框 - 从图标左侧展开，绝对定位 */}
             <input
@@ -52,8 +52,8 @@ function TitleBarSearch({ value, onChange, placeholder }) {
                 onFocus={handleFocus}
                 onBlur={() => setIsFocused(false)}
                 placeholder={placeholder}
-                className={`absolute right-7 h-8 px-2.5 text-sm bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all duration-300 ease-in-out ${isExpanded
-                        ? 'w-30 opacity-100 mr-1 pr-7'
+                className={`absolute right-6 h-7 px-2 text-sm bg-white/80 dark:bg-gray-700/60 border border-gray-300/50 dark:border-gray-600/50 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all duration-300 ease-in-out shadow-sm ${isExpanded
+                        ? 'w-30 opacity-100 mr-1 pr-5'
                         : 'w-0 opacity-0 pointer-events-none border-0'
                     }`}
             />
@@ -62,20 +62,20 @@ function TitleBarSearch({ value, onChange, placeholder }) {
             {value && isExpanded && (
                 <button
                     onClick={handleClear}
-                    className="absolute right-9 z-20 w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    className="absolute right-8 z-20 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     title="清空"
                 >
-                    <IconX size={14} />
+                    <IconX size={12} />
                 </button>
             )}
 
             {/* 搜索图标 - 始终保持在原位 */}
             <button
                 onClick={handleIconClick}
-                className="relative z-10 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                className="relative z-10 flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/80 dark:hover:bg-gray-700/60 hover:shadow-sm hover:scale-105 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-all duration-200"
                 title="搜索"
             >
-                <IconSearch size={18} />
+                <IconSearch size={16} />
             </button>
         </div>
     )

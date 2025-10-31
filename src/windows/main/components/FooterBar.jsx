@@ -24,12 +24,12 @@ function FooterBar({ children }) {
   return (
     <div 
       ref={dragRef}
-      className="flex-shrink-0 h-7 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative"
+      className="flex-shrink-0 h-5 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative"
     >
       {/* 左侧快捷键提示 */}
-      <div className="flex items-center gap-3 text-[10px]">
+      <div className="flex items-center gap-2 text-[10px]">
         <span>Win+V {t('footer.openClipboard')}</span>
-        <span>Ctrl+1~9 {t('footer.pasteShortcut')}</span>
+        {/* <span>Ctrl+1~9 {t('footer.pasteShortcut')}</span> */}
       </div>
       
       {/* 右侧区域 - 绝对定位固定在右侧，标记为不可拖拽区域 */}

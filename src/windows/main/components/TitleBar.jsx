@@ -49,7 +49,7 @@ function DroppableTitlebar({ children, isEmpty }) {
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-center gap-1 ${isEmpty ? 'w-1 h-8 overflow-visible' : ''} ${isOver && isEmpty ? '!w-auto px-8 bg-blue-50 dark:bg-blue-900/20 rounded' : ''}`}
+      className={`flex items-center gap-1 ${isEmpty ? 'w-1 h-7 overflow-visible' : ''} ${isOver && isEmpty ? '!w-auto px-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg' : ''}`}
     >
       {children}
     </div>
@@ -155,12 +155,12 @@ function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
   return (
     <div 
       ref={dragRef}
-      className="title-bar flex-shrink-0 h-10 flex items-center justify-between px-2.5 bg-gray-200 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700"
+      className="title-bar flex-shrink-0 h-9 flex items-center justify-between px-2 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm"
     >
       {/* Logo */}
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
-        <div className="w-7 h-7 flex items-center justify-center">
-          <img src={logoIcon} alt="QuickClipboard" className="w-6 h-6" />
+        <div className="w-6 h-6 flex items-center justify-center">
+          <img src={logoIcon} alt="QuickClipboard" className="w-5 h-5" />
         </div>
       </div>
 
@@ -191,15 +191,15 @@ function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
             {layout.panel.length > 0 && (
               <button
                 id="tools-toggle"
-                className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
                   isExpanded
                     ? 'bg-blue-500 text-white'
-                    : 'hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300'
+                    : 'hover:bg-white/80 dark:hover:bg-gray-700/60 hover:shadow-sm hover:scale-105 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                 }`}
                 title={t('tools.panel')}
                 onClick={() => toolsStore.toggleExpand()}
               >
-                {isExpanded ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
+                {isExpanded ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
               </button>
             )}
             

@@ -148,7 +148,7 @@ function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
       {/* 触发按钮 */}
       <button
         onClick={togglePopup}
-        className={`flex items-center justify-center gap-1.5 w-[100px] h-7 transition-all duration-300 ${
+        className={`flex items-center justify-center gap-1.5 w-[100px] h-5 transition-all duration-300 ${
           isOpen
             ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg'
             : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50'
@@ -162,7 +162,7 @@ function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
       {/* 弹出面板 */}
       {isOpen && (
         <div 
-          className={`groups-panel fixed bottom-7 right-3 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border-l border-r border-t border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
+          className={`groups-panel fixed bottom-5 right-2.5 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border-l border-r border-t border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
             isClosing ? 'animate-slide-down' : 'animate-slide-up'
           }`}
         >
