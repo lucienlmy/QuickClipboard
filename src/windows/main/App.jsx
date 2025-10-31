@@ -58,22 +58,29 @@ function App() {
     await loadFavorites()
   }
 
+  const outerContainerClasses = `
+    h-screen w-screen 
+    ${isDark && !isBackground ? 'dark' : ''}
+  `.trim().replace(/\s+/g, ' ')
+
   const containerClasses = `
     main-container 
-    h-screen w-screen 
+    h-full w-full
     flex flex-col 
-    overflow-hidden 
-    ${isDark && !isBackground ? 'dark bg-gray-900' : ''}
+    overflow-hidden
+    ${isDark && !isBackground ? 'bg-gray-900' : ''}
     ${!isDark && !isBackground ? 'bg-white' : ''}
   `.trim().replace(/\s+/g, ' ')
 
   return (
-    <div 
-      className={containerClasses} 
-      style={{ 
-        borderRadius: '8px'
-      }}
-    >
+    <div className={outerContainerClasses} style={{ padding: '5px' }}>
+      <div 
+        className={containerClasses} 
+        style={{ 
+          borderRadius: '8px',
+          boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
+        }}
+      >
       <TitleBar 
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -105,6 +112,7 @@ function App() {
       </FooterBar>
 
       <ToastContainer />
+      </div>
     </div>
   )
 }
