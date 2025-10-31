@@ -1,7 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 
-// 纯 UI 工具状态
-const localStorageTools = ['pin-button', 'one-time-paste-button', 'music-player-button']
+// 不持久化的临时工具状态
+const temporaryTools = ['pin-button']
+
+// 临时工具的内存状态
+const temporaryStates = {}
 
 // 配置文件工具
 const configFileTools = {
@@ -11,6 +14,10 @@ const configFileTools = {
 
 // 获取工具状态
 export function getToolState(toolId) {
+  if (temporaryTools.includes(toolId)) {
+    return temporaryStates[toolId] ?? false
+  }
+  
   try {
     const saved = localStorage.getItem(`tool-state-${toolId}`)
     if (saved !== null) {
@@ -29,6 +36,11 @@ export function getToolState(toolId) {
 
 // 设置工具状态到 localStorage
 export function setToolState(toolId, state) {
+  if (temporaryTools.includes(toolId)) {
+    temporaryStates[toolId] = state
+    return
+  }
+  
   try {
     localStorage.setItem(`tool-state-${toolId}`, JSON.stringify(state))
   } catch (error) {
@@ -36,8 +48,16 @@ export function setToolState(toolId, state) {
   }
 }
 
-// 初始化工具状态：从配置文件同步到 localStorage 缓存（必须在 settingsStore 初始化之后调用）
+// 初始化工具状态：从配置文件同步到 localStorage 缓存
 export async function initializeToolStates(settingsStore) {
+  temporaryTools.forEach(toolId => {
+    try {
+      localStorage.removeItem(`tool-state-${toolId}`)
+    } catch (error) {
+      console.error(`清理临时工具状态失败 ${toolId}:`, error)
+    }
+  })
+  
   // 从配置文件同步工具状态到 localStorage 缓存
   for (const [toolId, config] of Object.entries(configFileTools)) {
     try {
