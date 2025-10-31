@@ -1,13 +1,17 @@
 import { Virtuoso } from 'react-virtuoso'
-import { useCallback, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { useCallback, useState, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useSnapshot } from 'valtio'
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar'
 import { useSortableList } from '@shared/hooks/useSortable'
-import { favoritesStore, loadFavorites } from '@shared/store/favoritesStore'
+import { useNavigation } from '@shared/hooks/useNavigation'
+import { favoritesStore, loadFavorites, pasteFavorite } from '@shared/store/favoritesStore'
+import { navigationStore } from '@shared/store/navigationStore'
 import FavoriteItem from './FavoriteItem'
 
-function FavoritesList({ items }) {
+const FavoritesList = forwardRef(({ items }, ref) => {
   const [scrollerElement, setScrollerElement] = useState(null)
+  const virtuosoRef = useRef(null)
+  const snap = useSnapshot(navigationStore)
   
   // 应用自定义滚动条
   useCustomScrollbar(scrollerElement)
@@ -59,6 +63,36 @@ function FavoritesList({ items }) {
   const activeIndex = activeItem 
     ? items.findIndex(item => item.id === activeId)
     : -1
+  
+  // 导航功能
+  const {
+    currentSelectedIndex,
+    navigateUp,
+    navigateDown,
+    executeCurrentItem,
+    handleItemHover,
+    handleScrollStart,
+    handleScrollEnd
+  } = useNavigation({
+    items,
+    virtuosoRef,
+    onExecuteItem: async (item, index) => {
+      try {
+        await pasteFavorite(item.id)
+        console.log('粘贴收藏成功:', item.id)
+      } catch (error) {
+        console.error('粘贴收藏失败:', error)
+      }
+    },
+    enabled: snap.activeTab === 'favorites'
+  })
+  
+  // 暴露导航方法给父组件
+  useImperativeHandle(ref, () => ({
+    navigateUp,
+    navigateDown,
+    executeCurrentItem
+  }))
 
   if (items.length === 0) {
     return (
@@ -82,6 +116,7 @@ function FavoritesList({ items }) {
       <div className="flex-1 bg-white dark:bg-gray-900 overflow-hidden custom-scrollbar-container">
         <SortableContext items={items.map(item => item.id)} strategy={strategy}>
           <Virtuoso
+            ref={virtuosoRef}
             data={items}
             scrollerRef={scrollerRefCallback}
             itemContent={(index, item) => (
@@ -89,9 +124,18 @@ function FavoritesList({ items }) {
                 <FavoriteItem 
                   item={item} 
                   index={index}
+                  isSelected={currentSelectedIndex === index}
+                  onHover={() => handleItemHover(index)}
                 />
               </div>
             )}
+            isScrolling={(scrolling) => {
+              if (scrolling) {
+                handleScrollStart()
+              } else {
+                handleScrollEnd()
+              }
+            }}
             style={{ height: '100%' }}
           />
         </SortableContext>
@@ -109,7 +153,9 @@ function FavoritesList({ items }) {
       </DragOverlay>
     </DndContext>
   )
-}
+})
+
+FavoritesList.displayName = 'FavoritesList'
 
 export default FavoritesList
 

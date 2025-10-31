@@ -2,7 +2,8 @@ import { proxy } from 'valtio'
 import { 
   getClipboardHistory, 
   deleteClipboardItem as apiDeleteItem,
-  clearClipboardHistory as apiClearHistory 
+  clearClipboardHistory as apiClearHistory,
+  pasteClipboardItem as apiPasteClipboardItem
 } from '@shared/api'
 
 // 剪贴板 Store
@@ -100,6 +101,17 @@ export async function clearClipboardHistory() {
     return true
   } catch (err) {
     console.error('清空剪贴板历史失败:', err)
+    throw err
+  }
+}
+
+// 粘贴剪贴板项
+export async function pasteClipboardItem(id) {
+  try {
+    await apiPasteClipboardItem(id)
+    return true
+  } catch (err) {
+    console.error('粘贴剪贴板项失败:', err)
     throw err
   }
 }

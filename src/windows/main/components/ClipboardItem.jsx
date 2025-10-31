@@ -1,9 +1,9 @@
-import { pasteClipboardItem } from '@shared/api'
+import { pasteClipboardItem } from '@shared/store/clipboardStore'
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx'
 import { useSortable, CSS } from '@shared/hooks/useSortable'
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu'
 
-function ClipboardItem({ item, index, onClick, sortId }) {
+function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHover }) {
   const {
     settings,
     getHeightClass,
@@ -36,13 +36,19 @@ function ClipboardItem({ item, index, onClick, sortId }) {
     if (onClick) {
       onClick(item, index)
     } else {
-      // 默认行为：粘贴
       try {
         await pasteClipboardItem(item.id)
         console.log('粘贴成功:', item.id)
       } catch (error) {
         console.error('粘贴失败:', error)
       }
+    }
+  }
+  
+  // 处理鼠标悬停
+  const handleMouseEnter = () => {
+    if (onHover) {
+      onHover()
     }
   }
 
@@ -83,6 +89,11 @@ function ClipboardItem({ item, index, onClick, sortId }) {
   }
 
   const isSmallHeight = settings.rowHeight === 'small'
+  
+  // 键盘选中样式
+  const selectedClasses = isSelected 
+    ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50'
+    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
   return (
     <div 
@@ -92,7 +103,8 @@ function ClipboardItem({ item, index, onClick, sortId }) {
       {...listeners}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      className={`clipboard-item group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
+      onMouseEnter={handleMouseEnter}
+      className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`}
     >
       {/* 悬浮序号和快捷键提示 */}
       <div className="absolute top-1 right-2 flex flex-col items-end gap-1 pointer-events-none">

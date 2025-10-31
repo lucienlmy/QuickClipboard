@@ -1,9 +1,16 @@
+import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { clipboardStore } from '@shared/store/clipboardStore'
+import { navigationStore } from '@shared/store/navigationStore'
 import ClipboardList from './ClipboardList'
 
-function ClipboardTab({ contentFilter, searchQuery }) {
+const ClipboardTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
   const snap = useSnapshot(clipboardStore)
+  const listRef = useRef(null)
+
+  useEffect(() => {
+    navigationStore.resetNavigation()
+  }, [searchQuery, contentFilter])
 
   // 过滤逻辑
   const filteredItems = snap.items.filter(item => {
@@ -26,14 +33,23 @@ function ClipboardTab({ contentFilter, searchQuery }) {
     
     return true
   })
+  
+  // 暴露导航方法给父组件
+  useImperativeHandle(ref, () => ({
+    navigateUp: () => listRef.current?.navigateUp?.(),
+    navigateDown: () => listRef.current?.navigateDown?.(),
+    executeCurrentItem: () => listRef.current?.executeCurrentItem?.()
+  }))
 
   return (
     <div className="h-full flex flex-col">
       {/* 列表 */}
-      <ClipboardList items={filteredItems} />
+      <ClipboardList ref={listRef} items={filteredItems} />
     </div>
   )
-}
+})
+
+ClipboardTab.displayName = 'ClipboardTab'
 
 export default ClipboardTab
 

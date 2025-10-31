@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import { groupsStore } from '@shared/store/groupsStore'
 import { IconFolders, IconPlus, IconEdit, IconTrash, IconPin, IconPinned } from '@tabler/icons-react'
@@ -7,7 +7,7 @@ import { getIconComponent } from '@shared/utils/iconMapper'
 import { showConfirm, showError } from '@shared/utils/dialog'
 import GroupModal from './GroupModal'
 
-function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
+const GroupsPopup = forwardRef(({ activeTab, onTabChange, onGroupChange }, ref) => {
   const { t } = useTranslation()
   const groups = useSnapshot(groupsStore)
   const [isOpen, setIsOpen] = useState(false)
@@ -52,9 +52,35 @@ function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
 
   // 切换固定状态
   const togglePin = (e) => {
-    e.stopPropagation()
+    if (e) {
+      e.stopPropagation()
+    }
     setIsPinned(!isPinned)
   }
+  
+  // 临时显示分组面板
+  const showTemporarily = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    
+    if (!isOpen) {
+      setIsOpen(true)
+    }
+    
+    if (!isPinned) {
+      closeTimerRef.current = setTimeout(() => {
+        handleClose()
+      }, 500)
+    }
+  }
+  
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    togglePin: () => togglePin(null),
+    showTemporarily
+  }))
 
   // 鼠标进入触发区或面板
   const handleMouseEnter = () => {
@@ -278,7 +304,9 @@ function GroupsPopup({ activeTab, onTabChange, onGroupChange }) {
       )}
     </div>
   )
-}
+})
+
+GroupsPopup.displayName = 'GroupsPopup'
 
 export default GroupsPopup
 

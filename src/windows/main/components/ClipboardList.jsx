@@ -1,13 +1,17 @@
 import { Virtuoso } from 'react-virtuoso'
-import { useCallback, useState, useMemo } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { useCallback, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useSnapshot } from 'valtio'
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar'
 import { useSortableList } from '@shared/hooks/useSortable'
-import { clipboardStore, loadClipboardItems } from '@shared/store/clipboardStore'
+import { useNavigation } from '@shared/hooks/useNavigation'
+import { clipboardStore, loadClipboardItems, pasteClipboardItem } from '@shared/store/clipboardStore'
+import { navigationStore } from '@shared/store/navigationStore'
 import ClipboardItem from './ClipboardItem'
 
-function ClipboardList({ items }) {
+const ClipboardList = forwardRef(({ items }, ref) => {
   const [scrollerElement, setScrollerElement] = useState(null)
+  const virtuosoRef = useRef(null)
+  const snap = useSnapshot(navigationStore)
   
   // 应用自定义滚动条
   useCustomScrollbar(scrollerElement)
@@ -66,6 +70,36 @@ function ClipboardList({ items }) {
   const activeIndex = activeItem 
     ? itemsWithId.findIndex(item => item._sortId === activeId || item.id === activeId)
     : -1
+  
+  // 导航功能
+  const {
+    currentSelectedIndex,
+    navigateUp,
+    navigateDown,
+    executeCurrentItem,
+    handleItemHover,
+    handleScrollStart,
+    handleScrollEnd
+  } = useNavigation({
+    items: itemsWithId,
+    virtuosoRef,
+    onExecuteItem: async (item, index) => {
+      try {
+        await pasteClipboardItem(item.id)
+        console.log('粘贴成功:', item.id)
+      } catch (error) {
+        console.error('粘贴失败:', error)
+      }
+    },
+    enabled: snap.activeTab === 'clipboard'
+  })
+  
+  // 暴露导航方法给父组件
+  useImperativeHandle(ref, () => ({
+    navigateUp,
+    navigateDown,
+    executeCurrentItem
+  }))
 
   if (items.length === 0) {
     return (
@@ -89,6 +123,7 @@ function ClipboardList({ items }) {
       <div className="flex-1 bg-white dark:bg-gray-900 overflow-hidden custom-scrollbar-container">
         <SortableContext items={itemsWithId.map(item => item._sortId)} strategy={strategy}>
           <Virtuoso
+            ref={virtuosoRef}
             data={itemsWithId}
             scrollerRef={scrollerRefCallback}
             itemContent={(index, item) => (
@@ -97,9 +132,18 @@ function ClipboardList({ items }) {
                   item={item} 
                   index={index}
                   sortId={item._sortId}
+                  isSelected={currentSelectedIndex === index}
+                  onHover={() => handleItemHover(index)}
                 />
               </div>
             )}
+            isScrolling={(scrolling) => {
+              if (scrolling) {
+                handleScrollStart()
+              } else {
+                handleScrollEnd()
+              }
+            }}
             style={{ height: '100%' }}
           />
         </SortableContext>
@@ -118,7 +162,9 @@ function ClipboardList({ items }) {
       </DragOverlay>
     </DndContext>
   )
-}
+})
+
+ClipboardList.displayName = 'ClipboardList'
 
 export default ClipboardList
 

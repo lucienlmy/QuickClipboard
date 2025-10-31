@@ -1,10 +1,16 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { favoritesStore } from '@shared/store'
+import { navigationStore } from '@shared/store/navigationStore'
 import FavoritesList from './FavoritesList'
 
-function FavoritesTab({ contentFilter, searchQuery }) {
+const FavoritesTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
   const snap = useSnapshot(favoritesStore)
+  const listRef = useRef(null)
+
+  useEffect(() => {
+    navigationStore.resetNavigation()
+  }, [searchQuery, contentFilter])
 
   // 根据搜索和筛选条件过滤收藏项
   const filteredItems = useMemo(() => {
@@ -33,13 +39,22 @@ function FavoritesTab({ contentFilter, searchQuery }) {
 
     return filtered
   }, [snap.items, searchQuery, contentFilter])
+  
+  // 暴露导航方法给父组件
+  useImperativeHandle(ref, () => ({
+    navigateUp: () => listRef.current?.navigateUp?.(),
+    navigateDown: () => listRef.current?.navigateDown?.(),
+    executeCurrentItem: () => listRef.current?.executeCurrentItem?.()
+  }))
 
   return (
     <div className="h-full flex flex-col">
-      <FavoritesList items={filteredItems} />
+      <FavoritesList ref={listRef} items={filteredItems} />
     </div>
   )
-}
+})
+
+FavoritesTab.displayName = 'FavoritesTab'
 
 export default FavoritesTab
 

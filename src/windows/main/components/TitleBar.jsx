@@ -1,7 +1,7 @@
 import { IconApps, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import { useWindowDrag } from '@shared/hooks/useWindowDrag'
 import { toolsStore } from '@shared/store/toolsStore'
 import { useSortableList, useSortable, CSS } from '@shared/hooks/useSortable'
@@ -56,11 +56,12 @@ function DroppableTitlebar({ children, isEmpty }) {
   )
 }
 
-function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
+const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, onNavigate }, ref) => {
   const { t } = useTranslation()
   const { layout, isExpanded } = useSnapshot(toolsStore)
   const [activeId, setActiveId] = useState(null)
   const containerRef = useRef(null)
+  const searchRef = useRef(null)
   
   const dragRef = useWindowDrag({
     excludeSelectors: ['button', '[role="button"]', '[data-tool-id]', 'input', 'textarea'],
@@ -151,6 +152,15 @@ function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
   const activeLocation = activeId 
     ? (layout.titlebar.includes(activeId) ? 'titlebar' : 'panel')
     : null
+  
+  // 暴露搜索框的 focus 方法
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      if (searchRef.current?.focus) {
+        searchRef.current.focus()
+      }
+    }
+  }))
 
   return (
     <div 
@@ -168,9 +178,11 @@ function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
       <div className="flex items-center gap-1 relative flex-shrink-0" ref={containerRef}>
         {/* 搜索（贴着工具栏左侧） */}
         <TitleBarSearch 
+          ref={searchRef}
           value={searchQuery}
           onChange={onSearchChange}
           placeholder={searchPlaceholder}
+          onNavigate={onNavigate}
         />
         <DndContext
           sensors={sensors}
@@ -237,6 +249,8 @@ function TitleBar({ searchQuery, onSearchChange, searchPlaceholder }) {
       </div>
     </div>
   )
-}
+})
+
+TitleBar.displayName = 'TitleBar'
 
 export default TitleBar

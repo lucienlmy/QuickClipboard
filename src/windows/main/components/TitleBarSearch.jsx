@@ -1,8 +1,8 @@
 import { IconSearch } from '@tabler/icons-react'
-import { useState, useRef, useEffect } from 'react'
-import { useInputFocus } from '@shared/hooks/useInputFocus'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useInputFocus, focusWindowImmediately } from '@shared/hooks/useInputFocus'
 
-function TitleBarSearch({ value, onChange, placeholder }) {
+const TitleBarSearch = forwardRef(({ value, onChange, placeholder, onNavigate }, ref) => {
     const [isFocused, setIsFocused] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
     const inputRef = useInputFocus()
@@ -48,6 +48,49 @@ function TitleBarSearch({ value, onChange, placeholder }) {
             }, 100)
         }
     }
+    
+    const handleKeyDown = (e) => {
+        if (e.key === 'Tab') {
+            e.preventDefault()
+            inputRef.current?.blur()
+        }
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter') {
+            e.preventDefault()
+            inputRef.current?.blur()
+            
+            setTimeout(() => {
+                if (onNavigate) {
+                    if (e.key === 'ArrowUp') {
+                        onNavigate('up')
+                    } else if (e.key === 'ArrowDown') {
+                        onNavigate('down')
+                    } else if (e.key === 'Enter') {
+                        onNavigate('execute')
+                    }
+                }
+            }, 10)
+        }
+        else if (e.key === 'Escape') {
+            e.preventDefault()
+            inputRef.current?.blur()
+        }
+    }
+    
+    // 暴露方法给父组件
+    useImperativeHandle(ref, () => ({
+        focus: async () => {
+            if (inputRef.current) {
+                try {
+                    await focusWindowImmediately()
+                    
+                    inputRef.current.focus()
+                    inputRef.current.select()
+                } catch (error) {
+                    console.error('聚焦搜索框失败:', error)
+                }
+            }
+        }
+    }))
 
     return (
         <>
@@ -57,14 +100,15 @@ function TitleBarSearch({ value, onChange, placeholder }) {
                 className="titlebar-search relative flex items-center justify-end w-7"
             >
             {/* 输入框 - 从图标左侧展开，绝对定位 */}
-            <input
-                ref={inputRef}
-                type="search"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                onFocus={handleFocus}
-                onBlur={() => setIsFocused(false)}
-                placeholder={placeholder}
+                   <input
+                       ref={inputRef}
+                       type="search"
+                       value={value}
+                       onChange={(e) => onChange(e.target.value)}
+                       onFocus={handleFocus}
+                       onBlur={() => setIsFocused(false)}
+                       onKeyDown={handleKeyDown}
+                       placeholder={placeholder}
                 className={`absolute right-6 h-7 px-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all duration-300 ease-in-out shadow-sm ${isExpanded
                         ? 'w-30 opacity-100 mr-1'
                         : 'w-0 opacity-0 pointer-events-none border-0'
@@ -82,7 +126,9 @@ function TitleBarSearch({ value, onChange, placeholder }) {
         </div>
         </>
     )
-}
+})
+
+TitleBarSearch.displayName = 'TitleBarSearch'
 
 export default TitleBarSearch
 

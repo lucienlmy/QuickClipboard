@@ -5,7 +5,7 @@ import { useSnapshot } from 'valtio'
 import { groupsStore } from '@shared/store/groupsStore'
 import { showFavoriteItemContextMenu } from '@shared/utils/contextMenu'
 
-function FavoriteItem({ item, index, isDraggable = true }) {
+function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onHover, onClick }) {
   const {
     settings,
     getHeightClass,
@@ -43,6 +43,13 @@ function FavoriteItem({ item, index, isDraggable = true }) {
       console.error('粘贴收藏项失败:', err)
     }
   }
+  
+  // 处理鼠标悬停
+  const handleMouseEnter = () => {
+    if (onHover) {
+      onHover()
+    }
+  }
 
   // 处理右键菜单
   const handleContextMenu = async (e) => {
@@ -55,6 +62,11 @@ function FavoriteItem({ item, index, isDraggable = true }) {
   const shouldShowTitle = () => {
     return (contentType === 'text' || contentType === 'rich_text') && item.title
   }
+  
+  // 键盘选中样式
+  const selectedClasses = isSelected 
+    ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50'
+    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
   // 小行高模式（不显示标题）
   if (settings.rowHeight === 'small') {
@@ -64,9 +76,10 @@ function FavoriteItem({ item, index, isDraggable = true }) {
         style={style}
         {...attributes}
         {...listeners}
-        className={`favorite-item group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
+        className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onMouseEnter={handleMouseEnter}
       >
         {/* 浮动的序号和分组 */}
         <div className="absolute top-1 right-2 flex flex-col items-end gap-0.5 pointer-events-none">
@@ -97,9 +110,10 @@ function FavoriteItem({ item, index, isDraggable = true }) {
       style={style}
       {...attributes}
       {...listeners}
-      className={`favorite-item group relative flex flex-col px-2.5 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700/50 rounded-md cursor-move transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm ${getHeightClass()}`}
+      className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
+      onMouseEnter={handleMouseEnter}
     >
       {/* 浮动的序号和分组 */}
       <div className="absolute top-1 right-2 flex flex-col items-end gap-0.5 pointer-events-none">
