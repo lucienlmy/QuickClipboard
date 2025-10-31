@@ -14,8 +14,14 @@ function ClipboardTab({ contentFilter, searchQuery }) {
     
     // 类型过滤
     const contentType = item.content_type || item.type || 'text'
-    if (contentFilter !== 'all' && contentType !== contentFilter) {
-      return false
+    if (contentFilter !== 'all') {
+      if (contentFilter === 'text') {
+        if (contentType !== 'text' && contentType !== 'rich_text') {
+          return false
+        }
+      } else if (contentType !== contentFilter) {
+        return false
+      }
     }
     
     return true

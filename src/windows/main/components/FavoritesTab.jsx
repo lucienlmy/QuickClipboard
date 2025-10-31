@@ -14,6 +14,9 @@ function FavoritesTab({ contentFilter, searchQuery }) {
     if (contentFilter && contentFilter !== 'all') {
       filtered = filtered.filter(item => {
         const type = item.content_type || item.type
+        if (contentFilter === 'text') {
+          return type === 'text' || type === 'rich_text'
+        }
         return type === contentFilter
       })
     }
