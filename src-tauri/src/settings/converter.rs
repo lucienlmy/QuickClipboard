@@ -14,6 +14,7 @@ impl SettingsConverter {
             "showStartupNotification": settings.show_startup_notification,
             "historyLimit": settings.history_limit,
             "theme": settings.theme,
+            "darkThemeStyle": settings.dark_theme_style,
             "opacity": settings.opacity,
             "backgroundImagePath": settings.background_image_path,
             "toggleShortcut": settings.toggle_shortcut,
@@ -142,6 +143,7 @@ impl SettingsConverter {
         update_bool!(show_startup_notification, "showStartupNotification");
         update_u64!(history_limit, "historyLimit");
         update_string!(theme, "theme");
+        update_string!(dark_theme_style, "darkThemeStyle");
         update_f64!(opacity, "opacity");
         update_string!(background_image_path, "backgroundImagePath");
         update_string!(toggle_shortcut, "toggleShortcut");

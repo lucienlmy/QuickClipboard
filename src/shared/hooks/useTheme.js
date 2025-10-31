@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
+import darkThemeCss from '../styles/dark-theme.css?inline'
 
 // 监听系统主题变化
 let systemThemeMediaQuery = null
@@ -20,8 +21,27 @@ export function getEffectiveTheme(theme) {
   return theme
 }
 
+// 动态加载/卸载暗色主题CSS
+let darkThemeStyleElement = null
+
+function loadDarkThemeCSS() {
+  if (darkThemeStyleElement) return
+  
+  darkThemeStyleElement = document.createElement('style')
+  darkThemeStyleElement.id = 'dark-theme-classic'
+  darkThemeStyleElement.textContent = darkThemeCss
+  document.head.appendChild(darkThemeStyleElement)
+}
+
+function unloadDarkThemeCSS() {
+  if (darkThemeStyleElement) {
+    document.head.removeChild(darkThemeStyleElement)
+    darkThemeStyleElement = null
+  }
+}
+
 export function useTheme() {
-  const { theme, backgroundImagePath } = useSnapshot(settingsStore)
+  const { theme, darkThemeStyle, backgroundImagePath } = useSnapshot(settingsStore)
 
   useEffect(() => {
     // 监听系统主题变化
@@ -42,6 +62,20 @@ export function useTheme() {
     }
   }, [])
 
+  // 动态加载/卸载暗色主题CSS
+  useEffect(() => {
+    const effectiveTheme = getEffectiveTheme(theme)
+    const isDark = effectiveTheme === 'dark'
+    
+    // 如果是暗色主题且选择了 classic 风格，加载 CSS
+    if (isDark && darkThemeStyle === 'classic') {
+      loadDarkThemeCSS()
+    } else {
+      // 否则卸载 CSS
+      unloadDarkThemeCSS()
+    }
+  }, [theme, darkThemeStyle])
+
   // 计算实际应用的主题
   const effectiveTheme = getEffectiveTheme(theme)
   
@@ -56,7 +90,8 @@ export function useTheme() {
     effectiveTheme,
     isDark,
     isBackground,
-    backgroundImagePath
+    backgroundImagePath,
+    darkThemeStyle
   }
 }
 

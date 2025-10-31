@@ -33,8 +33,8 @@ export function useItemCommon(item) {
   const formatTime = () => {
     const timestamp = item.created_at || item.timestamp
     if (!timestamp) return ''
-    
-    const date = new Date(timestamp)
+
+    const date = new Date(timestamp * 1000)
     const now = new Date()
     const diff = now - date
     

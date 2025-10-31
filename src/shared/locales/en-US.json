@@ -71,7 +71,33 @@
   "settings": {
     "title": "Settings",
     "general": "General",
-    "appearance": "Appearance"
+    "appearance": {
+      "title": "Appearance",
+      "description": "Customize the appearance and theme of the application",
+      "themeSelect": "Theme Selection",
+      "themeSelectDesc": "Choose your preferred interface theme",
+      "themeAuto": "Follow System",
+      "themeLight": "Light Theme",
+      "themeDark": "Dark Theme",
+      "themeBackground": "Super Background",
+      "darkThemeStyle": "Dark Theme Style",
+      "darkThemeStyleDesc": "Choose the display style for dark theme",
+      "darkThemeModern": "Modern Style",
+      "darkThemeModernDesc": "Vibrant modern dark theme with rich colors",
+      "darkThemeClassic": "Classic Style",
+      "darkThemeClassicDesc": "Elegant gray-based dark theme",
+      "backgroundImage": "Background Image",
+      "backgroundImageDesc": "Select a custom background image for super background theme",
+      "selectBackgroundImage": "Select Background Image",
+      "changeBackgroundImage": "Change Background Image",
+      "clearBackgroundImage": "Clear Background Image",
+      "currentImage": "Current Image",
+      "backgroundImageSet": "Background image set",
+      "backgroundImageCleared": "Background image cleared",
+      "backgroundImageError": "Failed to set background image",
+      "clipboardAnimation": "Enable Clipboard Show/Hide Animation",
+      "clipboardAnimationDesc": "Enable or disable animation effects for clipboard window show and hide"
+    }
   },
   "footer": {
     "openClipboard": "Show/Hide",

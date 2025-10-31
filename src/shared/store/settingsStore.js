@@ -14,6 +14,8 @@ export const settingsStore = proxy({
   fontSize: 14,
   rowHeight: 'medium',
   
+  darkThemeStyle: 'classic',
+  
   // 加载设置
   async loadSettings() {
     const settings = await loadSettingsFromBackend()
@@ -68,6 +70,11 @@ export const settingsStore = proxy({
   // 主题设置
   setTheme(theme) {
     this.saveSetting('theme', theme)
+  },
+  
+  // 暗色主题风格设置
+  setDarkThemeStyle(style) {
+    this.saveSetting('darkThemeStyle', style)
   },
   
   // 语言设置

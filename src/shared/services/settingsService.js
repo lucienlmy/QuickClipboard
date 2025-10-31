@@ -13,6 +13,7 @@ export const defaultSettings = {
   
   // 外观设置
   theme: 'light',
+  darkThemeStyle: 'classic',
   opacity: 0.9,
   backgroundImagePath: '',
   clipboardAnimationEnabled: true,

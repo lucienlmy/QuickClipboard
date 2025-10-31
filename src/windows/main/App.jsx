@@ -20,7 +20,7 @@ import ToastContainer from '@shared/components/common/ToastContainer'
 
 function App() {
   const { t } = useTranslation()
-  const { theme, backgroundImagePath } = useSnapshot(settingsStore)
+  const { theme, darkThemeStyle, backgroundImagePath } = useSnapshot(settingsStore)
   const { effectiveTheme, isDark, isBackground } = useTheme()
   const [activeTab, setActiveTab] = useState('clipboard')
   const [contentFilter, setContentFilter] = useState('all')

@@ -23,7 +23,7 @@ import ToastContainer from '@shared/components/common/ToastContainer'
 
 function App() {
   const snap = useSnapshot(settingsStore)
-  const { theme, backgroundImagePath } = snap
+  const { theme, darkThemeStyle, backgroundImagePath } = snap
   const { effectiveTheme, isDark, isBackground } = useTheme()
   const [activeSection, setActiveSection] = useState('general')
 

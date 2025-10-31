@@ -1,0 +1,457 @@
+/* =================== 暗色主题样式（经典） =================== */
+
+/* 暗色主题颜色变量 */
+.theme-dark,
+.dark {
+  --text-primary: #e0e0e0;
+  --text-secondary: #ccc;
+  --text-tertiary: #888;
+  --text-muted: #888;
+
+  --bg-primary: rgba(30, 30, 30, 0.95);
+  --bg-secondary: rgba(50, 50, 50, 0.9);
+  --bg-tertiary: rgba(40, 40, 40, 0.95);
+  --bg-hover: rgba(60, 60, 60, 0.9);
+  --bg-active: rgba(74, 137, 220, 0.2);
+
+  --border-primary: rgba(255, 255, 255, 0.1);
+  --border-secondary: #444;
+  --border-hover: rgba(255, 255, 255, 0.2);
+
+  --shadow-primary: rgba(0, 0, 0, 0.2);
+  --shadow-secondary: rgba(0, 0, 0, 0.3);
+}
+
+/* =================== 基础样式 =================== */
+.theme-dark,
+.dark {
+  color: var(--text-primary);
+}
+
+.theme-dark .main-container,
+.dark .main-container {
+  background-color: rgba(30, 30, 30, 1) !important;
+}
+
+.theme-dark .settings-container,
+.dark .settings-container {
+  background-color: rgba(30, 30, 30, 1) !important;
+}
+
+/* =================== 标题栏 =================== */
+.theme-dark .title-bar,
+.dark .title-bar,
+.theme-dark .settings-header,
+.dark .settings-header {
+  background: var(--bg-tertiary) !important;
+  background-color: var(--bg-tertiary) !important;
+  background-image: none !important;
+  border-bottom-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* =================== 底部栏 =================== */
+.theme-dark .flex-shrink-0.h-5,
+.dark .flex-shrink-0.h-5 {
+  background: var(--bg-secondary) !important;
+  background-color: var(--bg-secondary) !important;
+  border-top-color: var(--border-primary) !important;
+}
+
+.theme-dark .flex-shrink-0.h-5 .bg-gradient-to-r,
+.dark .flex-shrink-0.h-5 .bg-gradient-to-r {
+  background: linear-gradient(to right, transparent, var(--bg-secondary) 30%, var(--bg-secondary)) !important;
+  background-image: linear-gradient(to right, transparent, var(--bg-secondary) 30%, var(--bg-secondary)) !important;
+}
+
+/* =================== Tab 导航 =================== */
+.theme-dark .tab-navigation,
+.dark .tab-navigation {
+  background: var(--bg-secondary) !important;
+  background-image: none !important;
+  border-bottom-color: var(--border-primary) !important;
+}
+
+/* =================== 列表项（剪贴板和收藏） =================== */
+.theme-dark .clipboard-item,
+.dark .clipboard-item,
+.theme-dark .favorite-item,
+.dark .favorite-item {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.theme-dark .clipboard-item:hover,
+.dark .clipboard-item:hover,
+.theme-dark .favorite-item:hover,
+.dark .favorite-item:hover {
+  background-color: var(--bg-hover) !important;
+  border-color: rgba(74, 137, 220, 0.6) !important;
+}
+
+.theme-dark .clipboard-item.bg-blue-100,
+.dark .clipboard-item.bg-blue-100,
+.theme-dark .favorite-item.bg-blue-100,
+.dark .favorite-item.bg-blue-100 {
+  background-color: rgba(93, 188, 255, 0.1) !important;
+  border-color: #108FEB !important;
+  box-shadow: 0 0 0 2px rgba(16, 143, 235, 0.3) !important;
+}
+
+/* =================== 文本颜色覆盖 =================== */
+.theme-dark .text-gray-800,
+.dark .text-gray-800,
+.theme-dark .text-gray-700,
+.dark .text-gray-700 {
+  color: var(--text-primary) !important;
+}
+
+.theme-dark .text-gray-600,
+.dark .text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+.theme-dark .text-gray-500,
+.dark .text-gray-500,
+.theme-dark .text-gray-400,
+.dark .text-gray-400 {
+  color: var(--text-tertiary) !important;
+}
+
+/* =================== 背景色覆盖 =================== */
+.theme-dark .from-gray-800,
+.dark .from-gray-800 {
+  --tw-gradient-from: var(--bg-tertiary) !important;
+  --tw-gradient-to: rgba(40, 40, 40, 0) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.theme-dark .to-gray-900,
+.dark .to-gray-900 {
+  --tw-gradient-to: var(--bg-secondary) !important;
+}
+
+.theme-dark .via-gray-900,
+.dark .via-gray-900 {
+  --tw-gradient-to: var(--bg-secondary) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--bg-secondary), var(--tw-gradient-to) !important;
+}
+
+.theme-dark .bg-gray-50,
+.dark .bg-gray-50 {
+  background-color: var(--bg-secondary) !important;
+}
+
+.theme-dark .bg-gray-100,
+.dark .bg-gray-100 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.theme-dark .bg-gray-200,
+.dark .bg-gray-200 {
+  background-color: var(--bg-hover) !important;
+}
+
+.theme-dark .bg-gray-800,
+.dark .bg-gray-800 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.theme-dark .bg-gray-900,
+.dark .bg-gray-900 {
+  background-color: var(--bg-secondary) !important;
+}
+
+.theme-dark .bg-white,
+.dark .bg-white {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* =================== 边框颜色覆盖 =================== */
+.theme-dark .border-gray-200,
+.dark .border-gray-200,
+.theme-dark .border-gray-300,
+.dark .border-gray-300 {
+  border-color: var(--border-primary) !important;
+}
+
+.theme-dark .border-gray-700,
+.dark .border-gray-700 {
+  border-color: var(--border-secondary) !important;
+}
+
+.theme-dark .text-blue-600,
+.dark .text-blue-600,
+.theme-dark .text-blue-500,
+.dark .text-blue-500,
+.theme-dark .text-blue-400,
+.dark .text-blue-400 {
+  color: #8bb3e8 !important;
+}
+
+.theme-dark .bg-blue-50,
+.dark .bg-blue-50 {
+  background-color: rgba(74, 137, 220, 0.15) !important;
+}
+
+.theme-dark .bg-blue-100,
+.dark .bg-blue-100 {
+  background-color: rgba(74, 137, 220, 0.2) !important;
+}
+
+.theme-dark .border-blue-200,
+.dark .border-blue-200,
+.theme-dark .border-blue-400,
+.dark .border-blue-400 {
+  border-color: rgba(74, 137, 220, 0.4) !important;
+}
+
+.theme-dark .border-blue-800,
+.dark .border-blue-800 {
+  border-color: rgba(74, 137, 220, 0.3) !important;
+}
+
+/* =================== 面板（工具面板、分组面板等） =================== */
+.theme-dark .tools-panel,
+.dark .tools-panel,
+.theme-dark .groups-panel,
+.dark .groups-panel,
+.theme-dark .row-height-menu,
+.dark .row-height-menu,
+.theme-dark .group-modal,
+.dark .group-modal {
+  background-color: rgba(50, 50, 50, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  border-color: var(--border-primary) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* =================== 输入框 =================== */
+.theme-dark input:not([type="range"]),
+.dark input:not([type="range"]),
+.theme-dark textarea,
+.dark textarea,
+.theme-dark select,
+.dark select {
+  background-color: #333 !important;
+  border-color: var(--border-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+.theme-dark input:not([type="range"]):focus,
+.dark input:not([type="range"]):focus,
+.theme-dark textarea:focus,
+.dark textarea:focus,
+.theme-dark select:focus,
+.dark select:focus {
+  border-color: #4a89dc !important;
+  box-shadow: 0 0 0 2px rgba(74, 137, 220, 0.2) !important;
+}
+
+.theme-dark input::placeholder,
+.dark input::placeholder,
+.theme-dark textarea::placeholder,
+.dark textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* =================== 按钮 =================== */
+.theme-dark .title-bar button:not(.bg-blue-500),
+.dark .title-bar button:not(.bg-blue-500) {
+  background-color: transparent !important;
+  color: var(--text-secondary) !important;
+}
+
+.theme-dark .title-bar button:not(.bg-blue-500):hover,
+.dark .title-bar button:not(.bg-blue-500):hover {
+  background-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.theme-dark .tab-navigation button:not(.bg-blue-500),
+.dark .tab-navigation button:not(.bg-blue-500) {
+  background-color: transparent !important;
+  color: var(--text-secondary) !important;
+}
+
+.theme-dark .tab-navigation button:not(.bg-blue-500):hover,
+.dark .tab-navigation button:not(.bg-blue-500):hover {
+  background-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.theme-dark .tab-navigation button.bg-blue-500,
+.dark .tab-navigation button.bg-blue-500 {
+  background-color: #4a89dc !important;
+}
+
+.theme-dark .title-bar button.bg-blue-500,
+.dark .title-bar button.bg-blue-500,
+.theme-dark .tools-panel button.bg-blue-500,
+.dark .tools-panel button.bg-blue-500 {
+  background-color: #4a89dc !important;
+}
+
+.theme-dark .flex-shrink-0.h-5 button,
+.dark .flex-shrink-0.h-5 button {
+  background-color: transparent !important;
+}
+
+.theme-dark .flex-shrink-0.h-5 button:hover,
+.dark .flex-shrink-0.h-5 button:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+.theme-dark .tools-panel button,
+.dark .tools-panel button {
+  background-color: transparent !important;
+}
+
+.theme-dark .tools-panel button:hover,
+.dark .tools-panel button:hover {
+  background-color: var(--border-primary) !important;
+}
+
+.theme-dark .groups-panel button:not(.bg-blue-500),
+.dark .groups-panel button:not(.bg-blue-500),
+.theme-dark .row-height-menu button:not(.bg-blue-500),
+.dark .row-height-menu button:not(.bg-blue-500),
+.theme-dark .group-modal button:not(.bg-blue-500):not(.bg-red-500),
+.dark .group-modal button:not(.bg-blue-500):not(.bg-red-500) {
+  background-color: transparent !important;
+}
+
+.theme-dark .groups-panel button:not(.bg-blue-500):hover,
+.dark .groups-panel button:not(.bg-blue-500):hover,
+.theme-dark .row-height-menu button:not(.bg-blue-500):hover,
+.dark .row-height-menu button:not(.bg-blue-500):hover,
+.theme-dark .group-modal button:not(.bg-blue-500):not(.bg-red-500):hover,
+.dark .group-modal button:not(.bg-blue-500):not(.bg-red-500):hover {
+  background-color: var(--border-primary) !important;
+}
+
+/* =================== 卡片 =================== */
+.theme-dark .card,
+.dark .card {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+/* =================== 滚动条 =================== */
+.theme-dark ::-webkit-scrollbar-thumb,
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(136, 142, 155, 0.4) !important;
+}
+
+.theme-dark ::-webkit-scrollbar-thumb:hover,
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(136, 142, 155, 0.6) !important;
+}
+
+.theme-dark ::-webkit-scrollbar-track,
+.dark ::-webkit-scrollbar-track {
+  background: rgba(15, 20, 25, 0.4) !important;
+}
+
+/* =================== 悬停效果 =================== */
+.theme-dark [class*="hover:bg-gray"]:hover,
+.dark [class*="hover:bg-gray"]:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+.theme-dark .hover\:bg-blue-600:hover,
+.dark .hover\:bg-blue-600:hover {
+  background-color: rgba(74, 137, 220, 0.8) !important;
+}
+
+/* =================== 阴影 =================== */
+.theme-dark .shadow-md,
+.dark .shadow-md {
+  box-shadow: 0 4px 12px var(--shadow-secondary) !important;
+}
+
+.theme-dark .shadow-lg,
+.dark .shadow-lg {
+  box-shadow: 0 8px 24px var(--shadow-secondary) !important;
+}
+
+/* =================== Toast 通知 =================== */
+.theme-dark .toast,
+.dark .toast {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* =================== 侧边栏（设置窗口） =================== */
+.theme-dark .settings-sidebar,
+.dark .settings-sidebar {
+  background: rgba(40, 40, 40, 0.85) !important;
+  border-right-color: var(--border-primary) !important;
+}
+
+/* =================== 序号徽章 =================== */
+.theme-dark .clipboard-item .bg-blue-50,
+.dark .clipboard-item .bg-blue-50,
+.theme-dark .favorite-item .bg-blue-50,
+.dark .favorite-item .bg-blue-50 {
+  background-color: rgba(74, 137, 220, 0.15) !important;
+}
+
+.theme-dark .clipboard-item .border-blue-200,
+.dark .clipboard-item .border-blue-200,
+.theme-dark .favorite-item .border-blue-200,
+.dark .favorite-item .border-blue-200 {
+  border-color: rgba(74, 137, 220, 0.4) !important;
+}
+
+.theme-dark .clipboard-item .text-blue-600,
+.dark .clipboard-item .text-blue-600,
+.theme-dark .favorite-item .text-blue-600,
+.dark .favorite-item .text-blue-600 {
+  color: #8bb3e8 !important;
+}
+
+.theme-dark .clipboard-item.keyboard-selected .bg-blue-50,
+.dark .clipboard-item.keyboard-selected .bg-blue-50,
+.theme-dark .favorite-item.keyboard-selected .bg-blue-50,
+.dark .favorite-item.keyboard-selected .bg-blue-50 {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.theme-dark .clipboard-item.keyboard-selected .border-blue-200,
+.dark .clipboard-item.keyboard-selected .border-blue-200,
+.theme-dark .favorite-item.keyboard-selected .border-blue-200,
+.dark .favorite-item.keyboard-selected .border-blue-200 {
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.theme-dark .clipboard-item.keyboard-selected .text-blue-600,
+.dark .clipboard-item.keyboard-selected .text-blue-600,
+.theme-dark .favorite-item.keyboard-selected .text-blue-600,
+.dark .favorite-item.keyboard-selected .text-blue-600 {
+  color: white !important;
+}
+
+/* =================== 分隔线 =================== */
+.theme-dark .divide-gray-200 > * + *,
+.dark .divide-gray-200 > * + * {
+  border-color: var(--border-primary) !important;
+}
+
+/* =================== 图片和文件预览 =================== */
+.theme-dark .image-content,
+.dark .image-content,
+.theme-dark .file-content,
+.dark .file-content {
+  background-color: #313131 !important;
+  border-color: #7c7c7c !important;
+}
+
+.theme-dark .file-item,
+.dark .file-item {
+  background-color: #313131 !important;
+  border: 0.1px solid #7c7c7c !important;
+}
+
