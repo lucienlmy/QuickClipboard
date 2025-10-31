@@ -150,6 +150,8 @@ pub fn get_virtual_screen_size() -> Result<(i32, i32, i32, i32), String> {
     crate::screenshot::screen_utils::ScreenUtils::get_virtual_screen_size()
 }
 
+const FRONTEND_CONTENT_INSET: i32 = 5;
+
 // 获取窗口所在显示器的边界（screen_utils）
 #[cfg(windows)]
 fn apply_magnetic_snap_and_bounds(
@@ -175,13 +177,20 @@ fn apply_magnetic_snap_and_bounds(
                 .map(|(_, my, _, mh)| my + mh)
                 .unwrap_or(vy + vh);
             
-            // 磁性吸附检查
-            if (constrained_x - vx).abs() <= MAGNETIC_DISTANCE { x = vx; }
-            else if ((vx + vw) - (constrained_x + pw)).abs() <= MAGNETIC_DISTANCE { x = vx + vw - pw; }
+            if (constrained_x - vx).abs() <= MAGNETIC_DISTANCE { 
+                x = vx - FRONTEND_CONTENT_INSET; 
+            }
+            else if ((vx + vw) - (constrained_x + pw)).abs() <= MAGNETIC_DISTANCE { 
+                x = vx + vw - pw + FRONTEND_CONTENT_INSET; 
+            }
             else { x = constrained_x; }
             
-            if (constrained_y - vy).abs() <= MAGNETIC_DISTANCE { y = vy; }
-            else if (monitor_bottom - (constrained_y + ph)).abs() <= MAGNETIC_DISTANCE { y = monitor_bottom - ph; }
+            if (constrained_y - vy).abs() <= MAGNETIC_DISTANCE { 
+                y = vy - FRONTEND_CONTENT_INSET; 
+            }
+            else if (monitor_bottom - (constrained_y + ph)).abs() <= MAGNETIC_DISTANCE { 
+                y = monitor_bottom - ph + FRONTEND_CONTENT_INSET; 
+            }
             else { y = constrained_y; }
         } else {
             x = constrained_x;

@@ -18,10 +18,12 @@ impl Default for EdgeSnapConfig {
     }
 }
 
+const FRONTEND_CONTENT_INSET: i32 = 5;
+
 // 获取隐藏偏移量
 fn get_hide_offset() -> i32 {
     let settings = crate::settings::get_global_settings();
-    settings.edge_hide_offset
+    settings.edge_hide_offset + FRONTEND_CONTENT_INSET
 }
 
 // 获取触发距离
@@ -175,16 +177,16 @@ fn get_snap_target(window: &WebviewWindow, window_rect: &RECT) -> Option<(SnapEd
 
     // 检查各边缘（左右上用虚拟桌面，下用当前显示器）
     if (window_rect.left - vx).abs() <= snap_distance {
-        Some((SnapEdge::Left, vx, window_rect.top))
+        Some((SnapEdge::Left, vx - FRONTEND_CONTENT_INSET, window_rect.top))
     } else if ((vx + vw) - window_rect.right).abs() <= snap_distance {
-        Some((SnapEdge::Right, vx + vw - window_width, window_rect.top))
+        Some((SnapEdge::Right, vx + vw - window_width + FRONTEND_CONTENT_INSET, window_rect.top))
     } else if (window_rect.top - vy).abs() <= snap_distance {
-        Some((SnapEdge::Top, window_rect.left, vy))
+        Some((SnapEdge::Top, window_rect.left, vy - FRONTEND_CONTENT_INSET))
     } else if (monitor_bottom - window_rect.bottom).abs() <= snap_distance {
         Some((
             SnapEdge::Bottom,
             window_rect.left,
-            monitor_bottom - window_height,
+            monitor_bottom - window_height + FRONTEND_CONTENT_INSET,
         ))
     } else {
         None
@@ -308,10 +310,10 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
 
     // 计算显示位置
     let (show_x, show_y) = match edge {
-        SnapEdge::Left => (vx, window_rect.top),
-        SnapEdge::Right => (vx + vw - window_width, window_rect.top),
-        SnapEdge::Top => (window_rect.left, vy),
-        SnapEdge::Bottom => (window_rect.left, monitor_bottom - window_height),
+        SnapEdge::Left => (vx - FRONTEND_CONTENT_INSET, window_rect.top),
+        SnapEdge::Right => (vx + vw - window_width + FRONTEND_CONTENT_INSET, window_rect.top),
+        SnapEdge::Top => (window_rect.left, vy - FRONTEND_CONTENT_INSET),
+        SnapEdge::Bottom => (window_rect.left, monitor_bottom - window_height + FRONTEND_CONTENT_INSET),
     };
 
     // 发送贴边弹动动画事件给前端，包含方向信息
