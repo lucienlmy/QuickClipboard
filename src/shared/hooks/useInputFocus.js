@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { focusClipboardWindow, restoreLastFocus } from '@shared/api'
 
 // 全局焦点状态
 let currentFocusState = 'normal'
@@ -27,7 +27,7 @@ async function debouncedEnableFocus() {
   
   focusDebounceTimer = setTimeout(async () => {
     try {
-      await invoke('focus_clipboard_window')
+      await focusClipboardWindow()
       currentFocusState = 'focused'
     } catch (error) {
       console.error('启用窗口焦点失败:', error)
@@ -69,7 +69,7 @@ async function debouncedRestoreFocus() {
     }
     
     try {
-      await invoke('restore_last_focus')
+      await restoreLastFocus()
       currentFocusState = 'normal'
     } catch (error) {
       console.error('恢复工具窗口模式失败:', error)
@@ -129,7 +129,7 @@ export async function focusWindowImmediately() {
   }
   
   try {
-    await invoke('focus_clipboard_window')
+    await focusClipboardWindow()
     currentFocusState = 'focused'
   } catch (error) {
     console.error('立即启用窗口焦点失败:', error)
@@ -139,7 +139,7 @@ export async function focusWindowImmediately() {
 // 恢复工具窗口模式
 export async function restoreFocus() {
   try {
-    await invoke('restore_last_focus')
+    await restoreLastFocus()
     currentFocusState = 'normal'
   } catch (error) {
     console.error('恢复焦点失败:', error)

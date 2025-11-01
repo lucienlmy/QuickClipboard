@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { invoke, convertFileSrc } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { processHTMLImages } from '@shared/utils/htmlProcessor'
+import { getImageFilePath } from '@shared/api'
 
 // HTML 富文本内容组件
 function HtmlContent({ htmlContent, lineClampClass }) {
@@ -17,9 +18,7 @@ function HtmlContent({ htmlContent, lineClampClass }) {
         const imageId = img.getAttribute('data-image-id')
         if (imageId) {
           try {
-            const filePath = await invoke('get_image_file_path', { 
-              content: `image:${imageId}` 
-            })
+            const filePath = await getImageFilePath(`image:${imageId}`)
             const assetUrl = convertFileSrc(filePath, 'asset')
             img.src = assetUrl
             img.classList.remove('html-image-pending')

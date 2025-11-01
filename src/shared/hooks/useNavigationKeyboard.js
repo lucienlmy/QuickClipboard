@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { invoke } from '@tauri-apps/api/core'
+import { toggleWindowVisibility } from '@shared/api'
 
 // 全局键盘导航Hook
 export function useNavigationKeyboard({
@@ -51,7 +51,7 @@ export function useNavigationKeyboard({
               if (onHideWindow) {
                 onHideWindow()
               } else {
-                invoke('toggle_window_visibility').catch(err => {
+                toggleWindowVisibility().catch(err => {
                   console.error('切换窗口可见性失败:', err)
                 })
               }

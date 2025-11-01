@@ -1,4 +1,11 @@
-import { invoke } from '@tauri-apps/api/core'
+import {
+  setWindowPinned,
+  openSettingsWindow,
+  startScreenshot,
+  checkAiTranslationConfig,
+  enableAiTranslationCancelShortcut,
+  disableAiTranslationCancelShortcut
+} from '@shared/api'
 
 // 不持久化的临时工具状态
 const temporaryTools = ['pin-button']
@@ -77,7 +84,7 @@ export const toolActions = {
     const newState = !currentState
     
     try {
-      await invoke('set_window_pinned', { pinned: newState })
+      await setWindowPinned(newState)
       setToolState('pin-button', newState)
       return newState
     } catch (error) {
@@ -89,7 +96,7 @@ export const toolActions = {
   // 打开设置
   'settings-button': async () => {
     try {
-      await invoke('open_settings_window')
+      await openSettingsWindow()
     } catch (error) {
       console.error('打开设置窗口失败:', error)
       throw error
@@ -99,7 +106,7 @@ export const toolActions = {
   // 截图
   'screenshot-button': async () => {
     try {
-      await invoke('start_builtin_screenshot')
+      await startScreenshot()
     } catch (error) {
       console.error('启动截图失败:', error)
       throw error
@@ -126,7 +133,7 @@ export const toolActions = {
     
     try {
       // 检查AI翻译配置
-      const hasConfig = await invoke('check_ai_translation_config')
+      const hasConfig = await checkAiTranslationConfig()
       if (!hasConfig && newState) {
         console.warn('AI翻译未配置')
       }
@@ -140,9 +147,9 @@ export const toolActions = {
       
       // 启用/禁用快捷键
       if (newState) {
-        await invoke('enable_ai_translation_cancel_shortcut')
+        await enableAiTranslationCancelShortcut()
       } else {
-        await invoke('disable_ai_translation_cancel_shortcut')
+        await disableAiTranslationCancelShortcut()
       }
       
       // 触发自定义事件

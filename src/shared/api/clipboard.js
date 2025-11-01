@@ -117,9 +117,9 @@ export async function openTextEditor() {
 }
 
 // 钉图片到屏幕
-export async function pinImageToScreen(filePath) {
+export async function pinImageToScreen(clipboardId) {
   try {
-    await invoke('pin_image_from_file', { filePath })
+    await invoke('pin_image_to_screen', { clipboardId })
     return true
   } catch (error) {
     console.error('钉图到屏幕失败:', error)
@@ -139,9 +139,9 @@ export async function saveImageToFile(content, filePath) {
 }
 
 // 使用默认程序打开文件
-export async function openFileWithDefaultProgram(filePath) {
+export async function openFileWithDefaultProgram(clipboardId) {
   try {
-    await invoke('open_file_with_default_program', { filePath })
+    await invoke('open_file_with_default_program', { clipboardId })
     return true
   } catch (error) {
     console.error('打开文件失败:', error)
@@ -150,9 +150,9 @@ export async function openFileWithDefaultProgram(filePath) {
 }
 
 // 打开文件位置
-export async function openFileLocation(filePath) {
+export async function openFileLocation(clipboardId) {
   try {
-    await invoke('open_file_location', { filePath })
+    await invoke('open_file_location', { clipboardId })
     return true
   } catch (error) {
     console.error('打开文件位置失败:', error)
@@ -174,5 +174,21 @@ export async function updateClipboardItem(id, content) {
 // 获取单个收藏项
 export async function getFavoriteItemById(id) {
   return await invoke('get_favorite_item_by_id', { id })
+}
+
+// 添加剪贴板项到收藏
+export async function addClipboardToFavorites(id, groupName) {
+  await invoke('add_clipboard_to_favorites', { id, groupName })
+  await invoke('emit_quick_texts_updated')
+}
+
+// 保存剪贴板图片
+export async function saveImageFromClipboard(clipboardId) {
+  return await invoke('save_image_from_clipboard', { clipboardId })
+}
+
+// 复制文件路径
+export async function copyFilePaths(clipboardId) {
+  return await invoke('copy_file_paths', { clipboardId })
 }
 

@@ -1,8 +1,18 @@
 // 右键菜单工具函数
 import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plugins/context_menu/index.js'
-import { invoke } from '@tauri-apps/api/core'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import i18n from '@shared/i18n'
+import {
+  addClipboardToFavorites,
+  pinImageToScreen,
+  saveImageFromClipboard,
+  openFileWithDefaultProgram,
+  openFileLocation,
+  copyFilePaths,
+  clearClipboardHistory,
+  moveFavoriteToGroup,
+  deleteFavorite
+} from '@shared/api'
 
 // 获取搜索引擎列表
 function getSearchEngines() {
@@ -149,11 +159,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
     if (result.startsWith('add-to-group-')) {
       const groupName = result.substring(13)
       try {
-        await invoke('add_clipboard_to_favorites', { 
-          id: item.id,
-          groupName: groupName
-        })
-        await invoke('emit_quick_texts_updated')
+        await addClipboardToFavorites(item.id, groupName)
       } catch (error) {
         console.error('添加到收藏失败:', error)
       }
@@ -163,10 +169,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
     // 如果点击了父菜单项"添加到收藏"（没有选择分组），默认添加到"全部"
     if (result === 'add-to-favorites') {
       try {
-        await invoke('add_clipboard_to_favorites', { 
-          id: item.id
-        })
-        await invoke('emit_quick_texts_updated')
+        await addClipboardToFavorites(item.id)
       } catch (error) {
         console.error('添加到收藏失败:', error)
       }
@@ -175,23 +178,23 @@ export async function showClipboardItemContextMenu(event, item, index) {
     
     switch (result) {
       case 'pin-image':
-        await invoke('pin_image_to_screen', { clipboardId: item.id })
+        await pinImageToScreen(item.id)
         break
       
       case 'save-image':
-        await invoke('save_image_from_clipboard', { clipboardId: item.id })
+        await saveImageFromClipboard(item.id)
         break
       
       case 'open-file':
-        await invoke('open_file_with_default_program', { clipboardId: item.id })
+        await openFileWithDefaultProgram(item.id)
         break
       
       case 'open-location':
-        await invoke('open_file_location', { clipboardId: item.id })
+        await openFileLocation(item.id)
         break
       
       case 'copy-path':
-        await invoke('copy_file_paths', { clipboardId: item.id })
+        await copyFilePaths(item.id)
         break
       
       case 'edit-text':
@@ -211,7 +214,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
           '确认清空'
         )
         if (confirmed) {
-          await invoke('clear_clipboard_history')
+          await clearClipboardHistory()
           const { loadClipboardItems } = await import('@shared/store/clipboardStore')
           await loadClipboardItems()
         }
@@ -274,10 +277,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     // 处理移动到分组
     if (result.startsWith('move-to-group-')) {
       const groupName = result.substring(14)
-      await invoke('move_quick_text_to_group', { 
-        id: String(item.id),
-        groupName: groupName
-      })
+      await moveFavoriteToGroup(item.id, groupName)
       const { loadFavorites } = await import('@shared/store/favoritesStore')
       await loadFavorites()
       return
@@ -296,7 +296,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
           '确认删除'
         )
         if (confirmed) {
-          await invoke('delete_quick_text', { id: item.id })
+          await deleteFavorite(item.id)
           const { loadFavorites } = await import('@shared/store/favoritesStore')
           await loadFavorites()
         }

@@ -29,6 +29,11 @@ export async function deleteFavorite(id) {
   return await invoke('delete_quick_text', { id })
 }
 
+// 移动收藏项位置
+export async function moveFavoriteItem(itemId, toIndex) {
+  return await invoke('move_quick_text_item', { itemId, toIndex })
+}
+
 // 粘贴收藏内容
 export async function pasteFavorite(id) {
   try {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { restoreLastFocus, startCustomDrag, stopCustomDrag } from '@shared/api'
 
 // 自定义窗口拖拽 Hook
 export function useWindowDrag(options = {}) {
@@ -31,7 +31,7 @@ export function useWindowDrag(options = {}) {
 
       try {
         // 恢复上次的焦点窗口
-        await invoke('restore_last_focus')
+        await restoreLastFocus()
       } catch (error) {
         console.error('恢复焦点窗口失败:', error)
       }
@@ -46,10 +46,7 @@ export function useWindowDrag(options = {}) {
 
       try {
         // 调用 Rust 后端开始拖拽
-        await invoke('start_custom_drag', {
-          mouseScreenX: initialEvent.screenX,
-          mouseScreenY: initialEvent.screenY
-        })
+        await startCustomDrag(initialEvent.screenX, initialEvent.screenY)
 
         // 设置拖拽样式
         document.body.style.userSelect = 'none'
@@ -59,7 +56,7 @@ export function useWindowDrag(options = {}) {
         const onMouseUp = async () => {
           // 停止 Rust 拖拽
           try {
-            await invoke('stop_custom_drag')
+            await stopCustomDrag()
           } catch (error) {
             console.error('停止拖拽失败:', error)
           }

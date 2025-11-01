@@ -1,12 +1,12 @@
 import { Virtuoso } from 'react-virtuoso'
 import { useCallback, useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useSnapshot } from 'valtio'
-import { invoke } from '@tauri-apps/api/core'
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar'
 import { useSortableList } from '@shared/hooks/useSortable'
 import { useNavigation } from '@shared/hooks/useNavigation'
 import { favoritesStore, loadFavorites, pasteFavorite } from '@shared/store/favoritesStore'
 import { navigationStore } from '@shared/store/navigationStore'
+import { moveFavoriteItem } from '@shared/api'
 import FavoriteItem from './FavoriteItem'
 
 const FavoritesList = forwardRef(({ items, onScrollStateChange }, ref) => {
@@ -33,10 +33,7 @@ const FavoritesList = forwardRef(({ items, onScrollStateChange }, ref) => {
     // 异步调用后端 API
     try {
       const item = items[oldIndex]
-      await invoke('move_quick_text_item', {
-        itemId: item.id,
-        toIndex: newIndex
-      })
+      await moveFavoriteItem(item.id, newIndex)
     } catch (error) {
       console.error('移动收藏项失败:', error)
       // 失败后重新加载以恢复正确状态

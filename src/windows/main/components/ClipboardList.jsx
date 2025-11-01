@@ -1,12 +1,12 @@
 import { Virtuoso } from 'react-virtuoso'
 import { useCallback, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useSnapshot } from 'valtio'
-import { invoke } from '@tauri-apps/api/core'
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar'
 import { useSortableList } from '@shared/hooks/useSortable'
 import { useNavigation } from '@shared/hooks/useNavigation'
 import { clipboardStore, loadClipboardItems, pasteClipboardItem } from '@shared/store/clipboardStore'
 import { navigationStore } from '@shared/store/navigationStore'
+import { moveClipboardItem } from '@shared/api'
 import ClipboardItem from './ClipboardItem'
 
 const ClipboardList = forwardRef(({ items, onScrollStateChange }, ref) => {
@@ -40,10 +40,7 @@ const ClipboardList = forwardRef(({ items, onScrollStateChange }, ref) => {
     
     // 异步调用后端 API
     try {
-      await invoke('move_clipboard_item', {
-        fromIndex: oldIndex,
-        toIndex: newIndex
-      })
+      await moveClipboardItem(oldIndex, newIndex)
     } catch (error) {
       console.error('移动剪贴板项失败:', error)
       // 失败后重新加载以恢复正确状态

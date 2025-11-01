@@ -1,4 +1,14 @@
-import { invoke } from '@tauri-apps/api/core'
+import {
+  reloadSettings,
+  saveSettings as saveSettingsApi,
+  setEdgeHideEnabled as setEdgeHideEnabledApi,
+  getAllWindowsInfo,
+  hideMainWindowIfAutoShown,
+  getAppVersion as getAppVersionApi,
+  getAdminStatus as getAdminStatusApi,
+  restartAsAdmin as restartAsAdminApi,
+  isPortableMode as isPortableModeApi
+} from '@shared/api'
 import { emit } from '@tauri-apps/api/event'
 import { toast } from '@shared/store/toastStore'
 
@@ -107,7 +117,7 @@ export const defaultSettings = {
 // 从 Tauri 后端加载设置
 export async function loadSettingsFromBackend() {
   try {
-    const savedSettings = await invoke('reload_settings')
+    const savedSettings = await reloadSettings()
     
     // 合并默认设置和保存的设置
     const mergedSettings = { ...defaultSettings, ...savedSettings }
@@ -133,7 +143,7 @@ export async function saveSettingsToBackend(settings, options = {}) {
     await emit('settings-changed', settings)
     
     // 保存到后端
-    await invoke('save_settings', { settings })
+    await saveSettingsApi(settings)
     
     if (showToast) {
       toast.success('设置已保存')
@@ -157,7 +167,7 @@ export async function saveSingleSetting(key, value, allSettings) {
 // 获取应用版本
 export async function getAppVersion() {
   try {
-    const versionInfo = await invoke('get_app_version')
+    const versionInfo = await getAppVersionApi()
     return versionInfo
   } catch (error) {
     console.error('获取版本信息失败:', error)
@@ -168,7 +178,7 @@ export async function getAppVersion() {
 // 检查管理员状态
 export async function getAdminStatus() {
   try {
-    return await invoke('get_admin_status')
+    return await getAdminStatusApi()
   } catch (error) {
     console.error('检查管理员状态失败:', error)
     return { is_admin: false }
@@ -178,7 +188,7 @@ export async function getAdminStatus() {
 // 以管理员权限重启
 export async function restartAsAdmin() {
   try {
-    await invoke('restart_as_admin')
+    await restartAsAdminApi()
     return { success: true }
   } catch (error) {
     console.error('重启为管理员失败:', error)
@@ -189,7 +199,7 @@ export async function restartAsAdmin() {
 // 检查是否为便携版模式
 export async function isPortableMode() {
   try {
-    return await invoke('is_portable_mode')
+    return await isPortableModeApi()
   } catch (error) {
     console.error('检查便携版模式失败:', error)
     return false
@@ -199,7 +209,7 @@ export async function isPortableMode() {
 // 设置贴边隐藏
 export async function setEdgeHideEnabled(enabled) {
   try {
-    await invoke('set_edge_hide_enabled', { enabled })
+    await setEdgeHideEnabledApi(enabled)
     return { success: true }
   } catch (error) {
     console.error('更新贴边隐藏设置失败:', error)
@@ -208,9 +218,9 @@ export async function setEdgeHideEnabled(enabled) {
 }
 
 // 获取所有窗口信息（用于应用过滤）
-export async function getAllWindowsInfo() {
+export async function getAllWindowsInfoService() {
   try {
-    return await invoke('get_all_windows_info_cmd')
+    return await getAllWindowsInfo()
   } catch (error) {
     console.error('获取应用列表失败:', error)
     return []
@@ -218,9 +228,9 @@ export async function getAllWindowsInfo() {
 }
 
 // 隐藏主窗口（如果是自动显示的）
-export async function hideMainWindowIfAutoShown() {
+export async function hideMainWindowIfAutoShownService() {
   try {
-    await invoke('hide_main_window_if_auto_shown')
+    await hideMainWindowIfAutoShown()
   } catch (error) {
     console.error('隐藏主窗口失败:', error)
   }
