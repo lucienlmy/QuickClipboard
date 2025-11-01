@@ -13,9 +13,17 @@ pub fn create_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, Box<dyn std
     let settings_item = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
     let screenshot_item = MenuItem::with_id(app, "screenshot", "截屏", true, None::<&str>)?;
     
-    // TODO: 从配置读取状态
-    let hotkeys_label = "启用快捷键";
-    let monitor_label = "启用剪贴板监听";
+    let settings = crate::get_settings();
+    let hotkeys_label = if settings.hotkeys_enabled {
+        "禁用快捷键"
+    } else {
+        "启用快捷键"
+    };
+    let monitor_label = if settings.clipboard_monitor {
+        "禁用剪贴板监听"
+    } else {
+        "启用剪贴板监听"
+    };
 
     let toggle_hotkeys_item = MenuItem::with_id(app, "toggle-hotkeys", hotkeys_label, true, None::<&str>)?;
     let toggle_monitor_item = MenuItem::with_id(app, "toggle-clipboard-monitor", monitor_label, true, None::<&str>)?;
@@ -46,4 +54,3 @@ pub fn create_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, Box<dyn std
 
     Ok(menu)
 }
-
