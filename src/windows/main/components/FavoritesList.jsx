@@ -1,6 +1,7 @@
 import { Virtuoso } from 'react-virtuoso'
 import { useCallback, useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useSnapshot } from 'valtio'
+import { invoke } from '@tauri-apps/api/core'
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar'
 import { useSortableList } from '@shared/hooks/useSortable'
 import { useNavigation } from '@shared/hooks/useNavigation'
@@ -8,7 +9,7 @@ import { favoritesStore, loadFavorites, pasteFavorite } from '@shared/store/favo
 import { navigationStore } from '@shared/store/navigationStore'
 import FavoriteItem from './FavoriteItem'
 
-const FavoritesList = forwardRef(({ items }, ref) => {
+const FavoritesList = forwardRef(({ items, onScrollStateChange }, ref) => {
   const [scrollerElement, setScrollerElement] = useState(null)
   const virtuosoRef = useRef(null)
   const snap = useSnapshot(navigationStore)
@@ -91,7 +92,14 @@ const FavoritesList = forwardRef(({ items }, ref) => {
   useImperativeHandle(ref, () => ({
     navigateUp,
     navigateDown,
-    executeCurrentItem
+    executeCurrentItem,
+    scrollToTop: () => {
+      virtuosoRef.current?.scrollToIndex({
+        index: 0,
+        align: 'start',
+        behavior: 'smooth'
+      })
+    }
   }))
 
   if (items.length === 0) {
@@ -119,6 +127,9 @@ const FavoritesList = forwardRef(({ items }, ref) => {
             ref={virtuosoRef}
             data={items}
             scrollerRef={scrollerRefCallback}
+            atTopStateChange={(atTop) => {
+              onScrollStateChange?.({ atTop })
+            }}
             itemContent={(index, item) => (
               <div className="px-2.5 pb-2 pt-1">
                 <FavoriteItem 

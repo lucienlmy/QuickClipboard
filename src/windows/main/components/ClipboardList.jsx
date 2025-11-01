@@ -1,6 +1,7 @@
 import { Virtuoso } from 'react-virtuoso'
 import { useCallback, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useSnapshot } from 'valtio'
+import { invoke } from '@tauri-apps/api/core'
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar'
 import { useSortableList } from '@shared/hooks/useSortable'
 import { useNavigation } from '@shared/hooks/useNavigation'
@@ -8,7 +9,7 @@ import { clipboardStore, loadClipboardItems, pasteClipboardItem } from '@shared/
 import { navigationStore } from '@shared/store/navigationStore'
 import ClipboardItem from './ClipboardItem'
 
-const ClipboardList = forwardRef(({ items }, ref) => {
+const ClipboardList = forwardRef(({ items, onScrollStateChange }, ref) => {
   const [scrollerElement, setScrollerElement] = useState(null)
   const virtuosoRef = useRef(null)
   const snap = useSnapshot(navigationStore)
@@ -98,7 +99,14 @@ const ClipboardList = forwardRef(({ items }, ref) => {
   useImperativeHandle(ref, () => ({
     navigateUp,
     navigateDown,
-    executeCurrentItem
+    executeCurrentItem,
+    scrollToTop: () => {
+      virtuosoRef.current?.scrollToIndex({
+        index: 0,
+        align: 'start',
+        behavior: 'smooth'
+      })
+    }
   }))
 
   if (items.length === 0) {
@@ -126,6 +134,9 @@ const ClipboardList = forwardRef(({ items }, ref) => {
             ref={virtuosoRef}
             data={itemsWithId}
             scrollerRef={scrollerRefCallback}
+            atTopStateChange={(atTop) => {
+              onScrollStateChange?.({ atTop })
+            }}
             itemContent={(index, item) => (
               <div className="px-2.5 pb-2 pt-1">
                 <ClipboardItem 

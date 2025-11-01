@@ -128,6 +128,11 @@
     "aiTranslation": "AI Translation",
     "formatToggle": "Format Paste",
     "musicPlayer": "Music Player"
+  },
+  "floatingToolbar": {
+    "scrollToTop": "Scroll to Top",
+    "addFavorite": "Add Favorite",
+    "dragToMove": "Drag to Move Toolbar"
   }
 }
 

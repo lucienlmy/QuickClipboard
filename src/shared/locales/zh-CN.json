@@ -202,6 +202,11 @@
     "aiTranslation": "AI翻译",
     "formatToggle": "格式粘贴",
     "musicPlayer": "音乐播放器"
+  },
+  "floatingToolbar": {
+    "scrollToTop": "返回顶部",
+    "addFavorite": "添加收藏项",
+    "dragToMove": "拖拽移动工具栏"
   }
 }
 

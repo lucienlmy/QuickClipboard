@@ -1,12 +1,14 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
+import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { clipboardStore } from '@shared/store/clipboardStore'
 import { navigationStore } from '@shared/store/navigationStore'
 import ClipboardList from './ClipboardList'
+import FloatingToolbar from './FloatingToolbar'
 
 const ClipboardTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
   const snap = useSnapshot(clipboardStore)
   const listRef = useRef(null)
+  const [isAtTop, setIsAtTop] = useState(true)
 
   useEffect(() => {
     navigationStore.resetNavigation()
@@ -40,11 +42,32 @@ const ClipboardTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
     navigateDown: () => listRef.current?.navigateDown?.(),
     executeCurrentItem: () => listRef.current?.executeCurrentItem?.()
   }))
+  
+  // 处理滚动状态变化
+  const handleScrollStateChange = ({ atTop }) => {
+    setIsAtTop(atTop)
+  }
+  
+  // 处理返回顶部
+  const handleScrollToTop = () => {
+    listRef.current?.scrollToTop?.()
+  }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
       {/* 列表 */}
-      <ClipboardList ref={listRef} items={filteredItems} />
+      <ClipboardList 
+        ref={listRef} 
+        items={filteredItems}
+        onScrollStateChange={handleScrollStateChange}
+      />
+      
+      {/* 悬浮工具栏 */}
+      <FloatingToolbar 
+        showScrollTop={!isAtTop && filteredItems.length > 0}
+        showAddFavorite={false}
+        onScrollTop={handleScrollToTop}
+      />
     </div>
   )
 })
