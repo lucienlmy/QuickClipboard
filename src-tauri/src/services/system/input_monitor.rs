@@ -184,10 +184,78 @@ fn handle_mouse_wheel(_delta_x: i64, _delta_y: i64) {
 }
 
 fn handle_middle_button_press() {
-    println!("鼠标中键点击");
+    if let Some(window) = MAIN_WINDOW.get() {
+        let settings = crate::get_settings();
+        
+        // 检查修饰键要求
+        let modifier_match = match settings.mouse_middle_button_modifier.as_str() {
+            "None" => true,
+            "Ctrl" => {
+                let (ctrl, _, _, _) = get_modifier_keys_state();
+                ctrl
+            }
+            "Alt" => {
+                let (_, alt, _, _) = get_modifier_keys_state();
+                alt
+            }
+            "Shift" => {
+                let (_, _, shift, _) = get_modifier_keys_state();
+                shift
+            }
+            "Meta" => {
+                let (_, _, _, meta) = get_modifier_keys_state();
+                meta
+            }
+            _ => false,
+        };
+        
+        if !modifier_match {
+            return;
+        }
+        
+        // 中键点击切换窗口显示
+        let is_visible = window.is_visible().unwrap_or(false);
+        if is_visible {
+            crate::hide_main_window(window);
+        } else {
+            crate::show_main_window(window);
+        }
+    }
 }
 
 fn handle_click_outside() {
-    println!("检测到点击外部");
+    if let Some(window) = MAIN_WINDOW.get() {
+        // 只有在窗口可见时才处理点击外部
+        let is_visible = window.is_visible().unwrap_or(false);
+        if !is_visible {
+            return;
+        }
+        
+        // 获取鼠标位置
+        let (cursor_x, cursor_y) = match crate::mouse::get_cursor_position() {
+            Ok(pos) => pos,
+            Err(_) => return,
+        };
+        
+        // 获取窗口边界
+        let (win_x, win_y, win_width, win_height) = match crate::get_window_bounds(window) {
+            Ok(bounds) => bounds,
+            Err(_) => return,
+        };
+        
+        // 检查鼠标是否在窗口外
+        let mouse_outside_window = cursor_x < win_x
+            || cursor_x > win_x + win_width as i32
+            || cursor_y < win_y
+            || cursor_y > win_y + win_height as i32;
+        
+        if mouse_outside_window {
+            // 如果窗口已经吸附到边缘，则恢复位置后隐藏
+            if crate::is_window_snapped() {
+                let _ = crate::restore_from_snap(window);
+            }
+            crate::hide_main_window(window);
+        }
+    }
 }
 

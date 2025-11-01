@@ -113,6 +113,9 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     animate_window_position(window, x, y, hide_x, hide_y, 200)?;
     set_hidden(true);
     
+    // 禁用鼠标监听
+    crate::input_monitor::disable_mouse_monitoring();
+    
     Ok(())
 }
 
@@ -143,6 +146,9 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     // 执行平滑动画
     animate_window_position(window, x, y, show_x, show_y, 200)?;
     set_hidden(false);
+    
+    // 启用鼠标监听
+    crate::input_monitor::enable_mouse_monitoring();
     
     Ok(())
 }

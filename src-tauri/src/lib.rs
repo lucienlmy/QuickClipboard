@@ -69,6 +69,8 @@ pub fn run() {
             .setup(|app| {
                 let window = app.get_webview_window("main")
                     .ok_or("无法获取主窗口")?;
+                window.set_focusable(false)
+                    .map_err(|e| format!("设置窗口无焦点失败: {}", e))?;
                 utils::init_screen_utils(app.handle().clone());
                 
                 hotkey::init_hotkey_manager(app.handle().clone(), window.clone());

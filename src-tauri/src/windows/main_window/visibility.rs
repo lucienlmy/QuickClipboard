@@ -31,9 +31,11 @@ pub fn show_main_window(window: &WebviewWindow) {
     }
     
     let _ = window.show();
-    let _ = window.set_focus();
     
     set_window_state(WindowState::Visible);
+    
+    // 启用鼠标监听
+    crate::input_monitor::enable_mouse_monitoring();
 }
 
 pub fn hide_main_window(window: &WebviewWindow) {
@@ -43,11 +45,16 @@ pub fn hide_main_window(window: &WebviewWindow) {
         let state = super::state::get_window_state();
         let _ = super::snap_to_edge(window, state.snap_edge);
         set_window_state(WindowState::Hidden);
+        // 禁用鼠标监听
+        crate::input_monitor::disable_mouse_monitoring();
         return;
     }
     
     let _ = window.hide();
     set_window_state(WindowState::Hidden);
+    
+    // 禁用鼠标监听
+    crate::input_monitor::disable_mouse_monitoring();
 }
 
 pub fn toggle_main_window_visibility(app: &AppHandle) {
