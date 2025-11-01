@@ -4,7 +4,7 @@ use tauri::{
     AppHandle,
 };
 
-use super::{create_tray_menu, create_click_handler};
+use super::{create_tray_menu, create_click_handler, handle_menu_event};
 
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let menu = create_tray_menu(app)?;
@@ -32,6 +32,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         })
+        .on_menu_event(handle_menu_event)
         .build(app)?;
 
     Ok(())
