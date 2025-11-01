@@ -16,7 +16,9 @@
     "close": "Close",
     "search": "Search",
     "settings": "Settings",
-    "language": "Language"
+    "language": "Language",
+    "minimize": "Minimize",
+    "maximize": "Maximize"
   },
   "clipboard": {
     "title": "Clipboard",
@@ -133,6 +135,39 @@
     "scrollToTop": "Scroll to Top",
     "addFavorite": "Add Favorite",
     "dragToMove": "Drag to Move Toolbar"
+  },
+  "textEditor": {
+    "title": "Text Editor",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter title...",
+    "plainText": "Plain Text",
+    "richText": "Rich Text",
+    "plainTextMode": "Plain Text Mode",
+    "richTextMode": "Rich Text Mode",
+    "wordWrap": "Word Wrap",
+    "reset": "Reset",
+    "placeholder": "Edit your content here...",
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "strikethrough": "Strikethrough",
+    "heading1": "Heading 1",
+    "heading2": "Heading 2",
+    "heading3": "Heading 3",
+    "bulletList": "Bullet List",
+    "numberedList": "Numbered List",
+    "alignLeft": "Align Left",
+    "alignCenter": "Align Center",
+    "alignRight": "Align Right",
+    "charCount": "{{count}} characters",
+    "lineCount": "{{count}} lines",
+    "unsaved": "Unsaved",
+    "clipboardItem": "Clipboard Item #{{number}}",
+    "language": "Language",
+    "group": "Group",
+    "languages": {
+      "plaintext": "Plain Text"
+    }
   }
 }
 

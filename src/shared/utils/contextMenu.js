@@ -195,10 +195,8 @@ export async function showClipboardItemContextMenu(event, item, index) {
         break
       
       case 'edit-text':
-        await invoke('open_text_editor_window', { 
-          itemId: item.id,
-          itemType: 'clipboard'
-        })
+        const { openEditorForClipboard } = await import('@shared/api/textEditor')
+        await openEditorForClipboard(item, index)
         break
       
       case 'delete-item':
@@ -287,10 +285,8 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     
     switch (result) {
       case 'edit-item':
-        await invoke('open_text_editor_window', { 
-          itemId: item.id,
-          itemType: 'favorite'
-        })
+        const { openEditorForFavorite } = await import('@shared/api/textEditor')
+        await openEditorForFavorite(item)
         break
       
       case 'delete-item':

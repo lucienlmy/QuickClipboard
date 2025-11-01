@@ -242,8 +242,29 @@ pub async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
 
 // 打开文本编辑窗口
 #[tauri::command]
-pub async fn open_text_editor_window(app: tauri::AppHandle) -> Result<(), String> {
-    crate::services::window_service::WindowService::open_text_editor_window(app).await
+pub async fn open_text_editor_window(
+    app: tauri::AppHandle,
+    item_id: String,
+    item_type: String,
+    item_index: Option<i64>,
+) -> Result<(), String> {
+    crate::services::window_service::WindowService::open_text_editor_window(
+        app, item_id, item_type, item_index
+    ).await
+}
+
+// =================== 通用数据查询命令 ===================
+
+// 通过ID获取剪贴板项目
+#[tauri::command]
+pub fn get_clipboard_item_by_id(id: i64) -> Result<ClipboardItem, String> {
+    crate::database::get_clipboard_item_by_id(id)
+}
+
+// 通过ID获取收藏项目
+#[tauri::command]
+pub fn get_favorite_item_by_id(id: String) -> Result<FavoriteItem, String> {
+    crate::database::get_favorite_item_by_id(&id)
 }
 
 // 获取设置

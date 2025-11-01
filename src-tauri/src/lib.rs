@@ -573,6 +573,8 @@ pub fn run() {
             clear_clipboard_history,
             cleanup_unused_images,
             open_text_editor_window,
+            get_clipboard_item_by_id,
+            get_favorite_item_by_id,
             notify_preview_tab_change,
             get_main_window_state,
             update_theme_setting,

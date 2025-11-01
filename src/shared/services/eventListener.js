@@ -33,6 +33,11 @@ export async function setupClipboardEventListener() {
     })
     unlisteners.push(unlisten4)
 
+    const unlisten5 = await listen('refreshQuickTexts', () => {
+      loadFavorites()
+    })
+    unlisteners.push(unlisten5)
+
   } catch (error) {
     console.error('设置事件监听失败:', error)
   }

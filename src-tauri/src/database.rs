@@ -764,6 +764,32 @@ pub fn clipboard_item_exists(content: &str) -> Result<Option<i64>, String> {
     })
 }
 
+// 通过ID获取单个剪贴板项目（不截断内容，用于编辑等场景）
+pub fn get_clipboard_item_by_id(id: i64) -> Result<ClipboardItem, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, content, html_content, content_type, image_id, item_order, created_at, updated_at 
+             FROM clipboard WHERE id = ?1"
+        )?;
+        
+        let item = stmt.query_row([id], |row| {
+            let content_type = ContentType::from_string(&row.get::<_, String>(3).unwrap_or_default());
+            Ok(ClipboardItem {
+                id: row.get(0)?,
+                content: row.get(1)?,
+                html_content: row.get(2).ok(),
+                content_type,
+                image_id: row.get(4).ok(),
+                item_order: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })
+        })?;
+        
+        Ok(item)
+    }).map_err(|e| format!("获取剪贴板项目失败: {}", e))
+}
+
 // 移动剪贴板项目到最前面（使用item_order排序）
 pub fn move_clipboard_item_to_front(id: i64) -> Result<(), String> {
     let now = chrono::Local::now();
@@ -1035,6 +1061,34 @@ pub fn favorite_item_exists(id: &str) -> Result<bool, String> {
         )?;
         Ok(count > 0)
     })
+}
+
+// 通过ID获取单个收藏项目（不截断内容，用于编辑等场景）
+pub fn get_favorite_item_by_id(id: &str) -> Result<FavoriteItem, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at 
+             FROM favorites WHERE id = ?1"
+        )?;
+        
+        let item = stmt.query_row([id], |row| {
+            let content_type = ContentType::from_string(&row.get::<_, String>(4).unwrap_or_default());
+            Ok(FavoriteItem {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                content: row.get(2)?,
+                html_content: row.get(3).ok(),
+                content_type,
+                image_id: row.get(5).ok(),
+                group_name: row.get(6)?,
+                item_order: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?;
+        
+        Ok(item)
+    }).map_err(|e| format!("获取收藏项目失败: {}", e))
 }
 
 // 批量更新收藏项目的排序

@@ -11,13 +11,17 @@ export async function getFavoritesByGroup(groupName) {
 }
 
 // 添加收藏
-export async function addFavorite(title, content, groupName = '默认') {
-  return await invoke('add_quick_text', { title, content, groupName })
+export async function addFavorite(title, content, groupName = '全部') {
+  const result = await invoke('add_quick_text', { title, content, groupName })
+  await invoke('emit_quick_texts_updated')
+  return result
 }
 
 // 更新收藏
 export async function updateFavorite(id, title, content, groupName) {
-  return await invoke('update_quick_text', { id, title, content, groupName })
+  const result = await invoke('update_quick_text', { id, title, content, groupName })
+  await invoke('emit_quick_texts_updated')
+  return result
 }
 
 // 删除收藏

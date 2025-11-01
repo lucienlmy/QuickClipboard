@@ -51,51 +51,46 @@ impl WindowService {
     }
 
     // 打开文本编辑窗口
-    pub async fn open_text_editor_window(app: AppHandle) -> Result<(), String> {
-        // 检查文本编辑窗口是否已经存在
-        if let Some(editor_window) = app.get_webview_window("text-editor") {
-            // 如果窗口已存在，显示并聚焦
-            editor_window
-                .show()
-                .map_err(|e| format!("显示文本编辑窗口失败: {}", e))?;
-            editor_window
-                .set_focus()
-                .map_err(|e| format!("聚焦文本编辑窗口失败: {}", e))?;
-        } else {
-            // 如果窗口不存在，创建新窗口
-            let editor_window = tauri::WebviewWindowBuilder::new(
-                &app,
-                "text-editor",
-                tauri::WebviewUrl::App("textEditor.html".into()),
-            )
-            .title("文本编辑器 - 快速剪贴板")
-            .inner_size(800.0, 600.0)
-            .min_inner_size(400.0, 300.0)
-            .center()
-            .resizable(true)
-            .maximizable(true)
-            .decorations(false) // 去除标题栏
-            .build()
-            .map_err(|e| format!("创建文本编辑窗口失败: {}", e))?;
+    pub async fn open_text_editor_window(
+        app: AppHandle,
+        item_id: String,
+        item_type: String,
+        item_index: Option<i64>,
+    ) -> Result<(), String> {
+        let url = format!(
+            "windows/textEditor/index.html?id={}&type={}&index={}",
+            item_id,
+            item_type,
+            item_index.unwrap_or(0)
+        );
 
-            editor_window
-                .show()
-                .map_err(|e| format!("显示文本编辑窗口失败: {}", e))?;
+        let window_label = format!("text-editor-{}", chrono::Local::now().timestamp_millis());
+        
+        let editor_window = tauri::WebviewWindowBuilder::new(
+            &app,
+            &window_label,
+            tauri::WebviewUrl::App(url.into()),
+        )
+        .title("文本编辑器 - 快速剪贴板")
+        .inner_size(800.0, 600.0)
+        .min_inner_size(400.0, 300.0)
+        .center()
+        .resizable(true)
+        .maximizable(true)
+        .decorations(false) 
+        .build()
+        .map_err(|e| format!("创建文本编辑窗口失败: {}", e))?;
 
-            // 设置窗口关闭事件处理
-            let app_handle = app.clone();
-            editor_window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { .. } = event {
-                    println!("文本编辑窗口已关闭");
-                }
-            });
+        editor_window
+            .show()
+            .map_err(|e| format!("显示文本编辑窗口失败: {}", e))?;
 
-            // 在开发模式下打开开发者工具
-            // #[cfg(debug_assertions)]
-            // {
-            //     editor_window.open_devtools();
-            // }
-        }
+        // 设置窗口关闭事件处理
+        editor_window.on_window_event(|event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                println!("文本编辑窗口已关闭");
+            }
+        });
 
         Ok(())
     }

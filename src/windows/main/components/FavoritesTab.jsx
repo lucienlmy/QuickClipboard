@@ -3,6 +3,7 @@ import { useSnapshot } from 'valtio'
 import { favoritesStore } from '@shared/store'
 import { navigationStore } from '@shared/store/navigationStore'
 import { groupsStore } from '@shared/store/groupsStore'
+import { openBlankEditor } from '@shared/api/textEditor'
 import FavoritesList from './FavoritesList'
 import FloatingToolbar from './FloatingToolbar'
 
@@ -62,8 +63,12 @@ const FavoritesTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
   }
   
   // 处理添加收藏
-  const handleAddFavorite = () => {
-    console.log('添加收藏项')
+  const handleAddFavorite = async () => {
+    try {
+      await openBlankEditor()
+    } catch (error) {
+      console.error('打开文本编辑器失败：', error)
+    }
   }
   
   // 判断是否显示添加收藏按钮

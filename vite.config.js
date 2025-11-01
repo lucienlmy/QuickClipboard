@@ -51,6 +51,7 @@ export default defineConfig({
         settings: resolve(__dirname, 'src/windows/settings/index.html'),
         preview: resolve(__dirname, 'src/windows/preview/index.html'),
         screenshot: resolve(__dirname, 'src/windows/screenshot/index.html'),
+        textEditor: resolve(__dirname, 'src/windows/textEditor/index.html'),
       },
       output: {
         manualChunks(id) {

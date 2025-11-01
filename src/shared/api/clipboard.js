@@ -160,3 +160,19 @@ export async function openFileLocation(filePath) {
   }
 }
 
+// 获取单个剪贴板项
+export async function getClipboardItemById(id) {
+  return await invoke('get_clipboard_item_by_id', { id })
+}
+
+// 更新剪贴板项
+export async function updateClipboardItem(id, content) {
+  await invoke('update_clipboard_item', { id, content })
+  await invoke('emit_clipboard_updated')
+}
+
+// 获取单个收藏项
+export async function getFavoriteItemById(id) {
+  return await invoke('get_favorite_item_by_id', { id })
+}
+
