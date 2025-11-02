@@ -1,5 +1,5 @@
 import { listen } from '@tauri-apps/api/event'
-import { clipboardStore, loadClipboardItems } from '@shared/store/clipboardStore'
+import { refreshClipboardHistory } from '@shared/store/clipboardStore'
 import { refreshFavorites } from '@shared/store/favoritesStore'
 
 let unlisteners = []
@@ -7,36 +7,22 @@ let unlisteners = []
 // 设置剪贴板事件监听
 export async function setupClipboardEventListener() {
   try {
-    // 监听剪贴板新增项事件
-    const unlisten1 = await listen('clipboard-item-added', (event) => {
-      const { item } = event.payload
-      clipboardStore.addItem(item, true)
+    // 监听剪贴板更新事件
+    const unlisten1 = await listen('clipboard-updated', () => {
+      refreshClipboardHistory()
     })
     unlisteners.push(unlisten1)
 
-    // 监听剪贴板项移动事件
-    const unlisten2 = await listen('clipboard-item-moved', (event) => {
-      const { item } = event.payload
-      clipboardStore.addItem(item, false)
+    // 监听收藏列表更新事件
+    const unlisten2 = await listen('quick-texts-updated', () => {
+      refreshFavorites()
     })
     unlisteners.push(unlisten2)
 
-    // 监听全量刷新事件
-    const unlisten3 = await listen('clipboard-changed', () => {
-      loadClipboardItems()
+    const unlisten3 = await listen('refreshQuickTexts', () => {
+      refreshFavorites()
     })
     unlisteners.push(unlisten3)
-
-    // 监听收藏列表更新事件
-    const unlisten4 = await listen('quick-texts-updated', () => {
-      refreshFavorites()
-    })
-    unlisteners.push(unlisten4)
-
-    const unlisten5 = await listen('refreshQuickTexts', () => {
-      refreshFavorites()
-    })
-    unlisteners.push(unlisten5)
 
   } catch (error) {
     console.error('设置事件监听失败:', error)

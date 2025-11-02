@@ -156,6 +156,22 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
     })
 }
 
+/// 删除单个剪贴板项
+pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
+        Ok(())
+    })
+}
+
+/// 清空所有剪贴板历史
+pub fn clear_clipboard_history() -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute("DELETE FROM clipboard", [])?;
+        Ok(())
+    })
+}
+
 /// 移动剪贴板项（拖拽排序）
 pub fn move_clipboard_item_by_index(from_index: i64, to_index: i64) -> Result<(), String> {
     if from_index == to_index {

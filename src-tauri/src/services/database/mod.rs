@@ -1,8 +1,8 @@
 mod models;
-mod connection;
-mod clipboard;
-mod favorites;
-mod groups;
+pub mod connection;
+pub mod clipboard;
+pub mod favorites;
+pub mod groups;
 
 pub use models::*;
 pub use connection::init_database;

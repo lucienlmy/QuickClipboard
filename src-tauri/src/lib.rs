@@ -21,6 +21,12 @@ pub use services::{
 };
 
 pub use services::system::input_monitor;
+pub use services::clipboard::{
+    start_clipboard_monitor,
+    stop_clipboard_monitor,
+    is_monitor_running as is_clipboard_monitor_running,
+    set_app_handle as set_clipboard_app_handle,
+};
 
 // ========== 窗口 API ==========
 pub use windows::main_window::{
@@ -106,6 +112,16 @@ pub fn run() {
                 setup_tray(app.handle())?;
                 hotkey::reload_from_settings()?;
                 input_monitor::start_monitoring();
+                
+                // 设置剪贴板监听的App Handle
+                set_clipboard_app_handle(app.handle().clone());
+                
+                // 初始化剪贴板监听（根据设置决定是否启动）
+                if settings.clipboard_monitor {
+                    if let Err(e) = start_clipboard_monitor() {
+                        eprintln!("启动剪贴板监听失败: {}", e);
+                    }
+                }
 
             Ok(())
         })

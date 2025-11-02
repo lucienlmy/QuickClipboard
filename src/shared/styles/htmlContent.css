@@ -11,16 +11,25 @@
 .html-content img {
   max-width: 100%;
   height: auto;
+  display: inline-block;
   border-radius: 4px;
+}
+
+/* 加载中的图片占位符 */
+.html-content img.html-image-pending {
+  opacity: 0.6;
+  transition: opacity 0.2s;
 }
 
 .html-content a {
   color: #3b82f6;
   text-decoration: underline;
+  cursor: default;
+  pointer-events: none;
 }
 
 .html-content a:hover {
-  color: #2563eb;
+  color: #3b82f6;
 }
 
 .dark .html-content a {
@@ -28,7 +37,7 @@
 }
 
 .dark .html-content a:hover {
-  color: #3b82f6;
+  color: #60a5fa;
 }
 
 .html-content strong {
