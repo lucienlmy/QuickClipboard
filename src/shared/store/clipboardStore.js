@@ -1,6 +1,7 @@
 import { proxy } from 'valtio'
 import { 
   getClipboardHistory, 
+  getClipboardTotalCount,
   deleteClipboardItem as apiDeleteItem,
   clearClipboardHistory as apiClearHistory,
   pasteClipboardItem as apiPasteClipboardItem
@@ -8,27 +9,40 @@ import {
 
 // 剪贴板 Store
 export const clipboardStore = proxy({
-  items: [],
+  items: new Map(),
+  totalCount: 0,
   filter: '',
   selectedIds: new Set(),
   loading: false,
   error: null,
+  loadingRanges: new Set(),
   
-  addItem(item, isNew = true) {
-    // 检查项是否已存在
-    const existingIndex = this.items.findIndex(i => i.id === item.id)
-    
-    if (existingIndex !== -1) {
-      // 如果已存在，移除旧项
-      this.items.splice(existingIndex, 1)
-    }
-    
-    // 无论新增还是移动，都添加到开头
-    this.items.unshift(item)
+  // 设置指定范围的数据
+  setItemsInRange(startIndex, items) {
+
+    const newItems = new Map(this.items)
+    items.forEach((item, offset) => {
+      newItems.set(startIndex + offset, item)
+    })
+    this.items = newItems
+  },
+
+  getItem(index) {
+    return this.items.get(index)
   },
   
+  // 检查指定索引是否已加载
+  hasItem(index) {
+    return this.items.has(index)
+  },
+
+  addItem(item) {
+    this.items = new Map()
+  },
+  
+  // 删除项
   removeItem(id) {
-    this.items = this.items.filter(item => item.id !== id)
+    this.items = new Map()
   },
   
   setFilter(value) {
@@ -48,28 +62,93 @@ export const clipboardStore = proxy({
   },
   
   clearAll() {
-    this.items = []
-    this.selectedIds.clear()
+    this.items = new Map()
+    this.selectedIds = new Set()
+    this.totalCount = 0
   },
   
-  updateOrder(fromIndex, toIndex) {
-    const newItems = [...this.items]
-    const [movedItem] = newItems.splice(fromIndex, 1)
-    newItems.splice(toIndex, 0, movedItem)
-    this.items = newItems
+  // 记录正在加载的范围
+  addLoadingRange(start, end) {
+    this.loadingRanges.add(`${start}-${end}`)
+  },
+  
+  removeLoadingRange(start, end) {
+    this.loadingRanges.delete(`${start}-${end}`)
+  },
+  
+  isRangeLoading(start, end) {
+    return this.loadingRanges.has(`${start}-${end}`)
   }
 })
 
-// 异步操作：加载剪贴板历史
+// 加载指定范围的数据
+export async function loadClipboardRange(startIndex, endIndex) {
+  // 避免重复加载
+  if (clipboardStore.isRangeLoading(startIndex, endIndex)) {
+    return
+  }
+  
+  // 检查是否所有数据都已加载
+  let allLoaded = true
+  for (let i = startIndex; i <= endIndex; i++) {
+    if (!clipboardStore.hasItem(i)) {
+      allLoaded = false
+      break
+    }
+  }
+  
+  if (allLoaded) {
+    return
+  }
+  
+  clipboardStore.addLoadingRange(startIndex, endIndex)
+  
+  try {
+    const limit = endIndex - startIndex + 1
+    const result = await getClipboardHistory({
+      offset: startIndex,
+      limit
+    })
+    
+    // 将数据按索引存储
+    clipboardStore.setItemsInRange(startIndex, result.items)
+    
+    // 更新总数
+    if (result.total_count !== undefined) {
+      clipboardStore.totalCount = result.total_count
+    }
+  } catch (err) {
+    console.error(`加载范围 ${startIndex}-${endIndex} 失败:`, err)
+    clipboardStore.error = err.message || '加载失败'
+  } finally {
+    clipboardStore.removeLoadingRange(startIndex, endIndex)
+  }
+}
+
 export async function loadClipboardItems() {
+  return await refreshClipboardHistory()
+}
+
+// 初始化加载
+export async function initClipboardItems() {
   clipboardStore.loading = true
   clipboardStore.error = null
   
   try {
-    const items = await getClipboardHistory()
-    clipboardStore.items = items
+    // 只获取总数
+    const totalCount = await getClipboardTotalCount()
+    clipboardStore.totalCount = totalCount
+    
+    // 清空之前的数据
+    clipboardStore.items = new Map()
+    
+    // 预加载首屏（前50项）
+    if (totalCount > 0) {
+      const endIndex = Math.min(49, totalCount - 1)
+      await loadClipboardRange(0, endIndex)
+    }
   } catch (err) {
-    console.error('加载剪贴板历史失败:', err)
+    console.error('初始化剪贴板失败:', err)
     clipboardStore.error = err.message || '加载失败'
   } finally {
     clipboardStore.loading = false
@@ -78,7 +157,8 @@ export async function loadClipboardItems() {
 
 // 刷新剪贴板历史
 export async function refreshClipboardHistory() {
-  return await loadClipboardItems()
+  clipboardStore.items = new Map()
+  return await initClipboardItems()
 }
 
 // 删除剪贴板项
@@ -86,6 +166,7 @@ export async function deleteClipboardItem(id) {
   try {
     await apiDeleteItem(id)
     clipboardStore.removeItem(id)
+    await refreshClipboardHistory()
     return true
   } catch (err) {
     console.error('删除剪贴板项失败:', err)

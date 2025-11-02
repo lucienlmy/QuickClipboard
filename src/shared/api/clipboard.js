@@ -1,12 +1,40 @@
 import { invoke } from '@tauri-apps/api/core'
 
 // 获取剪贴板历史列表
-export async function getClipboardHistory() {
+export async function getClipboardHistory(params = {}) {
   try {
-    return await invoke('get_clipboard_history')
+    const { 
+      offset = 0, 
+      limit = 50, 
+      search = null, 
+      contentType = null 
+    } = params
+    
+    return await invoke('get_clipboard_history', {
+      offset,
+      limit,
+      search,
+      contentType
+    })
   } catch (error) {
     console.error('获取剪贴板历史失败:', error)
-    return []
+    return {
+      total_count: 0,
+      items: [],
+      offset: 0,
+      limit: 50,
+      has_more: false
+    }
+  }
+}
+
+// 获取剪贴板总数
+export async function getClipboardTotalCount() {
+  try {
+    return await invoke('get_clipboard_total_count')
+  } catch (error) {
+    console.error('获取剪贴板总数失败:', error)
+    return 0
   }
 }
 

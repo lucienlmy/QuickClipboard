@@ -65,23 +65,43 @@ pub fn run() {
             commands::check_window_snap,
             commands::position_window_at_cursor,
             commands::center_main_window,
+            commands::get_clipboard_history,
+            commands::get_clipboard_total_count,
+            commands::move_clipboard_item,
+            commands::apply_history_limit,
+            commands::get_image_file_path,
         ])
-            .setup(|app| {
+        .setup(|app| {
                 let window = app.get_webview_window("main")
                     .ok_or("无法获取主窗口")?;
                 window.set_focusable(false)
                     .map_err(|e| format!("设置窗口无焦点失败: {}", e))?;
-                utils::init_screen_utils(app.handle().clone());
                 
+                // 打开开发者工具
+                window.open_devtools();
+                // 初始化数据库
+                let data_dir = get_data_directory()?;
+                let db_path = data_dir.join("quickclipboard.db");
+                services::database::init_database(db_path.to_str()
+                    .ok_or("数据库路径无效")?)?;
+                
+                // 应用历史记录数量限制
+                let settings = get_settings();
+                if let Err(e) = services::database::limit_clipboard_history(settings.history_limit) {
+                    eprintln!("应用历史记录限制失败: {}", e);
+                    }
+                
+                utils::init_screen_utils(app.handle().clone());
+
                 hotkey::init_hotkey_manager(app.handle().clone(), window.clone());
                 input_monitor::init_input_monitor(window.clone());
                 init_edge_monitor(window);
                 setup_tray(app.handle())?;
                 hotkey::reload_from_settings()?;
                 input_monitor::start_monitoring();
-                
-                Ok(())
-            })
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

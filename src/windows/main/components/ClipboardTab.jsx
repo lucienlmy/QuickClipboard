@@ -13,28 +13,6 @@ const ClipboardTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
   useEffect(() => {
     navigationStore.resetNavigation()
   }, [searchQuery, contentFilter])
-
-  // 过滤逻辑
-  const filteredItems = snap.items.filter(item => {
-    // 搜索过滤
-    if (searchQuery && !item.content?.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false
-    }
-    
-    // 类型过滤
-    const contentType = item.content_type || item.type || 'text'
-    if (contentFilter !== 'all') {
-      if (contentFilter === 'text') {
-        if (contentType !== 'text' && contentType !== 'rich_text') {
-          return false
-        }
-      } else if (contentType !== contentFilter) {
-        return false
-      }
-    }
-    
-    return true
-  })
   
   // 暴露导航方法给父组件
   useImperativeHandle(ref, () => ({
@@ -58,13 +36,12 @@ const ClipboardTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
       {/* 列表 */}
       <ClipboardList 
         ref={listRef} 
-        items={filteredItems}
         onScrollStateChange={handleScrollStateChange}
       />
       
       {/* 悬浮工具栏 */}
       <FloatingToolbar 
-        showScrollTop={!isAtTop && filteredItems.length > 0}
+        showScrollTop={!isAtTop && snap.totalCount > 0}
         showAddFavorite={false}
         onScrollTop={handleScrollToTop}
       />

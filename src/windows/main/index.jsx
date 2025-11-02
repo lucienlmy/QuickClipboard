@@ -10,7 +10,7 @@ import '@shared/styles/theme-background.css'
 // 初始化
 import '@shared/i18n'
 import { initStores } from '@shared/store'
-import { loadClipboardItems } from '@shared/store/clipboardStore'
+import { initClipboardItems } from '@shared/store/clipboardStore'
 import { loadFavorites } from '@shared/store/favoritesStore'
 import { loadGroups } from '@shared/store/groupsStore'
 import { 
@@ -32,7 +32,7 @@ initStores().then(() => {
   
   // 加载数据并设置事件监听
   return Promise.all([
-    loadClipboardItems(),
+    initClipboardItems(),
     loadGroups().then(() => loadFavorites())
   ])
 }).then(() => {
