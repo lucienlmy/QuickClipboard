@@ -11,13 +11,17 @@ export async function addGroup(name, icon = 'ti ti-folder') {
 }
 
 // 更新分组
-export async function updateGroup(id, name, icon) {
-  return await invoke('update_group', { id, name, icon })
+export async function updateGroup(oldName, newName, newIcon) {
+  return await invoke('update_group', { 
+    oldName, 
+    newName, 
+    newIcon 
+  })
 }
 
 // 删除分组
-export async function deleteGroup(id) {
-  return await invoke('delete_group', { id })
+export async function deleteGroup(name) {
+  return await invoke('delete_group', { name })
 }
 
 // 移动收藏项到分组

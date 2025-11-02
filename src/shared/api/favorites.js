@@ -1,13 +1,22 @@
 import { invoke } from '@tauri-apps/api/core'
 
-// 获取收藏列表
-export async function getFavorites() {
-  return await invoke('get_quick_texts')
+// 分页查询收藏列表
+export async function getFavoritesHistory(params = {}) {
+  const { offset, limit, groupName, search, contentType } = params
+  return await invoke('get_favorites_history', {
+    offset: offset ?? 0,
+    limit: limit ?? 50,
+    groupName: groupName === '全部' ? null : groupName,
+    search: search || null,
+    contentType: contentType || null,
+  })
 }
 
-// 按分组获取收藏
-export async function getFavoritesByGroup(groupName) {
-  return await invoke('get_quick_texts_by_group', { groupName })
+// 获取收藏总数
+export async function getFavoritesTotalCount(groupName = null) {
+  return await invoke('get_favorites_total_count', {
+    groupName: groupName === '全部' ? null : groupName,
+  })
 }
 
 // 添加收藏
@@ -29,9 +38,13 @@ export async function deleteFavorite(id) {
   return await invoke('delete_quick_text', { id })
 }
 
-// 移动收藏项位置
-export async function moveFavoriteItem(itemId, toIndex) {
-  return await invoke('move_quick_text_item', { itemId, toIndex })
+// 移动收藏项位置（拖拽排序）
+export async function moveFavoriteItem(groupName, fromIndex, toIndex) {
+  return await invoke('move_favorite_item', {
+    groupName: groupName === '全部' ? null : groupName,
+    fromIndex,
+    toIndex,
+  })
 }
 
 // 粘贴收藏内容
@@ -48,9 +61,9 @@ export async function pasteFavorite(id) {
     if (isOneTimePasteEnabled) {
       try {
         await deleteFavorite(id)
-        const { loadFavorites } = await import('@shared/store/favoritesStore')
+        const { refreshFavorites } = await import('@shared/store/favoritesStore')
         setTimeout(async () => {
-          await loadFavorites()
+          await refreshFavorites()
         }, 200)
       } catch (deleteError) {
         console.error('一次性粘贴：删除收藏项失败', deleteError)
@@ -62,10 +75,5 @@ export async function pasteFavorite(id) {
     console.error('粘贴收藏内容失败:', error)
     throw error
   }
-}
-
-// 获取分组列表
-export async function getFavoriteGroups() {
-  return await invoke('get_quick_text_groups')
 }
 

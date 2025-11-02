@@ -13,7 +13,8 @@ export {
 export { settingsStore, initSettings } from './settingsStore'
 export {
   favoritesStore,
-  loadFavorites,
+  initFavorites,
+  loadFavoritesRange,
   refreshFavorites,
   deleteFavorite,
   pasteFavorite

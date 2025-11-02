@@ -11,7 +11,7 @@ import '@shared/styles/theme-background.css'
 import '@shared/i18n'
 import { initStores } from '@shared/store'
 import { initClipboardItems } from '@shared/store/clipboardStore'
-import { loadFavorites } from '@shared/store/favoritesStore'
+import { initFavorites } from '@shared/store/favoritesStore'
 import { loadGroups } from '@shared/store/groupsStore'
 import { 
   setupClipboardEventListener,
@@ -33,7 +33,7 @@ initStores().then(() => {
   // 加载数据并设置事件监听
   return Promise.all([
     initClipboardItems(),
-    loadGroups().then(() => loadFavorites())
+    loadGroups().then(() => initFavorites())
   ])
 }).then(() => {
   // 设置事件监听器

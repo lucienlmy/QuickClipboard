@@ -78,11 +78,11 @@ export async function addGroup(name, icon = 'ti ti-folder') {
 }
 
 // 更新分组
-export async function updateGroup(id, name, icon) {
+export async function updateGroup(oldName, newName, newIcon) {
   try {
-    await apiUpdateGroup(id, name, icon)
+    const updatedGroup = await apiUpdateGroup(oldName, newName, newIcon)
     await loadGroups()
-    return true
+    return updatedGroup
   } catch (error) {
     console.error('更新分组失败:', error)
     throw error
@@ -90,12 +90,12 @@ export async function updateGroup(id, name, icon) {
 }
 
 // 删除分组
-export async function deleteGroup(id) {
+export async function deleteGroup(name) {
   try {
-    await apiDeleteGroup(id)
+    await apiDeleteGroup(name)
     
     // 如果删除的是当前选中的分组，切换到全部
-    if (groupsStore.currentGroup === id) {
+    if (groupsStore.currentGroup === name) {
       groupsStore.setCurrentGroup('全部')
     }
     

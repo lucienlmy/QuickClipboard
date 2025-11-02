@@ -56,21 +56,28 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![
-            commands::start_custom_drag,
-            commands::stop_custom_drag,
-            commands::toggle_main_window,
-            commands::hide_main_window,
-            commands::show_main_window,
-            commands::check_window_snap,
-            commands::position_window_at_cursor,
-            commands::center_main_window,
-            commands::get_clipboard_history,
-            commands::get_clipboard_total_count,
-            commands::move_clipboard_item,
-            commands::apply_history_limit,
-            commands::get_image_file_path,
-        ])
+            .invoke_handler(tauri::generate_handler![
+                commands::start_custom_drag,
+                commands::stop_custom_drag,
+                commands::toggle_main_window,
+                commands::hide_main_window,
+                commands::show_main_window,
+                commands::check_window_snap,
+                commands::position_window_at_cursor,
+                commands::center_main_window,
+                commands::get_clipboard_history,
+                commands::get_clipboard_total_count,
+                commands::move_clipboard_item,
+                commands::apply_history_limit,
+                commands::get_image_file_path,
+                commands::get_favorites_history,
+                commands::get_favorites_total_count,
+                commands::move_favorite_item,
+                commands::get_groups,
+                commands::add_group,
+                commands::update_group,
+                commands::delete_group,
+            ])
         .setup(|app| {
                 let window = app.get_webview_window("main")
                     .ok_or("无法获取主窗口")?;

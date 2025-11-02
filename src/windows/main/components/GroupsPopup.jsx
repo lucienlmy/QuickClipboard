@@ -157,8 +157,8 @@ const GroupsPopup = forwardRef(({ activeTab, onTabChange, onGroupChange }, ref) 
       await deleteGroup(groupName)
       
       // 重新加载收藏列表
-      const { loadFavorites } = await import('@shared/store/favoritesStore')
-      await loadFavorites()
+      const { refreshFavorites } = await import('@shared/store/favoritesStore')
+      await refreshFavorites()
     } catch (error) {
       console.error('删除分组失败:', error)
       await showError(t('groups.deleteFailed'), t('common.confirm'))
@@ -297,8 +297,8 @@ const GroupsPopup = forwardRef(({ activeTab, onTabChange, onGroupChange }, ref) 
             setShowModal(false)
             setEditingGroup(null)
             // 重新加载收藏列表
-            const { loadFavorites } = await import('@shared/store/favoritesStore')
-            await loadFavorites()
+            const { refreshFavorites } = await import('@shared/store/favoritesStore')
+            await refreshFavorites()
           }}
         />
       )}

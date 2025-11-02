@@ -39,8 +39,6 @@ pub fn apply_history_limit(limit: u64) -> Result<(), String> {
 /// 获取图片文件路径
 #[tauri::command]
 pub fn get_image_file_path(content: String) -> Result<String, String> {
-    use std::path::PathBuf;
-    
     // 提取 image_id
     if !content.starts_with("image:") {
         return Err("不支持的图片格式".to_string());

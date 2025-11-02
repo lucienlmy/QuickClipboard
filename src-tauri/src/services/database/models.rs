@@ -15,6 +15,32 @@ pub struct ClipboardItem {
     pub updated_at: i64, 
 }
 
+/// 收藏项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FavoriteItem {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html_content: Option<String>,
+    pub content_type: String,  
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_id: Option<String>,
+    pub group_name: String,
+    pub item_order: i64,
+    pub created_at: i64,  
+    pub updated_at: i64, 
+}
+
+/// 分组信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupInfo {
+    pub name: String,
+    pub icon: String,
+    pub order: i32,
+    pub item_count: i32,
+}
+
 /// 分页查询结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginatedResult<T> {
@@ -64,6 +90,36 @@ impl Default for QueryParams {
         Self {
             offset: 0,
             limit: 50,
+            search: None,
+            content_type: None,
+        }
+    }
+}
+
+/// 收藏查询参数
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FavoritesQueryParams {
+    /// 偏移量
+    pub offset: i64,
+    /// 每页数量
+    pub limit: i64,
+    /// 分组名称（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_name: Option<String>,
+    /// 搜索关键词（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search: Option<String>,
+    /// 内容类型过滤（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
+}
+
+impl Default for FavoritesQueryParams {
+    fn default() -> Self {
+        Self {
+            offset: 0,
+            limit: 50,
+            group_name: None,
             search: None,
             content_type: None,
         }

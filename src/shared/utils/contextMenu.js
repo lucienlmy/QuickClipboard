@@ -278,8 +278,8 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     if (result.startsWith('move-to-group-')) {
       const groupName = result.substring(14)
       await moveFavoriteToGroup(item.id, groupName)
-      const { loadFavorites } = await import('@shared/store/favoritesStore')
-      await loadFavorites()
+      const { refreshFavorites } = await import('@shared/store/favoritesStore')
+      await refreshFavorites()
       return
     }
     
@@ -297,8 +297,8 @@ export async function showFavoriteItemContextMenu(event, item, index) {
         )
         if (confirmed) {
           await deleteFavorite(item.id)
-          const { loadFavorites } = await import('@shared/store/favoritesStore')
-          await loadFavorites()
+          const { refreshFavorites } = await import('@shared/store/favoritesStore')
+          await refreshFavorites()
         }
         break
     }

@@ -68,8 +68,8 @@ function App() {
     // 重置导航索引
     navigationStore.resetNavigation()
     // 重新加载收藏列表
-    const { loadFavorites } = await import('@shared/store/favoritesStore')
-    await loadFavorites()
+    const { initFavorites } = await import('@shared/store/favoritesStore')
+    await initFavorites(groupName)
   }
   
   // 导航键盘事件处理

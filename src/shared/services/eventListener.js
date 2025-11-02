@@ -1,6 +1,6 @@
 import { listen } from '@tauri-apps/api/event'
 import { clipboardStore, loadClipboardItems } from '@shared/store/clipboardStore'
-import { loadFavorites } from '@shared/store/favoritesStore'
+import { refreshFavorites } from '@shared/store/favoritesStore'
 
 let unlisteners = []
 
@@ -29,12 +29,12 @@ export async function setupClipboardEventListener() {
 
     // 监听收藏列表更新事件
     const unlisten4 = await listen('quick-texts-updated', () => {
-      loadFavorites()
+      refreshFavorites()
     })
     unlisteners.push(unlisten4)
 
     const unlisten5 = await listen('refreshQuickTexts', () => {
-      loadFavorites()
+      refreshFavorites()
     })
     unlisteners.push(unlisten5)
 
