@@ -1,12 +1,10 @@
 use clipboard_rs::{Clipboard, ClipboardContext, common::RustImage};
-use std::io::Cursor;
 
 /// 剪贴板内容类型
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContentType {
     Text,
     RichText,
-    Image,
     Files,
 }
 
@@ -16,8 +14,34 @@ pub struct ClipboardContent {
     pub content_type: ContentType,
     pub text: Option<String>,
     pub html: Option<String>,
-    pub image_data: Option<Vec<u8>>,
     pub files: Option<Vec<String>>,
+}
+
+/// 保存剪贴板图片到缓存目录
+fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
+    use sha2::{Sha256, Digest};
+    use uuid::Uuid;
+    use crate::services::get_data_directory;
+    
+    let images_dir = get_data_directory()?.join("clipboard_images");
+    std::fs::create_dir_all(&images_dir).map_err(|e| format!("创建目录失败: {}", e))?;
+    
+    // 保存到临时文件
+    let temp_file = images_dir.join(format!("temp_{}.png", Uuid::new_v4()));
+    rust_image.save_to_path(temp_file.to_str().ok_or("路径转换失败")?).map_err(|e| e.to_string())?;
+    
+    // 计算哈希并重命名
+    let png_data = std::fs::read(&temp_file).map_err(|e| e.to_string())?;
+    let hash = format!("{:x}", Sha256::digest(&png_data));
+    let final_path = images_dir.join(format!("{}.png", &hash[..16]));
+    
+    if final_path.exists() {
+        std::fs::remove_file(&temp_file).ok();
+    } else {
+        std::fs::rename(&temp_file, &final_path).map_err(|e| e.to_string())?;
+    }
+    
+    Ok(final_path.to_str().ok_or("路径转换失败")?.to_string())
 }
 
 impl ClipboardContent {
@@ -28,27 +52,13 @@ impl ClipboardContent {
         
         // 获取图片
         if let Ok(rust_image) = ctx.get_image() {
-            use uuid::Uuid;
-            
-            let temp_dir = std::env::temp_dir();
-            let temp_file = temp_dir.join(format!("clipboard_{}.png", Uuid::new_v4()));
-
-            if let Ok(_) = RustImage::save_to_path(&rust_image, temp_file.to_str().unwrap()) {
-
-                if let Ok(png_data) = std::fs::read(&temp_file) {
-       
-                    let _ = std::fs::remove_file(&temp_file);
-                    
-                    if !png_data.is_empty() {
-                        return Ok(Some(ClipboardContent {
-                            content_type: ContentType::Image,
-                            text: None,
-                            html: None,
-                            image_data: Some(png_data),
-                            files: None,
-                        }));
-                    }
-                }
+            if let Ok(image_path) = save_clipboard_image(&rust_image) {
+                return Ok(Some(ClipboardContent {
+                    content_type: ContentType::Files,
+                    text: Some(image_path.clone()),
+                    html: None,
+                    files: Some(vec![image_path]),
+                }));
             }
         }
         
@@ -59,7 +69,6 @@ impl ClipboardContent {
                     content_type: ContentType::Files,
                     text: Some(files.join("\n")),
                     html: None,
-                    image_data: None,
                     files: Some(files),
                 }));
             }
@@ -74,7 +83,6 @@ impl ClipboardContent {
                     content_type: ContentType::RichText,
                     text,
                     html: Some(html),
-                    image_data: None,
                     files: None,
                 }));
             }
@@ -87,28 +95,12 @@ impl ClipboardContent {
                     content_type: ContentType::Text,
                     text: Some(text),
                     html: None,
-                    image_data: None,
                     files: None,
                 }));
             }
         }
 
         Ok(None)
-    }
-    
-    /// 验证图片数据是否有效
-    fn validate_image(data: &[u8]) -> bool {
-        if data.is_empty() {
-            return false;
-        }
-        
-        // 尝试加载图片以验证数据有效性
-        let cursor = Cursor::new(data);
-        image::ImageReader::new(cursor)
-            .with_guessed_format()
-            .ok()
-            .and_then(|reader| reader.decode().ok())
-            .is_some()
     }
     
     /// 计算内容的哈希值
@@ -128,11 +120,6 @@ impl ClipboardContent {
                     hasher.update(html.as_bytes());
                 }
             }
-            ContentType::Image => {
-                if let Some(data) = &self.image_data {
-                    hasher.update(data);
-                }
-            }
             ContentType::Files => {
                 if let Some(files) = &self.files {
                     for file in files {
@@ -145,4 +132,3 @@ impl ClipboardContent {
         format!("{:x}", hasher.finalize())
     }
 }
-

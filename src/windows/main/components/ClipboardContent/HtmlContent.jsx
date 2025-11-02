@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { sanitizeHTML } from '@shared/utils/htmlProcessor'
-import { getImageFilePath } from '@shared/api'
+import { invoke } from '@tauri-apps/api/core'
 
 const PLACEHOLDER_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YwZjBmMCIvPjwvc3ZnPg=='
 const ERROR_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZWJlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjYzYyODI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg=='
@@ -31,8 +31,10 @@ function HtmlContent({ htmlContent, lineClampClass }) {
         img.src = PLACEHOLDER_SRC
         img.classList.add('html-image-pending')
         
-        getImageFilePath(`image:${imageId}`)
-          .then(filePath => {
+        // 构建图片文件路径
+        invoke('get_data_directory')
+          .then(dataDir => {
+            const filePath = `${dataDir}/clipboard_images/${imageId}.png`
             const assetUrl = convertFileSrc(filePath, 'asset')
             img.src = assetUrl
             img.classList.remove('html-image-pending')

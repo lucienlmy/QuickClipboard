@@ -1,0 +1,17 @@
+use enigo::{Enigo, Direction, Key, Keyboard, Settings};
+
+/// 模拟粘贴操作（Ctrl+V）
+pub fn simulate_paste() -> Result<(), String> {
+    let mut enigo = Enigo::new(&Settings::default())
+        .map_err(|e| format!("创建键盘模拟器失败: {}", e))?;
+    
+    enigo.key(Key::Control, Direction::Press)
+        .map_err(|e| format!("按下Ctrl失败: {}", e))?;
+    enigo.key(Key::Unicode('v'), Direction::Click)
+        .map_err(|e| format!("按下V失败: {}", e))?;
+    enigo.key(Key::Control, Direction::Release)
+        .map_err(|e| format!("释放Ctrl失败: {}", e))?;
+    
+    Ok(())
+}
+

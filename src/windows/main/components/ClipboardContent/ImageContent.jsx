@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { convertFileSrc } from '@tauri-apps/api/core'
-import { getImageFilePath } from '@shared/api'
+import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 
 // 图片内容组件
 function ImageContent({ item }) {
@@ -33,9 +32,26 @@ function ImageContent({ item }) {
         setLoading(false)
         return
       }
+      // 文件数据格式：files:{json}
+      else if (item.content?.startsWith('files:')) {
+        const filesData = JSON.parse(item.content.substring(6))
+        if (filesData.files && filesData.files.length > 0) {
+          const filePath = filesData.files[0].path
+          const assetUrl = convertFileSrc(filePath, 'asset')
+          setImageSrc(assetUrl)
+          setLoading(false)
+          return
+        } else {
+          setError(true)
+          setLoading(false)
+          return
+        }
+      }
 
+      //imageId（旧版本格式），通过 image-id 路径加载
       if (imageId) {
-        const filePath = await getImageFilePath(`image:${imageId}`)
+        const dataDir = await invoke('get_data_directory')
+        const filePath = `${dataDir}/clipboard_images/${imageId}.png`
         const assetUrl = convertFileSrc(filePath, 'asset')
         setImageSrc(assetUrl)
       } else {

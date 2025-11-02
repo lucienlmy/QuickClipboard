@@ -43,3 +43,11 @@ pub fn center_main_window(window: WebviewWindow) -> Result<(), String> {
     crate::center_window(&window)
 }
 
+#[tauri::command]
+pub fn get_data_directory() -> Result<String, String> {
+    let data_dir = crate::services::get_data_directory()?;
+    data_dir.to_str()
+        .ok_or("数据目录路径转换失败".to_string())
+        .map(|s| s.to_string())
+}
+

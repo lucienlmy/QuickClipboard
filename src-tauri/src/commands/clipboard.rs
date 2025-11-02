@@ -1,4 +1,4 @@
-use crate::services::database::{query_clipboard_items, get_clipboard_count, move_clipboard_item_by_index, limit_clipboard_history, QueryParams, PaginatedResult, ClipboardItem};
+use crate::services::database::{query_clipboard_items, get_clipboard_count, move_clipboard_item_by_index, limit_clipboard_history, get_clipboard_item_by_id, QueryParams, PaginatedResult, ClipboardItem};
 
 /// 分页查询剪贴板历史
 #[tauri::command]
@@ -36,26 +36,48 @@ pub fn apply_history_limit(limit: u64) -> Result<(), String> {
     limit_clipboard_history(limit)
 }
 
-/// 获取图片文件路径
+
+/// 粘贴参数
+#[derive(Debug, serde::Deserialize)]
+pub struct PasteParams {
+    #[serde(default)]
+    pub clipboard_id: Option<i64>,
+    #[serde(default)]
+    pub favorite_id: Option<String>,
+}
+
+/// 粘贴剪贴板项或收藏项
 #[tauri::command]
-pub fn get_image_file_path(content: String) -> Result<String, String> {
-    // 提取 image_id
-    if !content.starts_with("image:") {
-        return Err("不支持的图片格式".to_string());
-    }
+pub fn paste_content(params: PasteParams) -> Result<(), String> {
+    use crate::services::database::get_favorite_by_id;
+    use crate::services::paste::paste_handler::{paste_clipboard_item_with_update, paste_favorite_item_with_update};
     
-    let image_id = content.strip_prefix("image:").unwrap_or("");
+    // 根据参数类型处理粘贴
+    if let Some(clipboard_id) = params.clipboard_id {
+        let item = get_clipboard_item_by_id(clipboard_id)?
+            .ok_or_else(|| format!("剪贴板项不存在: {}", clipboard_id))?;
+        paste_clipboard_item_with_update(&item)?;
+    } else if let Some(favorite_id) = params.favorite_id {
+        let favorite = get_favorite_by_id(&favorite_id)?
+            .ok_or_else(|| format!("收藏项不存在: {}", favorite_id))?;
+        
+        // 将收藏项转换为剪贴板项格式
+        let item = ClipboardItem {
+            id: 0,
+            content: favorite.content,
+            html_content: favorite.html_content,
+            content_type: favorite.content_type,
+            image_id: favorite.image_id,
+            item_order: favorite.item_order,
+            created_at: favorite.created_at,
+            updated_at: favorite.updated_at,
+        };
+        
+        paste_favorite_item_with_update(&item, &favorite_id)?;
+    } else {
+        return Err("必须 clipboard_id 或 favorite_id".to_string());
+    };
     
-    // 获取图片存储目录
-    let data_dir = crate::get_data_directory()?;
-    let images_dir = data_dir.join("clipboard_images");
-    let image_path = images_dir.join(format!("{}.png", image_id));
-    
-    // 检查文件是否存在
-    if !image_path.exists() {
-        return Err(format!("图片文件不存在: {}", image_id));
-    }
-    
-    Ok(image_path.to_string_lossy().to_string())
+    Ok(())
 }
 

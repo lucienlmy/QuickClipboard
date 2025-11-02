@@ -113,15 +113,6 @@ export async function addToFavorites(id) {
   }
 }
 
-// 获取图片文件路径
-export async function getImageFilePath(content) {
-  try {
-    return await invoke('get_image_file_path', { content })
-  } catch (error) {
-    console.error('获取图片路径失败:', error)
-    throw error
-  }
-}
 
 // 检查文件是否存在
 export async function checkFileExists(path) {

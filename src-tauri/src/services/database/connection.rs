@@ -38,7 +38,6 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             content TEXT NOT NULL,
             html_content TEXT,
             content_type TEXT NOT NULL DEFAULT 'text',
-            image_id TEXT,
             item_order INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
@@ -53,7 +52,6 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             content TEXT NOT NULL,
             html_content TEXT,
             content_type TEXT NOT NULL DEFAULT 'text',
-            image_id TEXT,
             group_name TEXT NOT NULL DEFAULT '全部',
             item_order INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
@@ -73,17 +71,6 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("创建分组表失败: {}", e))?;
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS image_data (
-            image_id TEXT PRIMARY KEY,
-            width INTEGER NOT NULL,
-            height INTEGER NOT NULL,
-            bgra_data BLOB NOT NULL,
-            png_data BLOB NOT NULL,
-            created_at INTEGER NOT NULL
-        )",
-        [],
-    ).map_err(|e| format!("创建图片表失败: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_clipboard_order_updated ON clipboard(item_order ASC, updated_at DESC)",

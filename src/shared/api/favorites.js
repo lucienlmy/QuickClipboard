@@ -51,7 +51,7 @@ export async function moveFavoriteItem(groupName, fromIndex, toIndex) {
 export async function pasteFavorite(id) {
   try {
     await invoke('paste_content', {
-      params: { quick_text_id: id }
+      params: { favorite_id: id }
     })
     
     // 检查是否启用一次性粘贴

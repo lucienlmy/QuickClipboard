@@ -1,10 +1,9 @@
 use super::capture::{ClipboardContent, ContentType};
-use image::{ImageFormat, GenericImageView};
+use image::ImageFormat;
 use std::io::Cursor;
 use std::fs;
 use std::path::Path;
 use regex::Regex;
-use once_cell::sync::Lazy;
 use sha2::{Sha256, Digest};
 use serde::{Serialize, Deserialize};
 
@@ -29,10 +28,9 @@ struct FileClipboardData {
 
 /// 处理后的剪贴板数据结构
 pub struct ProcessedContent {
-    pub content: String,              // 主要内容（文本或图片ID）
+    pub content: String,              // 主要内容
     pub html_content: Option<String>, // HTML富文本内容
     pub content_type: String,         // 内容类型：text/rich_text/image/file/link
-    pub image_id: Option<String>,     // 图片ID（仅图片类型）
 }
 
 /// 处理剪贴板内容，将原始数据转换为可存储的格式
@@ -49,7 +47,6 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 content: text,
                 html_content: None,
                 content_type: content_type.to_string(),
-                image_id: None,
             })
         }
         
@@ -65,24 +62,8 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                     content: text,
                     html_content: Some(processed_html),
                     content_type: "rich_text".to_string(),
-                    image_id: None,
                 })
             }
-        
-        // 图片处理
-        ContentType::Image => {
-            let image_data = content.image_data.ok_or("图片数据为空")?;
-            
-            // 保存图片到本地并获取ID
-            let image_id = save_image(&image_data)?;
-            
-            Ok(ProcessedContent {
-                content: format!("image:{}", image_id),
-                html_content: None,
-                content_type: "image".to_string(),
-                image_id: Some(image_id),
-            })
-        }
         
         // 文件路径处理
         ContentType::Files => {
@@ -93,18 +74,24 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
             
             // 序列化为JSON格式
             let file_data = FileClipboardData {
-                files: file_infos,
+                files: file_infos.clone(),
                 operation: "copy".to_string(),
             };
             
             let json_str = serde_json::to_string(&file_data)
                 .map_err(|e| format!("序列化文件信息失败: {}", e))?;
             
+            // 如果是单个图片文件，设置为image类型
+            let content_type = if file_infos.len() == 1 && is_image_file(&file_infos[0].path) {
+                "image"
+            } else {
+                "file"
+            };
+            
             Ok(ProcessedContent {
                 content: format!("files:{}", json_str),
                 html_content: None,
-                content_type: "file".to_string(),
-                image_id: None,
+                content_type: content_type.to_string(),
             })
         }
     }
@@ -315,8 +302,13 @@ fn try_save_image_from_url(src: &str) -> Option<String> {
     
     match fetch_image_data(src) {
         Ok(image_data) => {
-            match save_image(&image_data) {
-                Ok(image_id) => Some(image_id),
+            match save_image_as_file(&image_data) {
+                Ok(file_path) => {
+                    std::path::Path::new(&file_path)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s.to_string())
+                }
                 Err(_) => None,
             }
         }
@@ -386,7 +378,7 @@ fn parse_data_url(data_url: &str) -> Result<Vec<u8>, String> {
 }
 
 /// 保存图片到本地文件和数据库，返回图片ID
-fn save_image(image_data: &[u8]) -> Result<String, String> {
+fn save_image_as_file(image_data: &[u8]) -> Result<String, String> {
     // 解码图片
     let cursor = Cursor::new(image_data);
     let img = image::ImageReader::new(cursor)
@@ -394,8 +386,6 @@ fn save_image(image_data: &[u8]) -> Result<String, String> {
         .map_err(|e| format!("图片格式识别失败: {}", e))?
         .decode()
         .map_err(|e| format!("图片解码失败: {}", e))?;
-    
-    let (width, height) = img.dimensions();
     
     // 编码为PNG格式
     let mut png_data = Vec::new();
@@ -409,12 +399,27 @@ fn save_image(image_data: &[u8]) -> Result<String, String> {
     let image_id = calculate_image_id(&png_data);
     
     // 保存到文件系统
-    save_image_to_file(&image_id, &png_data)?;
+    use crate::services::get_data_directory;
+    use std::fs;
     
-    // 保存到数据库
-    save_image_to_db(&image_id, width, height, &png_data)?;
+    let data_dir = get_data_directory()?;
+    let images_dir = data_dir.join("clipboard_images");
     
-    Ok(image_id)
+    if !images_dir.exists() {
+        fs::create_dir_all(&images_dir)
+            .map_err(|e| format!("创建图片目录失败: {}", e))?;
+    }
+    
+    let image_path = images_dir.join(format!("{}.png", image_id));
+    
+    if !image_path.exists() {
+        fs::write(&image_path, png_data)
+            .map_err(|e| format!("保存图片文件失败: {}", e))?;
+    }
+    
+    image_path.to_str()
+        .ok_or("文件路径转换失败".to_string())
+        .map(|s| s.to_string())
 }
 
 /// 根据图片数据计算图片ID
@@ -425,57 +430,5 @@ fn calculate_image_id(data: &[u8]) -> String {
     hash[..16].to_string()
 }
 
-/// 保存图片到本地文件系统
-fn save_image_to_file(image_id: &str, png_data: &[u8]) -> Result<(), String> {
-    use crate::services::get_data_directory;
-    use std::fs;
-    
-    // 获取图片存储目录
-    let data_dir = get_data_directory()?;
-    let images_dir = data_dir.join("clipboard_images");
-    
-    // 确保目录存在
-    if !images_dir.exists() {
-        fs::create_dir_all(&images_dir)
-            .map_err(|e| format!("创建图片目录失败: {}", e))?;
-    }
-    
-    // 检查文件是否已存在
-    let image_path = images_dir.join(format!("{}.png", image_id));
-    if image_path.exists() {
-        return Ok(());
-    }
-    
-    // 保存图片文件
-    fs::write(&image_path, png_data)
-        .map_err(|e| format!("保存图片文件失败: {}", e))?;
-    
-    Ok(())
-}
 
-/// 保存图片数据到数据库
-fn save_image_to_db(
-    image_id: &str,
-    width: u32,
-    height: u32,
-    png_data: &[u8],
-) -> Result<(), String> {
-    use crate::services::database::connection::with_connection;
-    use rusqlite::params;
-    use chrono;
-    
-    with_connection(|conn| {
-        let now = chrono::Local::now().timestamp();
-
-        let empty_blob: Vec<u8> = Vec::new();
-        
-        conn.execute(
-            "INSERT OR REPLACE INTO image_data (image_id, width, height, bgra_data, png_data, created_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![image_id, width as i64, height as i64, &empty_blob, png_data, now],
-        )?;
-        
-        Ok(())
-    })
-}
 

@@ -4,6 +4,7 @@ use crate::services::database::clipboard::limit_clipboard_history;
 use crate::services::settings::get_settings;
 use rusqlite::params;
 use chrono;
+use serde_json::Value;
 
 /// 存储剪贴板内容到数据库
 pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
@@ -25,13 +26,12 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
         
         // 插入新记录
         conn.execute(
-            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6)",
+            "INSERT INTO clipboard (content, html_content, content_type, item_order, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, 0, ?4, ?5)",
             params![
                 content.content,
                 content.html_content,
                 content.content_type,
-                content.image_id,
                 now,
                 now
             ],
@@ -55,7 +55,7 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
 fn is_duplicate_content(content: &ProcessedContent, conn: &rusqlite::Connection) -> Result<bool, rusqlite::Error> {
     // 只检查最近的10条记录
     let mut stmt = conn.prepare(
-        "SELECT content, html_content, content_type, image_id 
+        "SELECT content, html_content, content_type 
          FROM clipboard 
          ORDER BY created_at DESC 
          LIMIT 10"
@@ -66,36 +66,26 @@ fn is_duplicate_content(content: &ProcessedContent, conn: &rusqlite::Connection)
             row.get::<_, String>(0)?,
             row.get::<_, Option<String>>(1)?,
             row.get::<_, String>(2)?,
-            row.get::<_, Option<String>>(3)?,
         ))
     })?;
     
     for item in recent_items {
-        let (db_content, db_html, db_type, db_image_id) = item?;
+        let (db_content, db_html, db_type) = item?;
         
-        // 比较内容类型
         if db_type != content.content_type {
             continue;
         }
         
-        // 根据类型比较内容
         let is_same = match content.content_type.as_str() {
-            "image" => {
-                // 图片通过image_id比较
-                content.image_id.as_ref() == Some(&db_image_id.unwrap_or_default())
-            }
             "rich_text" => {
-                // 富文本通过HTML比较
                 if let Some(html) = &content.html_content {
                     html == &db_html.unwrap_or_default()
                 } else {
                     false
                 }
             }
-            _ => {
-                // 其他类型通过纯文本比较
-                content.content == db_content
-            }
+            "image" | "file" => compare_file_contents(&content.content, &db_content),
+            _ => content.content == db_content,
         };
         
         if is_same {
@@ -104,5 +94,30 @@ fn is_duplicate_content(content: &ProcessedContent, conn: &rusqlite::Connection)
     }
     
     Ok(false)
+}
+
+/// 比较文件内容
+fn compare_file_contents(content1: &str, content2: &str) -> bool {
+    if !content1.starts_with("files:") || !content2.starts_with("files:") {
+        return content1 == content2;
+    }
+    
+    let Ok(json1) = serde_json::from_str::<Value>(&content1[6..]) else { return false };
+    let Ok(json2) = serde_json::from_str::<Value>(&content2[6..]) else { return false };
+    
+    extract_file_paths(&json1) == extract_file_paths(&json2)
+}
+
+/// 从 JSON 提取并排序文件路径
+fn extract_file_paths(json: &Value) -> Vec<String> {
+    let mut paths: Vec<String> = json["files"]
+        .as_array()
+        .into_iter()
+        .flat_map(|files| files.iter())
+        .filter_map(|file| file["path"].as_str().map(String::from))
+        .collect();
+    
+    paths.sort();
+    paths
 }
 
