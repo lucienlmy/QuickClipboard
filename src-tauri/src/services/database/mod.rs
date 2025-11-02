@@ -1,6 +1,12 @@
 mod models;
-mod queries;
+mod connection;
+mod clipboard;
+mod favorites;
+mod groups;
 
 pub use models::*;
-pub use queries::*;
+pub use connection::init_database;
+pub use clipboard::*;
+pub use favorites::*;
+pub use groups::*;
 
