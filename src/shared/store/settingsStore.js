@@ -13,6 +13,7 @@ export const settingsStore = proxy({
   language: 'zh-CN',
   fontSize: 14,
   rowHeight: 'medium',
+  fileDisplayMode: 'detailed',
   
   darkThemeStyle: 'classic',
   
@@ -95,6 +96,12 @@ export const settingsStore = proxy({
     localStorage.setItem('rowHeight', height)
   },
   
+  // 文件显示模式
+  setFileDisplayMode(mode) {
+    this.fileDisplayMode = mode
+    localStorage.setItem('fileDisplayMode', mode)
+  },
+  
   // 粘贴格式
   setPasteWithFormat(withFormat) {
     this.saveSetting('pasteWithFormat', withFormat)
@@ -107,10 +114,12 @@ export async function initSettings() {
   const language = localStorage.getItem('language')
   const fontSize = localStorage.getItem('fontSize')
   const rowHeight = localStorage.getItem('rowHeight')
+  const fileDisplayMode = localStorage.getItem('fileDisplayMode')
   
   if (language) settingsStore.language = language
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
   if (rowHeight) settingsStore.rowHeight = rowHeight
+  if (fileDisplayMode) settingsStore.fileDisplayMode = fileDisplayMode
   
   // 从后端加载所有配置
   await settingsStore.loadSettings()

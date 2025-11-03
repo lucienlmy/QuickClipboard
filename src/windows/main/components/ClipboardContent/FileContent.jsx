@@ -1,4 +1,6 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { useSnapshot } from 'valtio'
+import { settingsStore } from '@shared/store/settingsStore'
 
 // 图片文件扩展名
 const IMAGE_FILE_EXTENSIONS = ['PNG', 'JPG', 'JPEG', 'GIF', 'BMP', 'WEBP', 'ICO', 'SVG']
@@ -63,6 +65,7 @@ function FileIcon({ file, size = 20 }) {
 
 // 文件内容组件
 function FileContent({ item, compact = false }) {
+  const settings = useSnapshot(settingsStore)
   let filesData = null
 
   try {
@@ -87,6 +90,34 @@ function FileContent({ item, compact = false }) {
     )
   }
 
+  // 仅图标模式：网格布局
+  if (settings.fileDisplayMode === 'iconOnly') {
+    const iconSize = compact ? 29 : (settings.rowHeight === 'large' ? 80 : 50)
+    const itemSize = compact ? 33 : (settings.rowHeight === 'large' ? 84 : 54)
+    const gap = compact ? '0.25rem' : (settings.rowHeight === 'large' ? '0.5rem' : '0.375rem')
+    
+    return (
+      <div className="w-full h-full overflow-y-auto">
+        <div className="w-full flex flex-wrap" style={{ gap }}>
+          {filesData.files.map((file, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-center bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors flex-shrink-0"
+              style={{ 
+                width: `${itemSize}px`, 
+                height: `${itemSize}px`,
+                padding: '2px'
+              }}
+              title={`${file.name}\n${file.path}\n${formatFileSize(file.size || 0)}`}
+            >
+              <FileIcon file={file} size={iconSize} />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   // 小行高模式：使用紧凑样式
   if (compact) {
     return (
@@ -94,9 +125,9 @@ function FileContent({ item, compact = false }) {
         {filesData.files.map((file, index) => (
           <div
             key={index}
-            className="flex items-center gap-1.0 px-1.5 py-0 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+            className="flex items-center gap-1.0 px-1 py-0 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
           >
-            <FileIcon file={file} size={20} />
+            <FileIcon file={file} size={26} />
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xs text-gray-800 dark:text-gray-200 truncate font-medium">
@@ -117,6 +148,8 @@ function FileContent({ item, compact = false }) {
   }
 
   // 正常模式：完整显示
+  const normalIconSize = settings.rowHeight === 'large' ? 48 : 36
+  
   return (
     <div className="w-full h-full overflow-y-auto space-y-1 pr-1">
       {/* 文件列表 */}
@@ -126,7 +159,7 @@ function FileContent({ item, compact = false }) {
           className="flex items-center gap-2 px-2 py-1.5 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
         >
           {/* 文件图标 */}
-          <FileIcon file={file} size={20} />
+          <FileIcon file={file} size={normalIconSize} />
 
           {/* 文件信息 */}
           <div className="flex-1 min-w-0">

@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
-import { IconMenu2, IconCheck } from '@tabler/icons-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { IconSettings, IconRowInsertBottom, IconLayoutGrid } from '@tabler/icons-react'
 import { useWindowDrag } from '@shared/hooks/useWindowDrag'
 import { settingsStore } from '@shared/store/settingsStore'
+import BottomMenuPopup from './BottomMenuPopup'
 
 function FooterBar({ children }) {
   const { t } = useTranslation()
@@ -15,10 +15,31 @@ function FooterBar({ children }) {
     allowChildren: true
   })
 
-  const rowHeightOptions = [
-    { value: 'large', label: '大', height: '120px' },
-    { value: 'medium', label: '中', height: '90px' },
-    { value: 'small', label: '小', height: '50px' }
+  // 定义菜单项配置
+  const menuItems = [
+    {
+      id: 'rowHeight',
+      label: '行高',
+      icon: IconRowInsertBottom,
+      currentValue: settings.rowHeight,
+      options: [
+        { value: 'large', label: '大' },
+        { value: 'medium', label: '中' },
+        { value: 'small', label: '小' }
+      ],
+      onSelect: (value) => settingsStore.setRowHeight(value)
+    },
+    {
+      id: 'fileDisplayMode',
+      label: '文件显示模式',
+      icon: IconLayoutGrid,
+      currentValue: settings.fileDisplayMode,
+      options: [
+        { value: 'detailed', label: '详细信息' },
+        { value: 'iconOnly', label: '仅图标' }
+      ],
+      onSelect: (value) => settingsStore.setFileDisplayMode(value)
+    }
   ]
 
   return (
@@ -42,40 +63,13 @@ function FooterBar({ children }) {
         
         {/* 内容层 */}
         <div className="relative flex items-center gap-2">
-          {/* 行高菜单 */}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button 
-                className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-                title="行高"
-              >
-                <IconMenu2 size={12} />
-                <span className="text-[10px]">行高</span>
-              </button>
-            </DropdownMenu.Trigger>
-
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                className="row-height-menu min-w-[100px] bg-white dark:bg-gray-800 rounded-lg p-1 shadow-lg border border-gray-200 dark:border-gray-700"
-                sideOffset={5}
-                align="end"
-                side="top"
-              >
-                {rowHeightOptions.map(option => (
-                  <DropdownMenu.Item
-                    key={option.value}
-                    onClick={() => settingsStore.setRowHeight(option.value)}
-                    className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs outline-none cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-                  >
-                    <span>{option.label}</span>
-                    {settings.rowHeight === option.value && (
-                      <IconCheck size={12} className="text-blue-500" />
-                    )}
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+          <BottomMenuPopup
+            icon={IconSettings}
+            label="设置"
+            title="显示设置"
+            menuItems={menuItems}
+            width={120}
+          />
           
           {/* 自定义内容（分组按钮） */}
           {children}
