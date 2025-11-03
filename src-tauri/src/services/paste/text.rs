@@ -1,4 +1,4 @@
-use clipboard_rs::{ClipboardContext, Clipboard};
+use clipboard_rs::{Clipboard, ClipboardContext, ClipboardContent};
 
 /// 粘贴纯文本
 pub fn paste_text(ctx: &ClipboardContext, text: &str) -> Result<(), String> {
@@ -12,22 +12,18 @@ pub fn paste_rich_text(
     text: &str,
     html_content: &Option<String>,
 ) -> Result<(), String> {
+    let settings = crate::services::get_settings();
+    
     if let Some(html) = html_content {
-        // 先设置纯文本作为 fallback
-        ctx.set_text(text.to_string())
-            .map_err(|e| format!("设置文本失败: {}", e))?;
-        
-        // 再设置 HTML
-        ctx.set_html(html.clone())
-            .map_err(|e| format!("设置HTML失败: {}", e))?;
-        
-        Ok(())
+        if !settings.paste_with_format {
+            return paste_text(ctx, text);
+        }
+        ctx.set(vec![
+            ClipboardContent::Text(text.to_string()),
+            ClipboardContent::Html(html.clone()),
+        ])
+        .map_err(|e| format!("设置剪贴板内容失败: {}", e))
     } else {
         paste_text(ctx, text)
     }
 }
-
-
-
-
-

@@ -1,6 +1,6 @@
 use clipboard_rs::ClipboardContext;
 use crate::services::database::ClipboardItem;
-use super::text::{paste_text, paste_rich_text};
+use super::text::paste_rich_text;
 use super::file::paste_files;
 use super::keyboard::simulate_paste;
 use chrono;
@@ -43,8 +43,9 @@ fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
     
     match item.content_type.as_str() {
-        "text" | "link" => paste_text(&ctx, &item.content)?,
-        "rich_text" => paste_rich_text(&ctx, &item.content, &item.html_content)?,
+        "text" | "link" | "rich_text" => {
+            paste_rich_text(&ctx, &item.content, &item.html_content)?
+        },
         "image" | "file" => paste_files(&ctx, &content)?,
         _ => return Err(format!("不支持的内容类型: {}", item.content_type)),
     }
