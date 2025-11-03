@@ -251,40 +251,39 @@ fn process_html_images(html: &str) -> Result<(String, Vec<String>), String> {
     
     if let Ok(re) = Regex::new(r#"(<img\b[^>]*?\bsrc\s*=\s*")([^"]+)(")"#) {
         processed_html = re.replace_all(&processed_html, |caps: &regex::Captures| {
-            let prefix = &caps[1];
+            let full_tag = &caps[0];
             let src = &caps[2];
-            let suffix = &caps[3];
             
-            if src.starts_with("image-id:") {
-                return caps[0].to_string();
+            if full_tag.contains("data-image-id") {
+                return full_tag.to_string();
             }
             
             if let Some(image_id) = try_save_image_from_url(src) {
                 image_ids.push(image_id.clone());
-                format!("{}image-id:{}{}", prefix, image_id, suffix)
+                // 在 <img 后插入 data-image-id 属性
+                full_tag.replacen("<img", &format!(r#"<img data-image-id="{}""#, image_id), 1)
             } else {
-                caps[0].to_string()
+                full_tag.to_string()
             }
         }).to_string();
     }
     
     if let Ok(re) = Regex::new(r#"(<img\b[^>]*?\bsrc\s*=\s*')([^']+)(')"#) {
         processed_html = re.replace_all(&processed_html, |caps: &regex::Captures| {
-            let prefix = &caps[1];
+            let full_tag = &caps[0];
             let src = &caps[2];
-            let suffix = &caps[3];
             
-            if src.starts_with("image-id:") {
-                return caps[0].to_string();
+            if full_tag.contains("data-image-id") {
+                return full_tag.to_string();
             }
             
             if let Some(image_id) = try_save_image_from_url(src) {
                 if !image_ids.contains(&image_id) {
                     image_ids.push(image_id.clone());
                 }
-                format!("{}image-id:{}{}", prefix, image_id, suffix)
+                full_tag.replacen("<img", &format!(r#"<img data-image-id="{}""#, image_id), 1)
             } else {
-                caps[0].to_string()
+                full_tag.to_string()
             }
         }).to_string();
     }

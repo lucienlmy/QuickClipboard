@@ -23,15 +23,15 @@ function HtmlContent({ htmlContent, lineClampClass }) {
     const images = contentRef.current.querySelectorAll('img')
     
     images.forEach(img => {
+      const imageId = img.getAttribute('data-image-id')
       const src = img.getAttribute('src')
       
-      if (src && src.startsWith('image-id:')) {
-        const imageId = src.substring(9)
-        
+      // 优先使用 data-image-id
+      if (imageId) {
+        const originalSrc = img.src
         img.src = PLACEHOLDER_SRC
         img.classList.add('html-image-pending')
         
-        // 构建图片文件路径
         invoke('get_data_directory')
           .then(dataDir => {
             const filePath = `${dataDir}/clipboard_images/${imageId}.png`
@@ -40,7 +40,26 @@ function HtmlContent({ htmlContent, lineClampClass }) {
             img.classList.remove('html-image-pending')
           })
           .catch(error => {
-            console.error('加载 HTML 图片失败:', error, 'imageId:', imageId)
+            console.error('加载本地图片失败，恢复原始src:', error, 'imageId:', imageId)
+            img.src = originalSrc
+            img.classList.remove('html-image-pending')
+          })
+      }
+      else if (src && src.startsWith('image-id:')) {
+        const legacyImageId = src.substring(9)
+        
+        img.src = PLACEHOLDER_SRC
+        img.classList.add('html-image-pending')
+        
+        invoke('get_data_directory')
+          .then(dataDir => {
+            const filePath = `${dataDir}/clipboard_images/${legacyImageId}.png`
+            const assetUrl = convertFileSrc(filePath, 'asset')
+            img.src = assetUrl
+            img.classList.remove('html-image-pending')
+          })
+          .catch(error => {
+            console.error('加载 HTML 图片失败:', error, 'imageId:', legacyImageId)
             img.src = ERROR_SRC
             img.alt = '图片加载失败'
             img.classList.remove('html-image-pending')
