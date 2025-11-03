@@ -72,6 +72,8 @@ pub fn run() {
                 commands::position_window_at_cursor,
                 commands::center_main_window,
                 commands::get_data_directory,
+                commands::focus_clipboard_window,
+                commands::restore_last_focus,
                 commands::get_clipboard_history,
                 commands::get_clipboard_total_count,
                 commands::move_clipboard_item,

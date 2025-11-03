@@ -51,3 +51,12 @@ pub fn get_data_directory() -> Result<String, String> {
         .map(|s| s.to_string())
 }
 
+#[tauri::command]
+pub fn focus_clipboard_window(window: WebviewWindow) -> Result<(), String> {
+    crate::services::system::focus_clipboard_window(window)
+}
+
+#[tauri::command]
+pub fn restore_last_focus() -> Result<(), String> {
+    crate::services::system::restore_last_focus()
+}
