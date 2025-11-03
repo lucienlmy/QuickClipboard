@@ -1,5 +1,5 @@
 mod model;
-mod storage;
+pub mod storage;
 mod state;
 
 pub use model::AppSettings;

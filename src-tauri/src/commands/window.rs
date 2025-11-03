@@ -60,3 +60,27 @@ pub fn focus_clipboard_window(window: WebviewWindow) -> Result<(), String> {
 pub fn restore_last_focus() -> Result<(), String> {
     crate::services::system::restore_last_focus()
 }
+
+#[tauri::command]
+pub fn hide_main_window_if_auto_shown(window: WebviewWindow) -> Result<(), String> {
+    crate::hide_main_window(&window);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_window_pinned(window: WebviewWindow, pinned: bool) -> Result<(), String> {
+    window.set_always_on_top(pinned)
+        .map_err(|e| format!("设置窗口置顶失败: {}", e))
+}
+
+#[tauri::command]
+pub fn toggle_window_visibility(app: AppHandle) -> Result<(), String> {
+    crate::toggle_main_window_visibility(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    let _ = app;
+    Ok(())
+}
