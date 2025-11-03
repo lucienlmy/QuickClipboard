@@ -109,6 +109,9 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     animate_window_position(window, x, y, hide_x, hide_y, 200)?;
     set_hidden(true);
     
+    // 保存贴边隐藏位置到设置
+    save_edge_snap_position(hide_x, hide_y);
+    
     crate::input_monitor::disable_mouse_monitoring();
     crate::input_monitor::disable_navigation_keys();
     
@@ -201,5 +204,62 @@ pub fn restore_from_snap(window: &WebviewWindow) -> Result<(), String> {
 
 pub fn is_window_snapped() -> bool {
     is_snapped()
+}
+
+/// 保存贴边隐藏位置到设置
+fn save_edge_snap_position(x: i32, y: i32) {
+    let _ = crate::services::settings::update_with(|settings| {
+        settings.edge_snap_position = Some((x, y));
+    });
+}
+
+/// 启动时恢复贴边隐藏状态
+pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String> {
+    let settings = crate::get_settings();
+
+    if !settings.edge_hide_enabled {
+        return Ok(());
+    }
+    
+    let (x, y) = match settings.edge_snap_position {
+        Some(pos) => pos,
+        None => return Ok(()),
+    };
+    
+    // 根据保存的位置推断贴边的边缘
+    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
+    let _monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
+        .map(|(_, my, _, mh)| my + mh)
+        .unwrap_or(vy + vh);
+    
+    let snapped_edge = if x <= vx {
+        SnapEdge::Left
+    } else if x >= vx + vw - 100 {
+        SnapEdge::Right
+    } else if y <= vy {
+        SnapEdge::Top
+    } else {
+        SnapEdge::Bottom
+    };
+    
+    // 设置贴边状态
+    set_snap_edge(snapped_edge, Some((x, y)));
+    set_hidden(true);
+    
+    // 设置窗口位置
+    window.set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
+    
+    // 显示窗口
+    let _ = window.show();
+    
+    // 禁用输入监听
+    crate::input_monitor::disable_mouse_monitoring();
+    crate::input_monitor::disable_navigation_keys();
+    
+    // 启动边缘监听
+    super::edge_monitor::start_edge_monitoring();
+    
+    Ok(())
 }
 

@@ -129,7 +129,7 @@ pub fn run() {
 
                 hotkey::init_hotkey_manager(app.handle().clone(), window.clone());
                 input_monitor::init_input_monitor(window.clone());
-                init_edge_monitor(window);
+                init_edge_monitor(window.clone());
                 setup_tray(app.handle())?;
                 hotkey::reload_from_settings()?;
                 input_monitor::start_monitoring();
@@ -142,6 +142,11 @@ pub fn run() {
                     if let Err(e) = start_clipboard_monitor() {
                         eprintln!("启动剪贴板监听失败: {}", e);
                     }
+                }
+                
+                // 恢复贴边隐藏状态
+                if let Err(e) = windows::main_window::restore_edge_snap_on_startup(&window) {
+                    eprintln!("恢复贴边隐藏状态失败: {}", e);
                 }
 
             Ok(())

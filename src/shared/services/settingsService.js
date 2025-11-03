@@ -57,6 +57,7 @@ export const defaultSettings = {
   rememberWindowSize: false,
   titleBarPosition: 'top',
   edgeHideEnabled: true,
+  edgeSnapPosition: null,
   edgeHideOffset: 3,
   autoFocusSearch: false,
   sidebarHoverDelay: 0.5,
