@@ -177,8 +177,8 @@ fn emit_clipboard_updated() -> Result<(), String> {
     Ok(())
 }
 
-/// 预设哈希缓存
-pub fn set_last_hash(text: &str) {
+/// 预设哈希缓存（文本类型）
+pub fn set_last_hash_text(text: &str) {
     use sha2::{Sha256, Digest};
     let mut hasher = Sha256::new();
     hasher.update(text.as_bytes());
@@ -186,5 +186,28 @@ pub fn set_last_hash(text: &str) {
     
     let mut last_hash = LAST_CONTENT_HASH.lock();
     *last_hash = Some(hash);
+}
+
+/// 预设哈希缓存（文件类型）
+pub fn set_last_hash_files(content: &str) {
+    use sha2::{Sha256, Digest};
+    
+    if let Some(json_str) = content.strip_prefix("files:") {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+            let mut hasher = Sha256::new();
+            
+            if let Some(files) = json["files"].as_array() {
+                for file in files {
+                    if let Some(path) = file["path"].as_str() {
+                        hasher.update(path.as_bytes());
+                    }
+                }
+            }
+            
+            let hash = format!("{:x}", hasher.finalize());
+            let mut last_hash = LAST_CONTENT_HASH.lock();
+            *last_hash = Some(hash);
+        }
+    }
 }
 

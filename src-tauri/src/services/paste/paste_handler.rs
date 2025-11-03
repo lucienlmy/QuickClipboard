@@ -40,7 +40,15 @@ fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite
         item.content.clone()
     };
     
-    crate::services::clipboard::set_last_hash(&item.content);
+    match primary_type {
+        "text" | "link" | "rich_text" => {
+            crate::services::clipboard::set_last_hash_text(&item.content);
+        },
+        "image" | "file" => {
+            crate::services::clipboard::set_last_hash_files(&content);
+        },
+        _ => {}
+    }
     
     // 设置剪贴板
     let ctx = ClipboardContext::new()
