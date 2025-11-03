@@ -1,8 +1,10 @@
-use once_cell::sync::OnceCell;
+use once_cell::sync::{OnceCell, Lazy};
 use parking_lot::Mutex;
 use rdev::{listen, Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use std::time::{Duration, Instant};
+use std::collections::HashMap;
 use tauri::{Emitter, WebviewWindow};
 
 static MAIN_WINDOW: OnceCell<WebviewWindow> = OnceCell::new();
@@ -26,6 +28,17 @@ static KEYBOARD_STATE: Mutex<KeyboardState> = Mutex::new(KeyboardState {
     shift: false,
     meta: false,
 });
+
+static THROTTLE_STATE: Lazy<Mutex<HashMap<String, Instant>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+// 节流延迟配置
+fn get_throttle_delay(action: &str) -> Duration {
+    match action {
+        "navigate-up" | "navigate-down" => Duration::from_millis(80),
+        "tab-left" | "tab-right" | "previous-group" | "next-group" => Duration::from_millis(150),
+        _ => Duration::from_millis(200),
+    }
+}
 
 pub fn init_input_monitor(window: WebviewWindow) {
     let _ = MAIN_WINDOW.set(window);
@@ -134,25 +147,152 @@ fn handle_key_release(key: Key) {
 
 fn handle_navigation_key(key: Key) {
     if let Some(window) = MAIN_WINDOW.get() {
-        let action = match key {
-            Key::UpArrow => Some("navigate-up"),
-            Key::DownArrow => Some("navigate-down"),
-            Key::LeftArrow => Some("tab-left"),
-            Key::RightArrow => Some("tab-right"),
-            Key::Tab => Some("focus-search"),
-            Key::Escape => Some("hide-window"),
-            Key::Return => Some("execute-item"),
-            _ => None,
-        };
+        let settings = crate::get_settings();
+        
+        let shortcuts = [
+            (&settings.navigate_up_shortcut, "navigate-up"),
+            (&settings.navigate_down_shortcut, "navigate-down"),
+            (&settings.tab_left_shortcut, "tab-left"),
+            (&settings.tab_right_shortcut, "tab-right"),
+            (&settings.focus_search_shortcut, "focus-search"),
+            (&settings.hide_window_shortcut, "hide-window"),
+            (&settings.execute_item_shortcut, "execute-item"),
+            (&settings.previous_group_shortcut, "previous-group"),
+            (&settings.next_group_shortcut, "next-group"),
+            (&settings.toggle_pin_shortcut, "toggle-pin"),
+        ];
 
-        if let Some(action) = action {
-            let _ = window.emit(
-                "navigation-action",
-                serde_json::json!({
-                    "action": action
-                }),
-            );
+        for (shortcut_str, action) in shortcuts {
+            if check_shortcut_match(key, shortcut_str) {
+                if should_throttle(action) {
+                    return;
+                }
+                
+                let _ = window.emit(
+                    "navigation-action",
+                    serde_json::json!({
+                        "action": action
+                    }),
+                );
+                return;
+            }
         }
+    }
+}
+
+fn should_throttle(action: &str) -> bool {
+    let mut throttle_state = THROTTLE_STATE.lock();
+    let now = Instant::now();
+    let delay = get_throttle_delay(action);
+    
+    if let Some(last_time) = throttle_state.get(action) {
+        if now.duration_since(*last_time) < delay {
+            return true;
+        }
+    }
+    
+    throttle_state.insert(action.to_string(), now);
+    false
+}
+
+fn check_shortcut_match(key: Key, shortcut_str: &str) -> bool {
+    if let Some(state) = KEYBOARD_STATE.try_lock() {
+        let parts: Vec<&str> = shortcut_str.split('+').collect();
+        
+        let mut required_ctrl = false;
+        let mut required_alt = false;
+        let mut required_shift = false;
+        let mut required_meta = false;
+        let mut main_key = "";
+        
+        for part in &parts {
+            match part.trim() {
+                "Ctrl" | "Control" => required_ctrl = true,
+                "Alt" => required_alt = true,
+                "Shift" => required_shift = true,
+                "Win" | "Super" | "Meta" | "Cmd" | "Command" => required_meta = true,
+                key_str => main_key = key_str,
+            }
+        }
+        
+        if state.ctrl != required_ctrl || 
+           state.alt != required_alt || 
+           state.shift != required_shift || 
+           state.meta != required_meta {
+            return false;
+        }
+        
+        match_key(key, main_key)
+    } else {
+        false
+    }
+}
+
+fn match_key(key: Key, key_str: &str) -> bool {
+    match key_str {
+        "ArrowUp" | "Up" => matches!(key, Key::UpArrow),
+        "ArrowDown" | "Down" => matches!(key, Key::DownArrow),
+        "ArrowLeft" | "Left" => matches!(key, Key::LeftArrow),
+        "ArrowRight" | "Right" => matches!(key, Key::RightArrow),
+        "Enter" | "Return" => matches!(key, Key::Return),
+        "Escape" | "Esc" => matches!(key, Key::Escape),
+        "Tab" => matches!(key, Key::Tab),
+        "Space" => matches!(key, Key::Space),
+        "Backspace" => matches!(key, Key::Backspace),
+        "Delete" => matches!(key, Key::Delete),
+        "Home" => matches!(key, Key::Home),
+        "End" => matches!(key, Key::End),
+        "PageUp" => matches!(key, Key::PageUp),
+        "PageDown" => matches!(key, Key::PageDown),
+        "A" => matches!(key, Key::KeyA),
+        "B" => matches!(key, Key::KeyB),
+        "C" => matches!(key, Key::KeyC),
+        "D" => matches!(key, Key::KeyD),
+        "E" => matches!(key, Key::KeyE),
+        "F" => matches!(key, Key::KeyF),
+        "G" => matches!(key, Key::KeyG),
+        "H" => matches!(key, Key::KeyH),
+        "I" => matches!(key, Key::KeyI),
+        "J" => matches!(key, Key::KeyJ),
+        "K" => matches!(key, Key::KeyK),
+        "L" => matches!(key, Key::KeyL),
+        "M" => matches!(key, Key::KeyM),
+        "N" => matches!(key, Key::KeyN),
+        "O" => matches!(key, Key::KeyO),
+        "P" => matches!(key, Key::KeyP),
+        "Q" => matches!(key, Key::KeyQ),
+        "R" => matches!(key, Key::KeyR),
+        "S" => matches!(key, Key::KeyS),
+        "T" => matches!(key, Key::KeyT),
+        "U" => matches!(key, Key::KeyU),
+        "V" => matches!(key, Key::KeyV),
+        "W" => matches!(key, Key::KeyW),
+        "X" => matches!(key, Key::KeyX),
+        "Y" => matches!(key, Key::KeyY),
+        "Z" => matches!(key, Key::KeyZ),
+        "0" => matches!(key, Key::Num0),
+        "1" => matches!(key, Key::Num1),
+        "2" => matches!(key, Key::Num2),
+        "3" => matches!(key, Key::Num3),
+        "4" => matches!(key, Key::Num4),
+        "5" => matches!(key, Key::Num5),
+        "6" => matches!(key, Key::Num6),
+        "7" => matches!(key, Key::Num7),
+        "8" => matches!(key, Key::Num8),
+        "9" => matches!(key, Key::Num9),
+        "F1" => matches!(key, Key::F1),
+        "F2" => matches!(key, Key::F2),
+        "F3" => matches!(key, Key::F3),
+        "F4" => matches!(key, Key::F4),
+        "F5" => matches!(key, Key::F5),
+        "F6" => matches!(key, Key::F6),
+        "F7" => matches!(key, Key::F7),
+        "F8" => matches!(key, Key::F8),
+        "F9" => matches!(key, Key::F9),
+        "F10" => matches!(key, Key::F10),
+        "F11" => matches!(key, Key::F11),
+        "F12" => matches!(key, Key::F12),
+        _ => false,
     }
 }
 

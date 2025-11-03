@@ -9,18 +9,15 @@ const FOCUS_DEBOUNCE_DELAY = 50
 
 // 防抖的焦点启用函数
 async function debouncedEnableFocus() {
-  // 清除可能存在的blur定时器
   if (blurDebounceTimer) {
     clearTimeout(blurDebounceTimer)
     blurDebounceTimer = null
   }
-  
-  // 如果已经是focused状态，不需要重复调用
+
   if (currentFocusState === 'focused') {
     return
   }
-  
-  // 清除之前的focus定时器
+
   if (focusDebounceTimer) {
     clearTimeout(focusDebounceTimer)
   }
@@ -38,7 +35,6 @@ async function debouncedEnableFocus() {
 
 // 防抖的焦点恢复函数
 async function debouncedRestoreFocus() {
-  // 清除可能存在的focus定时器
   if (focusDebounceTimer) {
     clearTimeout(focusDebounceTimer)
     focusDebounceTimer = null
@@ -48,14 +44,12 @@ async function debouncedRestoreFocus() {
   if (currentFocusState === 'normal') {
     return
   }
-  
-  // 清除之前的blur定时器
+
   if (blurDebounceTimer) {
     clearTimeout(blurDebounceTimer)
   }
   
   blurDebounceTimer = setTimeout(async () => {
-    // 再次检查是否有其他输入框获得焦点
     const activeElement = document.activeElement
     const isInputFocused = activeElement && (
       activeElement.tagName === 'INPUT' || 
@@ -78,7 +72,6 @@ async function debouncedRestoreFocus() {
   }, FOCUS_DEBOUNCE_DELAY)
 }
 
-// 输入框焦点管理 Hook
 // 当输入框获得焦点时启用窗口焦点，失去焦点时恢复工具窗口模式
 export function useInputFocus() {
   const inputRef = useRef(null)
@@ -97,12 +90,8 @@ export function useInputFocus() {
 
     element.addEventListener('focus', handleFocus)
     element.addEventListener('blur', handleBlur)
-
-    // 检查元素是否已经有焦点（例如通过 autoFocus）
-    // 使用 setTimeout 确保在 DOM 完全更新后检查
     const checkInitialFocus = setTimeout(() => {
       if (document.activeElement === element) {
-        // 如果元素已经有焦点，立即启用窗口焦点
         debouncedEnableFocus()
       }
     }, 0)

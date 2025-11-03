@@ -34,8 +34,9 @@ pub fn show_main_window(window: &WebviewWindow) {
     
     set_window_state(WindowState::Visible);
     
-    // 启用鼠标监听
+    // 启用鼠标监听和导航键
     crate::input_monitor::enable_mouse_monitoring();
+    crate::input_monitor::enable_navigation_keys();
 }
 
 pub fn hide_main_window(window: &WebviewWindow) {
@@ -45,16 +46,18 @@ pub fn hide_main_window(window: &WebviewWindow) {
         let state = super::state::get_window_state();
         let _ = super::snap_to_edge(window, state.snap_edge);
         set_window_state(WindowState::Hidden);
-        // 禁用鼠标监听
+        // 禁用鼠标监听和导航键
         crate::input_monitor::disable_mouse_monitoring();
+        crate::input_monitor::disable_navigation_keys();
         return;
     }
     
     let _ = window.hide();
     set_window_state(WindowState::Hidden);
     
-    // 禁用鼠标监听
+    // 禁用鼠标监听和导航键
     crate::input_monitor::disable_mouse_monitoring();
+    crate::input_monitor::disable_navigation_keys();
 }
 
 pub fn toggle_main_window_visibility(app: &AppHandle) {
