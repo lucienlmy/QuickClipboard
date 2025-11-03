@@ -1,4 +1,15 @@
-use crate::services::database::{query_clipboard_items, get_clipboard_count, move_clipboard_item_by_index, limit_clipboard_history, get_clipboard_item_by_id, QueryParams, PaginatedResult, ClipboardItem};
+use crate::services::database::{
+    query_clipboard_items, 
+    get_clipboard_count, 
+    move_clipboard_item_by_index, 
+    limit_clipboard_history, 
+    get_clipboard_item_by_id,
+    delete_clipboard_item as db_delete_clipboard_item,
+    clear_clipboard_history as db_clear_clipboard_history,
+    QueryParams, 
+    PaginatedResult, 
+    ClipboardItem
+};
 
 /// 分页查询剪贴板历史
 #[tauri::command]
@@ -79,5 +90,17 @@ pub fn paste_content(params: PasteParams) -> Result<(), String> {
     };
     
     Ok(())
+}
+
+/// 删除单个剪贴板项
+#[tauri::command]
+pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
+    db_delete_clipboard_item(id)
+}
+
+/// 清空剪贴板历史
+#[tauri::command]
+pub fn clear_clipboard_history() -> Result<(), String> {
+    db_clear_clipboard_history()
 }
 

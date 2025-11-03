@@ -64,6 +64,8 @@ pub use windows::plugins::context_menu::is_context_menu_visible;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
             .invoke_handler(tauri::generate_handler![
                 commands::start_custom_drag,
@@ -86,9 +88,14 @@ pub fn run() {
                 commands::move_clipboard_item,
                 commands::apply_history_limit,
                 commands::paste_content,
+                commands::delete_clipboard_item,
+                commands::clear_clipboard_history,
                 commands::get_favorites_history,
                 commands::get_favorites_total_count,
                 commands::move_favorite_item,
+                commands::add_clipboard_to_favorites,
+                commands::move_quick_text_to_group,
+                commands::delete_quick_text,
                 commands::get_groups,
                 commands::add_group,
                 commands::update_group,

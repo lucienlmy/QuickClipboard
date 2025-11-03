@@ -201,3 +201,126 @@ pub fn move_favorite_by_index(group_name: Option<String>, from_index: i64, to_in
     })
 }
 
+/// 从剪贴板历史添加到收藏
+pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>) -> Result<FavoriteItem, String> {
+    use uuid::Uuid;
+    
+    let group_name = group_name.unwrap_or_else(|| "全部".to_string());
+    
+    with_connection(|conn| {
+        let (content, html_content, content_type, image_id) = conn.query_row(
+            "SELECT content, html_content, content_type, image_id FROM clipboard WHERE id = ?",
+            params![clipboard_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                ))
+            }
+        )?;
+        
+        let title = if content.len() > 50 {
+            format!("{}...", &content[..50])
+        } else {
+            content.clone()
+        };
+        
+        let id = Uuid::new_v4().to_string();
+        
+        let max_order: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(item_order), -1) FROM favorites WHERE group_name = ?",
+            params![&group_name],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        let now = chrono::Local::now().timestamp();
+        
+        conn.execute(
+            "INSERT INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                &id,
+                &title,
+                &content,
+                &html_content,
+                &content_type,
+                &image_id,
+                &group_name,
+                max_order + 1,
+                now,
+                now,
+            ],
+        )?;
+        
+        Ok(FavoriteItem {
+            id,
+            title,
+            content,
+            html_content,
+            content_type,
+            image_id,
+            group_name,
+            item_order: max_order + 1,
+            created_at: now,
+            updated_at: now,
+        })
+    })
+}
+
+/// 移动收藏项到指定分组
+pub fn move_favorite_to_group(id: String, group_name: String) -> Result<(), String> {
+    with_connection(|conn| {
+        let existing_item = conn.query_row(
+            "SELECT id, group_name FROM favorites WHERE id = ?",
+            params![&id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        )?;
+        
+        let old_group_name = existing_item.1;
+        
+        if old_group_name == group_name {
+            return Ok(());
+        }
+        
+        let max_order: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(item_order), -1) FROM favorites WHERE group_name = ?",
+            params![&group_name],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        let now = chrono::Local::now().timestamp();
+        
+        conn.execute(
+            "UPDATE favorites SET group_name = ?1, item_order = ?2, updated_at = ?3 WHERE id = ?4",
+            params![&group_name, max_order + 1, now, &id],
+        )?;
+        
+        let mut stmt = conn.prepare(
+            "SELECT id FROM favorites WHERE group_name = ? ORDER BY item_order, updated_at DESC"
+        )?;
+        let item_ids: Vec<String> = stmt
+            .query_map(params![&old_group_name], |row| row.get(0))?
+            .collect::<Result<Vec<String>, _>>()?;
+        drop(stmt);
+        
+        for (index, item_id) in item_ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE favorites SET item_order = ?1, updated_at = ?2 WHERE id = ?3",
+                params![index as i64, now, item_id],
+            )?;
+        }
+        
+        Ok(())
+    })
+}
+
+/// 删除收藏项
+pub fn delete_favorite(id: String) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
+        Ok(())
+    })
+}
+
