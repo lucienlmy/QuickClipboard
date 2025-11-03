@@ -1,6 +1,6 @@
 import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { favoritesStore } from '@shared/store'
+import { favoritesStore, refreshFavorites } from '@shared/store'
 import { navigationStore } from '@shared/store/navigationStore'
 import { openBlankEditor } from '@shared/api/textEditor'
 import FavoritesList from './FavoritesList'
@@ -12,6 +12,9 @@ const FavoritesTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
   const [isAtTop, setIsAtTop] = useState(true)
 
   useEffect(() => {
+    favoritesStore.setContentType(contentFilter)
+    favoritesStore.setFilter(searchQuery)
+    refreshFavorites()
     navigationStore.resetNavigation()
   }, [searchQuery, contentFilter])
 

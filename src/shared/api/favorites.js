@@ -2,14 +2,14 @@ import { invoke } from '@tauri-apps/api/core'
 
 // 分页查询收藏列表
 export async function getFavoritesHistory(params = {}) {
-  const { offset, limit, groupName, search, contentType } = params
-  return await invoke('get_favorites_history', {
-    offset: offset ?? 0,
-    limit: limit ?? 50,
-    groupName: groupName === '全部' ? null : groupName,
-    search: search || null,
-    contentType: contentType || null,
-  })
+  const { offset = 0, limit = 50, groupName, search, contentType } = params
+  
+  const invokeParams = { offset, limit }
+  if (groupName && groupName !== '全部') invokeParams.groupName = groupName
+  if (search) invokeParams.search = search
+  if (contentType) invokeParams.contentType = contentType
+  
+  return await invoke('get_favorites_history', invokeParams)
 }
 
 // 获取收藏总数

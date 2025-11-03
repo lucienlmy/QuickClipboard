@@ -1,6 +1,6 @@
 import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { clipboardStore } from '@shared/store/clipboardStore'
+import { clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore'
 import { navigationStore } from '@shared/store/navigationStore'
 import ClipboardList from './ClipboardList'
 import FloatingToolbar from './FloatingToolbar'
@@ -11,6 +11,9 @@ const ClipboardTab = forwardRef(({ contentFilter, searchQuery }, ref) => {
   const [isAtTop, setIsAtTop] = useState(true)
 
   useEffect(() => {
+    clipboardStore.setContentType(contentFilter)
+    clipboardStore.setFilter(searchQuery)
+    refreshClipboardHistory()
     navigationStore.resetNavigation()
   }, [searchQuery, contentFilter])
   

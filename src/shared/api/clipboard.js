@@ -3,19 +3,13 @@ import { invoke } from '@tauri-apps/api/core'
 // 获取剪贴板历史列表
 export async function getClipboardHistory(params = {}) {
   try {
-    const { 
-      offset = 0, 
-      limit = 50, 
-      search = null, 
-      contentType = null 
-    } = params
+    const { offset = 0, limit = 50, search, contentType } = params
     
-    return await invoke('get_clipboard_history', {
-      offset,
-      limit,
-      search,
-      contentType
-    })
+    const invokeParams = { offset, limit }
+    if (search) invokeParams.search = search
+    if (contentType) invokeParams.contentType = contentType
+    
+    return await invoke('get_clipboard_history', invokeParams)
   } catch (error) {
     console.error('获取剪贴板历史失败:', error)
     return {

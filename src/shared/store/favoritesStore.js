@@ -11,6 +11,7 @@ export const favoritesStore = proxy({
   items: new Map(),
   totalCount: 0,
   filter: '',
+  contentType: 'all',
   selectedIds: new Set(),
   loading: false,
   error: null,
@@ -47,6 +48,10 @@ export const favoritesStore = proxy({
   
   setFilter(value) {
     this.filter = value
+  },
+  
+  setContentType(value) {
+    this.contentType = value
   },
   
   toggleSelect(id) {
@@ -115,7 +120,9 @@ export async function loadFavoritesRange(startIndex, endIndex, groupName = null)
     const result = await getFavoritesHistory({
       offset: startIndex,
       limit,
-      groupName
+      groupName,
+      contentType: favoritesStore.contentType !== 'all' ? favoritesStore.contentType : undefined,
+      search: favoritesStore.filter || undefined
     })
     
     // 将数据按索引存储
@@ -145,17 +152,27 @@ export async function initFavorites(groupName = null) {
       groupName = groupsStore.currentGroup
     }
     
-    // 只获取总数
-    const totalCount = await getFavoritesTotalCount(groupName)
-    favoritesStore.totalCount = totalCount
-    
-    // 清空之前的数据
     favoritesStore.items = new Map()
     
-    // 如果有数据，预加载首屏（前50项）
-    if (totalCount > 0) {
-      const endIndex = Math.min(49, totalCount - 1)
-      await loadFavoritesRange(0, endIndex, groupName)
+    if (favoritesStore.contentType !== 'all' || favoritesStore.filter) {
+      const result = await getFavoritesHistory({
+        offset: 0,
+        limit: 50,
+        groupName,
+        contentType: favoritesStore.contentType !== 'all' ? favoritesStore.contentType : undefined,
+        search: favoritesStore.filter || undefined
+      })
+      
+      favoritesStore.totalCount = result.total_count
+      favoritesStore.setItemsInRange(0, result.items)
+    } else {
+      const totalCount = await getFavoritesTotalCount(groupName)
+      favoritesStore.totalCount = totalCount
+      
+      if (totalCount > 0) {
+        const endIndex = Math.min(49, totalCount - 1)
+        await loadFavoritesRange(0, endIndex, groupName)
+      }
     }
   } catch (err) {
     console.error('初始化收藏列表失败:', err)

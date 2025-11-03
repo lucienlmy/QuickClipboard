@@ -12,6 +12,7 @@ export const clipboardStore = proxy({
   items: new Map(),
   totalCount: 0,
   filter: '',
+  contentType: 'all',
   selectedIds: new Set(),
   loading: false,
   error: null,
@@ -47,6 +48,10 @@ export const clipboardStore = proxy({
   
   setFilter(value) {
     this.filter = value
+  },
+  
+  setContentType(value) {
+    this.contentType = value
   },
   
   toggleSelect(id) {
@@ -107,7 +112,9 @@ export async function loadClipboardRange(startIndex, endIndex) {
     const limit = endIndex - startIndex + 1
     const result = await getClipboardHistory({
       offset: startIndex,
-      limit
+      limit,
+      contentType: clipboardStore.contentType !== 'all' ? clipboardStore.contentType : undefined,
+      search: clipboardStore.filter || undefined
     })
     
     // 将数据按索引存储
@@ -135,17 +142,26 @@ export async function initClipboardItems() {
   clipboardStore.error = null
   
   try {
-    // 只获取总数
-    const totalCount = await getClipboardTotalCount()
-    clipboardStore.totalCount = totalCount
-    
-    // 清空之前的数据
     clipboardStore.items = new Map()
     
-    // 预加载首屏（前50项）
-    if (totalCount > 0) {
-      const endIndex = Math.min(49, totalCount - 1)
-      await loadClipboardRange(0, endIndex)
+    if (clipboardStore.contentType !== 'all' || clipboardStore.filter) {
+      const result = await getClipboardHistory({
+        offset: 0,
+        limit: 50,
+        contentType: clipboardStore.contentType !== 'all' ? clipboardStore.contentType : undefined,
+        search: clipboardStore.filter || undefined
+      })
+      
+      clipboardStore.totalCount = result.total_count
+      clipboardStore.setItemsInRange(0, result.items)
+    } else {
+      const totalCount = await getClipboardTotalCount()
+      clipboardStore.totalCount = totalCount
+      
+      if (totalCount > 0) {
+        const endIndex = Math.min(49, totalCount - 1)
+        await loadClipboardRange(0, endIndex)
+      }
     }
   } catch (err) {
     console.error('初始化剪贴板失败:', err)
