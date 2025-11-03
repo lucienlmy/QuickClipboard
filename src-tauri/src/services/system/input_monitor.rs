@@ -1,6 +1,6 @@
 use once_cell::sync::{OnceCell, Lazy};
 use parking_lot::Mutex;
-use rdev::{listen, Event, EventType, Key};
+use rdev::{grab, Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -31,7 +31,6 @@ static KEYBOARD_STATE: Mutex<KeyboardState> = Mutex::new(KeyboardState {
 
 static THROTTLE_STATE: Lazy<Mutex<HashMap<String, Instant>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
-// 节流延迟配置
 fn get_throttle_delay(action: &str) -> Duration {
     match action {
         "navigate-up" | "navigate-down" => Duration::from_millis(80),
@@ -52,12 +51,12 @@ pub fn start_monitoring() {
     MONITORING_ACTIVE.store(true, Ordering::SeqCst);
 
     let handle = thread::spawn(|| {
-        if let Err(error) = listen(move |event| {
+        if let Err(error) = grab(move |event| {
             if !MONITORING_ACTIVE.load(Ordering::SeqCst) {
-                return;
+                return Some(event);
             }
             
-            handle_input_event(event);
+            handle_input_event(event)
         }) {
             eprintln!("输入监控错误: {:?}", error);
         }
@@ -106,46 +105,65 @@ pub fn get_modifier_keys_state() -> (bool, bool, bool, bool) {
     }
 }
 
-fn handle_input_event(event: Event) {
+fn handle_input_event(event: Event) -> Option<Event> {
     match event.event_type {
-        EventType::KeyPress(key) => handle_key_press(key),
-        EventType::KeyRelease(key) => handle_key_release(key),
-        EventType::ButtonPress(button) => handle_mouse_button_press(button),
-        EventType::ButtonRelease(button) => handle_mouse_button_release(button),
-        EventType::MouseMove { x, y } => handle_mouse_move(x, y),
-        EventType::Wheel { delta_x, delta_y } => handle_mouse_wheel(delta_x, delta_y),
+        EventType::KeyPress(key) => {
+            if handle_key_press(key, &event) {
+                None
+            } else {
+                Some(event)
+            }
+        }
+        EventType::KeyRelease(key) => {
+            handle_key_release(key);
+            Some(event)
+        }
+        EventType::ButtonPress(button) => {
+            handle_mouse_button_press(button);
+            Some(event)
+        }
+        EventType::ButtonRelease(button) => {
+            handle_mouse_button_release(button);
+            Some(event)
+        }
+        EventType::MouseMove { x, y } => {
+            handle_mouse_move(x, y);
+            Some(event)
+        }
+        EventType::Wheel { delta_x, delta_y } => {
+            handle_mouse_wheel(delta_x, delta_y);
+            Some(event)
+        }
     }
 }
 
-fn handle_key_press(key: Key) {
-    if let Some(mut state) = KEYBOARD_STATE.try_lock() {
-        match key {
-            Key::ControlLeft | Key::ControlRight => state.ctrl = true,
-            Key::Alt | Key::AltGr => state.alt = true,
-            Key::ShiftLeft | Key::ShiftRight => state.shift = true,
-            Key::MetaLeft | Key::MetaRight => state.meta = true,
-            _ => {}
-        }
-    }
-
+fn handle_key_press(key: Key, _event: &Event) -> bool {
+    update_modifier_key(key, true);
+    
     if NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst) {
-        handle_navigation_key(key);
+        return handle_navigation_key(key);
     }
+    
+    false
 }
 
 fn handle_key_release(key: Key) {
+    update_modifier_key(key, false);
+}
+
+fn update_modifier_key(key: Key, pressed: bool) {
     if let Some(mut state) = KEYBOARD_STATE.try_lock() {
         match key {
-            Key::ControlLeft | Key::ControlRight => state.ctrl = false,
-            Key::Alt | Key::AltGr => state.alt = false,
-            Key::ShiftLeft | Key::ShiftRight => state.shift = false,
-            Key::MetaLeft | Key::MetaRight => state.meta = false,
+            Key::ControlLeft | Key::ControlRight => state.ctrl = pressed,
+            Key::Alt | Key::AltGr => state.alt = pressed,
+            Key::ShiftLeft | Key::ShiftRight => state.shift = pressed,
+            Key::MetaLeft | Key::MetaRight => state.meta = pressed,
             _ => {}
         }
     }
 }
 
-fn handle_navigation_key(key: Key) {
+fn handle_navigation_key(key: Key) -> bool {
     if let Some(window) = MAIN_WINDOW.get() {
         let settings = crate::get_settings();
         
@@ -165,7 +183,7 @@ fn handle_navigation_key(key: Key) {
         for (shortcut_str, action) in shortcuts {
             if check_shortcut_match(key, shortcut_str) {
                 if should_throttle(action) {
-                    return;
+                    return true;
                 }
                 
                 let _ = window.emit(
@@ -174,10 +192,11 @@ fn handle_navigation_key(key: Key) {
                         "action": action
                     }),
                 );
-                return;
+                return true;
             }
         }
     }
+    false 
 }
 
 fn should_throttle(action: &str) -> bool {
@@ -229,71 +248,42 @@ fn check_shortcut_match(key: Key, shortcut_str: &str) -> bool {
 }
 
 fn match_key(key: Key, key_str: &str) -> bool {
-    match key_str {
-        "ArrowUp" | "Up" => matches!(key, Key::UpArrow),
-        "ArrowDown" | "Down" => matches!(key, Key::DownArrow),
-        "ArrowLeft" | "Left" => matches!(key, Key::LeftArrow),
-        "ArrowRight" | "Right" => matches!(key, Key::RightArrow),
-        "Enter" | "Return" => matches!(key, Key::Return),
-        "Escape" | "Esc" => matches!(key, Key::Escape),
-        "Tab" => matches!(key, Key::Tab),
-        "Space" => matches!(key, Key::Space),
-        "Backspace" => matches!(key, Key::Backspace),
-        "Delete" => matches!(key, Key::Delete),
-        "Home" => matches!(key, Key::Home),
-        "End" => matches!(key, Key::End),
-        "PageUp" => matches!(key, Key::PageUp),
-        "PageDown" => matches!(key, Key::PageDown),
-        "A" => matches!(key, Key::KeyA),
-        "B" => matches!(key, Key::KeyB),
-        "C" => matches!(key, Key::KeyC),
-        "D" => matches!(key, Key::KeyD),
-        "E" => matches!(key, Key::KeyE),
-        "F" => matches!(key, Key::KeyF),
-        "G" => matches!(key, Key::KeyG),
-        "H" => matches!(key, Key::KeyH),
-        "I" => matches!(key, Key::KeyI),
-        "J" => matches!(key, Key::KeyJ),
-        "K" => matches!(key, Key::KeyK),
-        "L" => matches!(key, Key::KeyL),
-        "M" => matches!(key, Key::KeyM),
-        "N" => matches!(key, Key::KeyN),
-        "O" => matches!(key, Key::KeyO),
-        "P" => matches!(key, Key::KeyP),
-        "Q" => matches!(key, Key::KeyQ),
-        "R" => matches!(key, Key::KeyR),
-        "S" => matches!(key, Key::KeyS),
-        "T" => matches!(key, Key::KeyT),
-        "U" => matches!(key, Key::KeyU),
-        "V" => matches!(key, Key::KeyV),
-        "W" => matches!(key, Key::KeyW),
-        "X" => matches!(key, Key::KeyX),
-        "Y" => matches!(key, Key::KeyY),
-        "Z" => matches!(key, Key::KeyZ),
-        "0" => matches!(key, Key::Num0),
-        "1" => matches!(key, Key::Num1),
-        "2" => matches!(key, Key::Num2),
-        "3" => matches!(key, Key::Num3),
-        "4" => matches!(key, Key::Num4),
-        "5" => matches!(key, Key::Num5),
-        "6" => matches!(key, Key::Num6),
-        "7" => matches!(key, Key::Num7),
-        "8" => matches!(key, Key::Num8),
-        "9" => matches!(key, Key::Num9),
-        "F1" => matches!(key, Key::F1),
-        "F2" => matches!(key, Key::F2),
-        "F3" => matches!(key, Key::F3),
-        "F4" => matches!(key, Key::F4),
-        "F5" => matches!(key, Key::F5),
-        "F6" => matches!(key, Key::F6),
-        "F7" => matches!(key, Key::F7),
-        "F8" => matches!(key, Key::F8),
-        "F9" => matches!(key, Key::F9),
-        "F10" => matches!(key, Key::F10),
-        "F11" => matches!(key, Key::F11),
-        "F12" => matches!(key, Key::F12),
-        _ => false,
-    }
+    use Key::*;
+    
+    let target_key = match key_str {
+        // 方向键
+        "ArrowUp" | "Up" => UpArrow,
+        "ArrowDown" | "Down" => DownArrow,
+        "ArrowLeft" | "Left" => LeftArrow,
+        "ArrowRight" | "Right" => RightArrow,
+        // 特殊键
+        "Enter" | "Return" => Return,
+        "Escape" | "Esc" => Escape,
+        "Tab" => Tab,
+        "Space" => Space,
+        "Backspace" => Backspace,
+        "Delete" => Delete,
+        "Home" => Home,
+        "End" => End,
+        "PageUp" => PageUp,
+        "PageDown" => PageDown,
+        // 字母键 A-Z
+        "A" => KeyA, "B" => KeyB, "C" => KeyC, "D" => KeyD, "E" => KeyE,
+        "F" => KeyF, "G" => KeyG, "H" => KeyH, "I" => KeyI, "J" => KeyJ,
+        "K" => KeyK, "L" => KeyL, "M" => KeyM, "N" => KeyN, "O" => KeyO,
+        "P" => KeyP, "Q" => KeyQ, "R" => KeyR, "S" => KeyS, "T" => KeyT,
+        "U" => KeyU, "V" => KeyV, "W" => KeyW, "X" => KeyX, "Y" => KeyY, "Z" => KeyZ,
+        // 数字键 0-9
+        "0" => Num0, "1" => Num1, "2" => Num2, "3" => Num3, "4" => Num4,
+        "5" => Num5, "6" => Num6, "7" => Num7, "8" => Num8, "9" => Num9,
+        // 功能键 F1-F12
+        "F1" => F1, "F2" => F2, "F3" => F3, "F4" => F4,
+        "F5" => F5, "F6" => F6, "F7" => F7, "F8" => F8,
+        "F9" => F9, "F10" => F10, "F11" => F11, "F12" => F12,
+        _ => return false,
+    };
+    
+    std::mem::discriminant(&key) == std::mem::discriminant(&target_key)
 }
 
 fn handle_mouse_button_press(button: rdev::Button) {
@@ -327,39 +317,28 @@ fn handle_middle_button_press() {
     if let Some(window) = MAIN_WINDOW.get() {
         let settings = crate::get_settings();
         
-        // 检查修饰键要求
-        let modifier_match = match settings.mouse_middle_button_modifier.as_str() {
-            "None" => true,
-            "Ctrl" => {
-                let (ctrl, _, _, _) = get_modifier_keys_state();
-                ctrl
-            }
-            "Alt" => {
-                let (_, alt, _, _) = get_modifier_keys_state();
-                alt
-            }
-            "Shift" => {
-                let (_, _, shift, _) = get_modifier_keys_state();
-                shift
-            }
-            "Meta" => {
-                let (_, _, _, meta) = get_modifier_keys_state();
-                meta
-            }
-            _ => false,
-        };
-        
-        if !modifier_match {
+        if !check_modifier_requirement(&settings.mouse_middle_button_modifier) {
             return;
         }
         
-        // 中键点击切换窗口显示
         let is_visible = window.is_visible().unwrap_or(false);
         if is_visible {
             crate::hide_main_window(window);
         } else {
             crate::show_main_window(window);
         }
+    }
+}
+
+fn check_modifier_requirement(required: &str) -> bool {
+    let (ctrl, alt, shift, meta) = get_modifier_keys_state();
+    match required {
+        "None" => true,
+        "Ctrl" => ctrl,
+        "Alt" => alt,
+        "Shift" => shift,
+        "Meta" => meta,
+        _ => false,
     }
 }
 
