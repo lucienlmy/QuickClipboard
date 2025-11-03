@@ -11,7 +11,7 @@ const currentWindow = getCurrentWindow();
 const menuContainer = document.getElementById('menuContainer');
 
 let currentOptions = null;
-let initialMenuSize = null; // 保存主菜单的初始大小
+let initialMenuSize = null;
 
 // 应用主题
 function applyTheme(theme) {
@@ -20,13 +20,24 @@ function applyTheme(theme) {
     } else if (theme === 'light') {
         document.body.classList.remove('dark-theme');
     } else if (theme === 'auto' || !theme) {
-        // 自动检测系统主题
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (isDark) {
             document.body.classList.add('dark-theme');
         } else {
             document.body.classList.remove('dark-theme');
         }
+    }
+}
+
+// 检查元素是否可滚动并添加样式类
+function updateScrollIndicator(element) {
+    if (!element) return;
+    
+    const hasScroll = element.scrollHeight > element.clientHeight;
+    if (hasScroll) {
+        element.classList.add('has-scroll');
+    } else {
+        element.classList.remove('has-scroll');
     }
 }
 
@@ -38,6 +49,11 @@ function createSubmenu(items) {
     items.forEach(item => {
         const menuItemElement = createMenuItem(item);
         submenu.appendChild(menuItemElement);
+    });
+    
+    // 监听滚动事件以更新滚动指示器
+    submenu.addEventListener('scroll', () => {
+        updateScrollIndicator(submenu);
     });
     
     return submenu;
@@ -72,12 +88,17 @@ async function positionSubmenu(submenu, parentItem) {
     setTimeout(async () => {
         const submenuRect = submenu.getBoundingClientRect();
         
-        // 计算窗口需要的宽度（主菜单 + 子菜单 - 重叠 + body padding）
-        const menuWidth = Math.ceil(menuRect.width + submenuRect.width - 4);
+        // 计算窗口需要的宽度（主菜单 + 子菜单 - 重叠 + body padding + 滚动条空间）
+        const scrollbarWidth = 8;
+        const menuWidth = Math.ceil(menuRect.width + submenuRect.width - 4 + scrollbarWidth);
         const windowWidth = menuWidth + bodyPadding;
         
+        // 计算子菜单实际占用的高度
+        const submenuMaxHeight = 400;
+        const actualSubmenuHeight = Math.min(submenuRect.height, submenuMaxHeight);
+        
         // 计算窗口需要的高度（取主菜单和子菜单底部中较大的 + body padding）
-        const submenuBottom = relativeTop + submenuRect.height;
+        const submenuBottom = relativeTop + actualSubmenuHeight;
         const menuHeight = Math.ceil(Math.max(menuRect.height, submenuBottom + 8));
         const windowHeight = menuHeight + bodyPadding;
         
@@ -85,11 +106,18 @@ async function positionSubmenu(submenu, parentItem) {
             const size = new LogicalSize(windowWidth, windowHeight);
             await currentWindow.setSize(size);
             
-            // 如果子菜单超出菜单容器底部，向上调整
-            if (submenuBottom > menuHeight - 8) {
-                const overflow = submenuBottom - menuHeight + 8;
-                submenu.style.top = (relativeTop - overflow) + 'px';
+            // 如果子菜单超出可视区域，向上调整
+            const availableSpace = menuHeight - 8;
+            if (submenuBottom > availableSpace) {
+                const overflow = submenuBottom - availableSpace;
+                const newTop = Math.max(0, relativeTop - overflow);
+                submenu.style.top = newTop + 'px';
             }
+            
+            // 更新滚动指示器
+            setTimeout(() => {
+                updateScrollIndicator(submenu);
+            }, 50);
         } catch (error) {
             console.error('调整窗口大小失败:', error);
         }

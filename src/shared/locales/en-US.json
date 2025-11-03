@@ -106,6 +106,9 @@
     "pasteShortcut": "Paste History"
   },
   "contextMenu": {
+    "openInBrowser": "Open in Browser",
+    "openLinks": "Open Links ({{count}})",
+    "openAll": "Open All",
     "searchWith": "Search with {{engine}}",
     "pinToScreen": "Pin to Screen",
     "saveImage": "Save Image As",

@@ -55,6 +55,15 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 let html = content.html.ok_or("HTML内容为空")?;
                 let text = content.text.unwrap_or_else(|| strip_html(&html));
                 
+                // 检测是否是URL链接
+                if is_url(&text) {
+                    return Ok(ProcessedContent {
+                        content: text,
+                        html_content: None,
+                        content_type: "link".to_string(),
+                    });
+                }
+                
                 // 处理HTML中的图片，将网络图片转换为本地引用
                 let (processed_html, _image_ids) = process_html_images(&html)?;
                 

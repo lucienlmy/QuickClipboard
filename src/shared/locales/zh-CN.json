@@ -180,6 +180,9 @@
     "pasteShortcut": "快速粘贴"
   },
   "contextMenu": {
+    "openInBrowser": "在浏览器中打开",
+    "openLinks": "打开链接 ({{count}}个)",
+    "openAll": "全部打开",
     "searchWith": "在 {{engine}} 中搜索",
     "pinToScreen": "钉到屏幕",
     "saveImage": "另存为图片",

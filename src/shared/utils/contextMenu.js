@@ -2,6 +2,7 @@
 import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plugins/context_menu/index.js'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import i18n from '@shared/i18n'
+import { extractAllLinks, normalizeUrl } from './linkUtils'
 import {
   addClipboardToFavorites,
   pinImageToScreen,
@@ -55,81 +56,191 @@ async function searchTextInBrowser(text, engineId = null) {
   }
 }
 
+// 打开链接
+async function openLink(url) {
+  try {
+    const normalizedUrl = normalizeUrl(url)
+    await openUrl(normalizedUrl)
+  } catch (error) {
+    console.error('打开链接失败:', error)
+  }
+}
+
+// 创建链接菜单项
+function createLinkMenuItems(item) {
+  const links = extractAllLinks({
+    content: item.content,
+    html_content: item.html_content
+  })
+  
+  if (links.length === 0) return { menuItems: [], links }
+  
+  const menuItems = []
+  
+  if (links.length === 1) {
+    menuItems.push(
+      createMenuItem('open-link', i18n.t('contextMenu.openInBrowser'), { icon: 'ti ti-external-link' })
+    )
+  } else {
+    const linkMenuItem = createMenuItem(
+      'open-links',
+      i18n.t('contextMenu.openLinks', { count: links.length }),
+      { icon: 'ti ti-external-link' }
+    )
+    
+    linkMenuItem.children = [
+      ...links.map((link, idx) => {
+        const displayText = link.length > 50 ? link.substring(0, 50) + '...' : link
+        return createMenuItem(`open-link-${idx}`, displayText, { icon: 'ti ti-link' })
+      }),
+      createSeparator(),
+      createMenuItem('open-all-links', i18n.t('contextMenu.openAll'), { icon: 'ti ti-external-link' })
+    ]
+    
+    menuItems.push(linkMenuItem)
+  }
+  
+  return { menuItems, links }
+}
+
+// 创建搜索菜单项
+function createSearchMenuItems(plainText, contentType) {
+  if (!plainText || (contentType !== 'text' && contentType !== 'rich_text')) {
+    return []
+  }
+  
+  const searchEngines = getSearchEngines()
+  const currentEngine = getCurrentSearchEngine()
+  
+  if (!currentEngine || searchEngines.length === 0) {
+    return []
+  }
+  
+  const searchMenuItem = createMenuItem(
+    'search-current',
+    i18n.t('contextMenu.searchWith', { engine: currentEngine.name }),
+    { favicon: currentEngine.favicon }
+  )
+  
+  searchMenuItem.children = searchEngines.map(engine =>
+    createMenuItem(`search-${engine.id}`, engine.name, {
+      favicon: engine.favicon,
+      icon: engine.id === currentEngine.id ? 'ti ti-check' : undefined
+    })
+  )
+  
+  return [searchMenuItem]
+}
+
+// 创建内容类型特定菜单项
+function createContentTypeMenuItems(contentType) {
+  if (contentType === 'image') {
+    return [
+      createMenuItem('pin-image', i18n.t('contextMenu.pinToScreen'), { icon: 'ti ti-pin' }),
+      createMenuItem('save-image', i18n.t('contextMenu.saveImage'), { icon: 'ti ti-download' })
+    ]
+  }
+  
+  if (contentType === 'file') {
+    return [
+      createMenuItem('open-file', i18n.t('contextMenu.openWithDefault'), { icon: 'ti ti-external-link' }),
+      createMenuItem('open-location', i18n.t('contextMenu.openLocation'), { icon: 'ti ti-folder-open' }),
+      createMenuItem('copy-path', i18n.t('contextMenu.copyPath'), { icon: 'ti ti-copy' })
+    ]
+  }
+  
+  if (contentType === 'text' || contentType === 'link' || contentType === 'rich_text') {
+    return [
+      createMenuItem('edit-text', contentType === 'rich_text' ? i18n.t('contextMenu.editPlainText') : i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' })
+    ]
+  }
+  
+  return []
+}
+
+// 处理链接相关操作
+async function handleLinkActions(result, links) {
+  if (result === 'open-link' && links.length === 1) {
+    await openLink(links[0])
+    return true
+  }
+  
+  if (result.startsWith('open-link-')) {
+    const linkIndex = parseInt(result.substring(10))
+    if (linkIndex >= 0 && linkIndex < links.length) {
+      await openLink(links[linkIndex])
+    }
+    return true
+  }
+  
+  if (result === 'open-all-links') {
+    for (const link of links) {
+      await openLink(link)
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return true
+  }
+  
+  return false
+}
+
+// 处理搜索相关操作
+async function handleSearchActions(result, plainText) {
+  if (result === 'search-current') {
+    await searchTextInBrowser(plainText)
+    return true
+  }
+  
+  if (result.startsWith('search-')) {
+    const engineId = result.substring(7)
+    await searchTextInBrowser(plainText, engineId)
+    return true
+  }
+  
+  return false
+}
+
 // 显示剪贴板项的右键菜单
 export async function showClipboardItemContextMenu(event, item, index) {
   const menuItems = []
   const contentType = item.content_type || 'text'
   const plainText = typeof item.content === 'string' ? item.content.trim() : ''
 
-  // 添加浏览器搜索选项（仅文本类型）
-  if (plainText && (contentType === 'text' || contentType === 'rich_text')) {
-    const searchEngines = getSearchEngines()
-    const currentEngine = getCurrentSearchEngine()
-    
-    if (currentEngine && searchEngines.length > 0) {
-      const searchMenuItem = createMenuItem(
-        'search-current',
-        i18n.t('contextMenu.searchWith', { engine: currentEngine.name }),
-        { favicon: currentEngine.favicon }
-      )
-      
-      // 添加子菜单
-      searchMenuItem.children = searchEngines.map(engine =>
-        createMenuItem(`search-${engine.id}`, engine.name, {
-          favicon: engine.favicon,
-          icon: engine.id === currentEngine.id ? 'ti ti-check' : undefined
-        })
-      )
-      
-      menuItems.push(searchMenuItem)
-      menuItems.push(createSeparator())
-    }
+  const { menuItems: linkMenuItems, links } = createLinkMenuItems(item)
+  if (linkMenuItems.length > 0) {
+    menuItems.push(...linkMenuItems, createSeparator())
   }
 
-  // 根据内容类型添加特有菜单项
-  if (contentType === 'image') {
-    // 图片类型菜单
-    menuItems.push(
-      createMenuItem('pin-image', i18n.t('contextMenu.pinToScreen'), { icon: 'ti ti-pin' }),
-      createMenuItem('save-image', i18n.t('contextMenu.saveImage'), { icon: 'ti ti-download' })
-    )
-  } else if (contentType === 'file') {
-    // 文件类型菜单
-    menuItems.push(
-      createMenuItem('open-file', i18n.t('contextMenu.openWithDefault'), { icon: 'ti ti-external-link' }),
-      createMenuItem('open-location', i18n.t('contextMenu.openLocation'), { icon: 'ti ti-folder-open' }),
-      createMenuItem('copy-path', i18n.t('contextMenu.copyPath'), { icon: 'ti ti-copy' })
-    )
-  } else if (contentType === 'text' || contentType === 'link' || contentType === 'rich_text') {
-    // 文本、链接和富文本类型菜单
-    menuItems.push(
-      createMenuItem('edit-text', contentType === 'rich_text' ? i18n.t('contextMenu.editPlainText') : i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' })
-    )
+  const searchMenuItems = createSearchMenuItems(plainText, contentType)
+  if (searchMenuItems.length > 0) {
+    menuItems.push(...searchMenuItems, createSeparator())
   }
 
-  // 添加分隔线（如果前面有菜单项）
-  if (menuItems.length > 0 && menuItems[menuItems.length - 1].separator !== true) {
+  const contentMenuItems = createContentTypeMenuItems(contentType)
+  if (contentMenuItems.length > 0) {
+    menuItems.push(...contentMenuItems)
+  }
+
+  // 添加分隔线
+  if (menuItems.length > 0 && !menuItems[menuItems.length - 1].separator) {
     menuItems.push(createSeparator())
   }
 
-  // 获取分组列表用于"添加到收藏"子菜单
+  // 添加"添加到收藏"菜单
   const { groupsStore } = await import('@shared/store/groupsStore')
   const groups = groupsStore.groups || []
   
-  
   const addToFavoritesItem = createMenuItem('add-to-favorites', i18n.t('contextMenu.addToFavorites'), { icon: 'ti ti-star' })
   
-  // 添加分组子菜单
   if (groups.length > 0) {
-    addToFavoritesItem.children = groups.map(group => {
-      const menuId = `add-to-group-${group.name}`
-      return createMenuItem(menuId, group.name, {
+    addToFavoritesItem.children = groups.map(group => 
+      createMenuItem(`add-to-group-${group.name}`, group.name, {
         icon: group.icon || 'ti ti-folder'
       })
-    })
+    )
   }
 
-  // 通用菜单项
+  // 添加通用菜单项
   menuItems.push(
     addToFavoritesItem,
     createMenuItem('delete-item', i18n.t('contextMenu.deleteItem'), { icon: 'ti ti-trash' }),
@@ -137,45 +248,30 @@ export async function showClipboardItemContextMenu(event, item, index) {
     createMenuItem('clear-all', i18n.t('contextMenu.clearAll'), { icon: 'ti ti-trash-x' })
   )
 
-  // 显示菜单
+  // 显示菜单并处理结果
   const result = await showContextMenuFromEvent(event, menuItems)
-
-  // 处理菜单选择
   if (!result) return
-  
 
   try {
-    // 处理搜索
-    if (result === 'search-current') {
-      await searchTextInBrowser(plainText)
-      return
-    } else if (result.startsWith('search-')) {
-      const engineId = result.substring(7)
-      await searchTextInBrowser(plainText, engineId)
-      return
-    }
+    // 处理链接操作
+    if (await handleLinkActions(result, links)) return
     
-    // 处理添加到收藏（选择分组）
+    // 处理搜索操作
+    if (await handleSearchActions(result, plainText)) return
+    
+    // 处理添加到收藏
     if (result.startsWith('add-to-group-')) {
       const groupName = result.substring(13)
-      try {
-        await addClipboardToFavorites(item.id, groupName)
-      } catch (error) {
-        console.error('添加到收藏失败:', error)
-      }
+      await addClipboardToFavorites(item.id, groupName)
       return
     }
     
-    // 如果点击了父菜单项"添加到收藏"（没有选择分组），默认添加到"全部"
     if (result === 'add-to-favorites') {
-      try {
-        await addClipboardToFavorites(item.id)
-      } catch (error) {
-        console.error('添加到收藏失败:', error)
-      }
+      await addClipboardToFavorites(item.id)
       return
     }
     
+    // 处理其他操作
     switch (result) {
       case 'pin-image':
         await pinImageToScreen(item.id)
@@ -230,50 +326,49 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   const menuItems = []
   const contentType = item.content_type || 'text'
 
-  // 根据内容类型添加特有菜单项
+  // 添加链接菜单
+  const { menuItems: linkMenuItems, links } = createLinkMenuItems(item)
+  if (linkMenuItems.length > 0) {
+    menuItems.push(...linkMenuItems, createSeparator())
+  }
+
+  // 添加编辑菜单（仅文本类型）
   if (contentType === 'text' || contentType === 'rich_text') {
     menuItems.push(
-      createMenuItem('edit-item', i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' })
+      createMenuItem('edit-item', i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' }),
+      createSeparator()
     )
   }
 
-  // 添加分隔线
-  if (menuItems.length > 0) {
-    menuItems.push(createSeparator())
-  }
-
-  // 获取分组列表用于"移动到分组"子菜单
+  // 添加"移动到分组"菜单
   const { groupsStore } = await import('@shared/store/groupsStore')
   const groups = groupsStore.groups || []
   
   const moveToGroupItem = createMenuItem('move-to-group', i18n.t('contextMenu.moveToGroup'), { icon: 'ti ti-folder' })
   
-  // 添加分组子菜单（排除当前项已经所属的分组）
   if (groups.length > 0) {
     moveToGroupItem.children = groups
       .filter(group => group.name !== item.group_name)
-      .map(group => {
-        const menuId = `move-to-group-${group.name}`
-        return createMenuItem(menuId, group.name, {
+      .map(group => 
+        createMenuItem(`move-to-group-${group.name}`, group.name, {
           icon: group.icon || 'ti ti-folder'
         })
-      })
+      )
   }
 
-  // 通用菜单项
+  // 添加通用菜单项
   menuItems.push(
     moveToGroupItem,
     createSeparator(),
     createMenuItem('delete-item', i18n.t('contextMenu.delete'), { icon: 'ti ti-trash' })
   )
 
-  // 显示菜单
   const result = await showContextMenuFromEvent(event, menuItems)
-
-  // 处理菜单选择
   if (!result) return
 
   try {
+    if (await handleLinkActions(result, links)) return
+    
     // 处理移动到分组
     if (result.startsWith('move-to-group-')) {
       const groupName = result.substring(14)
@@ -306,4 +401,3 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     console.error('处理菜单操作失败:', error)
   }
 }
-
