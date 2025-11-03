@@ -2,6 +2,7 @@ import { pasteClipboardItem } from '@shared/store/clipboardStore'
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx'
 import { useSortable, CSS } from '@shared/hooks/useSortable'
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu'
+import { getPrimaryType } from '@shared/utils/contentType'
 
 function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHover }) {
   const {
@@ -61,9 +62,10 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
 
   // 获取简短显示内容（用于小行高模式）
   const getShortContent = () => {
-    if (contentType === 'image') {
+    const primaryType = getPrimaryType(contentType)
+    if (primaryType === 'image') {
       return '[图片]'
-    } else if (contentType === 'file') {
+    } else if (primaryType === 'file') {
       try {
         if (item.content?.startsWith('files:')) {
           const filesData = JSON.parse(item.content.substring(6))
@@ -73,7 +75,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
         return '[文件]'
       }
       return '[文件]'
-    } else if (contentType === 'rich_text') {
+    } else if (primaryType === 'rich_text') {
       // 富文本显示纯文本内容
       return item.content || '[富文本]'
     }
@@ -124,7 +126,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
         // 小行高模式：显示内容（隐藏时间）
         <div className="flex items-center gap-2 h-full overflow-hidden">
           <div className="flex-1 min-w-0 overflow-hidden h-full">
-            {(contentType === 'image' || contentType === 'file') ? (
+            {(getPrimaryType(contentType) === 'image' || getPrimaryType(contentType) === 'file') ? (
               // 图片和文件：显示实际内容（紧凑模式）
               renderContent(true)
             ) : (

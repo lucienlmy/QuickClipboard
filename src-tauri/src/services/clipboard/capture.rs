@@ -116,8 +116,8 @@ impl ClipboardContent {
                 }
             }
             ContentType::RichText => {
-                if let Some(html) = &self.html {
-                    hasher.update(html.as_bytes());
+                if let Some(text) = &self.text {
+                    hasher.update(text.as_bytes());
                 }
             }
             ContentType::Files => {

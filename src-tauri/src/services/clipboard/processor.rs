@@ -1,5 +1,5 @@
 use super::capture::{ClipboardContent, ContentType as CaptureType};
-use super::content_type::{ContentType, PrimaryType, TagType};
+use super::content_type::ContentType;
 use image::ImageFormat;
 use std::io::Cursor;
 use std::fs;
@@ -41,12 +41,12 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
         CaptureType::Text => {
             let text = content.text.ok_or("文本内容为空")?;
             
-            let mut ct = ContentType::new(PrimaryType::Text);
+            let mut ct = ContentType::new("text");
             
             if is_url(&text) {
-                ct.add_tag(TagType::Link);
+                ct.add_type("link");
             } else if contains_links(&text) {
-                ct.add_tag(TagType::Link);
+                ct.add_type("link");
             }
             
             Ok(ProcessedContent {
@@ -61,14 +61,12 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 let html = content.html.ok_or("HTML内容为空")?;
                 let text = content.text.unwrap_or_else(|| strip_html(&html));
                 
-                let mut ct = ContentType::new(PrimaryType::Text);
-                
-                ct.add_tag(TagType::RichText);
-                
+                let mut ct = ContentType::new("rich_text");
+            
                 if is_url(&text) {
-                    ct.add_tag(TagType::Link);
+                    ct.add_type("link");
                 } else if contains_links(&text) || contains_links(&html) {
-                    ct.add_tag(TagType::Link);
+                    ct.add_type("link");
                 }
                 
                 let (processed_html, _image_ids) = process_html_images(&html)?;
@@ -97,9 +95,9 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 .map_err(|e| format!("序列化文件信息失败: {}", e))?;
             
             let ct = if file_infos.len() == 1 && is_image_file(&file_infos[0].path) {
-                ContentType::new(PrimaryType::Image)
+                ContentType::new("image")
             } else {
-                ContentType::new(PrimaryType::File)
+                ContentType::new("file")
             };
             
             Ok(ProcessedContent {

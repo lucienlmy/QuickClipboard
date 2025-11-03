@@ -11,17 +11,16 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
     let result = with_connection(|conn| {
         let now = chrono::Local::now().timestamp();
         
-        // 检查最近10条记录是否有重复
-        let is_dup = match is_duplicate_content(&content, conn) {
-            Ok(dup) => dup,
+        // 检查最近100条记录是否有重复
+        match check_and_handle_duplicate(&content, conn, now) {
+            Ok(Some(existing_id)) => {
+                return Ok(existing_id);
+            }
+            Ok(None) => {
+            }
             Err(e) => {
                 eprintln!("检查重复内容失败: {}", e);
-                false
             }
-        };
-        
-        if is_dup {
-            return Err(rusqlite::Error::QueryReturnedNoRows);
         }
         
         // 插入新记录
@@ -46,54 +45,84 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
             let _ = limit_clipboard_history(settings.history_limit);
             Ok(id)
         },
-        Err(e) if e.contains("Query returned no rows") => Err("重复内容".to_string()),
         Err(e) => Err(e),
     }
 }
 
-/// 检查是否是重复内容
-fn is_duplicate_content(content: &ProcessedContent, conn: &rusqlite::Connection) -> Result<bool, rusqlite::Error> {
-    // 只检查最近的10条记录
+/// 智能去重
+fn check_and_handle_duplicate(
+    content: &ProcessedContent,
+    conn: &rusqlite::Connection,
+    now: i64,
+) -> Result<Option<i64>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT content, html_content, content_type 
+        "SELECT id, content, content_type 
          FROM clipboard 
          ORDER BY created_at DESC 
-         LIMIT 10"
+         LIMIT 100"
     )?;
     
     let recent_items = stmt.query_map([], |row| {
         Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Option<String>>(1)?,
-            row.get::<_, String>(2)?,
+            row.get::<_, i64>(0)?,      // id
+            row.get::<_, String>(1)?,   // content
+            row.get::<_, String>(2)?,   // content_type
         ))
     })?;
     
     for item in recent_items {
-        let (db_content, db_html, db_type) = item?;
+        let (db_id, db_content, db_type) = item?;
+
+        let is_text_same = if is_text_type(&content.content_type) && is_text_type(&db_type) {
+            content.content == db_content
+        } else if is_file_type(&content.content_type) && is_file_type(&db_type) {
+            compare_file_contents(&content.content, &db_content)
+        } else {
+            false
+        };
         
-        if db_type != content.content_type {
+        if !is_text_same {
             continue;
         }
         
-        let is_same = match content.content_type.as_str() {
-            "rich_text" => {
-                if let Some(html) = &content.html_content {
-                    html == &db_html.unwrap_or_default()
-                } else {
-                    false
-                }
-            }
-            "image" | "file" => compare_file_contents(&content.content, &db_content),
-            _ => content.content == db_content,
-        };
+        let old_is_rich = db_type.contains("rich_text");
+        let new_is_rich = content.content_type.contains("rich_text");
         
-        if is_same {
-            return Ok(true);
+        if old_is_rich && !new_is_rich {
+            update_item_timestamp(conn, db_id, now)?;
+            return Ok(Some(db_id));
+        } else if !old_is_rich && new_is_rich {
+            conn.execute("DELETE FROM clipboard WHERE id = ?", params![db_id])?;
+            return Ok(None);
+        } else {
+            update_item_timestamp(conn, db_id, now)?;
+            return Ok(Some(db_id));
         }
     }
     
-    Ok(false)
+    Ok(None)
+}
+
+fn update_item_timestamp(
+    conn: &rusqlite::Connection,
+    id: i64,
+    now: i64,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "UPDATE clipboard SET created_at = ?, updated_at = ? WHERE id = ?",
+        params![now, now, id],
+    )?;
+    Ok(())
+}
+
+/// 判断是否是文本类型
+fn is_text_type(content_type: &str) -> bool {
+    content_type.starts_with("text") || content_type.contains("rich_text") || content_type.contains("link")
+}
+
+/// 判断是否是文件类型
+fn is_file_type(content_type: &str) -> bool {
+    content_type.contains("image") || content_type.contains("file")
 }
 
 /// 比较文件内容

@@ -9,5 +9,6 @@ pub use monitor::{
     stop_clipboard_monitor, 
     is_monitor_running,
     set_app_handle,
+    set_last_hash,
 };
 

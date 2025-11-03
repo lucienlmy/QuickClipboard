@@ -3,6 +3,7 @@ import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plu
 import { openUrl } from '@tauri-apps/plugin-opener'
 import i18n from '@shared/i18n'
 import { extractAllLinks, normalizeUrl } from './linkUtils'
+import { getPrimaryType } from './contentType'
 import {
   addClipboardToFavorites,
   pinImageToScreen,
@@ -330,7 +331,8 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   }
 
   // 添加编辑菜单（仅文本类型）
-  if (contentType === 'text' || contentType === 'rich_text') {
+  const primaryType = getPrimaryType(contentType)
+  if (primaryType === 'text' || primaryType === 'rich_text') {
     menuItems.push(
       createMenuItem('edit-item', i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' }),
       createSeparator()

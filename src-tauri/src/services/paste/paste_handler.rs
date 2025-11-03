@@ -22,8 +22,10 @@ pub fn paste_favorite_item_with_update(item: &ClipboardItem, favorite_id: &str) 
 
 /// 内部粘贴实现
 fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite_id: Option<String>) -> Result<(), String> {
+    let primary_type = item.content_type.split(',').next().unwrap_or(&item.content_type);
+    
     // 检查并转换旧格式图片
-    let content = if item.content_type == "image" && !item.content.starts_with("files:") {
+    let content = if primary_type == "image" && !item.content.starts_with("files:") {
         let new_content = convert_legacy_image_format(item)?;
         
         // 更新数据库并刷新时间戳
@@ -38,11 +40,13 @@ fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite
         item.content.clone()
     };
     
+    crate::services::clipboard::set_last_hash(&item.content);
+    
     // 设置剪贴板
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
     
-    match item.content_type.as_str() {
+    match primary_type {
         "text" | "link" | "rich_text" => {
             paste_rich_text(&ctx, &item.content, &item.html_content)?
         },

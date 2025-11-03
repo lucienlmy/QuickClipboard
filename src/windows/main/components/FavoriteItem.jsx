@@ -4,6 +4,7 @@ import { useSortable, CSS } from '@shared/hooks/useSortable'
 import { useSnapshot } from 'valtio'
 import { groupsStore } from '@shared/store/groupsStore'
 import { showFavoriteItemContextMenu } from '@shared/utils/contextMenu'
+import { getPrimaryType } from '@shared/utils/contentType'
 
 function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onHover, onClick }) {
   const {
@@ -60,7 +61,8 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
 
   // 判断是否显示标题（纯文本和富文本显示标题）
   const shouldShowTitle = () => {
-    return (contentType === 'text' || contentType === 'rich_text') && item.title
+    const primaryType = getPrimaryType(contentType)
+    return (primaryType === 'text' || primaryType === 'rich_text') && item.title
   }
   
   // 键盘选中样式

@@ -177,3 +177,14 @@ fn emit_clipboard_updated() -> Result<(), String> {
     Ok(())
 }
 
+/// 预设哈希缓存
+pub fn set_last_hash(text: &str) {
+    use sha2::{Sha256, Digest};
+    let mut hasher = Sha256::new();
+    hasher.update(text.as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+    
+    let mut last_hash = LAST_CONTENT_HASH.lock();
+    *last_hash = Some(hash);
+}
+

@@ -1,6 +1,7 @@
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store'
 import { TextContent, ImageContent, FileContent, HtmlContent } from '@windows/main/components/ClipboardContent'
+import { getPrimaryType } from '@shared/utils/contentType'
 
 // 剪贴板和收藏项的共同逻辑
 export function useItemCommon(item) {
@@ -59,7 +60,7 @@ export function useItemCommon(item) {
     }
     
     // 如果是文件类型，添加文件数量
-    if (contentType === 'file') {
+    if (getPrimaryType(contentType) === 'file') {
       try {
         if (item.content?.startsWith('files:')) {
           const filesData = JSON.parse(item.content.substring(6))
@@ -77,19 +78,20 @@ export function useItemCommon(item) {
   // 渲染内容组件
   const renderContent = (compact = false) => {
     const lineClampClass = getLineClampClass()
+    const primaryType = getPrimaryType(contentType)
 
     // 图片类型
-    if (contentType === 'image') {
+    if (primaryType === 'image') {
       return <ImageContent item={item} />
     }
 
     // 文件类型
-    if (contentType === 'file') {
+    if (primaryType === 'file') {
       return <FileContent item={item} compact={compact} />
     }
 
     // HTML 富文本类型
-    if (contentType === 'rich_text') {
+    if (primaryType === 'rich_text') {
       // 根据格式设置决定显示 HTML 还是纯文本
       if (settings.pasteWithFormat && item.html_content) {
         return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} />
