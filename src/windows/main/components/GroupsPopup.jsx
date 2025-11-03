@@ -166,58 +166,45 @@ const GroupsPopup = forwardRef(({ activeTab, onTabChange, onGroupChange }, ref) 
   }
 
   return (
-    <div 
-      className="relative"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* 触发按钮 */}
-      <button
-        onClick={togglePopup}
-        className={`flex items-center justify-center gap-1.5 w-[100px] h-5 transition-all duration-300 ${
-          isOpen
-            ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg'
-            : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50'
-        }`}
-        title={t('groups.title')}
+    <>
+      <div 
+        className="relative flex flex-col items-end"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        <IconFolders size={12} />
-        <span className="text-[10px] font-medium truncate max-w-[60px]">{groups.currentGroup}</span>
-      </button>
-
-      {/* 弹出面板 */}
-      {isOpen && (
-        <div 
-          className={`groups-panel fixed bottom-5 right-2.5 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border-l border-r border-t border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
-            isClosing ? 'animate-slide-down' : 'animate-slide-up'
-          }`}
-        >
-          {/* 头部 */}
-          <div className="flex items-center justify-between px-2.5 py-2 border-b border-gray-200/50 dark:border-gray-700/50">
-            <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              {t('groups.title')}
-            </h3>
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={handleAddGroup}
-                className="p-1 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/60 transition-all text-gray-500 dark:text-gray-400"
-                title={t('groups.add')}
-              >
-                <IconPlus size={12} />
-              </button>
-              <button
-                onClick={togglePin}
-                className={`p-1 rounded transition-all ${
-                  isPinned
-                    ? 'bg-blue-100/60 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                    : 'hover:bg-gray-200/60 dark:hover:bg-gray-700/60 text-gray-500 dark:text-gray-400'
-                }`}
-                title={isPinned ? t('groups.unpin') : t('groups.pin')}
-              >
-                {isPinned ? <IconPinned size={12} /> : <IconPin size={12} />}
-              </button>
+        {/* 弹出面板 */}
+        {isOpen && (
+          <div 
+            className={`groups-panel absolute bottom-full right-0 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border border-b-0 border-gray-300/80 dark:border-gray-700/30 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
+              isClosing ? 'animate-slide-down' : 'animate-slide-up'
+            }`}
+          >
+            {/* 头部 */}
+            <div className="flex items-center justify-between px-2.5 py-2 border-b border-gray-200/50 dark:border-gray-700/50">
+              <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                {t('groups.title')}
+              </h3>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={handleAddGroup}
+                  className="p-1 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/60 transition-all text-gray-500 dark:text-gray-400"
+                  title={t('groups.add')}
+                >
+                  <IconPlus size={12} />
+                </button>
+                <button
+                  onClick={togglePin}
+                  className={`p-1 rounded transition-all ${
+                    isPinned
+                      ? 'bg-blue-100/60 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                      : 'hover:bg-gray-200/60 dark:hover:bg-gray-700/60 text-gray-500 dark:text-gray-400'
+                  }`}
+                  title={isPinned ? t('groups.unpin') : t('groups.pin')}
+                >
+                  {isPinned ? <IconPinned size={12} /> : <IconPin size={12} />}
+                </button>
+              </div>
             </div>
-          </div>
 
             {/* 分组列表 */}
             <div className="flex-1 overflow-y-auto py-1">
@@ -281,9 +268,24 @@ const GroupsPopup = forwardRef(({ activeTab, onTabChange, onGroupChange }, ref) 
                   </div>
                 )
               })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* 触发按钮 */}
+        <button
+          onClick={togglePopup}
+          className={`flex items-center justify-center gap-1.5 w-[100px] h-5 transition-all duration-300 ${
+            isOpen
+              ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg rounded-b-lg border border-t-0 border-gray-200/50 dark:border-gray-700/50'
+              : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50 rounded-lg'
+          }`}
+          title={t('groups.title')}
+        >
+          <IconFolders size={12} />
+          <span className="text-[10px] font-medium truncate max-w-[60px]">{groups.currentGroup}</span>
+        </button>
+      </div>
 
       {/* 分组模态框 */}
       {showModal && (
@@ -302,7 +304,7 @@ const GroupsPopup = forwardRef(({ activeTab, onTabChange, onGroupChange }, ref) 
           }}
         />
       )}
-    </div>
+    </>
   )
 })
 

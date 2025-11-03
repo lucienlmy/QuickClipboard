@@ -89,7 +89,7 @@ function FloatingToolbar({
     rounded-md
     shadow-lg
     p-1
-    z-50
+    z-30
     border border-gray-300/80 dark:border-gray-700/30
     ${isDragging ? '' : 'transition-all duration-300'}
     ${shouldShow ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}
