@@ -104,3 +104,35 @@ pub fn clear_clipboard_history() -> Result<(), String> {
     db_clear_clipboard_history()
 }
 
+/// 另存为图片
+#[tauri::command]
+pub async fn save_image_from_clipboard(clipboard_id: i64, app: tauri::AppHandle) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    let item = get_clipboard_item_by_id(clipboard_id)?.ok_or("剪贴板项不存在")?;
+    
+    let image_path = if item.content.starts_with("files:") {
+        let json: serde_json::Value = serde_json::from_str(&item.content[6..])
+            .map_err(|_| "解析文件数据失败")?;
+        json["files"][0]["path"].as_str().ok_or("无法获取图片路径")?.to_string()
+    } else {
+        item.content.clone()
+    };
+    
+    let path = std::path::Path::new(&image_path);
+    if !path.exists() { return Err("图片文件不存在".to_string()); }
+    
+    let filename = format!("QC_{}.png", path.file_stem().and_then(|s| s.to_str()).unwrap_or("image"));
+    
+    let save_path = app.dialog().file()
+        .add_filter("PNG Image", &["png"])
+        .set_file_name(&filename)
+        .blocking_save_file()
+        .ok_or("用户取消保存")?;
+    
+    let dest = save_path.as_path().ok_or("无效的文件路径")?;
+    std::fs::copy(&image_path, dest).map_err(|e| format!("保存失败: {}", e))?;
+    
+    Ok(dest.to_string_lossy().to_string())
+}
+

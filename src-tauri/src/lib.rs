@@ -90,6 +90,7 @@ pub fn run() {
                 commands::paste_content,
                 commands::delete_clipboard_item,
                 commands::clear_clipboard_history,
+                commands::save_image_from_clipboard,
                 commands::get_favorites_history,
                 commands::get_favorites_total_count,
                 commands::move_favorite_item,
