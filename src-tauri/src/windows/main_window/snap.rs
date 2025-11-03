@@ -76,6 +76,10 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         return Ok(());
     }
     
+    if crate::is_context_menu_visible() {
+        return Ok(());
+    }
+    
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = super::positioning::get_window_bounds(window)?;
     

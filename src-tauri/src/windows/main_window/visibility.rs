@@ -24,6 +24,10 @@ pub fn hide_main_window(window: &WebviewWindow) {
         return;
     }
     
+    if crate::is_context_menu_visible() {
+        return;
+    }
+    
     let state = super::state::get_window_state();
     
     if state.is_snapped && !state.is_hidden {

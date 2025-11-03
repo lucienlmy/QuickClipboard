@@ -56,6 +56,9 @@ pub use windows::main_window::{
 
 pub use windows::tray::setup_tray;
 
+// ========== 插件 API ==========
+pub use windows::plugins::context_menu::is_context_menu_visible;
+
 // ========== 应用启动 ==========
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -104,6 +107,11 @@ pub fn run() {
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,
                 commands::disable_ai_translation_cancel_shortcut,
+                // 右键菜单命令
+                windows::plugins::context_menu::commands::show_context_menu,
+                windows::plugins::context_menu::commands::get_context_menu_options,
+                windows::plugins::context_menu::commands::submit_context_menu,
+                windows::plugins::context_menu::commands::close_all_context_menus,
             ])
         .setup(|app| {
                 let window = app.get_webview_window("main")
@@ -133,6 +141,9 @@ pub fn run() {
                 setup_tray(app.handle())?;
                 hotkey::reload_from_settings()?;
                 input_monitor::start_monitoring();
+                
+                // 初始化右键菜单模块
+                windows::plugins::context_menu::init();
                 
                 // 设置剪贴板监听的App Handle
                 set_clipboard_app_handle(app.handle().clone());
