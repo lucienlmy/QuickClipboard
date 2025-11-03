@@ -2,6 +2,7 @@ mod monitor;
 mod capture;
 mod processor;
 mod storage;
+mod content_type;
 
 pub use monitor::{
     start_clipboard_monitor, 

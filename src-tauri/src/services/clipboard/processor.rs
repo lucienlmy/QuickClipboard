@@ -1,4 +1,5 @@
-use super::capture::{ClipboardContent, ContentType};
+use super::capture::{ClipboardContent, ContentType as CaptureType};
+use super::content_type::{ContentType, PrimaryType, TagType};
 use image::ImageFormat;
 use std::io::Cursor;
 use std::fs;
@@ -37,45 +38,50 @@ pub struct ProcessedContent {
 pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, String> {
     match content.content_type {
         // 纯文本处理
-        ContentType::Text => {
+        CaptureType::Text => {
             let text = content.text.ok_or("文本内容为空")?;
             
-            // 自动检测URL类型
-            let content_type = if is_url(&text) { "link" } else { "text" };
+            let mut ct = ContentType::new(PrimaryType::Text);
+            
+            if is_url(&text) {
+                ct.add_tag(TagType::Link);
+            } else if contains_links(&text) {
+                ct.add_tag(TagType::Link);
+            }
             
             Ok(ProcessedContent {
                 content: text,
                 html_content: None,
-                content_type: content_type.to_string(),
+                content_type: ct.to_db_string(),
             })
         }
         
             // 富文本处理（HTML）
-            ContentType::RichText => {
+            CaptureType::RichText => {
                 let html = content.html.ok_or("HTML内容为空")?;
                 let text = content.text.unwrap_or_else(|| strip_html(&html));
                 
-                // 检测是否是URL链接
+                let mut ct = ContentType::new(PrimaryType::Text);
+                
+                ct.add_tag(TagType::RichText);
+                
                 if is_url(&text) {
-                    return Ok(ProcessedContent {
-                        content: text,
-                        html_content: None,
-                        content_type: "link".to_string(),
-                    });
+                    ct.add_tag(TagType::Link);
+                } else if contains_links(&text) || contains_links(&html) {
+                    ct.add_tag(TagType::Link);
                 }
                 
-                // 处理HTML中的图片，将网络图片转换为本地引用
                 let (processed_html, _image_ids) = process_html_images(&html)?;
                 
                 Ok(ProcessedContent {
                     content: text,
                     html_content: Some(processed_html),
-                    content_type: "rich_text".to_string(),
+                    content_type: ct.to_db_string(),
                 })
             }
         
         // 文件路径处理
-        ContentType::Files => {
+        CaptureType::Files => {
             let files = content.files.ok_or("文件列表为空")?;
             
             // 获取文件详细信息
@@ -90,17 +96,16 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
             let json_str = serde_json::to_string(&file_data)
                 .map_err(|e| format!("序列化文件信息失败: {}", e))?;
             
-            // 如果是单个图片文件，设置为image类型
-            let content_type = if file_infos.len() == 1 && is_image_file(&file_infos[0].path) {
-                "image"
+            let ct = if file_infos.len() == 1 && is_image_file(&file_infos[0].path) {
+                ContentType::new(PrimaryType::Image)
             } else {
-                "file"
+                ContentType::new(PrimaryType::File)
             };
             
             Ok(ProcessedContent {
                 content: format!("files:{}", json_str),
                 html_content: None,
-                content_type: content_type.to_string(),
+                content_type: ct.to_db_string(),
             })
         }
     }
@@ -233,9 +238,17 @@ fn icon_to_png(icon: &file_icon_provider::Icon) -> Result<Vec<u8>, String> {
 
 /// 检测字符串是否是URL
 fn is_url(text: &str) -> bool {
-    text.trim().starts_with("http://") || 
-    text.trim().starts_with("https://") ||
-    text.trim().starts_with("ftp://")
+    let trimmed = text.trim();
+    trimmed.starts_with("http://") || 
+    trimmed.starts_with("https://") ||
+    trimmed.starts_with("ftp://") ||
+    trimmed.starts_with("www.")
+}
+
+/// 检测文本中是否包含链接
+fn contains_links(text: &str) -> bool {
+    let url_regex = Regex::new(r#"(?i)\b(https?://|ftp://|www\.)[^\s<>"]+\b"#).unwrap();
+    url_regex.is_match(text)
 }
 
 /// 从HTML中提取纯文本

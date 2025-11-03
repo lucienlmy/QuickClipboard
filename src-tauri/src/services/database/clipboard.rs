@@ -21,13 +21,10 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         
         if let Some(ref content_type) = params.content_type {
             if content_type != "all" {
-                if content_type == "text" {
-                    where_clauses.push("(content_type = 'text' OR content_type = 'rich_text')");
-                } else {
-                    where_clauses.push("content_type = ?");
-                    count_params.push(Box::new(content_type.clone()));
-                    query_params.push(Box::new(content_type.clone()));
-                }
+                let pattern = format!("%{}%", content_type);
+                where_clauses.push("content_type LIKE ?");
+                count_params.push(Box::new(pattern.clone()));
+                query_params.push(Box::new(pattern));
             }
         }
         

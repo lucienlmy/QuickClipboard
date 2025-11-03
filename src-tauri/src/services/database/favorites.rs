@@ -33,9 +33,10 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
 
         if let Some(content_type) = params.content_type {
             if content_type != "all" {
-                where_clauses.push("content_type = ?");
-                count_params.push(Box::new(content_type.clone()));
-                query_params.push(Box::new(content_type));
+                let pattern = format!("%{}%", content_type);
+                where_clauses.push("content_type LIKE ?");
+                count_params.push(Box::new(pattern.clone()));
+                query_params.push(Box::new(pattern));
             }
         }
 

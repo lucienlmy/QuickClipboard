@@ -105,7 +105,7 @@ function createLinkMenuItems(item) {
 
 // 创建搜索菜单项
 function createSearchMenuItems(plainText, contentType) {
-  if (!plainText || (contentType !== 'text' && contentType !== 'rich_text')) {
+  if (!plainText || contentType.includes('image') || contentType.includes('file')) {
     return []
   }
   
@@ -134,14 +134,14 @@ function createSearchMenuItems(plainText, contentType) {
 
 // 创建内容类型特定菜单项
 function createContentTypeMenuItems(contentType) {
-  if (contentType === 'image') {
+  if (contentType.includes('image')) {
     return [
       createMenuItem('pin-image', i18n.t('contextMenu.pinToScreen'), { icon: 'ti ti-pin' }),
       createMenuItem('save-image', i18n.t('contextMenu.saveImage'), { icon: 'ti ti-download' })
     ]
   }
   
-  if (contentType === 'file') {
+  if (contentType.includes('file')) {
     return [
       createMenuItem('open-file', i18n.t('contextMenu.openWithDefault'), { icon: 'ti ti-external-link' }),
       createMenuItem('open-location', i18n.t('contextMenu.openLocation'), { icon: 'ti ti-folder-open' }),
@@ -149,13 +149,10 @@ function createContentTypeMenuItems(contentType) {
     ]
   }
   
-  if (contentType === 'text' || contentType === 'link' || contentType === 'rich_text') {
-    return [
-      createMenuItem('edit-text', contentType === 'rich_text' ? i18n.t('contextMenu.editPlainText') : i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' })
-    ]
-  }
-  
-  return []
+  const isRichText = contentType.includes('rich_text')
+  return [
+    createMenuItem('edit-text', isRichText ? i18n.t('contextMenu.editPlainText') : i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' })
+  ]
 }
 
 // 处理链接相关操作
