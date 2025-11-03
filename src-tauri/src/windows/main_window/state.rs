@@ -23,6 +23,7 @@ pub struct MainWindowState {
     pub is_dragging: bool,
     pub is_snapped: bool,
     pub is_hidden: bool,
+    pub is_pinned: bool,
     pub snap_edge: SnapEdge,
     pub snap_position: Option<(i32, i32)>,
 }
@@ -34,6 +35,7 @@ impl Default for MainWindowState {
             is_dragging: false,
             is_snapped: false,
             is_hidden: false,
+            is_pinned: false,
             snap_edge: SnapEdge::None,
             snap_position: None,
         }
@@ -76,5 +78,13 @@ pub fn clear_snap() {
     state.is_hidden = false;
     state.snap_edge = SnapEdge::None;
     state.snap_position = None;
+}
+
+pub fn set_pinned(is_pinned: bool) {
+    WINDOW_STATE.write().is_pinned = is_pinned;
+}
+
+pub fn is_pinned() -> bool {
+    WINDOW_STATE.read().is_pinned
 }
 

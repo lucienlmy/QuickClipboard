@@ -22,7 +22,7 @@ pub fn start_edge_monitoring() {
         std::thread::sleep(Duration::from_millis(150));
         
         let mut last_near_state = false;
-        let mut first_check = true;
+        let mut last_hidden_state = false;
         
         loop {
             if !MONITORING_ACTIVE.load(Ordering::Relaxed) {
@@ -37,54 +37,46 @@ pub fn start_edge_monitoring() {
                     continue;
                 }
             };
-            
-            // 检查窗口是否处于吸附状态
+
             let state = crate::get_window_state();
-            
-            if !state.is_snapped {
+
+            if !state.is_snapped || state.is_dragging {
                 std::thread::sleep(Duration::from_millis(100));
                 continue;
             }
-            
-            // 检查是否正在拖拽
-            if state.is_dragging {
+ 
+            if last_hidden_state != state.is_hidden {
+                last_hidden_state = state.is_hidden;
+                if let Ok(is_near) = check_mouse_near_edge(window, &state) {
+                    last_near_state = is_near;
+                }
                 std::thread::sleep(Duration::from_millis(50));
                 continue;
             }
-            
-            // 检查鼠标位置
-            match check_mouse_near_edge(window, &state) {
-                Ok(is_near) => {
-                    if first_check {
-                        first_check = false;
-                        if !is_near && !state.is_hidden {
-                            let _ = crate::hide_snapped_window(window);
-                        }
-                        last_near_state = is_near;
-                        continue;
-                    }
-                    
-                    // 状态变化时执行动作
-                    if is_near && !last_near_state {
-                        // 鼠标移近边缘
-                        if state.is_hidden {
-                            let _ = crate::show_snapped_window(window);
-                        }
-                    } else if !is_near && last_near_state {
-                        // 鼠标移开边缘
-                        if !state.is_hidden {
-                            let _ = crate::hide_snapped_window(window);
-                        }
-                    }
-                    
-                    last_near_state = is_near;
-                }
+
+            let is_near = match check_mouse_near_edge(window, &state) {
+                Ok(near) => near,
                 Err(_) => {
                     std::thread::sleep(Duration::from_millis(100));
                     continue;
                 }
+            };
+
+            let state_changed = is_near != last_near_state;
+            if !state_changed {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
+
+            if is_near && state.is_hidden {
+                let _ = crate::show_snapped_window(window);
+            }
+
+            else if !is_near && !state.is_hidden && !state.is_pinned {
+                let _ = crate::hide_snapped_window(window);
             }
             
+            last_near_state = is_near;
             std::thread::sleep(Duration::from_millis(50));
         }
     });

@@ -69,8 +69,12 @@ pub fn hide_main_window_if_auto_shown(window: WebviewWindow) -> Result<(), Strin
 
 #[tauri::command]
 pub fn set_window_pinned(window: WebviewWindow, pinned: bool) -> Result<(), String> {
+    crate::windows::main_window::set_pinned(pinned);
+
     window.set_always_on_top(pinned)
-        .map_err(|e| format!("设置窗口置顶失败: {}", e))
+        .map_err(|e| format!("设置窗口置顶失败: {}", e))?;
+    
+    Ok(())
 }
 
 #[tauri::command]

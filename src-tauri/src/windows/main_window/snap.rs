@@ -13,13 +13,11 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     
     let (x, y, w, h) = super::positioning::get_window_bounds(window)?;
     
-    // 使用虚拟桌面和当前显示器边界
     let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
     let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
         .map(|(_, my, _, mh)| my + mh)
         .unwrap_or(vy + vh);
     
-    // 检查是否靠近边缘（左右上用虚拟桌面，下用当前显示器）
     let edge = if (x - vx).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Left)
     } else if ((vx + vw) - (x + w as i32)).abs() <= SNAP_THRESHOLD {
@@ -33,11 +31,8 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     };
     
     if let Some(edge) = edge {
-        // 保存当前位置作为恢复位置
         set_snap_edge(edge, Some((x, y)));
-        // 执行吸附动作，将窗口移动到贴着边缘的位置（不隐藏）
         snap_to_edge(window, edge)?;
-        // 启动边缘监听
         super::edge_monitor::start_edge_monitoring();
     } else {
         clear_snap();
@@ -56,7 +51,6 @@ pub fn snap_to_edge(window: &WebviewWindow, edge: SnapEdge) -> Result<(), String
         .map(|(_, my, _, mh)| my + mh)
         .unwrap_or(vy + vh);
     
-    // 吸附到边缘（贴着边缘显示，不隐藏）
     let (new_x, new_y) = match edge {
         SnapEdge::Left => (vx - FRONTEND_CONTENT_INSET, y),
         SnapEdge::Right => (vx + vw - size.width as i32 + FRONTEND_CONTENT_INSET, y),
@@ -77,6 +71,10 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     if !state.is_snapped || state.is_hidden {
         return Ok(());
     }
+
+    if state.is_pinned {
+        return Ok(());
+    }
     
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = super::positioning::get_window_bounds(window)?;
@@ -88,7 +86,6 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     let settings = crate::get_settings();
     
-    // 计算隐藏位置（窗口大部分移到屏幕外，只露出配置的像素数在屏幕内）
     let (hide_x, hide_y) = match state.snap_edge {
         SnapEdge::Left => {
             let hide_offset = settings.edge_hide_offset + FRONTEND_CONTENT_INSET;
@@ -109,12 +106,11 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         SnapEdge::None => return Ok(()),
     };
     
-    // 执行平滑动画
     animate_window_position(window, x, y, hide_x, hide_y, 200)?;
     set_hidden(true);
     
-    // 禁用鼠标监听
     crate::input_monitor::disable_mouse_monitoring();
+    crate::input_monitor::disable_navigation_keys();
     
     Ok(())
 }
@@ -134,7 +130,6 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         .map(|(_, my, _, mh)| my + mh)
         .unwrap_or(vy + vh);
     
-    // 计算显示位置（贴着边缘）
     let (show_x, show_y) = match state.snap_edge {
         SnapEdge::Left => (vx - FRONTEND_CONTENT_INSET, y),
         SnapEdge::Right => (vx + vw - size.width as i32 + FRONTEND_CONTENT_INSET, y),
@@ -143,12 +138,11 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         SnapEdge::None => return Ok(()),
     };
     
-    // 执行平滑动画
     animate_window_position(window, x, y, show_x, show_y, 200)?;
     set_hidden(false);
     
-    // 启用鼠标监听
     crate::input_monitor::enable_mouse_monitoring();
+    crate::input_monitor::enable_navigation_keys();
     
     Ok(())
 }

@@ -320,13 +320,7 @@ fn handle_middle_button_press() {
         if !check_modifier_requirement(&settings.mouse_middle_button_modifier) {
             return;
         }
-        
-        let is_visible = window.is_visible().unwrap_or(false);
-        if is_visible {
-            crate::hide_main_window(window);
-        } else {
-            crate::show_main_window(window);
-        }
+        crate::show_main_window(window);
     }
 }
 
@@ -342,39 +336,38 @@ fn check_modifier_requirement(required: &str) -> bool {
     }
 }
 
+/// 处理点击窗口外部事件
 fn handle_click_outside() {
-    if let Some(window) = MAIN_WINDOW.get() {
-        // 只有在窗口可见时才处理点击外部
-        let is_visible = window.is_visible().unwrap_or(false);
-        if !is_visible {
-            return;
-        }
-        
-        // 获取鼠标位置
-        let (cursor_x, cursor_y) = match crate::mouse::get_cursor_position() {
-            Ok(pos) => pos,
-            Err(_) => return,
-        };
-        
-        // 获取窗口边界
-        let (win_x, win_y, win_width, win_height) = match crate::get_window_bounds(window) {
-            Ok(bounds) => bounds,
-            Err(_) => return,
-        };
-        
-        // 检查鼠标是否在窗口外
-        let mouse_outside_window = cursor_x < win_x
-            || cursor_x > win_x + win_width as i32
-            || cursor_y < win_y
-            || cursor_y > win_y + win_height as i32;
-        
-        if mouse_outside_window {
-            // 如果窗口已经吸附到边缘，则恢复位置后隐藏
-            if crate::is_window_snapped() {
-                let _ = crate::restore_from_snap(window);
-            }
-            crate::hide_main_window(window);
-        }
+    let window = match MAIN_WINDOW.get() {
+        Some(w) => w,
+        None => return,
+    };
+    
+    if !window.is_visible().unwrap_or(false) {
+        return;
     }
+    
+    let (cursor_x, cursor_y) = match crate::mouse::get_cursor_position() {
+        Ok(pos) => pos,
+        Err(_) => return,
+    };
+    
+    let (win_x, win_y, win_width, win_height) = match crate::get_window_bounds(window) {
+        Ok(bounds) => bounds,
+        Err(_) => return,
+    };
+    
+    let mouse_outside = cursor_x < win_x
+        || cursor_x > win_x + win_width as i32
+        || cursor_y < win_y
+        || cursor_y > win_y + win_height as i32;
+    
+    if !mouse_outside {
+        return;
+    }
+
+    let _ = crate::check_snap(window);
+
+    crate::hide_main_window(window);
 }
 

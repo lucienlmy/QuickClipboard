@@ -1,18 +1,60 @@
 use tauri::{AppHandle, WebviewWindow};
 use super::state::{WindowState, set_window_state};
 
+/// 显示主窗口
 pub fn show_main_window(window: &WebviewWindow) {
-    // 检查是否吸附隐藏
-    if super::is_window_snapped() {
+    let state = super::state::get_window_state();
+    
+    if state.is_snapped && state.is_hidden {
+        let _ = super::show_snapped_window(window);
+        set_window_state(WindowState::Visible);
+        return;
+    }
+    
+    if state.is_snapped && !state.is_hidden {
         let _ = super::restore_from_snap(window);
     }
     
+    show_normal_window(window);
+}
+
+/// 隐藏主窗口
+pub fn hide_main_window(window: &WebviewWindow) {
+    if super::state::is_pinned() {
+        return;
+    }
+    
+    let state = super::state::get_window_state();
+    
+    if state.is_snapped && !state.is_hidden {
+        let _ = super::hide_snapped_window(window);
+        set_window_state(WindowState::Hidden);
+        return;
+    }
+    
+    hide_normal_window(window);
+}
+
+pub fn toggle_main_window_visibility(app: &AppHandle) {
+    if let Some(window) = super::get_main_window(app) {
+        let state = super::state::get_window_state();
+        
+        match state.state {
+            WindowState::Visible => hide_main_window(&window),
+            _ => show_main_window(&window),
+        }
+    }
+}
+
+fn show_normal_window(window: &WebviewWindow) {
     // 根据配置定位窗口
     let settings = crate::get_settings();
     match settings.window_position_mode.as_str() {
         "remember" => {
             if let Some((x, y)) = settings.saved_window_position {
                 let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+            } else {
+                let _ = super::position_at_cursor(window);
             }
         }
         "center" => {
@@ -29,44 +71,24 @@ pub fn show_main_window(window: &WebviewWindow) {
             let _ = window.set_size(tauri::PhysicalSize::new(w, h));
         }
     }
-    
+
+    let _ = window.set_always_on_top(true);
     let _ = window.show();
     
     set_window_state(WindowState::Visible);
-    
-    // 启用鼠标监听和导航键
+
     crate::input_monitor::enable_mouse_monitoring();
     crate::input_monitor::enable_navigation_keys();
 }
 
-pub fn hide_main_window(window: &WebviewWindow) {
-    // 检查是否需要吸附隐藏
-    let settings = crate::get_settings();
-    if settings.edge_hide_enabled && super::is_window_snapped() {
-        let state = super::state::get_window_state();
-        let _ = super::snap_to_edge(window, state.snap_edge);
-        set_window_state(WindowState::Hidden);
-        // 禁用鼠标监听和导航键
-        crate::input_monitor::disable_mouse_monitoring();
-        crate::input_monitor::disable_navigation_keys();
-        return;
+fn hide_normal_window(window: &WebviewWindow) {
+    if !super::state::is_pinned() {
+        let _ = window.set_always_on_top(false);
     }
     
     let _ = window.hide();
     set_window_state(WindowState::Hidden);
-    
-    // 禁用鼠标监听和导航键
+
     crate::input_monitor::disable_mouse_monitoring();
     crate::input_monitor::disable_navigation_keys();
-}
-
-pub fn toggle_main_window_visibility(app: &AppHandle) {
-    if let Some(window) = super::get_main_window(app) {
-        let state = super::state::get_window_state();
-        
-        match state.state {
-            WindowState::Visible => hide_main_window(&window),
-            _ => show_main_window(&window),
-        }
-    }
 }
