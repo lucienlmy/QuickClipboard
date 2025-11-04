@@ -1,4 +1,4 @@
-use tauri::WebviewWindow;
+use tauri::{WebviewWindow, Emitter};
 use super::state::{SnapEdge, set_snap_edge, set_hidden, clear_snap, is_snapped};
 use std::time::Duration;
 
@@ -156,6 +156,16 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     let settings = crate::get_settings();
     if settings.clipboard_animation_enabled {
         animate_window_position(window, x, y, show_x, show_y, 200)?;
+        
+        let direction = match state.snap_edge {
+            SnapEdge::Left => "left",
+            SnapEdge::Right => "right",
+            SnapEdge::Top => "top",
+            SnapEdge::Bottom => "bottom",
+            SnapEdge::None => "top",
+        };
+        
+        let _ = window.emit("edge-snap-bounce-animation", direction);
     } else {
         window.set_position(tauri::PhysicalPosition::new(show_x, show_y))
             .map_err(|e| e.to_string())?;

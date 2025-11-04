@@ -12,7 +12,7 @@
   }
 }
 
-/* 面板向下滑出（用于关闭） */
+/* 面板向下滑出 */
 @keyframes slideDown {
   from {
     transform: translateY(0);
