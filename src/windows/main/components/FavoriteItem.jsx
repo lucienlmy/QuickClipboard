@@ -130,8 +130,8 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       </div>
 
       {/* 时间戳 */}
-      <div className="flex-shrink-0 mb-0.5">
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+      <div className="flex items-center flex-shrink-0 mb-0.5">
+        <span className="text-xs text-gray-400 dark:text-gray-500">
           {formatTime()}
         </span>
       </div>
@@ -146,10 +146,8 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       )}
 
       {/* 内容区域 */}
-      <div className="flex items-center gap-2 flex-1 overflow-hidden">
-        <div className="flex-1 min-w-0 overflow-hidden h-full">
-          {renderContent()}
-        </div>
+      <div className="flex-1 min-w-0 overflow-hidden h-full w-full">
+        {renderContent()}
       </div>
     </div>
   )
