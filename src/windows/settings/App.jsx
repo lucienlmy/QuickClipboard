@@ -53,36 +53,56 @@ function App() {
   }
 
   const renderSection = () => {
+    let content
     switch (activeSection) {
       case 'general':
-        return <GeneralSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <GeneralSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'appearance':
-        return <AppearanceSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <AppearanceSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'shortcuts':
-        return <ShortcutsSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <ShortcutsSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'clipboard':
-        return <ClipboardSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <ClipboardSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'aiConfig':
-        return <AIConfigSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <AIConfigSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'translation':
-        return <TranslationSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <TranslationSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'preview':
-        return <PreviewSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <PreviewSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'screenshot':
-        return <ScreenshotSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <ScreenshotSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'sound':
-        return <SoundSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <SoundSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'appFilter':
-        return <AppFilterSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <AppFilterSection settings={snap} onSettingChange={handleSettingChange} />
+        break
       case 'dataManagement':
-        return <DataManagementSection />
+        content = <DataManagementSection />
+        break
       case 'support':
-        return <SupportSection />
+        content = <SupportSection />
+        break
       case 'about':
-        return <AboutSection />
+        content = <AboutSection />
+        break
       default:
-        return <GeneralSection settings={snap} onSettingChange={handleSettingChange} />
+        content = <GeneralSection settings={snap} onSettingChange={handleSettingChange} />
     }
+    
+    return (
+      <div key={activeSection} className="animate-slide-in-left-fast">
+        {content}
+      </div>
+    )
   }
 
   const containerClasses = `
