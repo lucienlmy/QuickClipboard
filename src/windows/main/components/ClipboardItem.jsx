@@ -28,7 +28,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     transform: CSS.Transform.toString(transform),
     transition: transition || 'transform 200ms ease',
     opacity: isDragging ? 0.5 : 1,
-    cursor: isDragging ? 'grabbing' : 'move',
+    cursor: isDragging ? 'grabbing' : 'pointer',
     zIndex: isDragging ? 1000 : 'auto',
   }
 

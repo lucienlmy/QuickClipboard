@@ -1,12 +1,15 @@
 import { IconSearch } from '@tabler/icons-react'
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useInputFocus, focusWindowImmediately } from '@shared/hooks/useInputFocus'
+import { useSnapshot } from 'valtio'
+import { settingsStore } from '@shared/store/settingsStore'
 
 const TitleBarSearch = forwardRef(({ value, onChange, placeholder, onNavigate }, ref) => {
     const [isFocused, setIsFocused] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
     const inputRef = useInputFocus()
     const searchRef = useRef(null)
+    const settings = useSnapshot(settingsStore)
     
     // 搜索框清空按钮样式
     const searchInputStyle = `
@@ -49,28 +52,61 @@ const TitleBarSearch = forwardRef(({ value, onChange, placeholder, onNavigate },
         }
     }
     
+    const matchesShortcut = (e, shortcutStr) => {
+        if (!shortcutStr) return false
+        
+        const parts = shortcutStr.split('+')
+        const modifiers = []
+        let mainKey = ''
+        
+        parts.forEach(part => {
+            if (['Ctrl', 'Control', 'Alt', 'Shift', 'Win', 'Meta'].includes(part)) {
+                modifiers.push(part)
+            } else {
+                mainKey = part
+            }
+        })
+        
+        const hasCtrl = modifiers.includes('Ctrl') || modifiers.includes('Control')
+        const hasAlt = modifiers.includes('Alt')
+        const hasShift = modifiers.includes('Shift')
+        const hasMeta = modifiers.includes('Win') || modifiers.includes('Meta')
+        
+        if (e.ctrlKey !== hasCtrl || e.altKey !== hasAlt || 
+            e.shiftKey !== hasShift || e.metaKey !== hasMeta) {
+            return false
+        }
+        
+        return e.key === mainKey || e.key.toUpperCase() === mainKey.toUpperCase()
+    }
+    
     const handleKeyDown = (e) => {
-        if (e.key === 'Tab') {
+        if (matchesShortcut(e, settings.focusSearchShortcut)) {
             e.preventDefault()
             inputRef.current?.blur()
         }
-        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter') {
+        else if (matchesShortcut(e, settings.navigateUpShortcut)) {
             e.preventDefault()
             inputRef.current?.blur()
-            
             setTimeout(() => {
-                if (onNavigate) {
-                    if (e.key === 'ArrowUp') {
-                        onNavigate('up')
-                    } else if (e.key === 'ArrowDown') {
-                        onNavigate('down')
-                    } else if (e.key === 'Enter') {
-                        onNavigate('execute')
-                    }
-                }
+                if (onNavigate) onNavigate('up')
             }, 10)
         }
-        else if (e.key === 'Escape') {
+        else if (matchesShortcut(e, settings.navigateDownShortcut)) {
+            e.preventDefault()
+            inputRef.current?.blur()
+            setTimeout(() => {
+                if (onNavigate) onNavigate('down')
+            }, 10)
+        }
+        else if (matchesShortcut(e, settings.executeItemShortcut)) {
+            e.preventDefault()
+            inputRef.current?.blur()
+            setTimeout(() => {
+                if (onNavigate) onNavigate('execute')
+            }, 10)
+        }
+        else if (matchesShortcut(e, settings.hideWindowShortcut)) {
             e.preventDefault()
             inputRef.current?.blur()
         }

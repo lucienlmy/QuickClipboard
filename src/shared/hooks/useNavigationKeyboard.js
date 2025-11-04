@@ -44,7 +44,6 @@ export function useNavigationKeyboard({
               if (onTabRight) onTabRight()
               break
             case 'focus-search':
-            case 'tab':
               if (onFocusSearch) onFocusSearch()
               break
             case 'hide-window':

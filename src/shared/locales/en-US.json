@@ -185,6 +185,7 @@
       "searchFocus": "Focus Search",
       "searchFocusDesc": "Quickly focus on search input",
       "clickToSet": "Click to set shortcut",
+      "listening": "Press a key combination...",
       "commonShortcuts": "Common Shortcuts",
       "numberTitle": "Number Shortcuts",
       "numberDesc": "Quickly operate clipboard items with number keys",

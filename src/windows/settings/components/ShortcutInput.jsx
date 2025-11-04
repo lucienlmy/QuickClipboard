@@ -10,36 +10,88 @@ function ShortcutInput({ value, onChange, onReset, presets = [] }) {
     if (!isListening) return
     
     e.preventDefault()
+    e.stopPropagation()
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+      return
+    }
+    
     const keys = []
     
+    // 添加修饰键
     if (e.ctrlKey) keys.push('Ctrl')
     if (e.altKey) keys.push('Alt')
     if (e.shiftKey) keys.push('Shift')
     if (e.metaKey) keys.push('Win')
     
-    if (e.key && !['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
-      keys.push(e.key)
+    // 映射特殊键名
+    let mainKey = e.key
+    const keyMap = {
+      'ArrowUp': 'ArrowUp',
+      'ArrowDown': 'ArrowDown',
+      'ArrowLeft': 'ArrowLeft',
+      'ArrowRight': 'ArrowRight',
+      'Escape': 'Escape',
+      'Enter': 'Enter',
+      'Tab': 'Tab',
+      'Backspace': 'Backspace',
+      'Delete': 'Delete',
+      ' ': 'Space',
     }
     
-    if (keys.length > 1) {
-      onChange(keys.join('+'))
-      setIsListening(false)
+    if (keyMap[e.key]) {
+      mainKey = keyMap[e.key]
+    } else if (e.key.length === 1) {
+      mainKey = e.key.toUpperCase()
     }
+    
+    keys.push(mainKey)
+    
+    const shortcut = keys.join('+')
+    onChange(shortcut)
+    setIsListening(false)
+  }
+
+  const handleClear = (e) => {
+    e.stopPropagation()
+    onChange('')
   }
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={value || ''}
-          onClick={() => setIsListening(true)}
-          onKeyDown={handleKeyDown}
-          onBlur={() => setIsListening(false)}
-          readOnly
-          placeholder={t('settings.shortcuts.clickToSet')}
-          className="px-3 py-2 w-48 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={isListening ? t('settings.shortcuts.listening') : (value || '')}
+            onClick={() => setIsListening(true)}
+            onKeyDown={handleKeyDown}
+            onBlur={() => setIsListening(false)}
+            readOnly
+            placeholder={t('settings.shortcuts.clickToSet')}
+            className={`
+              px-3 py-2 pr-8 w-48 text-sm border rounded-lg
+              bg-white dark:bg-gray-700 
+              text-gray-900 dark:text-white
+              focus:outline-none cursor-pointer
+              transition-all duration-200
+              ${isListening 
+                ? 'border-blue-500 ring-2 ring-blue-500/50 dark:border-blue-400 dark:ring-blue-400/50' 
+                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+              }
+            `}
+          />
+          {value && !isListening && (
+            <button
+              onClick={handleClear}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 transition-colors"
+              title={t('settings.common.clear')}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
         
         {onReset && (
           <button

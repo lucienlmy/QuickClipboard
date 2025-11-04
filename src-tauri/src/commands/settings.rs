@@ -14,6 +14,12 @@ pub fn reload_settings() -> Result<AppSettings, String> {
 #[tauri::command]
 pub fn save_settings(settings: AppSettings) -> Result<(), String> {
     update_settings(settings)?;
+    
+    // 重新加载快捷键配置
+    if let Err(e) = crate::hotkey::reload_from_settings() {
+        eprintln!("重新加载快捷键失败: {}", e);
+    }
+    
     Ok(())
 }
 
@@ -165,5 +171,30 @@ pub fn get_auto_start_status(app: tauri::AppHandle) -> Result<bool, String> {
     {
         Ok(false)
     }
+}
+
+// 重新加载快捷键
+#[tauri::command]
+pub fn reload_hotkeys() -> Result<(), String> {
+    crate::hotkey::reload_from_settings()
+}
+
+// 启用快捷键
+#[tauri::command]
+pub fn enable_hotkeys() -> Result<(), String> {
+    crate::hotkey::enable_hotkeys()
+}
+
+// 禁用快捷键
+#[tauri::command]
+pub fn disable_hotkeys() -> Result<(), String> {
+    crate::hotkey::disable_hotkeys();
+    Ok(())
+}
+
+// 检查快捷键是否启用
+#[tauri::command]
+pub fn is_hotkeys_enabled() -> bool {
+    crate::hotkey::is_hotkeys_enabled()
 }
 

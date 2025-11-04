@@ -177,7 +177,7 @@ function ShortcutsSection({ settings, onSettingChange }) {
           <ShortcutInput
             value={settings.focusSearchShortcut}
             onChange={(value) => onSettingChange('focusSearchShortcut', value)}
-            onReset={() => onSettingChange('focusSearchShortcut', 'Ctrl+F')}
+            onReset={() => onSettingChange('focusSearchShortcut', 'Tab')}
           />
         </SettingItem>
 

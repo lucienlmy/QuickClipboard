@@ -185,6 +185,7 @@
       "searchFocus": "聚焦搜索框",
       "searchFocusDesc": "快速聚焦到搜索输入框",
       "clickToSet": "点击设置快捷键",
+      "listening": "请按下快捷键...",
       "commonShortcuts": "常用快捷键",
       "numberTitle": "数字快捷键",
       "numberDesc": "使用数字键快速操作剪贴板项目",
