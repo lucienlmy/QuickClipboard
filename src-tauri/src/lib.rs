@@ -66,6 +66,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
             .invoke_handler(tauri::generate_handler![
@@ -112,6 +113,8 @@ pub fn run() {
                 commands::get_admin_status,
                 commands::restart_as_admin,
                 commands::get_data_directory_cmd,
+                commands::set_auto_start,
+                commands::get_auto_start_status,
                 commands::start_builtin_screenshot,
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,
@@ -123,13 +126,21 @@ pub fn run() {
                 windows::plugins::context_menu::commands::close_all_context_menus,
             ])
         .setup(|app| {
+                // 初始化开机自启
+                #[cfg(desktop)]
+                {
+                    use tauri_plugin_autostart::MacosLauncher;
+                    app.handle().plugin(tauri_plugin_autostart::init(
+                        MacosLauncher::LaunchAgent,
+                        Some(vec![]),
+                    )).expect("无法初始化autostart插件");
+                }
+                
                 let window = app.get_webview_window("main")
                     .ok_or("无法获取主窗口")?;
                 window.set_focusable(false)
                     .map_err(|e| format!("设置窗口无焦点失败: {}", e))?;
                 
-                // 打开开发者工具
-                window.open_devtools();
                 // 初始化数据库
                 let data_dir = get_data_directory()?;
                 let db_path = data_dir.join("quickclipboard.db");
@@ -167,6 +178,13 @@ pub fn run() {
                 // 恢复贴边隐藏状态
                 if let Err(e) = windows::main_window::restore_edge_snap_on_startup(&window) {
                     eprintln!("恢复贴边隐藏状态失败: {}", e);
+                }
+
+                // 显示启动通知
+                if settings.show_startup_notification {
+                    if let Err(e) = services::show_startup_notification(app.handle()) {
+                        eprintln!("显示启动通知失败: {}", e);
+                    }
                 }
 
             Ok(())

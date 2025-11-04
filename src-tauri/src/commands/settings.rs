@@ -127,3 +127,43 @@ pub fn get_data_directory_cmd() -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
+// 设置开机自启动
+#[tauri::command]
+pub fn set_auto_start(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        
+        let autostart_manager = app.autolaunch();
+        
+        if enabled {
+            autostart_manager.enable().map_err(|e| format!("启用开机自启动失败: {}", e))?;
+        } else {
+            autostart_manager.disable().map_err(|e| format!("禁用开机自启动失败: {}", e))?;
+        }
+    }
+
+    let mut settings = get_settings();
+    settings.auto_start = enabled;
+    update_settings(settings)?;
+
+    Ok(())
+}
+
+// 检查开机自启动状态
+#[tauri::command]
+pub fn get_auto_start_status(app: tauri::AppHandle) -> Result<bool, String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        
+        let autostart_manager = app.autolaunch();
+        return autostart_manager.is_enabled().map_err(|e| e.to_string());
+    }
+    
+    #[cfg(not(desktop))]
+    {
+        Ok(false)
+    }
+}
+

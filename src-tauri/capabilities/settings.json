@@ -7,6 +7,10 @@
   ],
   "permissions": [
     "core:default",
+    "autostart:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
     "core:event:allow-emit",
     "core:event:allow-listen",
     "core:window:allow-close",

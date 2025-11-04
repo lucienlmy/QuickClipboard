@@ -20,3 +20,13 @@ export async function getAllWindowsInfo() {
   return await invoke('get_all_windows_info_cmd')
 }
 
+// 设置开机自启动
+export async function setAutoStart(enabled) {
+  return await invoke('set_auto_start', { enabled })
+}
+
+// 获取开机自启动状态
+export async function getAutoStartStatus() {
+  return await invoke('get_auto_start_status')
+}
+

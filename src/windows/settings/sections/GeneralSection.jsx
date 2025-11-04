@@ -1,11 +1,15 @@
 import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
 import SettingsSection from '../components/SettingsSection'
 import SettingItem from '../components/SettingItem'
 import Toggle from '@shared/components/ui/Toggle'
 import Select from '@shared/components/ui/Select'
+import { setAutoStart } from '@shared/api/settings'
+import { toast } from '@shared/store/toastStore'
 
 function GeneralSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
+  const [autoStartLoading, setAutoStartLoading] = useState(false)
 
   const historyLimitOptions = [
     { value: 50, label: `50 ${t('settings.general.items')}` },
@@ -15,6 +19,20 @@ function GeneralSection({ settings, onSettingChange }) {
     { value: 9999, label: `9999 ${t('settings.general.items')}` },
     { value: 999999, label: t('settings.general.unlimited') }
   ]
+
+  const handleAutoStartChange = async (checked) => {
+    setAutoStartLoading(true)
+    try {
+      await setAutoStart(checked)
+      await onSettingChange('autoStart', checked)
+      toast.success(checked ? '已启用开机自启动' : '已禁用开机自启动')
+    } catch (error) {
+      console.error('设置开机自启动失败:', error)
+      toast.error('设置开机自启动失败')
+    } finally {
+      setAutoStartLoading(false)
+    }
+  }
 
   return (
     <SettingsSection
@@ -27,7 +45,8 @@ function GeneralSection({ settings, onSettingChange }) {
       >
         <Toggle
           checked={settings.autoStart}
-          onChange={(checked) => onSettingChange('autoStart', checked)}
+          onChange={handleAutoStartChange}
+          disabled={autoStartLoading}
         />
       </SettingItem>
 
