@@ -1,6 +1,8 @@
 import { IconCategory, IconFileText, IconPhoto, IconFolder, IconLink } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { useRef, useEffect, useState, useCallback } from 'react'
+import TabButton from './TabButton'
+import FilterButton from './FilterButton'
 
 function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }) {
   const { t } = useTranslation()
@@ -8,6 +10,8 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
   const filtersRef = useRef({})
   const [tabIndicator, setTabIndicator] = useState({ width: 0, left: 0 })
   const [filterIndicator, setFilterIndicator] = useState({ width: 0, left: 0 })
+  const [tabAnimationKey, setTabAnimationKey] = useState(0)
+  const [filterAnimationKey, setFilterAnimationKey] = useState(0)
 
   const tabs = [
     { id: 'clipboard', label: t('clipboard.title') || '剪贴板' },
@@ -44,10 +48,16 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
 
   useEffect(() => {
     updateTabIndicator()
+    setTimeout(() => {
+      setTabAnimationKey(prev => prev + 1)
+    }, 300)
   }, [updateTabIndicator])
 
   useEffect(() => {
     updateFilterIndicator()
+    setTimeout(() => {
+      setFilterAnimationKey(prev => prev + 1)
+    }, 300)
   }, [updateFilterIndicator])
 
   // 监听窗口大小变化
@@ -74,7 +84,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
           <div className="flex items-center justify-center gap-1 w-full relative">
             {/* 滑动指示器 */}
             <div
-              className="absolute bg-blue-500 rounded-lg transition-all duration-300 ease-out pointer-events-none"
+              className="absolute rounded-lg transition-all duration-300 ease-out pointer-events-none"
               style={{
                 width: `${tabIndicator.width}px`,
                 height: '28px',
@@ -82,24 +92,22 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
                 top: '50%',
                 transform: 'translateY(-50%)'
               }}
-            />
-            {tabs.map(tab => (
-              <button
+            >
+              <div
+                key={`tab-bounce-${tabAnimationKey}`}
+                className="w-full h-full rounded-lg bg-blue-500 animate-theme-bounce"
+              />
+            </div>
+            {tabs.map((tab, index) => (
+              <TabButton
                 key={tab.id}
-                ref={el => tabsRef.current[tab.id] = el}
-                onClick={() => onTabChange(tab.id)}
-                className={`relative z-10 flex-1 max-w-[140px] py-1 text-sm font-medium rounded-lg focus:outline-none active:scale-100 ${
-                  activeTab === tab.id
-                    ? 'text-white'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-gray-700/40 hover:shadow-sm'
-                }`}
-                style={{
-                  transitionProperty: 'transform, box-shadow, background-color, color',
-                  transitionDuration: '200ms, 200ms, 500ms, 500ms'
-                }}
-              >
-                {tab.label}
-              </button>
+                id={tab.id}
+                label={tab.label}
+                isActive={activeTab === tab.id}
+                onClick={onTabChange}
+                index={index}
+                buttonRef={el => tabsRef.current[tab.id] = el}
+              />
             ))}
           </div>
         </div>
@@ -112,7 +120,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
           <div className="flex items-center justify-center gap-1 mx-auto relative">
             {/* 滑动指示器 */}
             <div
-              className="absolute bg-blue-500 rounded-lg transition-all duration-300 ease-out pointer-events-none"
+              className="absolute rounded-lg transition-all duration-300 ease-out pointer-events-none"
               style={{
                 width: `${filterIndicator.width}px`,
                 height: '28px',
@@ -120,29 +128,23 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
                 top: '50%',
                 transform: 'translateY(-50%)'
               }}
-            />
-            {filters.map(filter => {
-              const Icon = filter.icon
-              return (
-                <button
-                  key={filter.id}
-                  ref={el => filtersRef.current[filter.id] = el}
-                  onClick={() => onFilterChange(filter.id)}
-                  title={filter.label}
-                  className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-lg focus:outline-none active:scale-100 ${
-                    contentFilter === filter.id
-                      ? 'text-white'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-white/40 dark:hover:bg-gray-700/40 hover:shadow-sm hover:scale-105 hover:text-gray-800 dark:hover:text-gray-200'
-                  }`}
-                  style={{
-                    transitionProperty: 'transform, box-shadow, background-color, color',
-                    transitionDuration: '200ms, 200ms, 500ms, 500ms'
-                  }}
-                >
-                  <Icon size={16} />
-                </button>
-              )
-            })}
+            >
+              <div
+                key={`filter-bounce-${filterAnimationKey}`}
+                className="w-full h-full rounded-lg bg-blue-500 animate-theme-bounce"
+              />
+            </div>
+            {filters.map(filter => (
+              <FilterButton
+                key={filter.id}
+                id={filter.id}
+                label={filter.label}
+                icon={filter.icon}
+                isActive={contentFilter === filter.id}
+                onClick={onFilterChange}
+                buttonRef={el => filtersRef.current[filter.id] = el}
+              />
+            ))}
           </div>
         </div>
       </div>
