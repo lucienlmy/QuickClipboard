@@ -2,7 +2,7 @@ use crate::services::{AppSettings, get_settings, update_settings, get_data_direc
 use crate::services::settings::storage::SettingsStorage;
 use serde_json::Value;
 
-/// 重新加载设置
+// 重新加载设置
 #[tauri::command]
 pub fn reload_settings() -> Result<AppSettings, String> {
     let settings = SettingsStorage::load()?;
@@ -10,20 +10,20 @@ pub fn reload_settings() -> Result<AppSettings, String> {
     Ok(settings)
 }
 
-/// 保存设置
+// 保存设置
 #[tauri::command]
 pub fn save_settings(settings: AppSettings) -> Result<(), String> {
     update_settings(settings)?;
     Ok(())
 }
 
-/// 获取当前设置
+// 获取当前设置
 #[tauri::command]
 pub fn get_settings_cmd() -> AppSettings {
     get_settings()
 }
 
-/// 设置贴边隐藏
+// 设置贴边隐藏
 #[tauri::command]
 pub fn set_edge_hide_enabled(enabled: bool) -> Result<(), String> {
     let mut settings = get_settings();
@@ -32,13 +32,13 @@ pub fn set_edge_hide_enabled(enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// 获取所有窗口信息
+// 获取所有窗口信息
 #[tauri::command]
 pub fn get_all_windows_info_cmd() -> Result<Vec<Value>, String> {
     Ok(vec![])
 }
 
-/// 检查是否为便携版模式
+// 检查是否为便携版模式
 #[tauri::command]
 pub fn is_portable_mode() -> bool {
     use std::env;
@@ -48,7 +48,7 @@ pub fn is_portable_mode() -> bool {
         .unwrap_or(false)
 }
 
-/// 获取应用版本信息
+// 获取应用版本信息
 #[tauri::command]
 pub fn get_app_version() -> Result<Value, String> {
     let version = env!("CARGO_PKG_VERSION");
@@ -58,7 +58,7 @@ pub fn get_app_version() -> Result<Value, String> {
     }))
 }
 
-/// 检查管理员状态
+// 检查管理员状态
 #[tauri::command]
 pub fn get_admin_status() -> Result<Value, String> {
     #[cfg(target_os = "windows")]
@@ -93,7 +93,7 @@ pub fn get_admin_status() -> Result<Value, String> {
     }))
 }
 
-/// 以管理员权限重启
+// 以管理员权限重启
 #[tauri::command]
 pub fn restart_as_admin() -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -120,7 +120,7 @@ pub fn restart_as_admin() -> Result<(), String> {
     }
 }
 
-/// 获取数据目录路径
+// 获取数据目录路径
 #[tauri::command]
 pub fn get_data_directory_cmd() -> Result<String, String> {
     let path = get_data_directory()?;

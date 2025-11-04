@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 use once_cell::sync::Lazy;
 use std::thread;
 
-/// 监听器状态
+// 监听器状态
 struct MonitorState {
     is_running: bool,
     watcher_handle: Option<thread::JoinHandle<()>>,
@@ -22,12 +22,12 @@ static MONITOR_STATE: Lazy<Arc<Mutex<MonitorState>>> = Lazy::new(|| {
     }))
 });
 
-/// 上一次捕获的内容哈希（用于去重）
+// 上一次捕获的内容哈希（用于去重）
 static LAST_CONTENT_HASH: Lazy<Arc<Mutex<Option<String>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(None))
 });
 
-/// 剪贴板监听管理器
+// 剪贴板监听管理器
 struct ClipboardMonitorManager;
 
 impl ClipboardMonitorManager {
@@ -50,7 +50,7 @@ impl ClipboardHandler for ClipboardMonitorManager {
     }
 }
 
-/// 启动剪贴板监听
+// 启动剪贴板监听
 pub fn start_clipboard_monitor() -> Result<(), String> {
     let mut state = MONITOR_STATE.lock();
     
@@ -70,7 +70,7 @@ pub fn start_clipboard_monitor() -> Result<(), String> {
     Ok(())
 }
 
-/// 停止剪贴板监听
+// 停止剪贴板监听
 pub fn stop_clipboard_monitor() -> Result<(), String> {
     let mut state = MONITOR_STATE.lock();
     
@@ -94,12 +94,12 @@ pub fn stop_clipboard_monitor() -> Result<(), String> {
     Ok(())
 }
 
-/// 检查监听器是否正在运行
+// 检查监听器是否正在运行
 pub fn is_monitor_running() -> bool {
     MONITOR_STATE.lock().is_running
 }
 
-/// 运行剪贴板监听循环（使用 clipboard-rs 的监听机制）
+// 运行剪贴板监听循环（使用 clipboard-rs 的监听机制）
 fn run_clipboard_monitor() -> Result<(), String> {
     // 创建监听管理器
     let manager = ClipboardMonitorManager::new()?;
@@ -114,7 +114,7 @@ fn run_clipboard_monitor() -> Result<(), String> {
     Ok(())
 }
 
-/// 处理剪贴板内容变化
+// 处理剪贴板内容变化
 fn handle_clipboard_change() -> Result<(), String> {
     let content = match ClipboardContent::capture()? {
         Some(content) => content,
@@ -158,13 +158,13 @@ static APP_HANDLE: Lazy<Arc<Mutex<Option<tauri::AppHandle>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(None))
 });
 
-/// 设置App Handle（在应用启动时调用）
+// 设置App Handle（在应用启动时调用）
 pub fn set_app_handle(handle: tauri::AppHandle) {
     let mut app_handle = APP_HANDLE.lock();
     *app_handle = Some(handle);
 }
 
-/// 发送剪贴板更新事件到前端
+// 发送剪贴板更新事件到前端
 fn emit_clipboard_updated() -> Result<(), String> {
     let app_handle = APP_HANDLE.lock();
     let handle = app_handle.as_ref()
@@ -177,7 +177,7 @@ fn emit_clipboard_updated() -> Result<(), String> {
     Ok(())
 }
 
-/// 预设哈希缓存（文本类型）
+// 预设哈希缓存（文本类型）
 pub fn set_last_hash_text(text: &str) {
     use sha2::{Sha256, Digest};
     let mut hasher = Sha256::new();
@@ -188,7 +188,7 @@ pub fn set_last_hash_text(text: &str) {
     *last_hash = Some(hash);
 }
 
-/// 预设哈希缓存（文件类型）
+// 预设哈希缓存（文件类型）
 pub fn set_last_hash_files(content: &str) {
     use sha2::{Sha256, Digest};
     

@@ -3,19 +3,19 @@ use parking_lot::Mutex;
 
 static MOUSE_POSITION: Lazy<Mutex<(f64, f64)>> = Lazy::new(|| Mutex::new((0.0, 0.0)));
 
-/// 获取当前鼠标位置（从缓存读取）
+// 获取当前鼠标位置（从缓存读取）
 pub fn get_cursor_position() -> Result<(i32, i32), String> {
     let pos = MOUSE_POSITION.lock();
     Ok((pos.0 as i32, pos.1 as i32))
 }
 
-/// 更新鼠标位置缓存
+// 更新鼠标位置缓存
 pub fn update_cursor_position(x: f64, y: f64) {
     let mut pos = MOUSE_POSITION.lock();
     *pos = (x, y);
 }
 
-/// 设置鼠标位置
+// 设置鼠标位置
 pub fn set_cursor_position(x: i32, y: i32) -> Result<(), String> {
     use enigo::{Enigo, Mouse, Settings};
     

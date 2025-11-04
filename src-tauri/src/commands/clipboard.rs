@@ -11,7 +11,7 @@ use crate::services::database::{
     ClipboardItem
 };
 
-/// 分页查询剪贴板历史
+// 分页查询剪贴板历史
 #[tauri::command]
 pub fn get_clipboard_history(
     offset: Option<i64>,
@@ -29,26 +29,26 @@ pub fn get_clipboard_history(
     query_clipboard_items(params)
 }
 
-/// 获取剪贴板总数
+// 获取剪贴板总数
 #[tauri::command]
 pub fn get_clipboard_total_count() -> Result<i64, String> {
     get_clipboard_count()
 }
 
-/// 移动剪贴板项（拖拽排序）
+// 移动剪贴板项（拖拽排序）
 #[tauri::command]
 pub fn move_clipboard_item(from_index: i64, to_index: i64) -> Result<(), String> {
     move_clipboard_item_by_index(from_index, to_index)
 }
 
-/// 应用历史记录数量限制
+// 应用历史记录数量限制
 #[tauri::command]
 pub fn apply_history_limit(limit: u64) -> Result<(), String> {
     limit_clipboard_history(limit)
 }
 
 
-/// 粘贴参数
+// 粘贴参数
 #[derive(Debug, serde::Deserialize)]
 pub struct PasteParams {
     #[serde(default)]
@@ -57,7 +57,7 @@ pub struct PasteParams {
     pub favorite_id: Option<String>,
 }
 
-/// 粘贴剪贴板项或收藏项
+// 粘贴剪贴板项或收藏项
 #[tauri::command]
 pub fn paste_content(params: PasteParams) -> Result<(), String> {
     use crate::services::database::get_favorite_by_id;
@@ -92,19 +92,19 @@ pub fn paste_content(params: PasteParams) -> Result<(), String> {
     Ok(())
 }
 
-/// 删除单个剪贴板项
+// 删除单个剪贴板项
 #[tauri::command]
 pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
     db_delete_clipboard_item(id)
 }
 
-/// 清空剪贴板历史
+// 清空剪贴板历史
 #[tauri::command]
 pub fn clear_clipboard_history() -> Result<(), String> {
     db_clear_clipboard_history()
 }
 
-/// 另存为图片
+// 另存为图片
 #[tauri::command]
 pub async fn save_image_from_clipboard(clipboard_id: i64, app: tauri::AppHandle) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;

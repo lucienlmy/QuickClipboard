@@ -5,22 +5,22 @@ use super::file::paste_files;
 use super::keyboard::simulate_paste;
 use chrono;
 
-/// 粘贴剪贴板项
+// 粘贴剪贴板项
 pub fn paste_clipboard_item(item: &ClipboardItem) -> Result<(), String> {
     paste_item_internal(item, None, None)
 }
 
-/// 粘贴剪贴板项并自动转换旧格式（更新 clipboard 表）
+// 粘贴剪贴板项并自动转换旧格式（更新 clipboard 表）
 pub fn paste_clipboard_item_with_update(item: &ClipboardItem) -> Result<(), String> {
     paste_item_internal(item, Some(item.id), None)
 }
 
-/// 粘贴收藏项并自动转换旧格式（更新 favorites 表）
+// 粘贴收藏项并自动转换旧格式（更新 favorites 表）
 pub fn paste_favorite_item_with_update(item: &ClipboardItem, favorite_id: &str) -> Result<(), String> {
     paste_item_internal(item, None, Some(favorite_id.to_string()))
 }
 
-/// 内部粘贴实现
+// 内部粘贴实现
 fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite_id: Option<String>) -> Result<(), String> {
     let primary_type = item.content_type.split(',').next().unwrap_or(&item.content_type);
     
@@ -69,7 +69,7 @@ fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite
     Ok(())
 }
 
-/// 转换旧格式图片为新格式（files:{json}）
+// 转换旧格式图片为新格式（files:{json}）
 fn convert_legacy_image_format(item: &ClipboardItem) -> Result<String, String> {
     use crate::services::get_data_directory;
     
@@ -99,7 +99,7 @@ fn convert_legacy_image_format(item: &ClipboardItem) -> Result<String, String> {
     Ok(format!("files:{}", file_data))
 }
 
-/// 更新项内容并刷新时间戳
+// 更新项内容并刷新时间戳
 fn update_item_content(clipboard_id: Option<i64>, favorite_id: Option<&str>, new_content: &str) -> Result<(), String> {
     use crate::services::database::connection::with_connection;
     use rusqlite::params;

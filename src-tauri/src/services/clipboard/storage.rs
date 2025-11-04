@@ -6,7 +6,7 @@ use rusqlite::params;
 use chrono;
 use serde_json::Value;
 
-/// 存储剪贴板内容到数据库
+// 存储剪贴板内容到数据库
 pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
     let result = with_connection(|conn| {
         let now = chrono::Local::now().timestamp();
@@ -49,7 +49,7 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
     }
 }
 
-/// 智能去重
+// 智能去重
 fn check_and_handle_duplicate(
     content: &ProcessedContent,
     conn: &rusqlite::Connection,
@@ -115,17 +115,17 @@ fn update_item_timestamp(
     Ok(())
 }
 
-/// 判断是否是文本类型
+// 判断是否是文本类型
 fn is_text_type(content_type: &str) -> bool {
     content_type.starts_with("text") || content_type.contains("rich_text") || content_type.contains("link")
 }
 
-/// 判断是否是文件类型
+// 判断是否是文件类型
 fn is_file_type(content_type: &str) -> bool {
     content_type.contains("image") || content_type.contains("file")
 }
 
-/// 比较文件内容
+// 比较文件内容
 fn compare_file_contents(content1: &str, content2: &str) -> bool {
     if !content1.starts_with("files:") || !content2.starts_with("files:") {
         return content1 == content2;
@@ -137,7 +137,7 @@ fn compare_file_contents(content1: &str, content2: &str) -> bool {
     extract_file_paths(&json1) == extract_file_paths(&json2)
 }
 
-/// 从 JSON 提取并排序文件路径
+// 从 JSON 提取并排序文件路径
 fn extract_file_paths(json: &Value) -> Vec<String> {
     let mut paths: Vec<String> = json["files"]
         .as_array()

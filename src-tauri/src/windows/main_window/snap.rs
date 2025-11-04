@@ -210,14 +210,14 @@ pub fn is_window_snapped() -> bool {
     is_snapped()
 }
 
-/// 保存贴边隐藏位置到设置
+// 保存贴边隐藏位置到设置
 fn save_edge_snap_position(x: i32, y: i32) {
     let _ = crate::services::settings::update_with(|settings| {
         settings.edge_snap_position = Some((x, y));
     });
 }
 
-/// 启动时恢复贴边隐藏状态
+// 启动时恢复贴边隐藏状态
 pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String> {
     let settings = crate::get_settings();
 

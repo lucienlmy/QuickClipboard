@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// 剪贴板项
+// 剪贴板项
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClipboardItem {
     pub id: i64,
@@ -15,7 +15,7 @@ pub struct ClipboardItem {
     pub updated_at: i64, 
 }
 
-/// 收藏项
+// 收藏项
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FavoriteItem {
     pub id: String,
@@ -32,7 +32,7 @@ pub struct FavoriteItem {
     pub updated_at: i64, 
 }
 
-/// 分组信息
+// 分组信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupInfo {
     pub name: String,
@@ -41,18 +41,18 @@ pub struct GroupInfo {
     pub item_count: i32,
 }
 
-/// 分页查询结果
+// 分页查询结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginatedResult<T> {
-    /// 总记录数
+    // 总记录数
     pub total_count: i64,
-    /// 当前页数据
+    // 当前页数据
     pub items: Vec<T>,
-    /// 偏移量
+    // 偏移量
     pub offset: i64,
-    /// 每页数量
+    // 每页数量
     pub limit: i64,
-    /// 是否还有更多数据
+    // 是否还有更多数据
     pub has_more: bool,
 }
 
@@ -70,17 +70,17 @@ impl<T> PaginatedResult<T> {
     }
 }
 
-/// 查询参数
+// 查询参数
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryParams {
-    /// 偏移量
+    // 偏移量
     pub offset: i64,
-    /// 每页数量
+    // 每页数量
     pub limit: i64,
-    /// 搜索关键词（可选）
+    // 搜索关键词（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub search: Option<String>,
-    /// 内容类型过滤（可选）
+    // 内容类型过滤（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_type: Option<String>,
 }
@@ -96,20 +96,20 @@ impl Default for QueryParams {
     }
 }
 
-/// 收藏查询参数
+// 收藏查询参数
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FavoritesQueryParams {
-    /// 偏移量
+    // 偏移量
     pub offset: i64,
-    /// 每页数量
+    // 每页数量
     pub limit: i64,
-    /// 分组名称（可选）
+    // 分组名称（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub group_name: Option<String>,
-    /// 搜索关键词（可选）
+    // 搜索关键词（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub search: Option<String>,
-    /// 内容类型过滤（可选）
+    // 内容类型过滤（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_type: Option<String>,
 }

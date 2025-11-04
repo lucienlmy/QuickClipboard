@@ -1,7 +1,7 @@
 use tauri::{AppHandle, WebviewWindow};
 use super::state::{WindowState, set_window_state};
 
-/// 显示主窗口
+// 显示主窗口
 pub fn show_main_window(window: &WebviewWindow) {
     let state = super::state::get_window_state();
     
@@ -18,7 +18,7 @@ pub fn show_main_window(window: &WebviewWindow) {
     show_normal_window(window);
 }
 
-/// 隐藏主窗口
+// 隐藏主窗口
 pub fn hide_main_window(window: &WebviewWindow) {
     if super::state::is_pinned() {
         return;

@@ -3,7 +3,7 @@ use once_cell::sync::OnceCell;
 
 static APP_HANDLE: OnceCell<AppHandle> = OnceCell::new();
 
-/// 初始化屏幕工具
+// 初始化屏幕工具
 pub fn init_screen_utils(app_handle: AppHandle) {
     let _ = APP_HANDLE.set(app_handle);
 }
@@ -11,7 +11,7 @@ pub fn init_screen_utils(app_handle: AppHandle) {
 pub struct ScreenUtils;
 
 impl ScreenUtils {
-    /// 获取虚拟桌面尺寸（多显示器总边界）
+    // 获取虚拟桌面尺寸（多显示器总边界）
     pub fn get_virtual_screen_size() -> Result<(i32, i32, i32, i32), String> {
         // 尝试从任意窗口获取显示器信息
         if let Some(app_handle) = APP_HANDLE.get() {
@@ -22,7 +22,7 @@ impl ScreenUtils {
         Ok((0, 0, 1920, 1080))
     }
     
-    /// 从窗口上下文获取虚拟屏幕尺寸
+    // 从窗口上下文获取虚拟屏幕尺寸
     pub fn get_virtual_screen_size_from_window(window: &WebviewWindow) -> Result<(i32, i32, i32, i32), String> {
         let monitors: Vec<_> = window
             .available_monitors()
@@ -48,7 +48,7 @@ impl ScreenUtils {
         Ok((min_x, min_y, max_x - min_x, max_y - min_y))
     }
 
-    /// 获取当前显示器边界
+    // 获取当前显示器边界
     pub fn get_monitor_bounds(window: &WebviewWindow) -> Result<(i32, i32, i32, i32), String> {
         let monitor = window
             .current_monitor()
@@ -61,7 +61,7 @@ impl ScreenUtils {
         Ok((position.x, position.y, size.width as i32, size.height as i32))
     }
 
-    /// 约束窗口位置到屏幕边界内
+    // 约束窗口位置到屏幕边界内
     pub fn constrain_to_physical_bounds(
         x: i32,
         y: i32,

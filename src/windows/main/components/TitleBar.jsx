@@ -64,7 +64,7 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
   const searchRef = useRef(null)
   
   const dragRef = useWindowDrag({
-    excludeSelectors: ['button', '[role="button"]', '[data-tool-id]', 'input', 'textarea'],
+    excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', '[data-tool-id]', 'input', 'textarea'],
     allowChildren: true
   })
   

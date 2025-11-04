@@ -9,7 +9,7 @@ static DB_CONNECTION: Lazy<Mutex<Option<Connection>>> =
 // 文本内容显示限制
 pub const MAX_CONTENT_LENGTH: usize = 10000;
 
-/// 初始化数据库连接
+// 初始化数据库连接
 pub fn init_database(db_path: &str) -> Result<(), String> {
     let conn = Connection::open(db_path)
         .map_err(|e| format!("打开数据库失败: {}", e))?;
@@ -30,7 +30,7 @@ pub fn init_database(db_path: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 创建数据库表
+// 创建数据库表
 fn create_tables(conn: &Connection) -> Result<(), String> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS clipboard (
@@ -85,7 +85,7 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-/// 获取数据库连接
+// 获取数据库连接
 pub fn with_connection<F, R>(f: F) -> Result<R, String>
 where
     F: FnOnce(&Connection) -> Result<R, rusqlite::Error>,
@@ -96,7 +96,7 @@ where
     f(conn).map_err(|e| format!("数据库操作失败: {}", e))
 }
 
-/// 截断字符串用于显示
+// 截断字符串用于显示
 pub fn truncate_string(s: String, max_len: usize) -> String {
     if s.len() <= max_len {
         return s;

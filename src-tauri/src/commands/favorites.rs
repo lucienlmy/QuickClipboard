@@ -6,7 +6,7 @@ use crate::services::database::{
     FavoritesQueryParams, PaginatedResult, FavoriteItem
 };
 
-/// 分页查询收藏列表
+// 分页查询收藏列表
 #[tauri::command]
 pub fn get_favorites_history(
     offset: Option<i64>,
@@ -26,13 +26,13 @@ pub fn get_favorites_history(
     query_favorites(params)
 }
 
-/// 获取收藏总数
+// 获取收藏总数
 #[tauri::command]
 pub fn get_favorites_total_count(group_name: Option<String>) -> Result<i64, String> {
     get_favorites_count(group_name)
 }
 
-/// 移动收藏项（拖拽排序）
+// 移动收藏项（拖拽排序）
 #[tauri::command]
 pub fn move_favorite_item(
     group_name: Option<String>,
@@ -42,19 +42,19 @@ pub fn move_favorite_item(
     move_favorite_by_index(group_name, from_index, to_index)
 }
 
-/// 从剪贴板历史添加到收藏
+// 从剪贴板历史添加到收藏
 #[tauri::command]
 pub fn add_clipboard_to_favorites(id: i64, group_name: Option<String>) -> Result<FavoriteItem, String> {
     db_add_clipboard_to_favorites(id, group_name)
 }
 
-/// 移动收藏项到分组
+// 移动收藏项到分组
 #[tauri::command]
 pub fn move_quick_text_to_group(id: String, group_name: String) -> Result<(), String> {
     db_move_favorite_to_group(id, group_name)
 }
 
-/// 删除收藏项
+// 删除收藏项
 #[tauri::command]
 pub fn delete_quick_text(id: String) -> Result<(), String> {
     db_delete_favorite(id)

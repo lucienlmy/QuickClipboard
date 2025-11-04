@@ -17,7 +17,7 @@ struct CustomDragState {
 
 static CUSTOM_DRAG_STATE: Lazy<Mutex<Option<CustomDragState>>> = Lazy::new(|| Mutex::new(None));
 
-/// 开始自定义拖拽
+// 开始自定义拖拽
 pub fn start_drag(window: &WebviewWindow, mouse_screen_x: i32, mouse_screen_y: i32) -> Result<(), String> {
     let physical_position = window
         .outer_position()
@@ -46,7 +46,7 @@ pub fn start_drag(window: &WebviewWindow, mouse_screen_x: i32, mouse_screen_y: i
     Ok(())
 }
 
-/// 停止自定义拖拽
+// 停止自定义拖拽
 pub fn stop_drag(window: &WebviewWindow) -> Result<(), String> {
     {
         let mut drag_state = CUSTOM_DRAG_STATE.lock();
@@ -66,7 +66,7 @@ pub fn stop_drag(window: &WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
-/// 启动拖拽监控线程
+// 启动拖拽监控线程
 fn start_drag_monitoring_thread() {
     std::thread::spawn(|| {
         loop {
@@ -103,7 +103,7 @@ fn start_drag_monitoring_thread() {
     });
 }
 
-/// 应用磁性吸附和边界约束
+// 应用磁性吸附和边界约束
 fn apply_magnetic_snap_and_bounds(mut x: i32, mut y: i32, window: &WebviewWindow) -> Result<(i32, i32), String> {
     let window_size = window.outer_size().map_err(|e| e.to_string())?;
     let pw = window_size.width as i32;
@@ -141,7 +141,7 @@ fn apply_magnetic_snap_and_bounds(mut x: i32, mut y: i32, window: &WebviewWindow
     Ok((x, y))
 }
 
-/// 检查是否正在拖拽
+// 检查是否正在拖拽
 pub fn is_dragging() -> bool {
     let state = CUSTOM_DRAG_STATE.lock();
     state.as_ref().map_or(false, |s| s.is_dragging)

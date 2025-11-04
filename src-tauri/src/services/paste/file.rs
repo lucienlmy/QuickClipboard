@@ -1,7 +1,7 @@
 use clipboard_rs::{ClipboardContext, Clipboard};
 use std::path::Path;
 
-/// 文件信息结构
+// 文件信息结构
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct FileInfo {
     path: String,
@@ -12,14 +12,14 @@ struct FileInfo {
     file_type: String,
 }
 
-/// 文件剪贴板数据
+// 文件剪贴板数据
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct FileClipboardData {
     files: Vec<FileInfo>,
     operation: String,
 }
 
-/// 粘贴文件路径
+// 粘贴文件路径
 pub fn paste_files(ctx: &ClipboardContext, content: &str) -> Result<(), String> {
     // 解析文件数据
     if !content.starts_with("files:") {

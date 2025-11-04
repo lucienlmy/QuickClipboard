@@ -1,6 +1,6 @@
 // 剪贴板内容类型管理模块
 
-/// 内容类型
+// 内容类型
 #[derive(Debug, Clone)]
 pub struct ContentType {
     types: Vec<String>,

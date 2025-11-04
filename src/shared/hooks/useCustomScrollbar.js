@@ -23,6 +23,7 @@ export function useCustomScrollbar(container) {
     // 创建滚动条元素
     const scrollbar = document.createElement('div')
     scrollbar.className = 'custom-scrollbar'
+    scrollbar.setAttribute('data-no-drag', 'true')
     
     const track = document.createElement('div')
     track.className = 'custom-scrollbar__track'
@@ -137,6 +138,7 @@ export function useCustomScrollbar(container) {
       scrollbar.classList.add('dragging')
       document.body.classList.add('no-select')
       e.preventDefault()
+      e.stopPropagation()
     }
 
     scrollbar.addEventListener('mousedown', onTrackMouseDown)

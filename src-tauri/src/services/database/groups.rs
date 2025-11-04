@@ -3,7 +3,7 @@ use super::connection::with_connection;
 use rusqlite::params;
 use chrono;
 
-/// 获取所有分组
+// 获取所有分组
 pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {
     with_connection(|conn| {
         let mut groups = Vec::new();
@@ -36,7 +36,7 @@ pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {
     })
 }
 
-/// 添加分组
+// 添加分组
 pub fn add_group(name: String, icon: String) -> Result<GroupInfo, String> {
     with_connection(|conn| {
         let exists: i64 = conn.query_row(
@@ -74,7 +74,7 @@ pub fn add_group(name: String, icon: String) -> Result<GroupInfo, String> {
     })
 }
 
-/// 更新分组
+// 更新分组
 pub fn update_group(old_name: String, new_name: String, new_icon: String) -> Result<GroupInfo, String> {
     with_connection(|conn| {
         if old_name != new_name {
@@ -129,7 +129,7 @@ pub fn update_group(old_name: String, new_name: String, new_icon: String) -> Res
     })
 }
 
-/// 删除分组
+// 删除分组
 pub fn delete_group(name: String) -> Result<(), String> {
     with_connection(|conn| {
         if name == "全部" {

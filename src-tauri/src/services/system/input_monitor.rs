@@ -336,7 +336,7 @@ fn check_modifier_requirement(required: &str) -> bool {
     }
 }
 
-/// 处理点击窗口外部事件
+// 处理点击窗口外部事件
 fn handle_click_outside() {
     let window = match MAIN_WINDOW.get() {
         Some(w) => w,

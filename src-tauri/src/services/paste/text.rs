@@ -1,12 +1,12 @@
 use clipboard_rs::{Clipboard, ClipboardContext, ClipboardContent};
 
-/// 粘贴纯文本
+// 粘贴纯文本
 pub fn paste_text(ctx: &ClipboardContext, text: &str) -> Result<(), String> {
     ctx.set_text(text.to_string())
         .map_err(|e| format!("粘贴文本失败: {}", e))
 }
 
-/// 粘贴富文本（HTML）
+// 粘贴富文本（HTML）
 pub fn paste_rich_text(
     ctx: &ClipboardContext,
     text: &str,

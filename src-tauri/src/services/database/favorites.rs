@@ -3,7 +3,7 @@ use super::connection::{with_connection, truncate_string, MAX_CONTENT_LENGTH};
 use rusqlite::{params, OptionalExtension};
 use chrono;
 
-/// 分页查询收藏列表
+// 分页查询收藏列表
 pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<FavoriteItem>, String> {
     with_connection(|conn| {
         let mut where_clauses = vec![];
@@ -102,7 +102,7 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
     })
 }
 
-/// 获取收藏总数
+// 获取收藏总数
 pub fn get_favorites_count(group_name: Option<String>) -> Result<i64, String> {
     with_connection(|conn| {
         let (sql, params): (String, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(group) = group_name {
@@ -119,7 +119,7 @@ pub fn get_favorites_count(group_name: Option<String>) -> Result<i64, String> {
     })
 }
 
-/// 根据ID获取收藏项（完整内容，不截断）
+// 根据ID获取收藏项（完整内容，不截断）
 pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
     with_connection(|conn| {
         conn.query_row(
@@ -146,7 +146,7 @@ pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
     })
 }
 
-/// 移动收藏项（拖拽排序）
+// 移动收藏项（拖拽排序）
 pub fn move_favorite_by_index(group_name: Option<String>, from_index: i64, to_index: i64) -> Result<(), String> {
     if from_index == to_index {
         return Ok(());
@@ -202,7 +202,7 @@ pub fn move_favorite_by_index(group_name: Option<String>, from_index: i64, to_in
     })
 }
 
-/// 从剪贴板历史添加到收藏
+// 从剪贴板历史添加到收藏
 pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>) -> Result<FavoriteItem, String> {
     use uuid::Uuid;
     
@@ -270,7 +270,7 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
     })
 }
 
-/// 移动收藏项到指定分组
+// 移动收藏项到指定分组
 pub fn move_favorite_to_group(id: String, group_name: String) -> Result<(), String> {
     with_connection(|conn| {
         let existing_item = conn.query_row(
@@ -317,7 +317,7 @@ pub fn move_favorite_to_group(id: String, group_name: String) -> Result<(), Stri
     })
 }
 
-/// 删除收藏项
+// 删除收藏项
 pub fn delete_favorite(id: String) -> Result<(), String> {
     with_connection(|conn| {
         conn.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;

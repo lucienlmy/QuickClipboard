@@ -1,6 +1,6 @@
 use enigo::{Enigo, Direction, Key, Keyboard, Settings};
 
-/// 模拟粘贴操作（Ctrl+V）
+// 模拟粘贴操作（Ctrl+V）
 pub fn simulate_paste() -> Result<(), String> {
     let mut enigo = Enigo::new(&Settings::default())
         .map_err(|e| format!("创建键盘模拟器失败: {}", e))?;

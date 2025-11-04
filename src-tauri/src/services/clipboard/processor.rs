@@ -9,7 +9,7 @@ use sha2::{Sha256, Digest};
 use serde::{Serialize, Deserialize};
 
 
-/// 文件信息结构
+// 文件信息结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct FileInfo {
     path: String,
@@ -20,21 +20,21 @@ struct FileInfo {
     file_type: String,
 }
 
-/// 文件剪贴板数据
+// 文件剪贴板数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct FileClipboardData {
     files: Vec<FileInfo>,
     operation: String,
 }
 
-/// 处理后的剪贴板数据结构
+// 处理后的剪贴板数据结构
 pub struct ProcessedContent {
     pub content: String,              // 主要内容
     pub html_content: Option<String>, // HTML富文本内容
     pub content_type: String,         // 内容类型：text/rich_text/image/file/link
 }
 
-/// 处理剪贴板内容，将原始数据转换为可存储的格式
+// 处理剪贴板内容，将原始数据转换为可存储的格式
 pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, String> {
     match content.content_type {
         // 纯文本处理
@@ -109,7 +109,7 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
     }
 }
 
-/// 收集文件信息
+// 收集文件信息
 fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
     let mut file_infos = Vec::new();
     
@@ -152,7 +152,7 @@ fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
     Ok(file_infos)
 }
 
-/// 获取文件图标并转换为Base64 Data URL
+// 获取文件图标并转换为Base64 Data URL
 fn get_file_icon_base64(path: &str) -> Option<String> {
     use file_icon_provider::get_file_icon;
     
@@ -179,7 +179,7 @@ fn get_file_icon_base64(path: &str) -> Option<String> {
     }
 }
 
-/// 判断是否是图片文件
+// 判断是否是图片文件
 fn is_image_file(path: &str) -> bool {
     let path_lower = path.to_lowercase();
     path_lower.ends_with(".jpg") || 
@@ -190,7 +190,7 @@ fn is_image_file(path: &str) -> bool {
     path_lower.ends_with(".webp")
 }
 
-/// 读取图片文件的缩略图
+// 读取图片文件的缩略图
 fn read_image_thumbnail(path: &str, size: u32) -> Result<String, String> {
     use base64::{Engine as _, engine::general_purpose};
     
@@ -213,7 +213,7 @@ fn read_image_thumbnail(path: &str, size: u32) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
-/// 将Icon转换为PNG数据
+// 将Icon转换为PNG数据
 fn icon_to_png(icon: &file_icon_provider::Icon) -> Result<Vec<u8>, String> {
     use image::{RgbaImage, ImageFormat};
 
@@ -234,7 +234,7 @@ fn icon_to_png(icon: &file_icon_provider::Icon) -> Result<Vec<u8>, String> {
     Ok(png_data)
 }
 
-/// 检测字符串是否是URL
+// 检测字符串是否是URL
 fn is_url(text: &str) -> bool {
     let trimmed = text.trim();
     trimmed.starts_with("http://") || 
@@ -243,13 +243,13 @@ fn is_url(text: &str) -> bool {
     trimmed.starts_with("www.")
 }
 
-/// 检测文本中是否包含链接
+// 检测文本中是否包含链接
 fn contains_links(text: &str) -> bool {
     let url_regex = Regex::new(r#"(?i)\b(https?://|ftp://|www\.)[^\s<>"]+\b"#).unwrap();
     url_regex.is_match(text)
 }
 
-/// 从HTML中提取纯文本
+// 从HTML中提取纯文本
 fn strip_html(html: &str) -> String {
     let tag_regex = Regex::new(r"<[^>]*>").unwrap();
     let entity_regex = Regex::new(r"&[a-zA-Z]+;").unwrap();
@@ -262,7 +262,7 @@ fn strip_html(html: &str) -> String {
     whitespace_regex.replace_all(&text, " ").trim().to_string()
 }
 
-/// 处理HTML中的图片
+// 处理HTML中的图片
 fn process_html_images(html: &str) -> Result<(String, Vec<String>), String> {
     use regex::Regex;
     
@@ -311,7 +311,7 @@ fn process_html_images(html: &str) -> Result<(String, Vec<String>), String> {
     Ok((processed_html, image_ids))
 }
 
-/// 尝试从URL保存图片并返回图片ID
+// 尝试从URL保存图片并返回图片ID
 fn try_save_image_from_url(src: &str) -> Option<String> {
     let src = src.trim();
     
@@ -336,7 +336,7 @@ fn try_save_image_from_url(src: &str) -> Option<String> {
 }
 
 
-/// 获取图片数据（网络或本地）
+// 获取图片数据（网络或本地）
 fn fetch_image_data(src: &str) -> Result<Vec<u8>, String> {
     let src = if src.starts_with("//") {
         format!("https:{}", src)
@@ -359,7 +359,7 @@ fn fetch_image_data(src: &str) -> Result<Vec<u8>, String> {
     }
 }
 
-/// 下载网络图片
+// 下载网络图片
 fn fetch_remote_image(url: &str) -> Result<Vec<u8>, String> {
     use reqwest::blocking::Client;
     use std::time::Duration;
@@ -383,7 +383,7 @@ fn fetch_remote_image(url: &str) -> Result<Vec<u8>, String> {
     Ok(bytes.to_vec())
 }
 
-/// 解析Data URL
+// 解析Data URL
 fn parse_data_url(data_url: &str) -> Result<Vec<u8>, String> {
     use base64::{Engine as _, engine::general_purpose};
 
@@ -396,7 +396,7 @@ fn parse_data_url(data_url: &str) -> Result<Vec<u8>, String> {
     general_purpose::STANDARD.decode(data).map_err(|e| format!("Base64解码失败: {}", e))
 }
 
-/// 保存图片到本地文件和数据库，返回图片ID
+// 保存图片到本地文件和数据库，返回图片ID
 fn save_image_as_file(image_data: &[u8]) -> Result<String, String> {
     // 解码图片
     let cursor = Cursor::new(image_data);
@@ -441,7 +441,7 @@ fn save_image_as_file(image_data: &[u8]) -> Result<String, String> {
         .map(|s| s.to_string())
 }
 
-/// 根据图片数据计算图片ID
+// 根据图片数据计算图片ID
 fn calculate_image_id(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);

@@ -1,6 +1,6 @@
 use clipboard_rs::{Clipboard, ClipboardContext, common::RustImage};
 
-/// 剪贴板内容类型
+// 剪贴板内容类型
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContentType {
     Text,
@@ -8,7 +8,7 @@ pub enum ContentType {
     Files,
 }
 
-/// 剪贴板内容
+// 剪贴板内容
 #[derive(Debug, Clone)]
 pub struct ClipboardContent {
     pub content_type: ContentType,
@@ -17,7 +17,7 @@ pub struct ClipboardContent {
     pub files: Option<Vec<String>>,
 }
 
-/// 保存剪贴板图片到缓存目录
+// 保存剪贴板图片到缓存目录
 fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
     use sha2::{Sha256, Digest};
     use uuid::Uuid;
@@ -45,7 +45,7 @@ fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
 }
 
 impl ClipboardContent {
-    /// 从剪贴板捕获内容
+    // 从剪贴板捕获内容
     pub fn capture() -> Result<Option<Self>, String> {
         let ctx = ClipboardContext::new()
             .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
@@ -103,7 +103,7 @@ impl ClipboardContent {
         Ok(None)
     }
     
-    /// 计算内容的哈希值
+    // 计算内容的哈希值
     pub fn calculate_hash(&self) -> String {
         use sha2::{Sha256, Digest};
         

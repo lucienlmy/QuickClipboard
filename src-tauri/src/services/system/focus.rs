@@ -3,7 +3,7 @@ use tauri::WebviewWindow;
 
 static LAST_FOCUS_HWND: Mutex<Option<isize>> = Mutex::new(None);
 
-/// 聚焦剪贴板窗口（保存当前焦点）
+// 聚焦剪贴板窗口（保存当前焦点）
 pub fn focus_clipboard_window(window: WebviewWindow) -> Result<(), String> {
     #[cfg(windows)]
     save_current_focus(&window);
@@ -13,7 +13,7 @@ pub fn focus_clipboard_window(window: WebviewWindow) -> Result<(), String> {
         .map_err(|e| format!("设置窗口焦点失败: {}", e))
 }
 
-/// 恢复上次焦点窗口
+// 恢复上次焦点窗口
 pub fn restore_last_focus() -> Result<(), String> {
     #[cfg(windows)]
     {

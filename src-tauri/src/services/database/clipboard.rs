@@ -3,7 +3,7 @@ use super::connection::{with_connection, truncate_string, MAX_CONTENT_LENGTH};
 use rusqlite::{params, OptionalExtension};
 use chrono;
 
-/// 分页查询剪贴板历史
+// 分页查询剪贴板历史
 pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<ClipboardItem>, String> {
     with_connection(|conn| {
         let mut where_clauses = vec![];
@@ -104,14 +104,14 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
     })
 }
 
-/// 获取剪贴板总数
+// 获取剪贴板总数
 pub fn get_clipboard_count() -> Result<i64, String> {
     with_connection(|conn| {
         conn.query_row("SELECT COUNT(*) FROM clipboard", [], |row| row.get(0))
     })
 }
 
-/// 根据ID获取剪贴板项（完整内容，不截断）
+// 根据ID获取剪贴板项（完整内容，不截断）
 pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {
         conn.query_row(
@@ -136,7 +136,7 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
     })
 }
 
-/// 限制剪贴板历史数量（删除超出限制的旧记录）
+// 限制剪贴板历史数量（删除超出限制的旧记录）
 pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
     if max_count >= 999999 {
         return Ok(());
@@ -153,7 +153,7 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
     })
 }
 
-/// 删除单个剪贴板项
+// 删除单个剪贴板项
 pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
     with_connection(|conn| {
         conn.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
@@ -161,7 +161,7 @@ pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
     })
 }
 
-/// 清空所有剪贴板历史
+// 清空所有剪贴板历史
 pub fn clear_clipboard_history() -> Result<(), String> {
     with_connection(|conn| {
         conn.execute("DELETE FROM clipboard", [])?;
@@ -169,7 +169,7 @@ pub fn clear_clipboard_history() -> Result<(), String> {
     })
 }
 
-/// 移动剪贴板项（拖拽排序）
+// 移动剪贴板项（拖拽排序）
 pub fn move_clipboard_item_by_index(from_index: i64, to_index: i64) -> Result<(), String> {
     if from_index == to_index {
         return Ok(());
