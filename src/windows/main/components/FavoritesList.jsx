@@ -173,7 +173,7 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
       onDragCancel={handleDragCancel}
       modifiers={modifiers}
     >
-      <div className="flex-1 bg-white dark:bg-gray-900 overflow-hidden custom-scrollbar-container">
+      <div className="flex-1 bg-white dark:bg-gray-900 overflow-hidden custom-scrollbar-container transition-colors duration-500">
         <SortableContext items={itemsWithId.map(item => item._sortId)} strategy={strategy}>
           <Virtuoso
             ref={virtuosoRef}

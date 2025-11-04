@@ -216,6 +216,7 @@ function App() {
     h-full w-full
     flex flex-col 
     overflow-hidden
+    transition-colors duration-500 ease-in-out
     ${isDark && !isBackground ? 'bg-gray-900' : ''}
     ${!isDark && !isBackground ? 'bg-white' : ''}
   `.trim().replace(/\s+/g, ' ')

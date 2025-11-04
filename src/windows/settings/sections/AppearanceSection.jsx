@@ -6,6 +6,7 @@ import { toast } from '@shared/store/toastStore'
 import SettingsSection from '../components/SettingsSection'
 import SettingItem from '../components/SettingItem'
 import Toggle from '@shared/components/ui/Toggle'
+import ThemeOption from '../components/ThemeOption'
 import { IconPhoto, IconX } from '@tabler/icons-react'
 
 function AppearanceSection({ settings, onSettingChange }) {
@@ -83,29 +84,18 @@ function AppearanceSection({ settings, onSettingChange }) {
           
           <div className="grid grid-cols-4 gap-3">
             {themeOptions.map((option) => (
-              <button
+              <ThemeOption
                 key={option.id}
+                option={option}
+                isActive={theme === option.id}
                 onClick={() => settingsStore.setTheme(option.id)}
-                className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all ${
-                  theme === option.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <div 
-                  className="w-full h-16 rounded-md shadow-sm"
-                  style={{ background: option.preview }}
-                />
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  {option.label}
-                </span>
-              </button>
+              />
             ))}
           </div>
         </div>
 
         {(theme === 'dark' || theme === 'auto') && (
-          <div>
+          <div className="animate-slide-in-left-fast">
             <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
               {t('settings.appearance.darkThemeStyle') || '暗色风格'}
             </label>
@@ -116,11 +106,15 @@ function AppearanceSection({ settings, onSettingChange }) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => onSettingChange('darkThemeStyle', 'modern')}
-                className={`flex flex-col items-start gap-2 p-4 rounded-lg border-2 transition-all ${
-                  darkThemeStyle === 'modern'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
+                className={`
+                  flex flex-col items-start gap-2 p-4 rounded-lg border-2 
+                  transition-all duration-300 
+                  focus:outline-none active:scale-95
+                  ${darkThemeStyle === 'modern'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-102 shadow-lg shadow-blue-500/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:scale-101 hover:shadow-md'
+                  }
+                `}
               >
                 <div className="w-full">
                   <div className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
@@ -134,11 +128,15 @@ function AppearanceSection({ settings, onSettingChange }) {
 
               <button
                 onClick={() => onSettingChange('darkThemeStyle', 'classic')}
-                className={`flex flex-col items-start gap-2 p-4 rounded-lg border-2 transition-all ${
-                  darkThemeStyle === 'classic'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
+                className={`
+                  flex flex-col items-start gap-2 p-4 rounded-lg border-2 
+                  transition-all duration-300 
+                  focus:outline-none active:scale-95
+                  ${darkThemeStyle === 'classic'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-102 shadow-lg shadow-blue-500/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:scale-101 hover:shadow-md'
+                  }
+                `}
               >
                 <div className="w-full">
                   <div className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
@@ -154,7 +152,7 @@ function AppearanceSection({ settings, onSettingChange }) {
         )}
 
         {theme === 'background' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-slide-in-left-fast">
             <label className="block text-sm font-medium text-gray-900 dark:text-white">
               {t('settings.appearance.backgroundImage')}
             </label>

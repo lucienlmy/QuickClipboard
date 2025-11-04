@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import SidebarButton from './SidebarButton'
 import {
   IconSettings,
   IconPalette,
@@ -35,40 +36,18 @@ function SettingsSidebar({ activeSection, onSectionChange }) {
   const { t } = useTranslation()
 
   return (
-    <aside className="settings-sidebar w-56 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+    <aside className="settings-sidebar w-56 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 overflow-y-auto transition-colors duration-500">
       <nav className="p-3 space-y-0.5">
-        {navigationItems.map(({ id, icon: Icon, labelKey }, index) => (
-          <button
+        {navigationItems.map(({ id, icon, labelKey }, index) => (
+          <SidebarButton
             key={id}
-            onClick={() => onSectionChange(id)}
-            className={`
-              group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium 
-              transition-all duration-200 
-              focus:outline-none active:scale-[0.98]
-              animate-slide-in-left-fast
-              ${
-                activeSection === id
-                  ? 'bg-blue-500 text-white shadow-md scale-[1.02]'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700/50 hover:shadow-sm hover:scale-[1.01] hover:translate-x-0.5'
-              }
-            `}
-            style={{
-              animationDelay: `${index * 25}ms`,
-              animationFillMode: 'backwards'
-            }}
-          >
-            <Icon 
-              size={18} 
-              strokeWidth={2}
-              className={`
-                transition-transform duration-200
-                ${activeSection === id ? 'scale-110' : 'group-hover:scale-110 group-hover:rotate-3'}
-              `}
-            />
-            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
-              {t(labelKey)}
-            </span>
-          </button>
+            id={id}
+            icon={icon}
+            label={t(labelKey)}
+            isActive={activeSection === id}
+            onClick={onSectionChange}
+            index={index}
+          />
         ))}
       </nav>
     </aside>
@@ -76,4 +55,3 @@ function SettingsSidebar({ activeSection, onSectionChange }) {
 }
 
 export default SettingsSidebar
-

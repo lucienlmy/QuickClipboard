@@ -110,6 +110,7 @@ function App() {
     h-screen w-screen 
     flex flex-col 
     overflow-hidden 
+    transition-colors duration-500 ease-in-out
     ${isDark && !isBackground ? 'dark bg-gray-900' : ''}
     ${!isDark && !isBackground ? 'bg-white' : ''}
   `.trim().replace(/\s+/g, ' ')
@@ -127,7 +128,7 @@ function App() {
         />
         
         <main 
-          className={`flex-1 overflow-y-auto p-6 ${
+          className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${
             isBackground 
               ? 'bg-gray-50/50 dark:bg-gray-900/50' 
               : 'bg-gray-50 dark:bg-gray-900'

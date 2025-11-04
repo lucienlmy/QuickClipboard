@@ -67,7 +67,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
   }, [updateTabIndicator, updateFilterIndicator])
 
   return (
-    <div className="tab-navigation flex-shrink-0 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm">
+    <div className="tab-navigation flex-shrink-0 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm transition-colors duration-500">
       <div className="flex items-stretch h-9">
         {/* 左侧：标签切换 - 50% */}
         <div className="flex-1 flex items-center px-2 relative">
@@ -88,11 +88,15 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
                 key={tab.id}
                 ref={el => tabsRef.current[tab.id] = el}
                 onClick={() => onTabChange(tab.id)}
-                className={`relative z-10 flex-1 max-w-[140px] py-1 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none active:scale-100 ${
+                className={`relative z-10 flex-1 max-w-[140px] py-1 text-sm font-medium rounded-lg focus:outline-none active:scale-100 ${
                   activeTab === tab.id
                     ? 'text-white'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-gray-700/40 hover:shadow-sm'
                 }`}
+                style={{
+                  transitionProperty: 'transform, box-shadow, background-color, color',
+                  transitionDuration: '200ms, 200ms, 500ms, 500ms'
+                }}
               >
                 {tab.label}
               </button>
@@ -125,11 +129,15 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
                   ref={el => filtersRef.current[filter.id] = el}
                   onClick={() => onFilterChange(filter.id)}
                   title={filter.label}
-                  className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 focus:outline-none active:scale-100 ${
+                  className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-lg focus:outline-none active:scale-100 ${
                     contentFilter === filter.id
                       ? 'text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-white/40 dark:hover:bg-gray-700/40 hover:shadow-sm hover:scale-105 hover:text-gray-800 dark:hover:text-gray-200'
                   }`}
+                  style={{
+                    transitionProperty: 'transform, box-shadow, background-color, color',
+                    transitionDuration: '200ms, 200ms, 500ms, 500ms'
+                  }}
                 >
                   <Icon size={16} />
                 </button>

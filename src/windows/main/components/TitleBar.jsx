@@ -165,7 +165,7 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
   return (
     <div 
       ref={dragRef}
-      className="title-bar flex-shrink-0 h-9 flex items-center justify-between px-2 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm"
+      className="title-bar flex-shrink-0 h-9 flex items-center justify-between px-2 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm transition-colors duration-500"
     >
       {/* Logo */}
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
