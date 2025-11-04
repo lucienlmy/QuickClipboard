@@ -55,6 +55,7 @@ pub use windows::main_window::{
 };
 
 pub use windows::tray::setup_tray;
+pub use windows::settings_window::open_settings_window;
 
 // ========== 插件 API ==========
 pub use windows::plugins::context_menu::is_context_menu_visible;

@@ -84,7 +84,6 @@ pub fn toggle_window_visibility(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn open_settings_window(app: AppHandle) -> Result<(), String> {
-    let _ = app;
-    Ok(())
+pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    crate::windows::settings_window::open_settings_window(&app)
 }
