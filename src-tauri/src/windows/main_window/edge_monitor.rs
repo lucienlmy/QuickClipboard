@@ -18,8 +18,8 @@ pub fn start_edge_monitoring() {
     }
     
     std::thread::spawn(|| {
-        // 初始缓冲期，避免拖拽结束后的立即触发
-        std::thread::sleep(Duration::from_millis(150));
+        // 初始缓冲期，避免贴边后立即触发隐藏
+        std::thread::sleep(Duration::from_millis(200));
         
         let mut last_near_state = false;
         let mut last_hidden_state = false;
@@ -40,6 +40,7 @@ pub fn start_edge_monitoring() {
 
             let state = crate::get_window_state();
 
+            // 拖拽时跳过监控
             if !state.is_snapped || state.is_dragging {
                 std::thread::sleep(Duration::from_millis(100));
                 continue;

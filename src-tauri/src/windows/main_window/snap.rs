@@ -18,6 +18,7 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
         .map(|(_, my, _, mh)| my + mh)
         .unwrap_or(vy + vh);
     
+    // 检查窗口是否在边缘附近
     let edge = if (x - vx).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Left)
     } else if ((vx + vw) - (x + w as i32)).abs() <= SNAP_THRESHOLD {

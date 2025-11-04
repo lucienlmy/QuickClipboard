@@ -41,6 +41,12 @@ pub fn start_drag(window: &WebviewWindow, mouse_screen_x: i32, mouse_screen_y: i
     }
 
     super::state::set_dragging(true);
+
+    if super::state::is_snapped() {
+        super::clear_snap();
+        super::edge_monitor::stop_edge_monitoring();
+    }
+    
     start_drag_monitoring_thread();
 
     Ok(())
