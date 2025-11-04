@@ -199,7 +199,13 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
               }
               
               return (
-                <div className="px-2.5 pb-2 pt-1">
+                <div 
+                  className="px-2.5 pb-2 pt-1 animate-slide-in-left-fast"
+                  style={{
+                    animationDelay: `${Math.min(index * 20, 150)}ms`,
+                    animationFillMode: 'backwards'
+                  }}
+                >
                   <FavoriteItem 
                     item={item} 
                     index={index}
