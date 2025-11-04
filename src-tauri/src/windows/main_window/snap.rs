@@ -110,7 +110,13 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         SnapEdge::None => return Ok(()),
     };
     
-    animate_window_position(window, x, y, hide_x, hide_y, 200)?;
+    // 根据动画配置决定是否使用过渡
+    if settings.clipboard_animation_enabled {
+        animate_window_position(window, x, y, hide_x, hide_y, 200)?;
+    } else {
+        window.set_position(tauri::PhysicalPosition::new(hide_x, hide_y))
+            .map_err(|e| e.to_string())?;
+    }
     set_hidden(true);
     
     // 保存贴边隐藏位置到设置
@@ -145,7 +151,14 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         SnapEdge::None => return Ok(()),
     };
     
-    animate_window_position(window, x, y, show_x, show_y, 200)?;
+    // 根据动画配置决定是否使用过渡
+    let settings = crate::get_settings();
+    if settings.clipboard_animation_enabled {
+        animate_window_position(window, x, y, show_x, show_y, 200)?;
+    } else {
+        window.set_position(tauri::PhysicalPosition::new(show_x, show_y))
+            .map_err(|e| e.to_string())?;
+    }
     set_hidden(false);
     
     crate::input_monitor::enable_mouse_monitoring();

@@ -9,6 +9,7 @@ import { useWindowDrag } from '@shared/hooks/useWindowDrag'
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
 import { useSettingsSync } from '@shared/hooks/useSettingsSync'
 import { useNavigationKeyboard } from '@shared/hooks/useNavigationKeyboard'
+import { useWindowAnimation } from '@shared/hooks/useWindowAnimation'
 import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager'
 import TitleBar from './components/TitleBar'
 import TabNavigation from './components/TabNavigation'
@@ -32,6 +33,9 @@ function App() {
   
   // 监听设置变更事件（跨窗口同步）
   useSettingsSync()
+  
+  // 窗口动画
+  useWindowAnimation()
   
   // 同步当前标签页到导航store
   useEffect(() => {

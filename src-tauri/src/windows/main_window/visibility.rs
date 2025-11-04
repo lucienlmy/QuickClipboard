@@ -51,6 +51,9 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
 }
 
 fn show_normal_window(window: &WebviewWindow) {
+    let state = super::state::get_window_state();
+    let was_visible = state.state == WindowState::Visible;
+    
     // 根据配置定位窗口
     let settings = crate::get_settings();
     match settings.window_position_mode.as_str() {
@@ -79,6 +82,11 @@ fn show_normal_window(window: &WebviewWindow) {
     let _ = window.set_always_on_top(true);
     let _ = window.show();
     
+    if !was_visible {
+        use tauri::Emitter;
+        let _ = window.emit("window-show-animation", ());
+    }
+    
     set_window_state(WindowState::Visible);
 
     crate::input_monitor::enable_mouse_monitoring();
@@ -86,6 +94,14 @@ fn show_normal_window(window: &WebviewWindow) {
 }
 
 fn hide_normal_window(window: &WebviewWindow) {
+    use tauri::Emitter;
+    let _ = window.emit("window-hide-animation", ());
+    
+    let settings = crate::get_settings();
+    if settings.clipboard_animation_enabled {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+    
     if !super::state::is_pinned() {
         let _ = window.set_always_on_top(false);
     }
