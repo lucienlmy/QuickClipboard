@@ -95,7 +95,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
             >
               <div
                 key={`tab-bounce-${tabAnimationKey}`}
-                className="w-full h-full rounded-lg bg-blue-500 animate-theme-bounce"
+                className="w-full h-full rounded-lg bg-blue-500 animate-button-bounce"
               />
             </div>
             {tabs.map((tab, index) => (
@@ -131,7 +131,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
             >
               <div
                 key={`filter-bounce-${filterAnimationKey}`}
-                className="w-full h-full rounded-lg bg-blue-500 animate-theme-bounce"
+                className="w-full h-full rounded-lg bg-blue-500 animate-button-bounce"
               />
             </div>
             {filters.map(filter => (

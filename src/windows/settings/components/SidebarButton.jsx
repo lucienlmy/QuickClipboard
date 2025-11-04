@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react'
 function SidebarButton({ id, icon: Icon, label, isActive, onClick, index }) {
   const [particles, setParticles] = useState([])
   const [isAnimating, setIsAnimating] = useState(false)
-  const [animationKey, setAnimationKey] = useState(0)
+  const [bounceKey, setBounceKey] = useState(0)
 
   useEffect(() => {
     if (isAnimating) {
+      setBounceKey(prev => prev + 1)
       const newParticles = Array.from({ length: 8 }, (_, i) => ({
         id: Date.now() + i,
         angle: (i * 45) + Math.random() * 20,
@@ -25,13 +26,13 @@ function SidebarButton({ id, icon: Icon, label, isActive, onClick, index }) {
 
   const handleClick = () => {
     setIsAnimating(true)
-    setAnimationKey(prev => prev + 1)
     onClick(id)
   }
 
   return (
     <div className="relative">
       <button
+        key={`button-${bounceKey}`}
         onClick={handleClick}
         className={`
           group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium 
@@ -39,7 +40,7 @@ function SidebarButton({ id, icon: Icon, label, isActive, onClick, index }) {
           animate-slide-in-left-fast
           ${
             isActive
-              ? 'bg-blue-500 text-white shadow-md scale-[1.02]'
+              ? 'bg-blue-500 text-white shadow-md scale-[1.02] animate-button-bounce'
               : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700/50 hover:shadow-sm hover:scale-[1.01] hover:translate-x-0.5'
           }
         `}
@@ -51,12 +52,11 @@ function SidebarButton({ id, icon: Icon, label, isActive, onClick, index }) {
         }}
       >
         <Icon 
-          key={`icon-${animationKey}`}
           size={18} 
           strokeWidth={2}
           className={`
             transition-transform duration-200
-            ${isActive ? 'scale-110 animate-theme-bounce' : 'group-hover:scale-110 group-hover:rotate-3'}
+            ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:rotate-3'}
           `}
         />
         <span className="transition-transform duration-200 group-hover:translate-x-0.5">

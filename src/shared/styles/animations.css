@@ -116,6 +116,28 @@
   }
 }
 
+/* 按钮弹跳动画（无旋转） */
+@keyframes buttonBounce {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.08);
+  }
+  50% {
+    transform: scale(0.96);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  85% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* 工具类 */
 .animate-slide-up {
   animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -147,5 +169,9 @@
 
 .animate-theme-bounce {
   animation: themeBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-button-bounce {
+  animation: buttonBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
