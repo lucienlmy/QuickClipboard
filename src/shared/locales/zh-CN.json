@@ -245,6 +245,20 @@
     "languages": {
       "plaintext": "纯文本"
     }
+  },
+  "listSettings": {
+    "title": "列表设置",
+    "rowHeight": {
+      "label": "行高",
+      "large": "大",
+      "medium": "中",
+      "small": "小"
+    },
+    "fileDisplayMode": {
+      "label": "文件显示模式",
+      "detailed": "详细信息",
+      "iconOnly": "仅图标"
+    }
   }
 }
 

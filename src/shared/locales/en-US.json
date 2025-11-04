@@ -171,6 +171,20 @@
     "languages": {
       "plaintext": "Plain Text"
     }
+  },
+  "listSettings": {
+    "title": "List Settings",
+    "rowHeight": {
+      "label": "Row Height",
+      "large": "Large",
+      "medium": "Medium",
+      "small": "Small"
+    },
+    "fileDisplayMode": {
+      "label": "File Display Mode",
+      "detailed": "Detailed",
+      "iconOnly": "Icon Only"
+    }
   }
 }
 

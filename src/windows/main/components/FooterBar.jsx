@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
-import { IconSettings, IconRowInsertBottom, IconLayoutGrid } from '@tabler/icons-react'
+import { IconList, IconRowInsertBottom, IconLayoutGrid } from '@tabler/icons-react'
 import { useWindowDrag } from '@shared/hooks/useWindowDrag'
 import { settingsStore } from '@shared/store/settingsStore'
 import BottomMenuPopup from './BottomMenuPopup'
@@ -19,24 +19,24 @@ function FooterBar({ children }) {
   const menuItems = [
     {
       id: 'rowHeight',
-      label: '行高',
+      label: t('listSettings.rowHeight.label'),
       icon: IconRowInsertBottom,
       currentValue: settings.rowHeight,
       options: [
-        { value: 'large', label: '大' },
-        { value: 'medium', label: '中' },
-        { value: 'small', label: '小' }
+        { value: 'large', label: t('listSettings.rowHeight.large') },
+        { value: 'medium', label: t('listSettings.rowHeight.medium') },
+        { value: 'small', label: t('listSettings.rowHeight.small') }
       ],
       onSelect: (value) => settingsStore.setRowHeight(value)
     },
     {
       id: 'fileDisplayMode',
-      label: '文件显示模式',
+      label: t('listSettings.fileDisplayMode.label'),
       icon: IconLayoutGrid,
       currentValue: settings.fileDisplayMode,
       options: [
-        { value: 'detailed', label: '详细信息' },
-        { value: 'iconOnly', label: '仅图标' }
+        { value: 'detailed', label: t('listSettings.fileDisplayMode.detailed') },
+        { value: 'iconOnly', label: t('listSettings.fileDisplayMode.iconOnly') }
       ],
       onSelect: (value) => settingsStore.setFileDisplayMode(value)
     }
@@ -64,9 +64,9 @@ function FooterBar({ children }) {
         {/* 内容层 */}
         <div className="relative flex items-center gap-2">
           <BottomMenuPopup
-            icon={IconSettings}
-            label="设置"
-            title="显示设置"
+            icon={IconList}
+            label={t('listSettings.title')}
+            title={t('listSettings.title')}
             menuItems={menuItems}
             width={120}
           />
