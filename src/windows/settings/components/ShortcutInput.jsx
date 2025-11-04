@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { IconRefresh } from '@tabler/icons-react'
+import { IconRefresh, IconAlertCircle } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 
-function ShortcutInput({ value, onChange, onReset, presets = [] }) {
+function ShortcutInput({ value, onChange, onReset, presets = [], hasError = false, errorMessage = null }) {
   const { t } = useTranslation()
   const [isListening, setIsListening] = useState(false)
 
@@ -71,16 +71,17 @@ function ShortcutInput({ value, onChange, onReset, presets = [] }) {
             className={`
               px-3 py-2 pr-8 w-48 text-sm border rounded-lg
               bg-white dark:bg-gray-700 
-              text-gray-900 dark:text-white
               focus:outline-none cursor-pointer
               transition-all duration-200
-              ${isListening 
-                ? 'border-blue-500 ring-2 ring-blue-500/50 dark:border-blue-400 dark:ring-blue-400/50' 
-                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+              ${hasError 
+                ? 'text-red-600 dark:text-red-400 border-red-500 dark:border-red-500 ring-2 ring-red-500/30 dark:ring-red-500/30' 
+                : isListening 
+                  ? 'text-gray-900 dark:text-white border-blue-500 ring-2 ring-blue-500/50 dark:border-blue-400 dark:ring-blue-400/50' 
+                  : 'text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
               }
             `}
           />
-          {value && !isListening && (
+          {value && !isListening && !hasError && (
             <button
               onClick={handleClear}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 transition-colors"
@@ -90,6 +91,14 @@ function ShortcutInput({ value, onChange, onReset, presets = [] }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          )}
+          {hasError && (
+            <div 
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 cursor-help" 
+              title={errorMessage || '快捷键冲突'}
+            >
+              <IconAlertCircle size={16} strokeWidth={2.5} />
+            </div>
           )}
         </div>
         

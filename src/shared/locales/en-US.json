@@ -220,7 +220,10 @@
       "nextGroup": "Next Group",
       "nextGroupDesc": "Switch to next group",
       "togglePin": "Toggle Pin",
-      "togglePinDesc": "Pin or unpin current item"
+      "togglePinDesc": "Pin or unpin current item",
+      "duplicateError": "Duplicates with {{count}} other shortcut(s)",
+      "conflictError": "Shortcut already in use",
+      "registrationError": "Registration failed"
     },
     "clipboard": {
       "title": "Clipboard",

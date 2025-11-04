@@ -108,7 +108,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
                 index={index}
                 buttonRef={el => tabsRef.current[tab.id] = el}
               />
-            ))}
+          ))}
           </div>
         </div>
 

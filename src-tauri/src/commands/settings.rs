@@ -198,3 +198,15 @@ pub fn is_hotkeys_enabled() -> bool {
     crate::hotkey::is_hotkeys_enabled()
 }
 
+// 获取所有快捷键状态
+#[tauri::command]
+pub fn get_shortcut_statuses() -> Vec<crate::hotkey::ShortcutStatus> {
+    crate::hotkey::get_shortcut_statuses()
+}
+
+// 获取单个快捷键状态
+#[tauri::command]
+pub fn get_shortcut_status(id: String) -> Option<crate::hotkey::ShortcutStatus> {
+    crate::hotkey::get_shortcut_status(&id)
+}
+

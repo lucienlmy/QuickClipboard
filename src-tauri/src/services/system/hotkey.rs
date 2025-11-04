@@ -1,13 +1,26 @@
-use once_cell::sync::OnceCell;
+use once_cell::sync::{OnceCell, Lazy};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashMap;
 use tauri::{AppHandle, WebviewWindow};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+use serde::{Serialize, Deserialize};
 
 static APP_HANDLE: OnceCell<AppHandle> = OnceCell::new();
 static MAIN_WINDOW: OnceCell<WebviewWindow> = OnceCell::new();
 static REGISTERED_SHORTCUTS: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
 static HOTKEYS_ENABLED: AtomicBool = AtomicBool::new(true);
+
+// 快捷键注册状态
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShortcutStatus {
+    pub id: String,
+    pub shortcut: String,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+static SHORTCUT_STATUS: Lazy<Mutex<HashMap<String, ShortcutStatus>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub fn init_hotkey_manager(app: AppHandle, window: WebviewWindow) {
     let _ = APP_HANDLE.set(app);
@@ -39,20 +52,36 @@ where
     
     unregister_shortcut(id);
     
-    let shortcut = parse_shortcut(shortcut_str)?;
+    let shortcut = match parse_shortcut(shortcut_str) {
+        Ok(s) => s,
+        Err(_e) => {
+            update_shortcut_status(id, shortcut_str, false, Some("REGISTRATION_FAILED".to_string()));
+            return Err("REGISTRATION_FAILED".to_string());
+        }
+    };
     
-    app.global_shortcut()
+    match app.global_shortcut()
         .on_shortcut(shortcut, move |app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
                 handler(app);
             }
-        })
-        .map_err(|e| format!("注册快捷键失败: {}", e))?;
-    
-    REGISTERED_SHORTCUTS.lock().push((id.to_string(), shortcut_str.to_string()));
-    
-    println!("已注册快捷键 [{}]: {}", id, shortcut_str);
-    Ok(())
+        }) {
+        Ok(_) => {
+            REGISTERED_SHORTCUTS.lock().push((id.to_string(), shortcut_str.to_string()));
+            update_shortcut_status(id, shortcut_str, true, None);
+            println!("已注册快捷键 [{}]: {}", id, shortcut_str);
+            Ok(())
+        }
+        Err(e) => {
+            let error_msg = if e.to_string().contains("already registered") {
+                "CONFLICT".to_string()
+            } else {
+                "REGISTRATION_FAILED".to_string()
+            };
+            update_shortcut_status(id, shortcut_str, false, Some(error_msg.clone()));
+            Err(format!("注册快捷键失败: {}", e))
+        }
+    }
 }
 
 pub fn unregister_shortcut(id: &str) {
@@ -69,6 +98,8 @@ pub fn unregister_shortcut(id: &str) {
             println!("已注销快捷键 [{}]: {}", id, shortcut_str);
         }
     }
+    
+    clear_shortcut_status(id);
 }
 
 pub fn register_toggle_hotkey(shortcut_str: &str) -> Result<(), String> {
@@ -189,8 +220,42 @@ pub fn is_hotkeys_enabled() -> bool {
     HOTKEYS_ENABLED.load(Ordering::Relaxed)
 }
 
+// 更新快捷键状态
+fn update_shortcut_status(id: &str, shortcut: &str, success: bool, error: Option<String>) {
+    let mut status_map = SHORTCUT_STATUS.lock();
+    status_map.insert(
+        id.to_string(),
+        ShortcutStatus {
+            id: id.to_string(),
+            shortcut: shortcut.to_string(),
+            success,
+            error,
+        },
+    );
+}
+
+// 获取所有快捷键状态
+pub fn get_shortcut_statuses() -> Vec<ShortcutStatus> {
+    let status_map = SHORTCUT_STATUS.lock();
+    status_map.values().cloned().collect()
+}
+
+// 获取单个快捷键状态
+pub fn get_shortcut_status(id: &str) -> Option<ShortcutStatus> {
+    let status_map = SHORTCUT_STATUS.lock();
+    status_map.get(id).cloned()
+}
+
+// 清除快捷键状态
+fn clear_shortcut_status(id: &str) {
+    let mut status_map = SHORTCUT_STATUS.lock();
+    status_map.remove(id);
+}
+
 pub fn reload_from_settings() -> Result<(), String> {
     let settings = crate::get_settings();
+    
+    unregister_all();
     
     if settings.hotkeys_enabled {
         if !settings.toggle_shortcut.is_empty() {
@@ -216,8 +281,6 @@ pub fn reload_from_settings() -> Result<(), String> {
                 eprintln!("注册数字快捷键失败: {}", e);
             }
         }
-    } else {
-        unregister_all();
     }
     
     Ok(())

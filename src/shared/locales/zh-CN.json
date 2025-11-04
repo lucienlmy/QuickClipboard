@@ -220,7 +220,10 @@
       "nextGroup": "下一个分组",
       "nextGroupDesc": "切换到下一个分组",
       "togglePin": "切换固定",
-      "togglePinDesc": "固定或取消固定当前项目"
+      "togglePinDesc": "固定或取消固定当前项目",
+      "duplicateError": "与其他{{count}}个快捷键重复",
+      "conflictError": "快捷键已被占用",
+      "registrationError": "注册失败"
     },
     "clipboard": {
       "title": "剪贴板设置",

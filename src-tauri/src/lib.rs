@@ -119,6 +119,8 @@ pub fn run() {
                 commands::enable_hotkeys,
                 commands::disable_hotkeys,
                 commands::is_hotkeys_enabled,
+                commands::get_shortcut_statuses,
+                commands::get_shortcut_status,
                 commands::start_builtin_screenshot,
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,

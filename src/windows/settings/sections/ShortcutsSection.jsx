@@ -4,9 +4,34 @@ import SettingItem from '../components/SettingItem'
 import Toggle from '@shared/components/ui/Toggle'
 import Select from '@shared/components/ui/Select'
 import ShortcutInput from '../components/ShortcutInput'
+import { useShortcutStatuses } from '@shared/hooks/useShortcutStatuses'
+import { useShortcutDuplicateCheck } from '@shared/hooks/useShortcutDuplicateCheck'
 
 function ShortcutsSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
+  const { hasError: hasBackendError, getError: getBackendError, reload } = useShortcutStatuses()
+  const { hasDuplicate, getDuplicateError } = useShortcutDuplicateCheck(settings)
+
+  const handleShortcutChange = async (key, value) => {
+    await onSettingChange(key, value)
+    setTimeout(() => {
+      reload()
+    }, 150)
+  }
+
+  const getErrorMessage = (key, backendId) => {
+    const duplicateError = getDuplicateError(key)
+    const backendError = backendId ? getBackendError(backendId) : null
+    
+    if (duplicateError && backendError) {
+      return `${duplicateError}；${backendError}`
+    }
+    return duplicateError || backendError
+  }
+
+  const hasErrorStatus = (key, backendId) => {
+    return hasDuplicate(key) || (backendId && hasBackendError(backendId))
+  }
 
   const numberModifierOptions = [
     { value: 'Ctrl', label: 'Ctrl + ' + t('settings.shortcuts.number') },
@@ -39,9 +64,11 @@ function ShortcutsSection({ settings, onSettingChange }) {
         >
           <ShortcutInput
             value={settings.toggleShortcut}
-            onChange={(value) => onSettingChange('toggleShortcut', value)}
-            onReset={() => onSettingChange('toggleShortcut', 'Alt+V')}
+            onChange={(value) => handleShortcutChange('toggleShortcut', value)}
+            onReset={() => handleShortcutChange('toggleShortcut', 'Alt+V')}
             presets={['Alt+V', 'Win+V', 'Ctrl+Alt+V', 'F1']}
+            hasError={hasErrorStatus('toggleShortcut', 'toggle')}
+            errorMessage={getErrorMessage('toggleShortcut', 'toggle')}
           />
         </SettingItem>
 
@@ -51,8 +78,10 @@ function ShortcutsSection({ settings, onSettingChange }) {
         >
           <ShortcutInput
             value={settings.previewShortcut}
-            onChange={(value) => onSettingChange('previewShortcut', value)}
-            onReset={() => onSettingChange('previewShortcut', '')}
+            onChange={(value) => handleShortcutChange('previewShortcut', value)}
+            onReset={() => handleShortcutChange('previewShortcut', 'Ctrl+`')}
+            hasError={hasErrorStatus('previewShortcut', 'preview')}
+            errorMessage={getErrorMessage('previewShortcut', 'preview')}
           />
         </SettingItem>
 
@@ -62,8 +91,10 @@ function ShortcutsSection({ settings, onSettingChange }) {
         >
           <ShortcutInput
             value={settings.screenshotShortcut}
-            onChange={(value) => onSettingChange('screenshotShortcut', value)}
-            onReset={() => onSettingChange('screenshotShortcut', '')}
+            onChange={(value) => handleShortcutChange('screenshotShortcut', value)}
+            onReset={() => handleShortcutChange('screenshotShortcut', 'Ctrl+Shift+A')}
+            hasError={hasErrorStatus('screenshotShortcut', 'screenshot')}
+            errorMessage={getErrorMessage('screenshotShortcut', 'screenshot')}
           />
         </SettingItem>
       </SettingsSection>
@@ -134,6 +165,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.navigateUpShortcut}
             onChange={(value) => onSettingChange('navigateUpShortcut', value)}
             onReset={() => onSettingChange('navigateUpShortcut', 'ArrowUp')}
+            hasError={hasErrorStatus('navigateUpShortcut')}
+            errorMessage={getErrorMessage('navigateUpShortcut')}
           />
         </SettingItem>
 
@@ -145,6 +178,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.navigateDownShortcut}
             onChange={(value) => onSettingChange('navigateDownShortcut', value)}
             onReset={() => onSettingChange('navigateDownShortcut', 'ArrowDown')}
+            hasError={hasErrorStatus('navigateDownShortcut')}
+            errorMessage={getErrorMessage('navigateDownShortcut')}
           />
         </SettingItem>
 
@@ -156,6 +191,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.tabLeftShortcut}
             onChange={(value) => onSettingChange('tabLeftShortcut', value)}
             onReset={() => onSettingChange('tabLeftShortcut', 'ArrowLeft')}
+            hasError={hasErrorStatus('tabLeftShortcut')}
+            errorMessage={getErrorMessage('tabLeftShortcut')}
           />
         </SettingItem>
 
@@ -167,6 +204,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.tabRightShortcut}
             onChange={(value) => onSettingChange('tabRightShortcut', value)}
             onReset={() => onSettingChange('tabRightShortcut', 'ArrowRight')}
+            hasError={hasErrorStatus('tabRightShortcut')}
+            errorMessage={getErrorMessage('tabRightShortcut')}
           />
         </SettingItem>
 
@@ -178,6 +217,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.focusSearchShortcut}
             onChange={(value) => onSettingChange('focusSearchShortcut', value)}
             onReset={() => onSettingChange('focusSearchShortcut', 'Tab')}
+            hasError={hasErrorStatus('focusSearchShortcut')}
+            errorMessage={getErrorMessage('focusSearchShortcut')}
           />
         </SettingItem>
 
@@ -189,6 +230,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.hideWindowShortcut}
             onChange={(value) => onSettingChange('hideWindowShortcut', value)}
             onReset={() => onSettingChange('hideWindowShortcut', 'Escape')}
+            hasError={hasErrorStatus('hideWindowShortcut')}
+            errorMessage={getErrorMessage('hideWindowShortcut')}
           />
         </SettingItem>
 
@@ -199,7 +242,9 @@ function ShortcutsSection({ settings, onSettingChange }) {
           <ShortcutInput
             value={settings.executeItemShortcut}
             onChange={(value) => onSettingChange('executeItemShortcut', value)}
-            onReset={() => onSettingChange('executeItemShortcut', 'Enter')}
+            onReset={() => onSettingChange('executeItemShortcut', 'Ctrl+Enter')}
+            hasError={hasErrorStatus('executeItemShortcut')}
+            errorMessage={getErrorMessage('executeItemShortcut')}
           />
         </SettingItem>
 
@@ -211,6 +256,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.previousGroupShortcut}
             onChange={(value) => onSettingChange('previousGroupShortcut', value)}
             onReset={() => onSettingChange('previousGroupShortcut', 'Ctrl+ArrowUp')}
+            hasError={hasErrorStatus('previousGroupShortcut')}
+            errorMessage={getErrorMessage('previousGroupShortcut')}
           />
         </SettingItem>
 
@@ -222,6 +269,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.nextGroupShortcut}
             onChange={(value) => onSettingChange('nextGroupShortcut', value)}
             onReset={() => onSettingChange('nextGroupShortcut', 'Ctrl+ArrowDown')}
+            hasError={hasErrorStatus('nextGroupShortcut')}
+            errorMessage={getErrorMessage('nextGroupShortcut')}
           />
         </SettingItem>
 
@@ -233,6 +282,8 @@ function ShortcutsSection({ settings, onSettingChange }) {
             value={settings.togglePinShortcut}
             onChange={(value) => onSettingChange('togglePinShortcut', value)}
             onReset={() => onSettingChange('togglePinShortcut', 'Ctrl+P')}
+            hasError={hasErrorStatus('togglePinShortcut')}
+            errorMessage={getErrorMessage('togglePinShortcut')}
           />
         </SettingItem>
       </SettingsSection>

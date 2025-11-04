@@ -124,11 +124,6 @@ export async function loadSettingsFromBackend() {
     // 合并默认设置和保存的设置
     const mergedSettings = { ...defaultSettings, ...savedSettings }
     
-    // 确保快捷键不为空
-    if (!mergedSettings.toggleShortcut || mergedSettings.toggleShortcut.trim() === '') {
-      mergedSettings.toggleShortcut = defaultSettings.toggleShortcut
-    }
-    
     return mergedSettings
   } catch (error) {
     console.error('加载设置失败:', error)
@@ -141,11 +136,9 @@ export async function saveSettingsToBackend(settings, options = {}) {
   const { showToast = true } = options
   
   try {
-    // 发送事件通知其他窗口
-    await emit('settings-changed', settings)
-    
-    // 保存到后端
     await saveSettingsApi(settings)
+    
+    await emit('settings-changed', settings)
     
     if (showToast) {
       toast.success('设置已保存')

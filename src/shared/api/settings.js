@@ -30,3 +30,18 @@ export async function getAutoStartStatus() {
   return await invoke('get_auto_start_status')
 }
 
+// 获取所有快捷键状态
+export async function getShortcutStatuses() {
+  return await invoke('get_shortcut_statuses')
+}
+
+// 获取单个快捷键状态
+export async function getShortcutStatus(id) {
+  return await invoke('get_shortcut_status', { id })
+}
+
+// 重新加载快捷键
+export async function reloadHotkeys() {
+  return await invoke('reload_hotkeys')
+}
+
