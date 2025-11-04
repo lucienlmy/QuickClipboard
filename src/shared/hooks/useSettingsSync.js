@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { settingsStore } from '@shared/store/settingsStore'
 import { toolsStore } from '@shared/store/toolsStore'
+import i18n from '@shared/i18n'
 
 // 监听设置变更事件并同步到当前窗口（跨窗口设置同步）
 export function useSettingsSync() {
@@ -14,11 +15,14 @@ export function useSettingsSync() {
         unlisten = await listen('settings-changed', (event) => {
           console.log('收到设置变更事件:', event.payload)
           
-          // 批量更新设置（不触发保存，避免循环）
+          // 批量更新设置
           if (event.payload && typeof event.payload === 'object') {
             settingsStore.updateSettings(event.payload)
             
-            // 同步配置文件工具状态到 localStorage 缓存和 toolsStore
+            if (event.payload.language !== undefined && event.payload.language !== i18n.language) {
+              i18n.changeLanguage(event.payload.language)
+            }
+            
             if (event.payload.aiTranslationEnabled !== undefined) {
               const value = event.payload.aiTranslationEnabled
               localStorage.setItem('tool-state-ai-translation-button', JSON.stringify(value))
@@ -40,7 +44,6 @@ export function useSettingsSync() {
 
     setupListener()
 
-    // 清理函数
     return () => {
       if (unlisten) {
         unlisten()

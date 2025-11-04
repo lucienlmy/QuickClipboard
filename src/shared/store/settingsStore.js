@@ -10,12 +10,9 @@ export const settingsStore = proxy({
   ...defaultSettings,
   
   // UI 专属设置（localStorage）
-  language: 'zh-CN',
   fontSize: 14,
   rowHeight: 'medium',
   fileDisplayMode: 'detailed',
-  
-  darkThemeStyle: 'classic',
   
   // 加载设置
   async loadSettings() {
@@ -79,9 +76,8 @@ export const settingsStore = proxy({
   },
   
   // 语言设置
-  setLanguage(lang) {
-    this.language = lang
-    localStorage.setItem('language', lang)
+  async setLanguage(lang) {
+    await this.saveSetting('language', lang)
   },
   
   // 字体大小
@@ -111,17 +107,20 @@ export const settingsStore = proxy({
 // 初始化设置
 export async function initSettings() {
   // 从 localStorage 恢复 UI 设置
-  const language = localStorage.getItem('language')
   const fontSize = localStorage.getItem('fontSize')
   const rowHeight = localStorage.getItem('rowHeight')
   const fileDisplayMode = localStorage.getItem('fileDisplayMode')
   
-  if (language) settingsStore.language = language
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
   if (rowHeight) settingsStore.rowHeight = rowHeight
   if (fileDisplayMode) settingsStore.fileDisplayMode = fileDisplayMode
   
   // 从后端加载所有配置
   await settingsStore.loadSettings()
+ 
+  if (settingsStore.language) {
+    const i18n = (await import('@shared/i18n')).default
+    await i18n.changeLanguage(settingsStore.language)
+  }
 }
 

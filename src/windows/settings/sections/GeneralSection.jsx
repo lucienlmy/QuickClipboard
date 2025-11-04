@@ -6,6 +6,8 @@ import Toggle from '@shared/components/ui/Toggle'
 import Select from '@shared/components/ui/Select'
 import { setAutoStart } from '@shared/api/settings'
 import { toast } from '@shared/store/toastStore'
+import { getAvailableLanguages } from '@shared/i18n'
+import i18n from '@shared/i18n'
 
 function GeneralSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
@@ -20,17 +22,30 @@ function GeneralSection({ settings, onSettingChange }) {
     { value: 999999, label: t('settings.general.unlimited') }
   ]
 
+  const languageOptions = getAvailableLanguages()
+
   const handleAutoStartChange = async (checked) => {
     setAutoStartLoading(true)
     try {
       await setAutoStart(checked)
       await onSettingChange('autoStart', checked)
-      toast.success(checked ? '已启用开机自启动' : '已禁用开机自启动')
+      toast.success(checked ? t('settings.general.autoStartEnabled') : t('settings.general.autoStartDisabled'))
     } catch (error) {
       console.error('设置开机自启动失败:', error)
-      toast.error('设置开机自启动失败')
+      toast.error(t('settings.general.autoStartFailed'))
     } finally {
       setAutoStartLoading(false)
+    }
+  }
+
+  const handleLanguageChange = async (lang) => {
+    try {
+      await i18n.changeLanguage(lang)
+      await onSettingChange('language', lang)
+      toast.success(t('settings.general.languageChanged'))
+    } catch (error) {
+      console.error('切换语言失败:', error)
+      toast.error(t('settings.general.languageChangeFailed'))
     }
   }
 
@@ -39,6 +54,17 @@ function GeneralSection({ settings, onSettingChange }) {
       title={t('settings.general.title')}
       description={t('settings.general.description')}
     >
+      <SettingItem
+        label={t('settings.general.language')}
+        description={t('settings.general.languageDesc')}
+      >
+        <Select
+          value={settings.language}
+          onChange={handleLanguageChange}
+          options={languageOptions}
+        />
+      </SettingItem>
+
       <SettingItem
         label={t('settings.general.autoStart')}
         description={t('settings.general.autoStartDesc')}

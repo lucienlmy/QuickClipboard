@@ -20,6 +20,7 @@ export const defaultSettings = {
   runAsAdmin: false,
   showStartupNotification: true,
   historyLimit: 100,
+  language: 'zh-CN',
   
   // 外观设置
   theme: 'light',
