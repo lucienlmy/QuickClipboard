@@ -59,21 +59,21 @@ function App() {
       case 'appearance':
         return <AppearanceSection settings={snap} onSettingChange={handleSettingChange} />
       case 'shortcuts':
-        return <ShortcutsSection />
+        return <ShortcutsSection settings={snap} onSettingChange={handleSettingChange} />
       case 'clipboard':
         return <ClipboardSection settings={snap} onSettingChange={handleSettingChange} />
       case 'aiConfig':
-        return <AIConfigSection />
+        return <AIConfigSection settings={snap} onSettingChange={handleSettingChange} />
       case 'translation':
-        return <TranslationSection />
+        return <TranslationSection settings={snap} onSettingChange={handleSettingChange} />
       case 'preview':
-        return <PreviewSection />
+        return <PreviewSection settings={snap} onSettingChange={handleSettingChange} />
       case 'screenshot':
-        return <ScreenshotSection />
+        return <ScreenshotSection settings={snap} onSettingChange={handleSettingChange} />
       case 'sound':
         return <SoundSection settings={snap} onSettingChange={handleSettingChange} />
       case 'appFilter':
-        return <AppFilterSection />
+        return <AppFilterSection settings={snap} onSettingChange={handleSettingChange} />
       case 'dataManagement':
         return <DataManagementSection />
       case 'support':

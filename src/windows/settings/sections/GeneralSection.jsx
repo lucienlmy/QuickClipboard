@@ -8,12 +8,12 @@ function GeneralSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
 
   const historyLimitOptions = [
-    { value: 50, label: '50 条' },
-    { value: 100, label: '100 条' },
-    { value: 200, label: '200 条' },
-    { value: 500, label: '500 条' },
-    { value: 9999, label: '9999 条' },
-    { value: 999999, label: '不限' }
+    { value: 50, label: `50 ${t('settings.general.items')}` },
+    { value: 100, label: `100 ${t('settings.general.items')}` },
+    { value: 200, label: `200 ${t('settings.general.items')}` },
+    { value: 500, label: `500 ${t('settings.general.items')}` },
+    { value: 9999, label: `9999 ${t('settings.general.items')}` },
+    { value: 999999, label: t('settings.general.unlimited') }
   ]
 
   return (
