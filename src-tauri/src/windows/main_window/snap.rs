@@ -4,6 +4,7 @@ use std::time::Duration;
 
 const SNAP_THRESHOLD: i32 = 30;
 const FRONTEND_CONTENT_INSET: i32 = 5;
+const FRONTEND_SHADOW_PADDING: i32 = 7;
 
 pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     let settings = crate::get_settings();
@@ -91,21 +92,22 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     let settings = crate::get_settings();
     
+    let hide_offset = if settings.edge_hide_offset == 0 {
+        0
+    } else {
+        settings.edge_hide_offset + FRONTEND_SHADOW_PADDING
+    };
     let (hide_x, hide_y) = match state.snap_edge {
         SnapEdge::Left => {
-            let hide_offset = settings.edge_hide_offset + FRONTEND_CONTENT_INSET;
             (vx - size.width as i32 + hide_offset, y)
         }
         SnapEdge::Right => {
-            let hide_offset = settings.edge_hide_offset + FRONTEND_CONTENT_INSET;
             (vx + vw - hide_offset, y)
         }
         SnapEdge::Top => {
-            let hide_offset = settings.edge_hide_offset + FRONTEND_CONTENT_INSET;
             (x, vy - size.height as i32 + hide_offset)
         }
         SnapEdge::Bottom => {
-            let hide_offset = settings.edge_hide_offset + FRONTEND_CONTENT_INSET;
             (x, monitor_bottom - hide_offset)
         }
         SnapEdge::None => return Ok(()),

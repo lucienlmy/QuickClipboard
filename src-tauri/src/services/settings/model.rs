@@ -185,7 +185,7 @@ impl Default for AppSettings {
 
             edge_hide_enabled: true,
             edge_snap_position: None,
-            edge_hide_offset: 10,
+            edge_hide_offset: 3,
 
             auto_focus_search: false,
             sidebar_hover_delay: 0.5,

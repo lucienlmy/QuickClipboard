@@ -117,9 +117,9 @@ function ClipboardSection({ settings, onSettingChange }) {
         >
           <Input
             type="number"
-            value={settings.edgeHideOffset || 3}
+            value={settings.edgeHideOffset ?? 3}
             onChange={(e) => onSettingChange('edgeHideOffset', parseInt(e.target.value))}
-            min={1}
+            min={0}
             max={50}
             className="w-24"
             suffix={t('settings.common.pixels')}

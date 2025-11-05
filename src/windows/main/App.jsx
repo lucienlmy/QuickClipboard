@@ -411,7 +411,7 @@ function App() {
   }
 
   return (
-    <div className={outerContainerClasses} style={{ padding: '4.5px' }}>
+    <div className={outerContainerClasses} style={{ padding: '5px' }}>
       <div 
         className={containerClasses} 
         style={{ 
