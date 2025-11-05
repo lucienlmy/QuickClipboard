@@ -87,7 +87,6 @@ pub struct AppSettings {
 
     // 窗口行为设置
     pub auto_focus_search: bool,
-    pub sidebar_hover_delay: f64,
 
     // 标题栏设置
     pub title_bar_position: String,
@@ -188,7 +187,6 @@ impl Default for AppSettings {
             edge_hide_offset: 3,
 
             auto_focus_search: false,
-            sidebar_hover_delay: 0.5,
 
             title_bar_position: "top".to_string(),
 

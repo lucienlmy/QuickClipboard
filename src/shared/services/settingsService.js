@@ -58,7 +58,6 @@ export const defaultSettings = {
   edgeSnapPosition: null,
   edgeHideOffset: 3,
   autoFocusSearch: false,
-  sidebarHoverDelay: 0.5,
   pasteWithFormat: true,
   
   // 音效设置

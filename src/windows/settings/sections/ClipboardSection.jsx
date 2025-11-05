@@ -127,22 +127,6 @@ function ClipboardSection({ settings, onSettingChange }) {
         </SettingItem>
 
         <SettingItem
-          label={t('settings.clipboard.sidebarHoverDelay')}
-          description={t('settings.clipboard.sidebarHoverDelayDesc')}
-        >
-          <Input
-            type="number"
-            value={settings.sidebarHoverDelay || 0.5}
-            onChange={(e) => onSettingChange('sidebarHoverDelay', parseFloat(e.target.value))}
-            min={0}
-            max={10}
-            step={0.1}
-            className="w-24"
-            suffix={t('settings.common.seconds')}
-          />
-        </SettingItem>
-
-        <SettingItem
           label={t('settings.clipboard.autoFocusSearch')}
           description={t('settings.clipboard.autoFocusSearchDesc')}
         >

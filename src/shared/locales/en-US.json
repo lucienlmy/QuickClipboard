@@ -254,8 +254,6 @@
       "edgeHideEnabledDesc": "Automatically hide window when snapped to screen edge",
       "edgeHideOffset": "Visible Pixels When Hidden",
       "edgeHideOffsetDesc": "Number of pixels protruding when the window is hidden at edge",
-      "sidebarHoverDelay": "Sidebar Hover Delay",
-      "sidebarHoverDelayDesc": "Delay time for mouse hover on sidebar",
       "autoFocusSearch": "Auto Focus Search on Show",
       "autoFocusSearchDesc": "Automatically focus search box when window is shown",
       "contentFilterTitle": "Content Filter",
