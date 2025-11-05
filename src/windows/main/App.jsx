@@ -189,8 +189,8 @@ function App() {
     const tabs = ['clipboard', 'favorites']
     const currentIndex = tabs.indexOf(activeTab)
     const newIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1
-    setActiveTab(tabs[newIndex])
-  }
+    setActiveTab(tabs[newIndex])        
+  }               
   
   const handleTabRight = () => {
     const tabs = ['clipboard', 'favorites']
@@ -200,17 +200,8 @@ function App() {
   }
   
   const handleFocusSearch = () => {
-    // 检查搜索框是否已聚焦
-    const searchInput = document.querySelector('.titlebar-search input')
-    const isSearchFocused = document.activeElement === searchInput
-    
-    if (isSearchFocused) {
-      searchInput?.blur()
-      navigationStore.resetNavigation()
-    } else {
-      if (searchRef.current?.focus) {
-        searchRef.current.focus()
-      }
+    if (searchRef.current?.focus) {
+      searchRef.current.focus()
     }
   }
   
