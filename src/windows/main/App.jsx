@@ -47,16 +47,19 @@ function App() {
   
   useEffect(() => {
     const setupListeners = async () => {
-      const unlisten1 = await listen('window-show-animation', () => {
+      const handleWindowShow = () => {
         if (settingsStore.autoClearSearch) {
           setSearchQuery('')
         }
-      })
-      const unlisten2 = await listen('edge-snap-bounce-animation', () => {
-        if (settingsStore.autoClearSearch) {
-          setSearchQuery('')
+        if (settingsStore.autoFocusSearch) {
+          setTimeout(() => {
+            searchRef.current?.focus?.()
+          }, 50)
         }
-      })
+      }
+      
+      const unlisten1 = await listen('window-show-animation', handleWindowShow)
+      const unlisten2 = await listen('edge-snap-bounce-animation', handleWindowShow)
       return () => { unlisten1(); unlisten2() }
     }
     let cleanup = setupListeners()

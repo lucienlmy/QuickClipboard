@@ -254,7 +254,7 @@
       "edgeHideEnabledDesc": "窗口在屏幕边缘时自动隐藏",
       "edgeHideOffset": "贴边隐藏突出像素",
       "edgeHideOffsetDesc": "窗口贴边隐藏时突出显示的像素数",
-      "autoFocusSearch": "显示时自动聚焦搜索框",
+      "autoFocusSearch": "自动聚焦搜索框",
       "autoFocusSearchDesc": "窗口显示时自动将光标定位到搜索框",
       "contentFilterTitle": "内容过滤",
       "contentFilterDesc": "过滤特定类型或格式的剪贴板内容",

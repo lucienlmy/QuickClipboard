@@ -48,26 +48,6 @@ function ClipboardSection({ settings, onSettingChange }) {
         </SettingItem>
 
         <SettingItem
-          label={t('settings.clipboard.autoScrollToTop')}
-          description={t('settings.clipboard.autoScrollToTopDesc')}
-        >
-          <Toggle
-            checked={settings.autoScrollToTopOnShow}
-            onChange={(checked) => onSettingChange('autoScrollToTopOnShow', checked)}
-          />
-        </SettingItem>
-
-        <SettingItem
-          label={t('settings.clipboard.autoClearSearch')}
-          description={t('settings.clipboard.autoClearSearchDesc')}
-        >
-          <Toggle
-            checked={settings.autoClearSearch}
-            onChange={(checked) => onSettingChange('autoClearSearch', checked)}
-          />
-        </SettingItem>
-
-        <SettingItem
           label={t('settings.clipboard.windowPosition')}
           description={t('settings.clipboard.windowPositionDesc')}
         >
@@ -123,6 +103,26 @@ function ClipboardSection({ settings, onSettingChange }) {
             max={50}
             className="w-24"
             suffix={t('settings.common.pixels')}
+          />
+        </SettingItem>
+
+        <SettingItem
+          label={t('settings.clipboard.autoScrollToTop')}
+          description={t('settings.clipboard.autoScrollToTopDesc')}
+        >
+          <Toggle
+            checked={settings.autoScrollToTopOnShow}
+            onChange={(checked) => onSettingChange('autoScrollToTopOnShow', checked)}
+          />
+        </SettingItem>
+
+        <SettingItem
+          label={t('settings.clipboard.autoClearSearch')}
+          description={t('settings.clipboard.autoClearSearchDesc')}
+        >
+          <Toggle
+            checked={settings.autoClearSearch}
+            onChange={(checked) => onSettingChange('autoClearSearch', checked)}
           />
         </SettingItem>
 

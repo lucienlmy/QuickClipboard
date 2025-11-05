@@ -254,7 +254,7 @@
       "edgeHideEnabledDesc": "Automatically hide window when snapped to screen edge",
       "edgeHideOffset": "Visible Pixels When Hidden",
       "edgeHideOffsetDesc": "Number of pixels protruding when the window is hidden at edge",
-      "autoFocusSearch": "Auto Focus Search on Show",
+      "autoFocusSearch": "Auto Focus Search Box",
       "autoFocusSearchDesc": "Automatically focus search box when window is shown",
       "contentFilterTitle": "Content Filter",
       "contentFilterDesc": "Filter specific types or formats of clipboard content",
