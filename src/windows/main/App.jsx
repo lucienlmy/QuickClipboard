@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { settingsStore } from '@shared/store/settingsStore'
 import { groupsStore } from '@shared/store/groupsStore'
 import { navigationStore } from '@shared/store/navigationStore'
@@ -60,6 +61,66 @@ function App() {
     }
     let cleanup = setupListeners()
     return () => cleanup.then(fn => fn())
+  }, [])
+  
+  useEffect(() => {
+    let resizeTimer = null
+    let moveTimer = null
+    
+    const handleResize = async () => {
+      if (!settingsStore.rememberWindowSize) {
+        return
+      }
+      
+      if (resizeTimer) clearTimeout(resizeTimer)
+      
+      resizeTimer = setTimeout(async () => {
+        try {
+          const appWindow = getCurrentWindow()
+          const size = await appWindow.outerSize()
+          
+          const { saveWindowSize } = await import('@shared/api/settings')
+          await saveWindowSize(size.width, size.height)
+        } catch (error) {
+          console.error('保存窗口大小失败:', error)
+        }
+      }, 500)
+    }
+    
+    const handleMove = async () => {
+      if (settingsStore.windowPositionMode !== 'remember') {
+        return
+      }
+      
+      if (moveTimer) clearTimeout(moveTimer)
+      
+      moveTimer = setTimeout(async () => {
+        try {
+          const appWindow = getCurrentWindow()
+          const position = await appWindow.outerPosition()
+          
+          const { saveWindowPosition } = await import('@shared/api/settings')
+          await saveWindowPosition(position.x, position.y)
+        } catch (error) {
+          console.error('保存窗口位置失败:', error)
+        }
+      }, 500)
+    }
+    
+    const setupListeners = async () => {
+      const appWindow = getCurrentWindow()
+      const unlistenResize = await appWindow.onResized(handleResize)
+      const unlistenMove = await appWindow.onMoved(handleMove)
+      return () => { unlistenResize(); unlistenMove() }
+    }
+    
+    let cleanup = setupListeners()
+    
+    return () => {
+      if (resizeTimer) clearTimeout(resizeTimer)
+      if (moveTimer) clearTimeout(moveTimer)
+      cleanup.then(fn => fn())
+    }
   }, [])
   
   // 主内容区域拖拽，排除所有交互元素和列表项

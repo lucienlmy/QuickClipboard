@@ -153,8 +153,13 @@ pub fn run() {
                 services::database::init_database(db_path.to_str()
                     .ok_or("数据库路径无效")?)?;
                 
-                // 应用历史记录数量限制
                 let settings = get_settings();
+                
+                if settings.remember_window_size {
+                    if let Some((w, h)) = settings.saved_window_size {
+                        let _ = window.set_size(tauri::PhysicalSize::new(w, h));
+                    }
+                }
                 if let Err(e) = services::database::limit_clipboard_history(settings.history_limit) {
                     eprintln!("应用历史记录限制失败: {}", e);
                     }

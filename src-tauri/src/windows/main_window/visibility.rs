@@ -101,7 +101,7 @@ fn hide_normal_window(window: &WebviewWindow) {
     if settings.clipboard_animation_enabled {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
-
+    
     if settings.window_position_mode == "remember" {
         if let Ok(position) = window.outer_position() {
             let mut settings = crate::get_settings();
