@@ -295,12 +295,120 @@ function App() {
   const containerClasses = `
     main-container 
     h-full w-full
-    flex flex-col 
+    flex ${settings.titleBarPosition === 'left' || settings.titleBarPosition === 'right' ? 'flex-row' : 'flex-col'}
     overflow-hidden
     transition-colors duration-500 ease-in-out
     ${isDark && !isBackground ? 'bg-gray-900' : ''}
     ${!isDark && !isBackground ? 'bg-white' : ''}
   `.trim().replace(/\s+/g, ' ')
+  
+  const TitleBarComponent = (
+    <TitleBar 
+      ref={searchRef}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder={t('search.placeholder')}
+      onNavigate={handleSearchNavigate}
+      position={settings.titleBarPosition}
+    />
+  )
+  
+  const TabNavigationComponent = (
+    <TabNavigation 
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      contentFilter={contentFilter}
+      onFilterChange={setContentFilter}
+    />
+  )
+  
+  const ContentComponent = (
+    <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
+      {activeTab === 'clipboard' && (
+        <ClipboardTab 
+          ref={clipboardTabRef}
+          contentFilter={contentFilter} 
+          searchQuery={searchQuery} 
+        />
+      )}
+      {activeTab === 'favorites' && (
+        <FavoritesTab 
+          ref={favoritesTabRef}
+          contentFilter={contentFilter} 
+          searchQuery={searchQuery} 
+        />
+      )}
+    </div>
+  )
+  
+  const FooterComponent = (
+    <FooterBar>
+      <GroupsPopup 
+        ref={groupsPopupRef}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onGroupChange={handleGroupChange} 
+      />
+    </FooterBar>
+  )
+  
+  const renderLayout = () => {
+    switch (settings.titleBarPosition) {
+      case 'top':
+        return (
+          <>
+            {TitleBarComponent}
+            {TabNavigationComponent}
+            {ContentComponent}
+            {FooterComponent}
+          </>
+        )
+      case 'bottom':
+        return (
+          <>
+            {TabNavigationComponent}
+            {ContentComponent}
+            {FooterComponent}
+            {TitleBarComponent}
+          </>
+        )
+      case 'left':
+        return (
+          <>
+            <div className="flex flex-col h-full">
+              {TitleBarComponent}
+            </div>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {TabNavigationComponent}
+              {ContentComponent}
+              {FooterComponent}
+            </div>
+          </>
+        )
+      case 'right':
+        return (
+          <>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {TabNavigationComponent}
+              {ContentComponent}
+              {FooterComponent}
+            </div>
+            <div className="flex flex-col h-full">
+              {TitleBarComponent}
+            </div>
+          </>
+        )
+      default:
+        return (
+          <>
+            {TitleBarComponent}
+            {TabNavigationComponent}
+            {ContentComponent}
+            {FooterComponent}
+          </>
+        )
+    }
+  }
 
   return (
     <div className={outerContainerClasses} style={{ padding: '4.5px' }}>
@@ -311,48 +419,8 @@ function App() {
           boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
         }}
       >
-      <TitleBar 
-        ref={searchRef}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder={t('search.placeholder')}
-        onNavigate={handleSearchNavigate}
-      />
-      
-      <TabNavigation 
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        contentFilter={contentFilter}
-        onFilterChange={setContentFilter}
-      />
-      
-      <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
-        {activeTab === 'clipboard' && (
-          <ClipboardTab 
-            ref={clipboardTabRef}
-            contentFilter={contentFilter} 
-            searchQuery={searchQuery} 
-          />
-        )}
-        {activeTab === 'favorites' && (
-          <FavoritesTab 
-            ref={favoritesTabRef}
-            contentFilter={contentFilter} 
-            searchQuery={searchQuery} 
-          />
-        )}
-      </div>
-
-      <FooterBar>
-        <GroupsPopup 
-          ref={groupsPopupRef}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onGroupChange={handleGroupChange} 
-        />
-      </FooterBar>
-
-      <ToastContainer />
+        {renderLayout()}
+        <ToastContainer />
       </div>
     </div>
   )

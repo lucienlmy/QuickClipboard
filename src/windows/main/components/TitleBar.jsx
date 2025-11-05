@@ -41,7 +41,7 @@ function SortableToolItem({ toolId, location }) {
 }
 
 // 可放置区域（标题栏）
-function DroppableTitlebar({ children, isEmpty }) {
+function DroppableTitlebar({ children, isEmpty, isVertical }) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'titlebar-drop-zone',
   })
@@ -49,19 +49,21 @@ function DroppableTitlebar({ children, isEmpty }) {
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-center gap-1 ${isEmpty ? 'w-1 h-7 overflow-visible' : ''} ${isOver && isEmpty ? '!w-auto px-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg' : ''}`}
+      className={`flex ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1 ${isEmpty ? (isVertical ? 'h-1 w-7' : 'w-1 h-7') + ' overflow-visible' : ''} ${isOver && isEmpty ? (isVertical ? '!h-auto py-8' : '!w-auto px-8') + ' bg-blue-50 dark:bg-blue-900/20 rounded-lg' : ''}`}
     >
       {children}
     </div>
   )
 }
 
-const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, onNavigate }, ref) => {
+const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, onNavigate, position = 'top' }, ref) => {
   const { t } = useTranslation()
   const { layout, isExpanded } = useSnapshot(toolsStore)
   const [activeId, setActiveId] = useState(null)
   const containerRef = useRef(null)
   const searchRef = useRef(null)
+  
+  const isVertical = position === 'left' || position === 'right'
   
   const dragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', '[data-tool-id]', 'input', 'textarea'],
@@ -165,7 +167,11 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
   return (
     <div 
       ref={dragRef}
-      className="title-bar flex-shrink-0 h-9 flex items-center justify-between px-2 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm transition-colors duration-500"
+      className={`title-bar flex-shrink-0 flex ${
+        isVertical 
+          ? 'w-10 h-full flex-col items-center justify-between py-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-r border-gray-300/80 dark:border-gray-700/30' 
+          : 'h-9 flex-row items-center justify-between px-2 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30'
+      } shadow-sm transition-colors duration-500`}
     >
       {/* Logo */}
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
@@ -174,15 +180,17 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
         </div>
       </div>
 
-      {/* 右侧：搜索 + 工具按钮容器 */}
-      <div className="flex items-center gap-1 relative flex-shrink-0" ref={containerRef}>
-        {/* 搜索（贴着工具栏左侧） */}
+      {/* 搜索 + 工具按钮容器 */}
+      <div className={`flex ${isVertical ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1'} relative ${isVertical ? '' : 'flex-shrink-0'}`} ref={containerRef}>
+        {/* 搜索框 */}
         <TitleBarSearch 
           ref={searchRef}
           value={searchQuery}
           onChange={onSearchChange}
           placeholder={searchPlaceholder}
           onNavigate={onNavigate}
+          isVertical={isVertical}
+          position={position}
         />
         <DndContext
           sensors={sensors}
@@ -192,8 +200,8 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
           onDragCancel={handleDragCancel}
         >
           <SortableContext items={allTools}>
-            {/* 标题栏工具（带 droppable 区域） */}
-            <DroppableTitlebar isEmpty={layout.titlebar.length === 0}>
+            {/* 标题栏工具 */}
+            <DroppableTitlebar isEmpty={layout.titlebar.length === 0} isVertical={isVertical}>
               {layout.titlebar.map((toolId) => (
                 <SortableToolItem key={toolId} toolId={toolId} location="titlebar" />
               ))}
@@ -217,7 +225,11 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
             
             {/* 展开面板 */}
             {isExpanded && layout.panel.length > 0 && (
-              <div className="tools-panel absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 px-2.5 z-40">
+              <div className={`tools-panel absolute ${
+                isVertical 
+                  ? (position === 'left' ? 'left-full bottom-0 ml-1' : 'right-full bottom-0 mr-1')
+                  : (position === 'bottom' ? 'bottom-full right-0 mb-1' : 'top-full right-0 mt-1')
+              } bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 px-2.5 z-40`}>
                 <div className="flex flex-wrap gap-1.5 max-w-[200px]">
                   {layout.panel.map((toolId) => (
                     <SortableToolItem key={toolId} toolId={toolId} location="panel" />

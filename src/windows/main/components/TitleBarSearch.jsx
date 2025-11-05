@@ -4,7 +4,7 @@ import { useInputFocus, focusWindowImmediately } from '@shared/hooks/useInputFoc
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
 
-const TitleBarSearch = forwardRef(({ value, onChange, placeholder, onNavigate }, ref) => {
+const TitleBarSearch = forwardRef(({ value, onChange, placeholder, onNavigate, isVertical = false, position = 'top' }, ref) => {
     const [isFocused, setIsFocused] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
     const inputRef = useInputFocus()
@@ -133,9 +133,9 @@ const TitleBarSearch = forwardRef(({ value, onChange, placeholder, onNavigate },
             <style>{searchInputStyle}</style>
             <div
                 ref={searchRef}
-                className="titlebar-search relative flex items-center justify-end w-7"
+                className={`titlebar-search relative flex ${isVertical ? 'flex-col items-center justify-end h-7' : 'flex-row items-center justify-end w-7'}`}
             >
-            {/* 输入框 - 从图标左侧展开，绝对定位 */}
+            {/* 输入框 - 根据方向展开 */}
                    <input
                        ref={inputRef}
                        type="search"
@@ -145,9 +145,14 @@ const TitleBarSearch = forwardRef(({ value, onChange, placeholder, onNavigate },
                        onBlur={() => setIsFocused(false)}
                        onKeyDown={handleKeyDown}
                        placeholder={placeholder}
-                className={`absolute right-6 h-7 px-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all duration-300 ease-in-out shadow-sm ${isExpanded
-                        ? 'w-30 opacity-100 mr-1'
-                        : 'w-0 opacity-0 pointer-events-none border-0'
+                       style={isVertical ? { writingMode: 'vertical-rl', textAlign: 'start' } : {}}
+                className={`absolute ${
+                    isVertical 
+                        ? 'bottom-6 left-0 w-7 py-2'
+                        : 'right-6 h-7 px-2'
+                } text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all duration-300 ease-in-out shadow-sm ${isExpanded
+                        ? (isVertical ? 'h-48 opacity-100 mb-1' : 'w-30 opacity-100 mr-1')
+                        : (isVertical ? 'h-0' : 'w-0') + ' opacity-0 pointer-events-none border-0'
                     }`}
             />
 
