@@ -20,7 +20,6 @@ pub struct AppSettings {
     pub clipboard_monitor: bool,
     pub ignore_duplicates: bool,
     pub save_images: bool,
-    pub show_image_preview: bool,
 
     // 音效设置
     pub sound_enabled: bool,
@@ -74,7 +73,6 @@ pub struct AppSettings {
     pub app_filter_enabled: bool,
     pub app_filter_mode: String,
     pub app_filter_list: Vec<String>,
-    pub image_data_priority_apps: Vec<String>,
 
     // 窗口设置
     pub window_position_mode: String,
@@ -134,7 +132,6 @@ impl Default for AppSettings {
             clipboard_monitor: true,
             ignore_duplicates: true,
             save_images: true,
-            show_image_preview: false,
 
             sound_enabled: true,
             sound_volume: 50.0,
@@ -180,7 +177,6 @@ impl Default for AppSettings {
             app_filter_enabled: false,
             app_filter_mode: "blacklist".to_string(),
             app_filter_list: vec![],
-            image_data_priority_apps: vec![],
 
             window_position_mode: "smart".to_string(),
             remember_window_size: false,

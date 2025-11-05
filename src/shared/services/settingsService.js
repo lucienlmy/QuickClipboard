@@ -52,7 +52,6 @@ export const defaultSettings = {
   clipboardMonitor: true,
   ignoreDuplicates: true,
   saveImages: true,
-  showImagePreview: false,
   autoScrollToTopOnShow: false,
   windowPositionMode: 'smart',
   rememberWindowSize: false,
@@ -62,7 +61,6 @@ export const defaultSettings = {
   edgeHideOffset: 3,
   autoFocusSearch: false,
   sidebarHoverDelay: 0.5,
-  imageDataPriorityApps: [],
   pasteWithFormat: true,
   
   // 音效设置

@@ -48,29 +48,6 @@ function ClipboardSection({ settings, onSettingChange }) {
         </SettingItem>
 
         <SettingItem
-          label={t('settings.clipboard.showImagePreview')}
-          description={t('settings.clipboard.showImagePreviewDesc')}
-        >
-          <Toggle
-            checked={settings.showImagePreview}
-            onChange={(checked) => onSettingChange('showImagePreview', checked)}
-          />
-        </SettingItem>
-
-        <SettingItem
-          label={t('settings.clipboard.imagePriorityApps')}
-          description={t('settings.clipboard.imagePriorityAppsDesc')}
-        >
-          <Textarea
-            value={settings.imagePriorityApps || ''}
-            onChange={(e) => onSettingChange('imagePriorityApps', e.target.value)}
-            rows={4}
-            placeholder="wechat.exe&#10;qq.exe"
-            className="w-64"
-          />
-        </SettingItem>
-
-        <SettingItem
           label={t('settings.clipboard.autoScrollToTop')}
           description={t('settings.clipboard.autoScrollToTopDesc')}
         >
