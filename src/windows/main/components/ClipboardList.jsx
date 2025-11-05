@@ -146,11 +146,11 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
     navigateUp,
     navigateDown,
     executeCurrentItem,
-    scrollToTop: () => {
+    scrollToTop: (behavior = 'smooth') => {
       virtuosoRef.current?.scrollToIndex({
         index: 0,
         align: 'start',
-        behavior: 'smooth'
+        behavior
       })
     }
   }))

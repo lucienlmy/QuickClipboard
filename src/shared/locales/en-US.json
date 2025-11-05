@@ -235,7 +235,7 @@
       "saveImages": "Save Images",
       "saveImagesDesc": "Automatically save copied images to clipboard history",
       "autoScrollToTop": "Auto Scroll to Top",
-      "autoScrollToTopDesc": "Automatically scroll to first item when showing window",
+      "autoScrollToTopDesc": "Automatically scroll to first item when new content arrives or window is shown",
       "windowPosition": "Window Position",
       "windowPositionDesc": "Choose clipboard window position strategy",
       "positionSmart": "Smart Position (Follow Mouse)",
