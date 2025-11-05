@@ -5,20 +5,25 @@ use clipboard_rs::{
     ClipboardHandler, ClipboardWatcher, ClipboardWatcherContext,
 };
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use parking_lot::Mutex;
 use once_cell::sync::Lazy;
 use std::thread;
 
+static IS_RUNNING: AtomicBool = AtomicBool::new(false);
+
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+
 // 监听器状态
 struct MonitorState {
-    is_running: bool,
     watcher_handle: Option<thread::JoinHandle<()>>,
+    current_generation: u64,
 }
 
 static MONITOR_STATE: Lazy<Arc<Mutex<MonitorState>>> = Lazy::new(|| {
     Arc::new(Mutex::new(MonitorState {
-        is_running: false,
         watcher_handle: None,
+        current_generation: 0,
     }))
 });
 
@@ -28,17 +33,23 @@ static LAST_CONTENT_HASH: Lazy<Arc<Mutex<Option<String>>>> = Lazy::new(|| {
 });
 
 // 剪贴板监听管理器
-struct ClipboardMonitorManager;
+struct ClipboardMonitorManager {
+    generation: u64,
+}
 
 impl ClipboardMonitorManager {
-    pub fn new() -> Result<Self, String> {
-        Ok(ClipboardMonitorManager)
+    pub fn new(generation: u64) -> Result<Self, String> {
+        Ok(ClipboardMonitorManager { generation })
     }
 }
 
 impl ClipboardHandler for ClipboardMonitorManager {
     fn on_clipboard_change(&mut self) {
-        if !is_monitor_running() {
+        if !IS_RUNNING.load(Ordering::Relaxed) {
+            return;
+        }
+        
+        if self.generation != GENERATION.load(Ordering::Relaxed) {
             return;
         }
         
@@ -50,71 +61,48 @@ impl ClipboardHandler for ClipboardMonitorManager {
     }
 }
 
-// 启动剪贴板监听
 pub fn start_clipboard_monitor() -> Result<(), String> {
-    let mut state = MONITOR_STATE.lock();
-    
-    if state.is_running {
+    if IS_RUNNING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
         return Ok(());
     }
     
-    let handle = thread::spawn(|| {
-        if let Err(e) = run_clipboard_monitor() {
+    let new_generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    
+    let mut state = MONITOR_STATE.lock();
+    state.current_generation = new_generation;
+    state.watcher_handle = None;
+    
+    let handle = thread::spawn(move || {
+        if let Err(e) = run_clipboard_monitor(new_generation) {
             eprintln!("剪贴板监听错误: {}", e);
         }
+        IS_RUNNING.store(false, Ordering::SeqCst);
     });
     
-    state.is_running = true;
     state.watcher_handle = Some(handle);
-    
     Ok(())
 }
 
-// 停止剪贴板监听
 pub fn stop_clipboard_monitor() -> Result<(), String> {
-    let mut state = MONITOR_STATE.lock();
-    
-    if !state.is_running {
-        return Ok(());
+    if IS_RUNNING.swap(false, Ordering::SeqCst) {
+        let mut state = MONITOR_STATE.lock();
+        state.watcher_handle = None;
     }
-    
-    state.is_running = false;
-    
-    // 等待监听线程结束
-    if let Some(handle) = state.watcher_handle.take() {
-        // 由于clipboard-rs的监听是阻塞的，我们需要给它一点时间自然退出
-        drop(state); // 释放锁
-        use std::time::Duration;
-        thread::sleep(Duration::from_millis(100));
-        
-        // 尝试等待线程结束（超时后放弃）
-        let _ = handle.join();
-    }
-    
     Ok(())
 }
 
-// 检查监听器是否正在运行
 pub fn is_monitor_running() -> bool {
-    MONITOR_STATE.lock().is_running
+    IS_RUNNING.load(Ordering::Relaxed)
 }
 
-// 运行剪贴板监听循环（使用 clipboard-rs 的监听机制）
-fn run_clipboard_monitor() -> Result<(), String> {
-    // 创建监听管理器
-    let manager = ClipboardMonitorManager::new()?;
-    
-    // 创建监听器
+fn run_clipboard_monitor(generation: u64) -> Result<(), String> {
+    let manager = ClipboardMonitorManager::new(generation)?;
     let mut watcher = ClipboardWatcherContext::new()
         .map_err(|e| format!("创建剪贴板监听器失败: {}", e))?;
-    
-    // 添加处理器并开始监听（这是一个阻塞调用）
     let _ = watcher.add_handler(manager).start_watch();
-    
     Ok(())
 }
 
-// 处理剪贴板内容变化
 fn handle_clipboard_change() -> Result<(), String> {
     let content = match ClipboardContent::capture()? {
         Some(content) => content,
@@ -123,7 +111,6 @@ fn handle_clipboard_change() -> Result<(), String> {
     
     let content_hash = content.calculate_hash();
     
-    // 检查是否与上次内容相同（去重）
     {
         let mut last_hash = LAST_CONTENT_HASH.lock();
         if let Some(ref last) = *last_hash {
@@ -137,44 +124,29 @@ fn handle_clipboard_change() -> Result<(), String> {
     let processed = process_content(content)?;
     
     match store_clipboard_item(processed) {
-        Ok(_id) => {
-            if let Err(e) = emit_clipboard_updated() {
-                eprintln!("发送剪贴板更新事件失败: {}", e);
-            }
+        Ok(_) => {
+            let _ = emit_clipboard_updated();
         }
-        Err(e) if e.contains("重复内容") => {
-            // 重复内容，忽略
-        }
-        Err(e) => {
-            return Err(format!("存储剪贴板内容失败: {}", e));
-        }
+        Err(e) if e.contains("重复内容") => {}
+        Err(e) => return Err(format!("存储剪贴板内容失败: {}", e)),
     }
     
     Ok(())
 }
 
-// 全局App Handle存储
 static APP_HANDLE: Lazy<Arc<Mutex<Option<tauri::AppHandle>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(None))
 });
 
-// 设置App Handle（在应用启动时调用）
 pub fn set_app_handle(handle: tauri::AppHandle) {
-    let mut app_handle = APP_HANDLE.lock();
-    *app_handle = Some(handle);
+    *APP_HANDLE.lock() = Some(handle);
 }
 
-// 发送剪贴板更新事件到前端
 fn emit_clipboard_updated() -> Result<(), String> {
     let app_handle = APP_HANDLE.lock();
-    let handle = app_handle.as_ref()
-        .ok_or("应用未初始化")?;
-    
+    let handle = app_handle.as_ref().ok_or("应用未初始化")?;
     use tauri::Emitter;
-    handle.emit("clipboard-updated", ())
-        .map_err(|e| format!("发送事件失败: {}", e))?;
-    
-    Ok(())
+    handle.emit("clipboard-updated", ()).map_err(|e| e.to_string())
 }
 
 // 预设哈希缓存（文本类型）

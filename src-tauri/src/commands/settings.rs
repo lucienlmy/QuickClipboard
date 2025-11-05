@@ -10,26 +10,40 @@ pub fn reload_settings() -> Result<AppSettings, String> {
     Ok(settings)
 }
 
-// 保存设置
 #[tauri::command]
-pub fn save_settings(settings: AppSettings) -> Result<(), String> {
-    update_settings(settings)?;
+pub fn save_settings(settings: AppSettings, app: tauri::AppHandle) -> Result<(), String> {
+    let old_settings = get_settings();
+    let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
     
-    // 重新加载快捷键配置
+    update_settings(settings.clone())?;
+    
     if let Err(e) = crate::hotkey::reload_from_settings() {
         eprintln!("重新加载快捷键失败: {}", e);
+    }
+    
+    if clipboard_monitor_changed {
+        if settings.clipboard_monitor {
+            crate::start_clipboard_monitor()?;
+        } else {
+            crate::stop_clipboard_monitor()?;
+        }
+        
+        update_tray_monitor_label(settings.clipboard_monitor);
+        
+        use tauri::Emitter;
+        let _ = app.emit("settings-changed", serde_json::json!({
+            "clipboardMonitor": settings.clipboard_monitor
+        }));
     }
     
     Ok(())
 }
 
-// 获取当前设置
 #[tauri::command]
 pub fn get_settings_cmd() -> AppSettings {
     get_settings()
 }
 
-// 设置贴边隐藏
 #[tauri::command]
 pub fn set_edge_hide_enabled(enabled: bool) -> Result<(), String> {
     let mut settings = get_settings();
@@ -38,13 +52,11 @@ pub fn set_edge_hide_enabled(enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
-// 获取所有窗口信息
 #[tauri::command]
 pub fn get_all_windows_info_cmd() -> Result<Vec<Value>, String> {
     Ok(vec![])
 }
 
-// 检查是否为便携版模式
 #[tauri::command]
 pub fn is_portable_mode() -> bool {
     use std::env;
@@ -208,5 +220,18 @@ pub fn get_shortcut_statuses() -> Vec<crate::hotkey::ShortcutStatus> {
 #[tauri::command]
 pub fn get_shortcut_status(id: String) -> Option<crate::hotkey::ShortcutStatus> {
     crate::hotkey::get_shortcut_status(&id)
+}
+
+fn update_tray_monitor_label(enabled: bool) {
+    use crate::windows::tray::TOGGLE_MONITOR_ITEM;
+    
+    if let Some(item) = TOGGLE_MONITOR_ITEM.get() {
+        let label = if enabled {
+            "禁用剪贴板监听"
+        } else {
+            "启用剪贴板监听"
+        };
+        let _ = item.set_text(label);
+    }
 }
 

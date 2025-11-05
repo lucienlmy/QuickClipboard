@@ -77,34 +77,12 @@ fn toggle_hotkeys(_app: &AppHandle) {
     }
 }
 
-fn toggle_clipboard_monitor(_app: &AppHandle) {
+fn toggle_clipboard_monitor(app: &AppHandle) {
     let mut settings = crate::get_settings();
     settings.clipboard_monitor = !settings.clipboard_monitor;
     
-    if let Err(e) = crate::update_settings(settings.clone()) {
-        eprintln!("更新剪贴板监听设置失败: {}", e);
-        return;
-    }
-    
-    // 启动或停止剪贴板监听
-    if settings.clipboard_monitor {
-        if let Err(e) = crate::start_clipboard_monitor() {
-            eprintln!("启动剪贴板监听失败: {}", e);
-        }
-    } else {
-        if let Err(e) = crate::stop_clipboard_monitor() {
-            eprintln!("停止剪贴板监听失败: {}", e);
-        }
-    }
-
-    // 更新菜单项文本
-    if let Some(item) = super::menu::TOGGLE_MONITOR_ITEM.get() {
-        let label = if settings.clipboard_monitor {
-            "禁用剪贴板监听"
-        } else {
-            "启用剪贴板监听"
-        };
-        let _ = item.set_text(label);
+    if let Err(e) = crate::commands::settings::save_settings(settings, app.clone()) {
+        eprintln!("保存剪贴板监听设置失败: {}", e);
     }
 }
 
