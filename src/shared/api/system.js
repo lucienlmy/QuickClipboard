@@ -5,15 +5,6 @@ export async function getAppVersion() {
   return await invoke('get_app_version')
 }
 
-// 获取管理员状态
-export async function getAdminStatus() {
-  return await invoke('get_admin_status')
-}
-
-// 以管理员身份重启
-export async function restartAsAdmin() {
-  return await invoke('restart_as_admin')
-}
 
 // 检查是否为便携模式
 export async function isPortableMode() {

@@ -5,8 +5,6 @@ import {
   getAllWindowsInfo,
   hideMainWindowIfAutoShown,
   getAppVersion as getAppVersionApi,
-  getAdminStatus as getAdminStatusApi,
-  restartAsAdmin as restartAsAdminApi,
   isPortableMode as isPortableModeApi
 } from '@shared/api'
 import { emit } from '@tauri-apps/api/event'
@@ -17,7 +15,6 @@ export const defaultSettings = {
   // 常规设置
   autoStart: false,
   startHidden: false,
-  runAsAdmin: false,
   showStartupNotification: true,
   historyLimit: 100,
   language: 'zh-CN',
@@ -169,26 +166,6 @@ export async function getAppVersion() {
   }
 }
 
-// 检查管理员状态
-export async function getAdminStatus() {
-  try {
-    return await getAdminStatusApi()
-  } catch (error) {
-    console.error('检查管理员状态失败:', error)
-    return { is_admin: false }
-  }
-}
-
-// 以管理员权限重启
-export async function restartAsAdmin() {
-  try {
-    await restartAsAdminApi()
-    return { success: true }
-  } catch (error) {
-    console.error('重启为管理员失败:', error)
-    return { success: false, error: error.message }
-  }
-}
 
 // 检查是否为便携版模式
 export async function isPortableMode() {

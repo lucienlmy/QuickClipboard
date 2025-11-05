@@ -6,7 +6,6 @@ pub struct AppSettings {
     // 基础设置
     pub auto_start: bool,
     pub start_hidden: bool,
-    pub run_as_admin: bool,
     pub show_startup_notification: bool,
     pub history_limit: u64,
     pub language: String,
@@ -119,7 +118,6 @@ impl Default for AppSettings {
         Self {
             auto_start: false,
             start_hidden: true,
-            run_as_admin: false,
             show_startup_notification: true,
             history_limit: 100,
             language: "zh-CN".to_string(),

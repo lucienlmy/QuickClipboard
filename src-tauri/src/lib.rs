@@ -110,8 +110,6 @@ pub fn run() {
                 commands::get_all_windows_info_cmd,
                 commands::is_portable_mode,
                 commands::get_app_version,
-                commands::get_admin_status,
-                commands::restart_as_admin,
                 commands::get_data_directory_cmd,
                 commands::set_auto_start,
                 commands::get_auto_start_status,
