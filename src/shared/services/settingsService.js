@@ -53,6 +53,7 @@ export const defaultSettings = {
   ignoreDuplicates: true,
   saveImages: true,
   autoScrollToTopOnShow: false,
+  autoClearSearch: false,
   windowPositionMode: 'smart',
   rememberWindowSize: false,
   titleBarPosition: 'top',

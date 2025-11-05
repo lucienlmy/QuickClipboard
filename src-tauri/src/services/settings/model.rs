@@ -68,6 +68,7 @@ pub struct AppSettings {
 
     // 显示行为
     pub auto_scroll_to_top_on_show: bool,
+    pub auto_clear_search: bool,
 
     // 应用过滤设置
     pub app_filter_enabled: bool,
@@ -173,6 +174,7 @@ impl Default for AppSettings {
             clipboard_animation_enabled: true,
 
             auto_scroll_to_top_on_show: false,
+            auto_clear_search: false,
 
             app_filter_enabled: false,
             app_filter_mode: "blacklist".to_string(),

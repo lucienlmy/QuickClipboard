@@ -58,6 +58,16 @@ function ClipboardSection({ settings, onSettingChange }) {
         </SettingItem>
 
         <SettingItem
+          label={t('settings.clipboard.autoClearSearch')}
+          description={t('settings.clipboard.autoClearSearchDesc')}
+        >
+          <Toggle
+            checked={settings.autoClearSearch}
+            onChange={(checked) => onSettingChange('autoClearSearch', checked)}
+          />
+        </SettingItem>
+
+        <SettingItem
           label={t('settings.clipboard.windowPosition')}
           description={t('settings.clipboard.windowPositionDesc')}
         >

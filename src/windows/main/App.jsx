@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
+import { listen } from '@tauri-apps/api/event'
 import { settingsStore } from '@shared/store/settingsStore'
 import { groupsStore } from '@shared/store/groupsStore'
 import { navigationStore } from '@shared/store/navigationStore'
@@ -21,7 +22,8 @@ import ToastContainer from '@shared/components/common/ToastContainer'
 
 function App() {
   const { t } = useTranslation()
-  const { theme, darkThemeStyle, backgroundImagePath } = useSnapshot(settingsStore)
+  const settings = useSnapshot(settingsStore)
+  const { theme, darkThemeStyle, backgroundImagePath } = settings
   const { effectiveTheme, isDark, isBackground } = useTheme()
   const [activeTab, setActiveTab] = useState('clipboard')
   const [contentFilter, setContentFilter] = useState('all')
@@ -41,6 +43,24 @@ function App() {
   useEffect(() => {
     navigationStore.setActiveTab(activeTab)
   }, [activeTab])
+  
+  useEffect(() => {
+    const setupListeners = async () => {
+      const unlisten1 = await listen('window-show-animation', () => {
+        if (settingsStore.autoClearSearch) {
+          setSearchQuery('')
+        }
+      })
+      const unlisten2 = await listen('edge-snap-bounce-animation', () => {
+        if (settingsStore.autoClearSearch) {
+          setSearchQuery('')
+        }
+      })
+      return () => { unlisten1(); unlisten2() }
+    }
+    let cleanup = setupListeners()
+    return () => cleanup.then(fn => fn())
+  }, [])
   
   // 主内容区域拖拽，排除所有交互元素和列表项
   const contentDragRef = useWindowDrag({

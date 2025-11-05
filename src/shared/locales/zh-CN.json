@@ -236,6 +236,8 @@
       "saveImagesDesc": "自动保存复制的图片到剪贴板历史",
       "autoScrollToTop": "自动滚动到顶部",
       "autoScrollToTopDesc": "有新内容时和每次显示窗口时，剪贴板列表自动滚动到第一项",
+      "autoClearSearch": "自动清空搜索框",
+      "autoClearSearchDesc": "每次显示窗口时自动清空搜索框内容",
       "windowPosition": "窗口位置设置",
       "windowPositionDesc": "选择剪贴板窗口的显示位置策略",
       "positionSmart": "智能位置（跟随鼠标）",
