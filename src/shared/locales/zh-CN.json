@@ -238,7 +238,7 @@
       "autoScrollToTopDesc": "有新内容时和每次显示窗口时，剪贴板列表自动滚动到第一项",
       "autoClearSearch": "自动清空搜索框",
       "autoClearSearchDesc": "每次显示窗口时自动清空搜索框内容",
-      "windowPosition": "窗口位置设置",
+      "windowPosition": "窗口显示位置",
       "windowPositionDesc": "选择剪贴板窗口的显示位置策略",
       "positionSmart": "智能位置（跟随鼠标）",
       "positionRemember": "记住位置（固定位置）",

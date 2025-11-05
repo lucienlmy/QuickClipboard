@@ -101,6 +101,21 @@ fn hide_normal_window(window: &WebviewWindow) {
     if settings.clipboard_animation_enabled {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
+
+    if settings.window_position_mode == "remember" {
+        if let Ok(position) = window.outer_position() {
+            let mut settings = crate::get_settings();
+            settings.saved_window_position = Some((position.x, position.y));
+            
+            if settings.remember_window_size {
+                if let Ok(size) = window.outer_size() {
+                    settings.saved_window_size = Some((size.width, size.height));
+                }
+            }
+            
+            let _ = crate::services::update_settings(settings);
+        }
+    }
     
     if !super::state::is_pinned() {
         let _ = window.set_always_on_top(false);

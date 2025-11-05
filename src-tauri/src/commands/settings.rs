@@ -173,3 +173,21 @@ fn update_tray_monitor_label(enabled: bool) {
     }
 }
 
+// 保存窗口位置
+#[tauri::command]
+pub fn save_window_position(app: tauri::AppHandle, x: i32, y: i32) -> Result<(), String> {
+    let mut settings = get_settings();
+    settings.saved_window_position = Some((x, y));
+    update_settings(settings)?;
+    Ok(())
+}
+
+// 保存窗口大小
+#[tauri::command]
+pub fn save_window_size(app: tauri::AppHandle, width: u32, height: u32) -> Result<(), String> {
+    let mut settings = get_settings();
+    settings.saved_window_size = Some((width, height));
+    update_settings(settings)?;
+    Ok(())
+}
+

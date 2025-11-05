@@ -45,3 +45,13 @@ export async function reloadHotkeys() {
   return await invoke('reload_hotkeys')
 }
 
+// 保存窗口位置
+export async function saveWindowPosition(x, y) {
+  return await invoke('save_window_position', { x, y })
+}
+
+// 保存窗口大小
+export async function saveWindowSize(width, height) {
+  return await invoke('save_window_size', { width, height })
+}
+
