@@ -250,7 +250,7 @@
       "positionBottom": "底部",
       "positionLeft": "左侧",
       "positionRight": "右侧",
-      "edgeHideEnabled": "启用边缘隐藏",
+      "edgeHideEnabled": "启用贴边隐藏",
       "edgeHideEnabledDesc": "窗口在屏幕边缘时自动隐藏",
       "edgeHideOffset": "隐藏偏移量",
       "edgeHideOffsetDesc": "窗口隐藏时保留的像素数",

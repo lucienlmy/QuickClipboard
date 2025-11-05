@@ -1,6 +1,23 @@
 use crate::services::{AppSettings, get_settings, update_settings, get_data_directory};
 use crate::services::settings::storage::SettingsStorage;
 use serde_json::Value;
+use tauri::Manager;
+
+fn handle_disable_edge_hide(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let state = crate::windows::main_window::get_window_state();
+        
+        if state.is_snapped {
+            if state.is_hidden {
+                let _ = crate::windows::main_window::show_snapped_window(&window);
+            }
+            
+            let _ = crate::windows::main_window::restore_from_snap(&window);
+            
+            crate::windows::main_window::stop_edge_monitoring();
+        }
+    }
+}
 
 // 重新加载设置
 #[tauri::command]
@@ -11,9 +28,15 @@ pub fn reload_settings() -> Result<AppSettings, String> {
 }
 
 #[tauri::command]
-pub fn save_settings(settings: AppSettings, app: tauri::AppHandle) -> Result<(), String> {
+pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result<(), String> {
     let old_settings = get_settings();
     let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
+    let edge_hide_changed = old_settings.edge_hide_enabled != settings.edge_hide_enabled;
+    
+    if edge_hide_changed && !settings.edge_hide_enabled {
+        settings.edge_snap_position = None;
+        handle_disable_edge_hide(&app);
+    }
     
     update_settings(settings.clone())?;
     
@@ -45,9 +68,15 @@ pub fn get_settings_cmd() -> AppSettings {
 }
 
 #[tauri::command]
-pub fn set_edge_hide_enabled(enabled: bool) -> Result<(), String> {
+pub fn set_edge_hide_enabled(enabled: bool, app: tauri::AppHandle) -> Result<(), String> {
     let mut settings = get_settings();
     settings.edge_hide_enabled = enabled;
+    
+    if !enabled {
+        settings.edge_snap_position = None;
+        handle_disable_edge_hide(&app);
+    }
+    
     update_settings(settings)?;
     Ok(())
 }
