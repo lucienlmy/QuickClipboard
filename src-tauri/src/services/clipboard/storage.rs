@@ -6,24 +6,26 @@ use rusqlite::params;
 use chrono;
 use serde_json::Value;
 
-// 存储剪贴板内容到数据库
 pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
+    let settings = get_settings();
+    
+    if !settings.save_images && is_image_type(&content.content_type) {
+        return Err("已禁止保存图片".to_string());
+    }
+    
     let result = with_connection(|conn| {
         let now = chrono::Local::now().timestamp();
         
-        // 检查最近100条记录是否有重复
         match check_and_handle_duplicate(&content, conn, now) {
             Ok(Some(existing_id)) => {
                 return Ok(existing_id);
             }
-            Ok(None) => {
-            }
+            Ok(None) => {}
             Err(e) => {
                 eprintln!("检查重复内容失败: {}", e);
             }
         }
         
-        // 插入新记录
         conn.execute(
             "INSERT INTO clipboard (content, html_content, content_type, item_order, created_at, updated_at) 
              VALUES (?1, ?2, ?3, 0, ?4, ?5)",
@@ -41,7 +43,6 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
     
     match result {
         Ok(id) => {
-            let settings = get_settings();
             let _ = limit_clipboard_history(settings.history_limit);
             Ok(id)
         },
@@ -115,14 +116,16 @@ fn update_item_timestamp(
     Ok(())
 }
 
-// 判断是否是文本类型
 fn is_text_type(content_type: &str) -> bool {
     content_type.starts_with("text") || content_type.contains("rich_text") || content_type.contains("link")
 }
 
-// 判断是否是文件类型
 fn is_file_type(content_type: &str) -> bool {
     content_type.contains("image") || content_type.contains("file")
+}
+
+fn is_image_type(content_type: &str) -> bool {
+    content_type.contains("image")
 }
 
 // 比较文件内容
