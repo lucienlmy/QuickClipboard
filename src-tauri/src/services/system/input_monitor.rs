@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::collections::HashMap;
-use tauri::{Emitter, WebviewWindow};
+use tauri::{Emitter, Manager, WebviewWindow};
 
 static MAIN_WINDOW: OnceCell<WebviewWindow> = OnceCell::new();
 static MONITORING_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -336,38 +336,42 @@ fn check_modifier_requirement(required: &str) -> bool {
     }
 }
 
-// 处理点击窗口外部事件
-fn handle_click_outside() {
-    let window = match MAIN_WINDOW.get() {
-        Some(w) => w,
-        None => return,
-    };
-    
-    if !window.is_visible().unwrap_or(false) {
-        return;
-    }
-    
+// 检查鼠标是否在窗口外部
+fn is_mouse_outside_window(window: &WebviewWindow) -> bool {
     let (cursor_x, cursor_y) = match crate::mouse::get_cursor_position() {
         Ok(pos) => pos,
-        Err(_) => return,
+        Err(_) => return false,
     };
     
     let (win_x, win_y, win_width, win_height) = match crate::get_window_bounds(window) {
         Ok(bounds) => bounds,
-        Err(_) => return,
+        Err(_) => return false,
     };
     
-    let mouse_outside = cursor_x < win_x
-        || cursor_x > win_x + win_width as i32
-        || cursor_y < win_y
-        || cursor_y > win_y + win_height as i32;
-    
-    if !mouse_outside {
-        return;
+    cursor_x < win_x || cursor_x > win_x + win_width as i32
+        || cursor_y < win_y || cursor_y > win_y + win_height as i32
+}
+
+// 处理点击窗口外部事件
+fn handle_click_outside() {
+    // 右键菜单
+    if crate::is_context_menu_visible() {
+        if let Some(main_window) = MAIN_WINDOW.get() {
+            if let Some(menu_window) = main_window.app_handle().get_webview_window("context-menu") {
+                if menu_window.is_visible().unwrap_or(false) && is_mouse_outside_window(&menu_window) {
+                    let _ = menu_window.emit("close-context-menu", ());
+                    return;
+                }
+            }
+        }
     }
-
-    let _ = crate::check_snap(window);
-
-    crate::hide_main_window(window);
+    
+    // 主窗口
+    if let Some(window) = MAIN_WINDOW.get() {
+        if window.is_visible().unwrap_or(false) && is_mouse_outside_window(window) {
+            let _ = crate::check_snap(window);
+            crate::hide_main_window(window);
+        }
+    }
 }
 

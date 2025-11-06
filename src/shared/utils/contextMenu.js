@@ -4,6 +4,7 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import i18n from '@shared/i18n'
 import { extractAllLinks, normalizeUrl } from './linkUtils'
 import { getPrimaryType } from './contentType'
+import { settingsStore } from '@shared/store/settingsStore'
 import {
   addClipboardToFavorites,
   pinImageToScreen,
@@ -247,7 +248,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
   )
 
   // 显示菜单并处理结果
-  const result = await showContextMenuFromEvent(event, menuItems)
+  const result = await showContextMenuFromEvent(event, menuItems, { theme: settingsStore.theme })
   if (!result) return
 
   try {
@@ -362,7 +363,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     createMenuItem('delete-item', i18n.t('contextMenu.delete'), { icon: 'ti ti-trash' })
   )
 
-  const result = await showContextMenuFromEvent(event, menuItems)
+  const result = await showContextMenuFromEvent(event, menuItems, { theme: settingsStore.theme })
   if (!result) return
 
   try {

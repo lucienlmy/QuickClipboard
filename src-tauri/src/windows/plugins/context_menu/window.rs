@@ -81,9 +81,15 @@ pub async fn show_menu(
     let height = menu_height + shadow_padding;
 
     let window = if let Some(existing_window) = app.get_webview_window(MENU_WINDOW_LABEL) {
+        let _ = existing_window.hide();
+        let _ = existing_window.set_always_on_top(false);
+        
         let size = LogicalSize::new(width as f64, height as f64);
         existing_window.set_size(size)
             .map_err(|e| format!("设置窗口大小失败: {}", e))?;
+        
+        existing_window.set_focusable(false)
+            .map_err(|e| format!("设置窗口焦点失败: {}", e))?;
         
         existing_window
     } else {
@@ -102,7 +108,8 @@ pub async fn show_menu(
         .transparent(true)
         .shadow(false) 
         .always_on_top(true)
-        .focused(true)
+        .focused(false)
+        .focusable(false)
         .visible(false)
         .skip_taskbar(true)
         .build()
@@ -150,8 +157,8 @@ pub async fn show_menu(
         .map_err(|e| format!("显示菜单失败: {}", e))?;
     
     window
-        .set_focus()
-        .map_err(|e| format!("设置窗口焦点失败: {}", e))?;
+        .set_always_on_top(true)
+        .map_err(|e| format!("重新设置窗口置顶失败: {}", e))?;
     
     let _ = window.emit("reload-menu", ());
 
