@@ -2,7 +2,7 @@ use once_cell::sync::{OnceCell, Lazy};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
-use tauri::{AppHandle, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use serde::{Serialize, Deserialize};
 
@@ -116,11 +116,23 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
     let shortcut = parse_shortcut(shortcut_str)?;
     
     app.global_shortcut()
-        .on_shortcut(shortcut, move |_app, _shortcut, event| {
+        .on_shortcut(shortcut, move |app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
-                println!("便捷粘贴快捷键按下");
+                if let Err(e) = crate::windows::quickpaste::show_quickpaste_window(&app) {
+                    eprintln!("显示便捷粘贴窗口失败: {}", e);
+                }
             } else if event.state == ShortcutState::Released {
-                println!("便捷粘贴快捷键释放");
+                if let Some(window) = app.get_webview_window("quickpaste") {
+                    let _ = window.emit("quickpaste-hide", ());
+                }
+                
+                let app_clone = app.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    if let Err(e) = crate::windows::quickpaste::hide_quickpaste_window(&app_clone) {
+                        eprintln!("隐藏便捷粘贴窗口失败: {}", e);
+                    }
+                });
             }
         })
         .map_err(|e| format!("注册便捷粘贴快捷键失败: {}", e))?;

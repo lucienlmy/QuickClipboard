@@ -341,7 +341,15 @@
       "scrollSound": "滚动音效",
       "scrollSoundDesc": "切换项目时播放音效提示",
       "scrollSoundFile": "滚动音效文件",
-      "scrollSoundFileDesc": "自定义滚动音效文件路径"
+      "scrollSoundFileDesc": "自定义滚动音效文件路径",
+      "window": {
+        "clipboardHistory": "剪贴板历史",
+        "allFavorites": "全部收藏",
+        "cancelHover": "松开取消",
+        "cancelNormal": "悬停或点击取消",
+        "emptyClipboard": "暂无剪贴板历史",
+        "emptyFavorites": "该分组暂无收藏"
+      }
     },
     "screenshot": {
       "title": "截屏设置",

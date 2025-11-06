@@ -341,7 +341,15 @@
       "scrollSound": "Scroll Sound",
       "scrollSoundDesc": "Play sound when switching items",
       "scrollSoundFile": "Scroll Sound File",
-      "scrollSoundFileDesc": "Custom scroll sound file path"
+      "scrollSoundFileDesc": "Custom scroll sound file path",
+      "window": {
+        "clipboardHistory": "Clipboard History",
+        "allFavorites": "All Favorites",
+        "cancelHover": "Release to Cancel",
+        "cancelNormal": "Hover or Click to Cancel",
+        "emptyClipboard": "No clipboard history",
+        "emptyFavorites": "No favorites in this group"
+      }
     },
     "screenshot": {
       "title": "Screenshot",

@@ -220,3 +220,12 @@ pub fn save_window_size(width: u32, height: u32) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn save_quickpaste_window_size(width: u32, height: u32) -> Result<(), String> {
+    let mut settings = get_settings();
+    settings.quickpaste_window_width = width;
+    settings.quickpaste_window_height = height;
+    update_settings(settings)?;
+    Ok(())
+}
+

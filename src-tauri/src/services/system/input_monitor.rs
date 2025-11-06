@@ -131,8 +131,12 @@ fn handle_input_event(event: Event) -> Option<Event> {
             Some(event)
         }
         EventType::Wheel { delta_x, delta_y } => {
-            handle_mouse_wheel(delta_x, delta_y);
-            Some(event)
+            let should_intercept = handle_mouse_wheel(delta_x, delta_y);
+            if should_intercept {
+                None
+            } else {
+                Some(event)
+            }
         }
     }
 }
@@ -310,7 +314,23 @@ fn handle_mouse_move(x: f64, y: f64) {
     crate::mouse::update_cursor_position(x, y);
 }
 
-fn handle_mouse_wheel(_delta_x: i64, _delta_y: i64) {
+fn handle_mouse_wheel(_delta_x: i64, delta_y: i64) -> bool {
+    if crate::windows::quickpaste::is_visible() {
+        if let Some(main_window) = MAIN_WINDOW.get() {
+            if let Some(window) = main_window.app_handle().get_webview_window("quickpaste") {
+                let direction = if delta_y > 0 { 
+                    "up" 
+                } else if delta_y < 0 { 
+                    "down" 
+                } else { 
+                    return false 
+                };
+                let _ = window.emit("quickpaste-scroll", serde_json::json!({ "direction": direction }));
+                return true 
+            }
+        }
+    }
+    false 
 }
 
 fn handle_middle_button_press() {

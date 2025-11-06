@@ -1,5 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { emit } from '@tauri-apps/api/event'
+import { subscribeKey } from 'valtio/utils'
 
 // 样式：按正确顺序导入
 import '@unocss/reset/tailwind.css'
@@ -12,7 +14,8 @@ import '@shared/i18n'
 import { initStores } from '@shared/store'
 import { initClipboardItems } from '@shared/store/clipboardStore'
 import { initFavorites } from '@shared/store/favoritesStore'
-import { loadGroups } from '@shared/store/groupsStore'
+import { loadGroups, groupsStore } from '@shared/store/groupsStore'
+import { navigationStore } from '@shared/store/navigationStore'
 import { 
   setupClipboardEventListener,
   cleanupEventListeners 
@@ -39,7 +42,20 @@ initStores().then(() => {
   // 设置事件监听器
   setupClipboardEventListener()
   
-  // 如果是首次加载，自动刷新一次以确保样式完整
+  subscribeKey(navigationStore, 'activeTab', (activeTab) => {
+    emit('navigation-changed', {
+      activeTab,
+      currentGroup: groupsStore.currentGroup
+    })
+  })
+  
+  subscribeKey(groupsStore, 'currentGroup', (currentGroup) => {
+    emit('navigation-changed', {
+      activeTab: navigationStore.activeTab,
+      currentGroup
+    })
+  })
+  
   if (isFirstLoad) {
     sessionStorage.setItem(FIRST_LOAD_KEY, 'true')
     setTimeout(() => {

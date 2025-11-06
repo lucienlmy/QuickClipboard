@@ -56,6 +56,8 @@ pub use windows::main_window::{
 
 pub use windows::tray::setup_tray;
 pub use windows::settings_window::open_settings_window;
+pub use windows::quickpaste;
+
 
 // ========== 插件 API ==========
 pub use windows::plugins::context_menu::is_context_menu_visible;
@@ -121,6 +123,7 @@ pub fn run() {
                 commands::get_shortcut_status,
                 commands::save_window_position,
                 commands::save_window_size,
+                commands::save_quickpaste_window_size,
                 commands::start_builtin_screenshot,
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,
@@ -175,6 +178,9 @@ pub fn run() {
                 
                 // 初始化右键菜单模块
                 windows::plugins::context_menu::init();
+                
+                // 初始化便捷粘贴模块
+                quickpaste::init_quickpaste_state();
                 
                 // 设置剪贴板监听的App Handle
                 set_clipboard_app_handle(app.handle().clone());
