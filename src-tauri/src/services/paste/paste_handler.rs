@@ -1,27 +1,42 @@
 use clipboard_rs::ClipboardContext;
 use crate::services::database::ClipboardItem;
-use super::text::paste_rich_text;
+use super::text::{paste_rich_text, paste_rich_text_with_format, PasteFormat};
 use super::file::paste_files;
 use super::keyboard::simulate_paste;
 use chrono;
 
 // 粘贴剪贴板项
 pub fn paste_clipboard_item(item: &ClipboardItem) -> Result<(), String> {
-    paste_item_internal(item, None, None)
+    paste_item_internal(item, None, None, None)
 }
 
 // 粘贴剪贴板项并自动转换旧格式（更新 clipboard 表）
 pub fn paste_clipboard_item_with_update(item: &ClipboardItem) -> Result<(), String> {
-    paste_item_internal(item, Some(item.id), None)
+    paste_item_internal(item, Some(item.id), None, None)
 }
 
 // 粘贴收藏项并自动转换旧格式（更新 favorites 表）
 pub fn paste_favorite_item_with_update(item: &ClipboardItem, favorite_id: &str) -> Result<(), String> {
-    paste_item_internal(item, None, Some(favorite_id.to_string()))
+    paste_item_internal(item, None, Some(favorite_id.to_string()), None)
+}
+
+// 粘贴剪贴板项（指定格式）
+pub fn paste_clipboard_item_with_format(item: &ClipboardItem, format: Option<PasteFormat>) -> Result<(), String> {
+    paste_item_internal(item, Some(item.id), None, format)
+}
+
+// 粘贴收藏项（指定格式）
+pub fn paste_favorite_item_with_format(item: &ClipboardItem, favorite_id: &str, format: Option<PasteFormat>) -> Result<(), String> {
+    paste_item_internal(item, None, Some(favorite_id.to_string()), format)
 }
 
 // 内部粘贴实现
-fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite_id: Option<String>) -> Result<(), String> {
+fn paste_item_internal(
+    item: &ClipboardItem, 
+    clipboard_id: Option<i64>, 
+    favorite_id: Option<String>,
+    format: Option<PasteFormat>
+) -> Result<(), String> {
     let primary_type = item.content_type.split(',').next().unwrap_or(&item.content_type);
     
     // 检查并转换旧格式图片
@@ -56,7 +71,11 @@ fn paste_item_internal(item: &ClipboardItem, clipboard_id: Option<i64>, favorite
     
     match primary_type {
         "text" | "link" | "rich_text" => {
-            paste_rich_text(&ctx, &item.content, &item.html_content)?
+            if let Some(paste_format) = format {
+                paste_rich_text_with_format(&ctx, &item.content, &item.html_content, paste_format)?
+            } else {
+                paste_rich_text(&ctx, &item.content, &item.html_content)?
+            }
         },
         "image" | "file" => paste_files(&ctx, &content)?,
         _ => return Err(format!("不支持的内容类型: {}", item.content_type)),

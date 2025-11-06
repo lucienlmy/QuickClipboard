@@ -1,5 +1,11 @@
 use clipboard_rs::{Clipboard, ClipboardContext, ClipboardContent};
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum PasteFormat {
+    PlainText,
+    WithFormat,
+}
+
 // 粘贴纯文本
 pub fn paste_text(ctx: &ClipboardContext, text: &str) -> Result<(), String> {
     ctx.set_text(text.to_string())
@@ -58,5 +64,30 @@ pub fn paste_rich_text(
         .map_err(|e| format!("设置剪贴板内容失败: {}", e))
     } else {
         paste_text(ctx, text)
+    }
+}
+
+// 粘贴富文本（指定格式）
+pub fn paste_rich_text_with_format(
+    ctx: &ClipboardContext,
+    text: &str,
+    html_content: &Option<String>,
+    format: PasteFormat,
+) -> Result<(), String> {
+    match format {
+        PasteFormat::PlainText => paste_text(ctx, text),
+        PasteFormat::WithFormat => {
+            if let Some(html) = html_content {
+                let cf_html = generate_cf_html(html);
+                
+                ctx.set(vec![
+                    ClipboardContent::Text(text.to_string()),
+                    ClipboardContent::Html(cf_html),
+                ])
+                .map_err(|e| format!("设置剪贴板内容失败: {}", e))
+            } else {
+                paste_text(ctx, text)
+            }
+        }
     }
 }

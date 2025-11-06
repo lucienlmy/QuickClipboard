@@ -33,11 +33,14 @@ export async function getClipboardTotalCount() {
 }
 
 // 粘贴剪贴板项
-export async function pasteClipboardItem(clipboardId) {
+export async function pasteClipboardItem(clipboardId, format = null) {
   try {
-    await invoke('paste_content', { 
-      params: { clipboard_id: clipboardId } 
-    })
+    const params = { clipboard_id: clipboardId }
+    if (format) {
+      params.format = format
+    }
+    
+    await invoke('paste_content', { params })
     
     // 检查是否启用一次性粘贴
     const { getToolState } = await import('@shared/services/toolActions')

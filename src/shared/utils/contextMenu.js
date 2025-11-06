@@ -134,6 +134,22 @@ function createSearchMenuItems(plainText, contentType) {
   return [searchMenuItem]
 }
 
+// 创建粘贴菜单项
+function createPasteMenuItem(contentType, hasHtmlContent) {
+  const isRichText = contentType.includes('rich_text')
+  
+  if (isRichText && hasHtmlContent) {
+    const pasteMenuItem = createMenuItem('paste', i18n.t('contextMenu.paste'), { icon: 'ti ti-clipboard' })
+    pasteMenuItem.children = [
+      createMenuItem('paste-formatted', i18n.t('contextMenu.pasteWithFormat'), { icon: 'ti ti-typography' }),
+      createMenuItem('paste-plain', i18n.t('contextMenu.pastePlainText'), { icon: 'ti ti-text-size' })
+    ]
+    return pasteMenuItem
+  }
+  
+  return createMenuItem('paste', i18n.t('contextMenu.paste'), { icon: 'ti ti-clipboard' })
+}
+
 // 创建内容类型特定菜单项
 function createContentTypeMenuItems(contentType) {
   if (contentType.includes('image')) {
@@ -205,6 +221,9 @@ export async function showClipboardItemContextMenu(event, item, index) {
   const contentType = item.content_type || 'text'
   const plainText = typeof item.content === 'string' ? item.content.trim() : ''
 
+  const pasteMenuItem = createPasteMenuItem(contentType, !!item.html_content)
+  menuItems.push(pasteMenuItem, createSeparator())
+
   const { menuItems: linkMenuItems, links } = createLinkMenuItems(item)
   if (linkMenuItems.length > 0) {
     menuItems.push(...linkMenuItems, createSeparator())
@@ -252,6 +271,25 @@ export async function showClipboardItemContextMenu(event, item, index) {
   if (!result) return
 
   try {
+    // 处理粘贴操作
+    if (result === 'paste') {
+      const { pasteClipboardItem } = await import('@shared/api/clipboard')
+      await pasteClipboardItem(item.id)
+      return
+    }
+    
+    if (result === 'paste-formatted') {
+      const { pasteClipboardItem } = await import('@shared/api/clipboard')
+      await pasteClipboardItem(item.id, 'formatted')
+      return
+    }
+    
+    if (result === 'paste-plain') {
+      const { pasteClipboardItem } = await import('@shared/api/clipboard')
+      await pasteClipboardItem(item.id, 'plain')
+      return
+    }
+    
     // 处理链接操作
     if (await handleLinkActions(result, links)) return
     
@@ -325,6 +363,9 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   const menuItems = []
   const contentType = item.content_type || 'text'
 
+  const pasteMenuItem = createPasteMenuItem(contentType, !!item.html_content)
+  menuItems.push(pasteMenuItem, createSeparator())
+
   // 添加链接菜单
   const { menuItems: linkMenuItems, links } = createLinkMenuItems(item)
   if (linkMenuItems.length > 0) {
@@ -367,6 +408,25 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   if (!result) return
 
   try {
+    // 处理粘贴操作
+    if (result === 'paste') {
+      const { pasteFavorite } = await import('@shared/api/favorites')
+      await pasteFavorite(item.id)
+      return
+    }
+    
+    if (result === 'paste-formatted') {
+      const { pasteFavorite } = await import('@shared/api/favorites')
+      await pasteFavorite(item.id, 'formatted')
+      return
+    }
+    
+    if (result === 'paste-plain') {
+      const { pasteFavorite } = await import('@shared/api/favorites')
+      await pasteFavorite(item.id, 'plain')
+      return
+    }
+    
     if (await handleLinkActions(result, links)) return
     
     // 处理移动到分组

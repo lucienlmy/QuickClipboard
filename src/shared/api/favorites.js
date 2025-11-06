@@ -48,11 +48,14 @@ export async function moveFavoriteItem(groupName, fromIndex, toIndex) {
 }
 
 // 粘贴收藏内容
-export async function pasteFavorite(id) {
+export async function pasteFavorite(id, format = null) {
   try {
-    await invoke('paste_content', {
-      params: { favorite_id: id }
-    })
+    const params = { favorite_id: id }
+    if (format) {
+      params.format = format
+    }
+    
+    await invoke('paste_content', { params })
     
     // 检查是否启用一次性粘贴
     const { getToolState } = await import('@shared/services/toolActions')

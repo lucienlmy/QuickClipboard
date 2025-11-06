@@ -55,19 +55,38 @@ pub struct PasteParams {
     pub clipboard_id: Option<i64>,
     #[serde(default)]
     pub favorite_id: Option<String>,
+    #[serde(default)]
+    pub format: Option<String>,
 }
 
 // 粘贴剪贴板项或收藏项
 #[tauri::command]
 pub fn paste_content(params: PasteParams) -> Result<(), String> {
     use crate::services::database::get_favorite_by_id;
-    use crate::services::paste::paste_handler::{paste_clipboard_item_with_update, paste_favorite_item_with_update};
+    use crate::services::paste::paste_handler::{
+        paste_clipboard_item_with_update, 
+        paste_favorite_item_with_update,
+        paste_clipboard_item_with_format,
+        paste_favorite_item_with_format
+    };
+    use crate::services::paste::PasteFormat;
+    
+    let paste_format = params.format.as_ref().and_then(|f| match f.as_str() {
+        "plain" => Some(PasteFormat::PlainText),
+        "formatted" => Some(PasteFormat::WithFormat),
+        _ => None,
+    });
     
     // 根据参数类型处理粘贴
     if let Some(clipboard_id) = params.clipboard_id {
         let item = get_clipboard_item_by_id(clipboard_id)?
             .ok_or_else(|| format!("剪贴板项不存在: {}", clipboard_id))?;
-        paste_clipboard_item_with_update(&item)?;
+        
+        if paste_format.is_some() {
+            paste_clipboard_item_with_format(&item, paste_format)?;
+        } else {
+            paste_clipboard_item_with_update(&item)?;
+        }
     } else if let Some(favorite_id) = params.favorite_id {
         let favorite = get_favorite_by_id(&favorite_id)?
             .ok_or_else(|| format!("收藏项不存在: {}", favorite_id))?;
@@ -84,7 +103,11 @@ pub fn paste_content(params: PasteParams) -> Result<(), String> {
             updated_at: favorite.updated_at,
         };
         
-        paste_favorite_item_with_update(&item, &favorite_id)?;
+        if paste_format.is_some() {
+            paste_favorite_item_with_format(&item, &favorite_id, paste_format)?;
+        } else {
+            paste_favorite_item_with_update(&item, &favorite_id)?;
+        }
     } else {
         return Err("必须 clipboard_id 或 favorite_id".to_string());
     };
