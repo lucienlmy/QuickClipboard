@@ -7,6 +7,7 @@ import { useNavigation } from '@shared/hooks/useNavigation'
 import { favoritesStore, loadFavoritesRange, pasteFavorite } from '@shared/store/favoritesStore'
 import { groupsStore } from '@shared/store/groupsStore'
 import { navigationStore } from '@shared/store/navigationStore'
+import { settingsStore } from '@shared/store/settingsStore'
 import { moveFavoriteItem } from '@shared/api'
 import FavoriteItem from './FavoriteItem'
 
@@ -16,6 +17,7 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
   const snap = useSnapshot(navigationStore)
   const favSnap = useSnapshot(favoritesStore)
   const groupsSnap = useSnapshot(groupsStore)
+  const settings = useSnapshot(settingsStore)
 
   const itemsArray = useMemo(() => {
     const arr = []
@@ -198,21 +200,46 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
                 )
               }
               
+              const getSkeletonHeight = () => {
+                switch (settings.rowHeight) {
+                  case 'small': return 'h-12'
+                  case 'medium': return 'h-20'
+                  case 'large': return 'h-32'
+                  default: return 'h-20'
+                }
+              }
+
+              const animationDelay = Math.min(index * 20, 100)
+              
               return (
-                <div 
-                  className="px-2.5 pb-2 pt-1 animate-slide-in-left-fast"
-                  style={{
-                    animationDelay: `${Math.min(index * 20, 150)}ms`,
-                    animationFillMode: 'backwards'
-                  }}
-                >
-                  <FavoriteItem 
-                    item={item} 
-                    index={index}
-                    sortId={item._sortId}
-                    isSelected={currentSelectedIndex === index}
-                    onHover={() => handleItemHover(index)}
-                  />
+                <div className="px-2.5 pb-2 pt-1 relative">
+                  {/* 骨架层 */}
+                  <div 
+                    className={`rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${getSkeletonHeight()} animate-pulse`}
+                    style={{
+                      animation: `pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite, fadeOut 0.3s ease-out ${animationDelay + 200}ms forwards`
+                    }}
+                  >
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  </div>
+                  
+                  {/* 内容层 */}
+                  <div 
+                    className="absolute inset-0 px-2.5 pb-2 pt-1 animate-slide-in-left-fast"
+                    style={{
+                      animationDelay: `${animationDelay}ms`,
+                      animationFillMode: 'backwards'
+                    }}
+                  >
+                    <FavoriteItem 
+                      item={item} 
+                      index={index}
+                      sortId={item._sortId}
+                      isSelected={currentSelectedIndex === index}
+                      onHover={() => handleItemHover(index)}
+                    />
+                  </div>
                 </div>
               )
             }}
