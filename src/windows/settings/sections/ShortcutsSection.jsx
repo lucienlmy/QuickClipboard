@@ -73,15 +73,15 @@ function ShortcutsSection({ settings, onSettingChange }) {
         </SettingItem>
 
         <SettingItem
-          label={t('settings.shortcuts.previewWindow')}
-          description={t('settings.shortcuts.previewWindowDesc')}
+          label={t('settings.shortcuts.quickpasteWindow')}
+          description={t('settings.shortcuts.quickpasteWindowDesc')}
         >
           <ShortcutInput
-            value={settings.previewShortcut}
-            onChange={(value) => handleShortcutChange('previewShortcut', value)}
-            onReset={() => handleShortcutChange('previewShortcut', 'Ctrl+`')}
-            hasError={hasErrorStatus('previewShortcut', 'preview')}
-            errorMessage={getErrorMessage('previewShortcut', 'preview')}
+            value={settings.quickpasteShortcut}
+            onChange={(value) => handleShortcutChange('quickpasteShortcut', value)}
+            onReset={() => handleShortcutChange('quickpasteShortcut', 'Ctrl+`')}
+            hasError={hasErrorStatus('quickpasteShortcut', 'quickpaste')}
+            errorMessage={getErrorMessage('quickpasteShortcut', 'quickpaste')}
           />
         </SettingItem>
 

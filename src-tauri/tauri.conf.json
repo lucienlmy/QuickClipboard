@@ -36,9 +36,9 @@
         "visibleOnAllWorkspaces": true
       },
       {
-        "label": "preview",
-        "title": "快速预览",
-        "url": "windows/preview/index.html",
+        "label": "quickpaste",
+        "title": "便捷粘贴",
+        "url": "windows/quickpaste/index.html",
         "width": 400,
         "height": 180,
         "minWidth": 350,
@@ -85,7 +85,7 @@
       "capabilities": [
         "default",
         "settings",
-        "preview",
+        "quickpaste",
         "text-editor",
         "screenshot",
         "pin-image",

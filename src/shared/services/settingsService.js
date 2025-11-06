@@ -28,7 +28,7 @@ export const defaultSettings = {
   
   // 快捷键设置
   toggleShortcut: 'Alt+V',
-  previewShortcut: 'Ctrl+`',
+  quickpasteShortcut: 'Ctrl+`',
   screenshotShortcut: 'Ctrl+Shift+A',
   numberShortcuts: true,
   numberShortcutsModifier: 'Ctrl',
@@ -66,12 +66,12 @@ export const defaultSettings = {
   copySoundPath: '',
   pasteSoundPath: '',
   
-  // 预览窗口设置
-  previewEnabled: true,
-  previewItemsCount: 5,
-  previewAutoPaste: true,
-  previewScrollSound: true,
-  previewScrollSoundPath: 'sounds/roll.mp3',
+  // 便捷粘贴设置
+  quickpasteEnabled: true,
+  quickpasteItemsCount: 5,
+  quickpasteAutoPaste: true,
+  quickpasteScrollSound: true,
+  quickpasteScrollSoundPath: 'sounds/roll.mp3',
   
   // 截屏设置
   screenshot_enabled: true,

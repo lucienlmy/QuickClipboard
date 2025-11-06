@@ -73,7 +73,7 @@ function App() {
       case 'translation':
         content = <TranslationSection settings={snap} onSettingChange={handleSettingChange} />
         break
-      case 'preview':
+      case 'quickpaste':
         content = <PreviewSection settings={snap} onSettingChange={handleSettingChange} />
         break
       case 'screenshot':

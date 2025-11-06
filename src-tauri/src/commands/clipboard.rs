@@ -85,7 +85,7 @@ pub fn paste_content(params: PasteParams) -> Result<(), String> {
         if paste_format.is_some() {
             paste_clipboard_item_with_format(&item, paste_format)?;
         } else {
-            paste_clipboard_item_with_update(&item)?;
+        paste_clipboard_item_with_update(&item)?;
         }
     } else if let Some(favorite_id) = params.favorite_id {
         let favorite = get_favorite_by_id(&favorite_id)?
@@ -106,7 +106,7 @@ pub fn paste_content(params: PasteParams) -> Result<(), String> {
         if paste_format.is_some() {
             paste_favorite_item_with_format(&item, &favorite_id, paste_format)?;
         } else {
-            paste_favorite_item_with_update(&item, &favorite_id)?;
+        paste_favorite_item_with_update(&item, &favorite_id)?;
         }
     } else {
         return Err("必须 clipboard_id 或 favorite_id".to_string());

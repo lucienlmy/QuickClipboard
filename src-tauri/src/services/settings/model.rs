@@ -38,12 +38,12 @@ pub struct AppSettings {
     pub screenshot_color_include_format: bool,
 
     // 预览窗口设置
-    pub preview_enabled: bool,
-    pub preview_shortcut: String,
-    pub preview_items_count: u32,
-    pub preview_auto_paste: bool,
-    pub preview_scroll_sound: bool,
-    pub preview_scroll_sound_path: String,
+    pub quickpaste_enabled: bool,
+    pub quickpaste_shortcut: String,
+    pub quickpaste_items_count: u32,
+    pub quickpaste_auto_paste: bool,
+    pub quickpaste_scroll_sound: bool,
+    pub quickpaste_scroll_sound_path: String,
 
     // AI翻译设置
     pub ai_translation_enabled: bool,
@@ -146,12 +146,12 @@ impl Default for AppSettings {
             screenshot_hints_enabled: true,
             screenshot_color_include_format: true,
 
-            preview_enabled: true,
-            preview_shortcut: "Ctrl+`".to_string(),
-            preview_items_count: 5,
-            preview_auto_paste: true,
-            preview_scroll_sound: true,
-            preview_scroll_sound_path: "sounds/roll.mp3".to_string(),
+            quickpaste_enabled: true,
+            quickpaste_shortcut: "Ctrl+`".to_string(),
+            quickpaste_items_count: 5,
+            quickpaste_auto_paste: true,
+            quickpaste_scroll_sound: true,
+            quickpaste_scroll_sound_path: "sounds/roll.mp3".to_string(),
 
             ai_translation_enabled: false,
             ai_api_key: String::new(),

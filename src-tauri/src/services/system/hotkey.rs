@@ -108,26 +108,26 @@ pub fn register_toggle_hotkey(shortcut_str: &str) -> Result<(), String> {
     })
 }
 
-pub fn register_preview_hotkey(shortcut_str: &str) -> Result<(), String> {
+pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
     let app = get_app()?;
     
-    unregister_shortcut("preview");
+    unregister_shortcut("quickpaste");
     
     let shortcut = parse_shortcut(shortcut_str)?;
     
     app.global_shortcut()
         .on_shortcut(shortcut, move |_app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
-                println!("预览窗口快捷键按下");
+                println!("便捷粘贴快捷键按下");
             } else if event.state == ShortcutState::Released {
-                println!("预览窗口快捷键释放");
+                println!("便捷粘贴快捷键释放");
             }
         })
-        .map_err(|e| format!("注册预览快捷键失败: {}", e))?;
+        .map_err(|e| format!("注册便捷粘贴快捷键失败: {}", e))?;
     
-    REGISTERED_SHORTCUTS.lock().push(("preview".to_string(), shortcut_str.to_string()));
+    REGISTERED_SHORTCUTS.lock().push(("quickpaste".to_string(), shortcut_str.to_string()));
     
-    println!("已注册预览窗口快捷键: {}", shortcut_str);
+    println!("已注册便捷粘贴快捷键: {}", shortcut_str);
     Ok(())
 }
 
@@ -264,8 +264,8 @@ pub fn reload_from_settings() -> Result<(), String> {
             }
         }
         
-        if settings.preview_enabled && !settings.preview_shortcut.is_empty() {
-            if let Err(e) = register_preview_hotkey(&settings.preview_shortcut) {
+        if settings.quickpaste_enabled && !settings.quickpaste_shortcut.is_empty() {
+            if let Err(e) = register_quickpaste_hotkey(&settings.quickpaste_shortcut) {
                 eprintln!("注册预览窗口快捷键失败: {}", e);
             }
         }

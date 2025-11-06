@@ -9,68 +9,68 @@ function PreviewSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
 
   const itemsCountOptions = [
-    { value: 3, label: '3 ' + t('settings.preview.items') },
-    { value: 5, label: '5 ' + t('settings.preview.items') },
-    { value: 7, label: '7 ' + t('settings.preview.items') },
-    { value: 9, label: '9 ' + t('settings.preview.items') }
+    { value: 3, label: '3 ' + t('settings.quickpaste.items') },
+    { value: 5, label: '5 ' + t('settings.quickpaste.items') },
+    { value: 7, label: '7 ' + t('settings.quickpaste.items') },
+    { value: 9, label: '9 ' + t('settings.quickpaste.items') }
   ]
 
   return (
     <SettingsSection
-      title={t('settings.preview.title')}
-      description={t('settings.preview.description')}
+      title={t('settings.quickpaste.title')}
+      description={t('settings.quickpaste.description')}
     >
       <SettingItem
-        label={t('settings.preview.enabled')}
-        description={t('settings.preview.enabledDesc')}
+        label={t('settings.quickpaste.enabled')}
+        description={t('settings.quickpaste.enabledDesc')}
       >
         <Toggle
-          checked={settings.previewEnabled}
-          onChange={(checked) => onSettingChange('previewEnabled', checked)}
+          checked={settings.quickpasteEnabled}
+          onChange={(checked) => onSettingChange('quickpasteEnabled', checked)}
         />
       </SettingItem>
 
       <SettingItem
-        label={t('settings.preview.itemsCount')}
-        description={t('settings.preview.itemsCountDesc')}
+        label={t('settings.quickpaste.itemsCount')}
+        description={t('settings.quickpaste.itemsCountDesc')}
       >
         <Select
-          value={settings.previewItemsCount || 5}
-          onChange={(value) => onSettingChange('previewItemsCount', parseInt(value))}
+          value={settings.quickpasteItemsCount || 5}
+          onChange={(value) => onSettingChange('quickpasteItemsCount', parseInt(value))}
           options={itemsCountOptions}
           className="w-40"
         />
       </SettingItem>
 
       <SettingItem
-        label={t('settings.preview.autoPaste')}
-        description={t('settings.preview.autoPasteDesc')}
+        label={t('settings.quickpaste.autoPaste')}
+        description={t('settings.quickpaste.autoPasteDesc')}
       >
         <Toggle
-          checked={settings.previewAutoPaste}
-          onChange={(checked) => onSettingChange('previewAutoPaste', checked)}
+          checked={settings.quickpasteAutoPaste}
+          onChange={(checked) => onSettingChange('quickpasteAutoPaste', checked)}
         />
       </SettingItem>
 
       <SettingItem
-        label={t('settings.preview.scrollSound')}
-        description={t('settings.preview.scrollSoundDesc')}
+        label={t('settings.quickpaste.scrollSound')}
+        description={t('settings.quickpaste.scrollSoundDesc')}
       >
         <Toggle
-          checked={settings.previewScrollSound}
-          onChange={(checked) => onSettingChange('previewScrollSound', checked)}
+          checked={settings.quickpasteScrollSound}
+          onChange={(checked) => onSettingChange('quickpasteScrollSound', checked)}
         />
       </SettingItem>
 
       <SettingItem
-        label={t('settings.preview.scrollSoundFile')}
-        description={t('settings.preview.scrollSoundFileDesc')}
+        label={t('settings.quickpaste.scrollSoundFile')}
+        description={t('settings.quickpaste.scrollSoundFileDesc')}
       >
         <FileInput
-          value={settings.previewScrollSoundPath || ''}
-          onChange={(value) => onSettingChange('previewScrollSoundPath', value)}
+          value={settings.quickpasteScrollSoundPath || ''}
+          onChange={(value) => onSettingChange('quickpasteScrollSoundPath', value)}
           onTest={() => {}}
-          onReset={() => onSettingChange('previewScrollSoundPath', '')}
+          onReset={() => onSettingChange('quickpasteScrollSoundPath', '')}
           placeholder={t('settings.sound.selectFile')}
         />
       </SettingItem>

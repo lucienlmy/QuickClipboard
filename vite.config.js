@@ -49,7 +49,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'src/windows/main/index.html'),
         settings: resolve(__dirname, 'src/windows/settings/index.html'),
-        preview: resolve(__dirname, 'src/windows/preview/index.html'),
+        quickpaste: resolve(__dirname, 'src/windows/quickpaste/index.html'),
         screenshot: resolve(__dirname, 'src/windows/screenshot/index.html'),
         textEditor: resolve(__dirname, 'src/windows/textEditor/index.html'),
       },
