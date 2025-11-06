@@ -187,14 +187,6 @@ export const toolActions = {
       console.error('切换格式模式失败:', error)
       throw error
     }
-  },
-  
-  // 音乐播放器
-  'music-player-button': async () => {
-    const currentState = getToolState('music-player-button')
-    const newState = !currentState
-    setToolState('music-player-button', newState)
-    return newState
   }
 }
 

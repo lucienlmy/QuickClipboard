@@ -4,8 +4,7 @@ import {
   IconCamera, 
   IconTrash, 
   IconLanguage, 
-  IconTypography, 
-  IconMusic 
+  IconTypography
 } from '@tabler/icons-react'
 
 // 工具注册表配置
@@ -40,14 +39,14 @@ export const TOOL_REGISTRY = {
     defaultLocation: 'panel',
     defaultActive: false
   },
-  'ai-translation-button': {
-    id: 'ai-translation-button',
-    icon: IconLanguage,
-    titleKey: 'tools.aiTranslation',
-    type: 'toggle',
-    defaultLocation: 'panel',
-    defaultActive: false
-  },
+  // 'ai-translation-button': {
+  //   id: 'ai-translation-button',
+  //   icon: IconLanguage,
+  //   titleKey: 'tools.aiTranslation',
+  //   type: 'toggle',
+  //   defaultLocation: 'panel',
+  //   defaultActive: false
+  // },
   'format-toggle-button': {
     id: 'format-toggle-button',
     icon: IconTypography,
@@ -55,14 +54,6 @@ export const TOOL_REGISTRY = {
     type: 'toggle',
     defaultLocation: 'panel',
     defaultActive: true
-  },
-  'music-player-button': {
-    id: 'music-player-button',
-    icon: IconMusic,
-    titleKey: 'tools.musicPlayer',
-    type: 'toggle',
-    defaultLocation: 'panel',
-    defaultActive: false
   }
 }
 
@@ -72,9 +63,8 @@ export const DEFAULT_LAYOUT = {
   panel: [
     'screenshot-button',
     'one-time-paste-button',
-    'ai-translation-button',
-    'format-toggle-button',
-    'music-player-button'
+    // 'ai-translation-button',
+    'format-toggle-button'
   ]
 }
 

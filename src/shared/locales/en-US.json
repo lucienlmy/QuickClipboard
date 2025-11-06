@@ -505,8 +505,7 @@
     "screenshot": "Screenshot",
     "oneTimePaste": "One-time Paste",
     "aiTranslation": "AI Translation",
-    "formatToggle": "Format Paste",
-    "musicPlayer": "Music Player"
+    "formatToggle": "Format Paste"
   },
   "floatingToolbar": {
     "scrollToTop": "Scroll to Top",

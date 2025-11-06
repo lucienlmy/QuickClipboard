@@ -505,8 +505,7 @@
     "screenshot": "截屏",
     "oneTimePaste": "一次性粘贴",
     "aiTranslation": "AI翻译",
-    "formatToggle": "格式粘贴",
-    "musicPlayer": "音乐播放器"
+    "formatToggle": "格式粘贴"
   },
   "floatingToolbar": {
     "scrollToTop": "返回顶部",
