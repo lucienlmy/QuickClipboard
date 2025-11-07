@@ -11,10 +11,10 @@ export function useItemCommon(item) {
   const getHeightClass = () => {
     switch (settings.rowHeight) {
       case 'auto': return 'min-h-[50px] max-h-[350px]'
-      case 'large': return 'h-[120px]'
-      case 'medium': return 'h-[90px]'
-      case 'small': return 'h-[50px]'
-      default: return 'h-[90px]'
+      case 'large': return 'h-full'
+      case 'medium': return 'h-full'
+      case 'small': return 'h-full'
+      default: return 'h-full'
     }
   }
 
