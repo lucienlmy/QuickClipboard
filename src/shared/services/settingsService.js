@@ -98,7 +98,7 @@ export const defaultSettings = {
   aiOutputMode: 'stream',
   
   // 鼠标设置
-  mouseMiddleButtonEnabled: true,
+  mouseMiddleButtonEnabled: false,
   mouseMiddleButtonModifier: 'None',
   
   // 应用过滤

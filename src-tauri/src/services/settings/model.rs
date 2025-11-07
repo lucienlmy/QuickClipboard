@@ -169,7 +169,7 @@ impl Default for AppSettings {
             ai_newline_mode: "auto".to_string(),
             ai_output_mode: "stream".to_string(),
 
-            mouse_middle_button_enabled: true,
+            mouse_middle_button_enabled: false,
             mouse_middle_button_modifier: "None".to_string(),
 
             clipboard_animation_enabled: true,

@@ -156,6 +156,8 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         SnapEdge::None => return Ok(()),
     };
     
+    let _ = window.show();
+    
     // 根据动画配置决定是否使用过渡
     let settings = crate::get_settings();
     if settings.clipboard_animation_enabled {

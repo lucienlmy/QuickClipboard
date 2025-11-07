@@ -29,8 +29,10 @@ pub fn hide_main_window(window: &WebviewWindow) {
     
     let state = super::state::get_window_state();
     
-    if state.is_snapped && !state.is_hidden {
-        let _ = super::hide_snapped_window(window);
+    if state.is_snapped {
+        if !state.is_hidden {
+            let _ = super::hide_snapped_window(window);
+        }
         return;
     }
     

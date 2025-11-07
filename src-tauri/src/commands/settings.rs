@@ -32,6 +32,7 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     let old_settings = get_settings();
     let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
     let edge_hide_changed = old_settings.edge_hide_enabled != settings.edge_hide_enabled;
+    let quickpaste_enabled_changed = old_settings.quickpaste_enabled != settings.quickpaste_enabled;
     
     if edge_hide_changed && !settings.edge_hide_enabled {
         settings.edge_snap_position = None;
@@ -57,6 +58,18 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
         let _ = app.emit("settings-changed", serde_json::json!({
             "clipboardMonitor": settings.clipboard_monitor
         }));
+    }
+    
+    if quickpaste_enabled_changed {
+        if settings.quickpaste_enabled {
+            let app_clone = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                let _ = crate::quickpaste::init_quickpaste_window(&app_clone);
+            });
+        } else if let Some(window) = app.get_webview_window("quickpaste") {
+            let _ = window.close();
+        }
     }
     
     Ok(())

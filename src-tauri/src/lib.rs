@@ -182,6 +182,11 @@ pub fn run() {
                 // 初始化便捷粘贴模块
                 quickpaste::init_quickpaste_state();
                 
+                // 初始化便捷粘贴窗口
+                if let Err(e) = quickpaste::init_quickpaste_window(&app.handle()) {
+                    eprintln!("初始化便捷粘贴窗口失败: {}", e);
+                }
+                
                 // 设置剪贴板监听的App Handle
                 set_clipboard_app_handle(app.handle().clone());
                 
