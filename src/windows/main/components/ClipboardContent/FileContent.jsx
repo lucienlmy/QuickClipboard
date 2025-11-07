@@ -92,9 +92,9 @@ function FileContent({ item, compact = false }) {
 
   // 仅图标模式：网格布局
   if (settings.fileDisplayMode === 'iconOnly') {
-    const iconSize = compact ? 29 : (settings.rowHeight === 'large' ? 80 : 50)
-    const itemSize = compact ? 33 : (settings.rowHeight === 'large' ? 84 : 54)
-    const gap = compact ? '0.25rem' : (settings.rowHeight === 'large' ? '0.5rem' : '0.375rem')
+    const iconSize = compact ? 29 : (settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 80 : 50)
+    const itemSize = compact ? 33 : (settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 84 : 54)
+    const gap = compact ? '0.25rem' : (settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? '0.5rem' : '0.375rem')
     
     return (
       <div className="w-full h-full overflow-y-auto">
@@ -148,7 +148,7 @@ function FileContent({ item, compact = false }) {
   }
 
   // 正常模式：完整显示
-  const normalIconSize = settings.rowHeight === 'large' ? 48 : 36
+  const normalIconSize = settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 48 : 36
   
   return (
     <div className="w-full h-full overflow-y-auto space-y-1 pr-1">

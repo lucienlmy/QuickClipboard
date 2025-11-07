@@ -138,7 +138,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
           </div>
         </div>
       ) : (
-        // 中/大行高模式：显示完整内容
+        // 中/大/自适应行高模式
         <>
           {/* 时间戳 */}
           <div className="flex items-center flex-shrink-0 mb-0.5">
@@ -148,7 +148,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
           </div>
 
           {/* 内容区 */}
-          <div className="flex-1 min-w-0 overflow-hidden h-full w-full">
+          <div className={`flex-1 min-w-0 overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'} w-full`}>
             {renderContent()}
           </div>
         </>

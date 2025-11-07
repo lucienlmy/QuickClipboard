@@ -10,6 +10,7 @@ export function useItemCommon(item) {
   // 获取固定行高
   const getHeightClass = () => {
     switch (settings.rowHeight) {
+      case 'auto': return 'min-h-[50px] max-h-[350px]'
       case 'large': return 'h-[120px]'
       case 'medium': return 'h-[90px]'
       case 'small': return 'h-[50px]'
@@ -20,6 +21,7 @@ export function useItemCommon(item) {
   // 获取文本行数限制
   const getLineClampClass = () => {
     switch (settings.rowHeight) {
+      case 'auto': return 'line-clamp-none'
       case 'large': return 'line-clamp-4'
       case 'medium': return 'line-clamp-2'
       case 'small': return 'line-clamp-1'

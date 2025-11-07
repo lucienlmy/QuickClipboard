@@ -557,6 +557,7 @@
     "title": "列表设置",
     "rowHeight": {
       "label": "行高",
+      "auto": "自适应",
       "large": "大",
       "medium": "中",
       "small": "小"

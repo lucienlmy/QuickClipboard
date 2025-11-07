@@ -23,6 +23,7 @@ function FooterBar({ children }) {
       icon: IconRowInsertBottom,
       currentValue: settings.rowHeight,
       options: [
+        { value: 'auto', label: t('listSettings.rowHeight.auto') },
         { value: 'large', label: t('listSettings.rowHeight.large') },
         { value: 'medium', label: t('listSettings.rowHeight.medium') },
         { value: 'small', label: t('listSettings.rowHeight.small') }

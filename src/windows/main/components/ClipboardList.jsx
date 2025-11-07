@@ -167,6 +167,17 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
     )
   }
 
+  // 获取默认项高度
+  const getDefaultItemHeight = () => {
+    switch (settings.rowHeight) {
+      case 'auto': return 90 
+      case 'large': return 120
+      case 'medium': return 90
+      case 'small': return 50
+      default: return 90
+    }
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -187,6 +198,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
             }}
             rangeChanged={handleRangeChanged}
             increaseViewportBy={{ top: 200, bottom: 200 }}
+            defaultItemHeight={getDefaultItemHeight()}
             itemContent={(index) => {
               // 根据索引获取对应的项
               const item = itemsWithId[index]
@@ -205,6 +217,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
               
               const getSkeletonHeight = () => {
                 switch (settings.rowHeight) {
+                  case 'auto': return 'min-h-12 h-20'
                   case 'small': return 'h-12'
                   case 'medium': return 'h-20'
                   case 'large': return 'h-32'
@@ -213,12 +226,13 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
               }
 
               const animationDelay = Math.min(index * 20, 100)
+              const isAutoHeight = settings.rowHeight === 'auto'
               
               return (
                 <div className="px-2.5 pb-2 pt-1 relative">
                   {/* 骨架层 */}
                   <div 
-                    className={`rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${getSkeletonHeight()} animate-pulse`}
+                    className={`${isAutoHeight ? 'absolute inset-0' : ''} rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${getSkeletonHeight()} animate-pulse`}
                     style={{
                       animation: `pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite, fadeOut 0.3s ease-out ${animationDelay + 200}ms forwards`
                     }}
@@ -229,7 +243,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
                   
                   {/* 内容层 */}
                   <div 
-                    className="absolute inset-0 px-2.5 pb-2 pt-1 animate-slide-in-left-fast"
+                    className={`${isAutoHeight ? 'relative' : 'absolute inset-0 px-2.5 pb-2 pt-1'} animate-slide-in-left-fast`}
                     style={{
                       animationDelay: `${animationDelay}ms`,
                       animationFillMode: 'backwards'

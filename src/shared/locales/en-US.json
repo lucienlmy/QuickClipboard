@@ -557,6 +557,7 @@
     "title": "List Settings",
     "rowHeight": {
       "label": "Row Height",
+      "auto": "Auto",
       "large": "Large",
       "medium": "Medium",
       "small": "Small"

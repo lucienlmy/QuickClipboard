@@ -146,7 +146,7 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       )}
 
       {/* 内容区域 */}
-      <div className="flex-1 min-w-0 overflow-hidden h-full w-full">
+      <div className={`flex-1 min-w-0 overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'} w-full`}>
         {renderContent()}
       </div>
     </div>
