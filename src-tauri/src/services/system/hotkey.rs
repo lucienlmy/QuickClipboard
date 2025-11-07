@@ -164,7 +164,9 @@ pub fn register_number_shortcuts(modifier: &str) -> Result<(), String> {
             app.global_shortcut()
                 .on_shortcut(shortcut, move |_app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        handle_number_shortcut(index);
+                        if let Err(e) = handle_number_shortcut(index) {
+                            eprintln!("执行数字快捷键 {} 失败: {}", index + 1, e);
+                        }
                     }
                 })
                 .map_err(|e| format!("注册数字快捷键 {} 失败: {}", shortcut_str, e))?;
@@ -196,8 +198,21 @@ pub fn unregister_number_shortcuts() {
     }
 }
 
-fn handle_number_shortcut(index: usize) {
-    println!("数字快捷键 {} 触发", index + 1);
+fn handle_number_shortcut(index: usize) -> Result<(), String> {
+    use crate::services::database::{query_clipboard_items, QueryParams};
+    use crate::services::paste::paste_handler::paste_clipboard_item_with_update;
+    
+    let items = query_clipboard_items(QueryParams {
+        offset: 0,
+        limit: 9,
+        search: None,
+        content_type: None,
+    })?.items;
+    
+    let item = items.get(index)
+        .ok_or_else(|| format!("剪贴板项索引 {} 超出范围（共 {} 项）", index + 1, items.len()))?;
+    
+    paste_clipboard_item_with_update(item)
 }
 
 pub fn unregister_all() {

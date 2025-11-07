@@ -52,6 +52,7 @@ export default defineConfig({
         quickpaste: resolve(__dirname, 'src/windows/quickpaste/index.html'),
         screenshot: resolve(__dirname, 'src/windows/screenshot/index.html'),
         textEditor: resolve(__dirname, 'src/windows/textEditor/index.html'),
+        contextMenu: resolve(__dirname, 'src/plugins/context_menu/contextMenu.html'),
       },
       output: {
         manualChunks(id) {

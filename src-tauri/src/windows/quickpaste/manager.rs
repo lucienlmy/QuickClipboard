@@ -48,12 +48,12 @@ pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
     
     let window = get_or_create_window(app)?;
     
-    #[cfg(debug_assertions)]
-    {
-        if !window.is_devtools_open() {
-            let _ = window.open_devtools();
-        }
-    }
+    // #[cfg(debug_assertions)]
+    // {
+    //     if !window.is_devtools_open() {
+    //         let _ = window.open_devtools();
+    //     }
+    // }
     
     position_at_cursor(&window)?;
     
