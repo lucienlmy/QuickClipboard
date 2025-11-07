@@ -87,3 +87,29 @@ pub fn toggle_window_visibility(app: AppHandle) -> Result<(), String> {
 pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
     crate::windows::settings_window::open_settings_window(&app)
 }
+
+#[tauri::command]
+pub async fn open_text_editor_window(
+    app: AppHandle,
+    item_id: String,
+    item_type: String,
+    item_index: Option<i32>,
+) -> Result<(), String> {
+    crate::windows::text_editor_window::open_text_editor_window(&app, &item_id, &item_type, item_index)
+}
+
+// 剪贴板更新事件
+#[tauri::command]
+pub fn emit_clipboard_updated(app: AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+    app.emit("clipboard-updated", ())
+        .map_err(|e| format!("发射剪贴板更新事件失败: {}", e))
+}
+
+// 收藏列表更新事件
+#[tauri::command]
+pub fn emit_quick_texts_updated(app: AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+    app.emit("quick-texts-updated", ())
+        .map_err(|e| format!("发射收藏列表更新事件失败: {}", e))
+}

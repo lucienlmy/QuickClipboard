@@ -217,3 +217,16 @@ pub fn move_clipboard_item_by_index(from_index: i64, to_index: i64) -> Result<()
     })
 }
 
+// 更新剪贴板项的内容
+pub fn update_clipboard_item(id: i64, content: String) -> Result<(), String> {
+    with_connection(|conn| {
+        let rows = conn.execute(
+            "UPDATE clipboard SET content = ?1, updated_at = ?2 WHERE id = ?3",
+            params![content, chrono::Local::now().timestamp(), id],
+        )?;
+        if rows == 0 { Err(rusqlite::Error::QueryReturnedNoRows) } else { Ok(()) }
+    }).map_err(|e| if e.contains("QueryReturnedNoRows") {
+        format!("剪贴板项不存在: {}", id)
+    } else { e })
+}
+

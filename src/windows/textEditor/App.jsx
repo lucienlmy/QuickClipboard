@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSnapshot } from 'valtio'
-import { settingsStore } from '@shared/store/settingsStore'
+import { settingsStore, initSettings } from '@shared/store/settingsStore'
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
 import { useSettingsSync } from '@shared/hooks/useSettingsSync'
 import { 
@@ -37,6 +37,18 @@ function App() {
 
   useSettingsSync()
 
+  useEffect(() => {
+    const init = async () => {
+      await initSettings()
+      applyThemeToBody(settingsStore.theme, 'text-editor')
+    }
+    init()
+  }, [])
+
+  useEffect(() => {
+    applyThemeToBody(theme, 'text-editor')
+  }, [theme, effectiveTheme])
+
   // 加载分组列表
   useEffect(() => {
     const loadGroupList = async () => {
@@ -48,10 +60,6 @@ function App() {
     }
     loadGroupList()
   }, [])
-
-  useEffect(() => {
-    applyThemeToBody(theme, 'text-editor')
-  }, [theme, effectiveTheme])
 
   useEffect(() => {
     const loadData = async () => {
@@ -132,7 +140,12 @@ function App() {
       setOriginalContent(content)
       setOriginalTitle(title)
       setHasChanges(false)
+      
+      const { Window } = await import('@tauri-apps/api/window')
+      const currentWindow = Window.getCurrent()
+      await currentWindow.close()
     } catch (error) {
+      console.error('保存失败:', error)
     }
   }
 

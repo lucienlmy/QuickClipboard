@@ -6,6 +6,7 @@ use crate::services::database::{
     get_clipboard_item_by_id,
     delete_clipboard_item as db_delete_clipboard_item,
     clear_clipboard_history as db_clear_clipboard_history,
+    update_clipboard_item as db_update_clipboard_item,
     QueryParams, 
     PaginatedResult, 
     ClipboardItem
@@ -160,5 +161,18 @@ pub async fn save_image_from_clipboard(clipboard_id: i64, app: tauri::AppHandle)
     std::fs::copy(&image_path, dest).map_err(|e| format!("保存失败: {}", e))?;
     
     Ok(dest.to_string_lossy().to_string())
+}
+
+// 根据 ID 获取单个剪贴板项
+#[tauri::command]
+pub fn get_clipboard_item_by_id_cmd(id: i64) -> Result<ClipboardItem, String> {
+    get_clipboard_item_by_id(id)?
+        .ok_or_else(|| format!("剪贴板项不存在: {}", id))
+}
+
+// 更新剪贴板项内容
+#[tauri::command]
+pub fn update_clipboard_item_cmd(id: i64, content: String) -> Result<(), String> {
+    db_update_clipboard_item(id, content)
 }
 

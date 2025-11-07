@@ -178,18 +178,18 @@ export async function openFileLocation(clipboardId) {
 
 // 获取单个剪贴板项
 export async function getClipboardItemById(id) {
-  return await invoke('get_clipboard_item_by_id', { id })
+  return await invoke('get_clipboard_item_by_id_cmd', { id })
 }
 
 // 更新剪贴板项
 export async function updateClipboardItem(id, content) {
-  await invoke('update_clipboard_item', { id, content })
+  await invoke('update_clipboard_item_cmd', { id, content })
   await invoke('emit_clipboard_updated')
 }
 
 // 获取单个收藏项
 export async function getFavoriteItemById(id) {
-  return await invoke('get_favorite_item_by_id', { id })
+  return await invoke('get_favorite_item_by_id_cmd', { id })
 }
 
 // 添加剪贴板项到收藏

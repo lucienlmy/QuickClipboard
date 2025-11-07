@@ -3,6 +3,9 @@ use crate::services::database::{
     add_clipboard_to_favorites as db_add_clipboard_to_favorites,
     move_favorite_to_group as db_move_favorite_to_group,
     delete_favorite as db_delete_favorite,
+    get_favorite_by_id,
+    add_favorite as db_add_favorite,
+    update_favorite as db_update_favorite,
     FavoritesQueryParams, PaginatedResult, FavoriteItem
 };
 
@@ -58,5 +61,24 @@ pub fn move_quick_text_to_group(id: String, group_name: String) -> Result<(), St
 #[tauri::command]
 pub fn delete_quick_text(id: String) -> Result<(), String> {
     db_delete_favorite(id)
+}
+
+// 根据 ID 获取单个收藏项
+#[tauri::command]
+pub fn get_favorite_item_by_id_cmd(id: String) -> Result<FavoriteItem, String> {
+    get_favorite_by_id(&id)?
+        .ok_or_else(|| format!("收藏项不存在: {}", id))
+}
+
+// 添加收藏项
+#[tauri::command]
+pub fn add_quick_text(title: String, content: String, group_name: Option<String>) -> Result<FavoriteItem, String> {
+    db_add_favorite(title, content, group_name)
+}
+
+// 更新收藏项
+#[tauri::command]
+pub fn update_quick_text(id: String, title: String, content: String, group_name: Option<String>) -> Result<FavoriteItem, String> {
+    db_update_favorite(id, title, content, group_name)
 }
 
