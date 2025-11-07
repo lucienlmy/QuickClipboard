@@ -1,46 +1,124 @@
 import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import SettingsSection from '../components/SettingsSection'
 import SettingItem from '../components/SettingItem'
 import Toggle from '@shared/components/ui/Toggle'
 import Input from '@shared/components/ui/Input'
 import Button from '@shared/components/ui/Button'
 import { IconPlus, IconRefresh, IconTrash, IconX ,IconInfoCircle, IconBan, IconCheck, IconBulb} from '@tabler/icons-react'
+import { getAllWindowsInfo } from '@shared/api/settings'
 
 function AppFilterSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
   const [customAppInput, setCustomAppInput] = useState('')
   const [appList, setAppList] = useState([])
   const [availableApps, setAvailableApps] = useState([])
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [appIconMap, setAppIconMap] = useState(new Map())
+
+  useEffect(() => {
+    if (settings.appFilterList && Array.isArray(settings.appFilterList)) {
+      setAppList(settings.appFilterList)
+    } else if (typeof settings.appFilterList === 'string') {
+      const list = settings.appFilterList
+        .split('\n')
+        .map(item => item.trim())
+        .filter(item => item.length > 0)
+      setAppList(list)
+    }
+  }, [settings.appFilterList])
+
+  const matchAppIcon = useCallback((appName) => {
+    const matchedApp = availableApps.find(app => 
+      app.process.toLowerCase() === appName.toLowerCase() ||
+      app.process.toLowerCase().includes(appName.toLowerCase()) ||
+      appName.toLowerCase().includes(app.process.toLowerCase())
+    )
+    return matchedApp?.icon
+  }, [availableApps])
 
   const handleAddCustomApp = () => {
     if (!customAppInput.trim()) return
     
-    const newList = [...appList, customAppInput.trim()]
+    const appName = customAppInput.trim()
+    const newList = [...appList, appName]
     setAppList(newList)
-    onSettingChange('appFilterList', newList.join('\n'))
+    onSettingChange('appFilterList', newList)
+    
+    const icon = matchAppIcon(appName)
+    if (icon) {
+      setAppIconMap(prev => new Map(prev).set(appName, icon))
+    }
+    
     setCustomAppInput('')
   }
 
   const handleRemoveApp = (index) => {
     const newList = appList.filter((_, i) => i !== index)
     setAppList(newList)
-    onSettingChange('appFilterList', newList.join('\n'))
+    onSettingChange('appFilterList', newList)
   }
 
   const handleClearList = () => {
     setAppList([])
-    onSettingChange('appFilterList', '')
+    onSettingChange('appFilterList', [])
   }
 
-  const handleRefreshWindows = async () => {
-  }
+  const handleRefreshWindows = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      const windows = await getAllWindowsInfo()
+      const uniqueApps = []
+      const seenProcesses = new Set()
+      const iconMap = new Map()
+      
+      for (const win of windows) {
+        if (!seenProcesses.has(win.process)) {
+          seenProcesses.add(win.process)
+          uniqueApps.push(win)
+          if (win.icon) iconMap.set(win.process, win.icon)
+        }
+      }
+      
+      setAvailableApps(uniqueApps.sort((a, b) => a.process.localeCompare(b.process)))
+      
+      setAppIconMap(prevIconMap => {
+        const updatedIconMap = new Map(prevIconMap)
+        
+        appList.forEach(appName => {
+          if (!updatedIconMap.has(appName)) {
+            const matchedApp = uniqueApps.find(app => 
+              app.process.toLowerCase() === appName.toLowerCase() ||
+              app.process.toLowerCase().includes(appName.toLowerCase()) ||
+              appName.toLowerCase().includes(app.process.toLowerCase())
+            )
+            if (matchedApp?.icon) updatedIconMap.set(appName, matchedApp.icon)
+          }
+        })
+        
+        return new Map([...updatedIconMap, ...iconMap])
+      })
+    } catch (error) {
+      console.error('获取窗口信息失败:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [appList])
 
-  const handleAddAvailableApp = (app) => {
-    if (!appList.includes(app)) {
-      const newList = [...appList, app]
+  useEffect(() => {
+    handleRefreshWindows()
+  }, [handleRefreshWindows])
+
+  const handleAddAvailableApp = (appInfo) => {
+    const appName = typeof appInfo === 'string' ? appInfo : appInfo.process
+    if (!appList.includes(appName)) {
+      const newList = [...appList, appName]
       setAppList(newList)
-      onSettingChange('appFilterList', newList.join('\n'))
+      onSettingChange('appFilterList', newList)
+      
+      if (typeof appInfo === 'object' && appInfo.icon) {
+        setAppIconMap(prev => new Map(prev).set(appName, appInfo.icon))
+      }
     }
   }
 
@@ -72,8 +150,8 @@ function AppFilterSection({ settings, onSettingChange }) {
                 </div>
                 <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                   {settings.appFilterMode === 'blacklist' 
-                    ? t('settings.appFilter.statusBlacklist')
-                    : t('settings.appFilter.statusWhitelist')}
+                    ? t('settings.appFilter.statusBlacklist', { count: appList.length })
+                    : t('settings.appFilter.statusWhitelist', { count: appList.length })}
                 </div>
               </div>
             </div>
@@ -190,14 +268,21 @@ function AppFilterSection({ settings, onSettingChange }) {
                 appList.map((app, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
-                    <span className="text-sm text-gray-900 dark:text-white truncate">
+                    {appIconMap.get(app) && (
+                      <img 
+                        src={appIconMap.get(app)} 
+                        alt="" 
+                        className="w-4 h-4 flex-shrink-0"
+                      />
+                    )}
+                    <span className="text-sm text-gray-900 dark:text-white truncate flex-1">
                       {app}
                     </span>
                     <button
                       onClick={() => handleRemoveApp(index)}
-                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors flex-shrink-0"
                     >
                       <IconX className="w-4 h-4" />
                     </button>
@@ -216,7 +301,8 @@ function AppFilterSection({ settings, onSettingChange }) {
                 onClick={handleRefreshWindows}
                 variant="secondary"
                 size="sm"
-                icon={<IconRefresh className="w-3.5 h-3.5" />}
+                icon={<IconRefresh className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />}
+                disabled={isRefreshing}
               >
                 {t('settings.common.refresh')}
               </Button>
@@ -231,12 +317,19 @@ function AppFilterSection({ settings, onSettingChange }) {
                   <button
                     key={index}
                     onClick={() => handleAddAvailableApp(app)}
-                    className="w-full flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-500 transition-colors text-left"
+                    className="w-full flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-500 transition-colors text-left"
                   >
-                    <span className="text-sm text-gray-900 dark:text-white truncate">
-                      {app}
+                    {app.icon && (
+                      <img 
+                        src={app.icon} 
+                        alt="" 
+                        className="w-4 h-4 flex-shrink-0"
+                      />
+                    )}
+                    <span className="text-sm text-gray-900 dark:text-white truncate flex-1">
+                      {app.process}
                     </span>
-                    <IconPlus className="w-4 h-4 text-gray-400" />
+                    <IconPlus className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </button>
                 ))
               )}

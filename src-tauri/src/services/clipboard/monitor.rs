@@ -104,6 +104,16 @@ fn run_clipboard_monitor(generation: u64) -> Result<(), String> {
 }
 
 fn handle_clipboard_change() -> Result<(), String> {
+    // 检查应用过滤
+    let settings = crate::services::get_settings();
+    if !crate::services::system::is_current_app_allowed(
+        settings.app_filter_enabled,
+        &settings.app_filter_mode,
+        &settings.app_filter_list,
+    ) {
+        return Ok(());
+    }
+    
     let content = match ClipboardContent::capture()? {
         Some(content) => content,
         None => return Ok(()),

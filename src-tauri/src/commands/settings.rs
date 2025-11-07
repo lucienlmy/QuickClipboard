@@ -1,7 +1,7 @@
 use crate::services::{AppSettings, get_settings, update_settings, get_data_directory};
 use crate::services::settings::storage::SettingsStorage;
-use serde_json::Value;
 use tauri::Manager;
+use serde_json::Value;
 
 fn handle_disable_edge_hide(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -95,8 +95,8 @@ pub fn set_edge_hide_enabled(enabled: bool, app: tauri::AppHandle) -> Result<(),
 }
 
 #[tauri::command]
-pub fn get_all_windows_info_cmd() -> Result<Vec<Value>, String> {
-    Ok(vec![])
+pub fn get_all_windows_info_cmd() -> Result<Vec<crate::services::system::AppInfo>, String> {
+    Ok(crate::services::system::get_all_windows_info())
 }
 
 #[tauri::command]

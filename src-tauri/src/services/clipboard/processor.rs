@@ -94,7 +94,7 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
             let json_str = serde_json::to_string(&file_data)
                 .map_err(|e| format!("序列化文件信息失败: {}", e))?;
             
-            let ct = if file_infos.len() == 1 && is_image_file(&file_infos[0].path) {
+            let ct = if file_infos.len() == 1 && crate::utils::icon::is_image_file(&file_infos[0].path) {
                 ContentType::new("image")
             } else {
                 ContentType::new("file")
@@ -137,7 +137,7 @@ fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
         };
         
         // 获取文件图标
-        let icon_data = get_file_icon_base64(path_str);
+        let icon_data = crate::utils::icon::get_file_icon_base64(path_str);
         
         file_infos.push(FileInfo {
             path: path_str.clone(),
@@ -150,88 +150,6 @@ fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
     }
     
     Ok(file_infos)
-}
-
-// 获取文件图标并转换为Base64 Data URL
-fn get_file_icon_base64(path: &str) -> Option<String> {
-    use file_icon_provider::get_file_icon;
-    
-    // 尝试获取系统文件图标
-    match get_file_icon(path, 32) {
-        Ok(icon) => {
-            // 检查是否是图片文件，如果是则直接读取图片作为缩略图
-            if is_image_file(path) {
-                if let Ok(image_data) = read_image_thumbnail(path, 32) {
-                    return Some(image_data);
-                }
-            }
-            
-            // 将图标转换为PNG格式的Base64
-            if let Ok(png_data) = icon_to_png(&icon) {
-                use base64::{Engine as _, engine::general_purpose};
-                let base64_str = general_purpose::STANDARD.encode(&png_data);
-                return Some(format!("data:image/png;base64,{}", base64_str));
-            }
-            
-            None
-        }
-        Err(_) => None,
-    }
-}
-
-// 判断是否是图片文件
-fn is_image_file(path: &str) -> bool {
-    let path_lower = path.to_lowercase();
-    path_lower.ends_with(".jpg") || 
-    path_lower.ends_with(".jpeg") || 
-    path_lower.ends_with(".png") || 
-    path_lower.ends_with(".gif") || 
-    path_lower.ends_with(".bmp") || 
-    path_lower.ends_with(".webp")
-}
-
-// 读取图片文件的缩略图
-fn read_image_thumbnail(path: &str, size: u32) -> Result<String, String> {
-    use base64::{Engine as _, engine::general_purpose};
-    
-    // 读取图片
-    let img = image::open(path)
-        .map_err(|e| format!("读取图片失败: {}", e))?;
-    
-    // 生成缩略图
-    let thumbnail = img.thumbnail(size, size);
-    
-    // 转换为PNG
-    let mut png_data = Vec::new();
-    {
-        let mut cursor = Cursor::new(&mut png_data);
-        thumbnail.write_to(&mut cursor, image::ImageFormat::Png)
-            .map_err(|e| format!("PNG编码失败: {}", e))?;
-    }
-    
-    let base64_str = general_purpose::STANDARD.encode(&png_data);
-    Ok(format!("data:image/png;base64,{}", base64_str))
-}
-
-// 将Icon转换为PNG数据
-fn icon_to_png(icon: &file_icon_provider::Icon) -> Result<Vec<u8>, String> {
-    use image::{RgbaImage, ImageFormat};
-
-    let img = RgbaImage::from_raw(
-        icon.width,
-        icon.height,
-        icon.pixels.clone()
-    ).ok_or("创建图像失败")?;
-    
-    // 转换为PNG
-    let mut png_data = Vec::new();
-    {
-        let mut cursor = Cursor::new(&mut png_data);
-        img.write_to(&mut cursor, ImageFormat::Png)
-            .map_err(|e| format!("PNG编码失败: {}", e))?;
-    }
-    
-    Ok(png_data)
 }
 
 // 检测字符串是否是URL
