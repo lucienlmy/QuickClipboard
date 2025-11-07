@@ -125,6 +125,8 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     // 保存贴边隐藏位置到设置
     save_edge_snap_position(hide_x, hide_y);
     
+    super::state::set_window_state(super::state::WindowState::Hidden);
+    
     crate::input_monitor::disable_mouse_monitoring();
     crate::input_monitor::disable_navigation_keys();
     
@@ -173,6 +175,8 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
     set_hidden(false);
+    
+    super::state::set_window_state(super::state::WindowState::Visible);
     
     crate::input_monitor::enable_mouse_monitoring();
     crate::input_monitor::enable_navigation_keys();
@@ -282,6 +286,8 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
     
     // 显示窗口
     let _ = window.show();
+    
+    super::state::set_window_state(super::state::WindowState::Hidden);
     
     // 禁用输入监听
     crate::input_monitor::disable_mouse_monitoring();

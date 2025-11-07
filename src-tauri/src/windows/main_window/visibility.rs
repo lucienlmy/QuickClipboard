@@ -4,10 +4,9 @@ use super::state::{WindowState, set_window_state};
 // 显示主窗口
 pub fn show_main_window(window: &WebviewWindow) {
     let state = super::state::get_window_state();
-    
+
     if state.is_snapped && state.is_hidden {
         let _ = super::show_snapped_window(window);
-        set_window_state(WindowState::Visible);
         return;
     }
     
@@ -32,7 +31,6 @@ pub fn hide_main_window(window: &WebviewWindow) {
     
     if state.is_snapped && !state.is_hidden {
         let _ = super::hide_snapped_window(window);
-        set_window_state(WindowState::Hidden);
         return;
     }
     
@@ -43,9 +41,12 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
     if let Some(window) = super::get_main_window(app) {
         let state = super::state::get_window_state();
         
-        match state.state {
-            WindowState::Visible => hide_main_window(&window),
-            _ => show_main_window(&window),
+        let should_show = state.is_snapped && state.is_hidden || state.state != WindowState::Visible;
+        
+        if should_show {
+            show_main_window(&window);
+        } else {
+            hide_main_window(&window);
         }
     }
 }
