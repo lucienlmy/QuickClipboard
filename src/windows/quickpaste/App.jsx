@@ -9,7 +9,10 @@ import { navigationStore } from '@shared/store/navigationStore'
 import { groupsStore } from '@shared/store/groupsStore'
 import { clipboardStore, loadClipboardRange, pasteClipboardItem, initClipboardItems } from '@shared/store/clipboardStore'
 import { favoritesStore, loadFavoritesRange, pasteFavorite, initFavorites } from '@shared/store/favoritesStore'
-import { ImageContent, FileContent } from '@windows/main/components/ClipboardContent'
+import { settingsStore } from '@shared/store/settingsStore'
+import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
+import { useSettingsSync } from '@shared/hooks/useSettingsSync'
+import { ImageContent, FileContent, HtmlContent, TextContent } from '@windows/main/components/ClipboardContent'
 import { getPrimaryType } from '@shared/utils/contentType'
 
 function QuickPasteWindow() {
@@ -22,6 +25,10 @@ function QuickPasteWindow() {
   const groupSnap = useSnapshot(groupsStore)
   const clipSnap = useSnapshot(clipboardStore)
   const favSnap = useSnapshot(favoritesStore)
+  const settings = useSnapshot(settingsStore)
+  const { theme, effectiveTheme, isDark } = useTheme()
+
+  useSettingsSync()
 
   const isClipboardTab = navSnap.activeTab === 'clipboard'
   const currentItems = isClipboardTab ? clipSnap.items : favSnap.items
@@ -47,6 +54,10 @@ function QuickPasteWindow() {
     if (!item) return
     setActiveIndex(index)
   }, [])
+
+  useEffect(() => {
+    applyThemeToBody(theme, 'quickpaste')
+  }, [theme, effectiveTheme])
 
   // 窗口隐藏时执行粘贴
   useEffect(() => {
@@ -192,20 +203,48 @@ function QuickPasteWindow() {
       )
     }
 
+    if (primaryType === 'rich_text') {
+      if (settings.pasteWithFormat && item.html_content) {
+        return (
+          <div className="w-full min-h-[32px] overflow-hidden">
+            <HtmlContent htmlContent={item.html_content} lineClampClass="line-clamp-2" />
+          </div>
+        )
+      } else {
+        return (
+          <div className="w-full min-h-[32px]">
+            <TextContent content={item.content || ''} lineClampClass="line-clamp-2" />
+          </div>
+        )
+      }
+    }
+
     return (
-      <div className="w-full min-h-[32px] flex items-center">
-        <span className="truncate">{item.content}</span>
+      <div className="w-full min-h-[32px]">
+        <TextContent content={item.content || ''} lineClampClass="line-clamp-2" />
       </div>
     )
   }
 
+  const outerContainerClasses = `
+    absolute inset-0 flex items-center justify-center
+    ${isDark ? 'dark' : ''}
+  `.trim().replace(/\s+/g, ' ')
+
   return (
-    <div className="absolute inset-0 flex flex-col bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-lg shadow-2xl overflow-hidden">
-      <style>{`
-        * { box-sizing: border-box; }
-        .quickpaste-scrollbar-container div[style*="overflow"]{scrollbar-width:none!important;-ms-overflow-style:none!important}
-        .quickpaste-scrollbar-container div[style*="overflow"]::-webkit-scrollbar{display:none!important}
-      `}</style>
+    <div className={outerContainerClasses} style={{ padding: '5px' }}>
+      <div 
+        className="quickpaste-container w-full h-full flex flex-col bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl overflow-hidden"
+        style={{ 
+          borderRadius: '8px',
+          boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
+        }}
+      >
+        <style>{`
+          * { box-sizing: border-box; }
+          .quickpaste-scrollbar-container div[style*="overflow"]{scrollbar-width:none!important;-ms-overflow-style:none!important}
+          .quickpaste-scrollbar-container div[style*="overflow"]::-webkit-scrollbar{display:none!important}
+        `}</style>
 
       {/* 顶部 */}
       <div className="flex-shrink-0 px-2 py-2 bg-gradient-to-b from-gray-50/50 dark:from-gray-800/50 to-transparent">
@@ -270,6 +309,7 @@ function QuickPasteWindow() {
         <span className="truncate overflow-hidden">
           {isHoveringCancel ? t('settings.quickpaste.window.cancelHover') : t('settings.quickpaste.window.cancelNormal')}
         </span>
+      </div>
       </div>
     </div>
   )
