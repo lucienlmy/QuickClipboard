@@ -12,7 +12,7 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
         return Ok(());
     }
     
-    let (x, y, w, h) = super::positioning::get_window_bounds(window)?;
+    let (x, y, w, h) = crate::utils::positioning::get_window_bounds(window)?;
     
     let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
     let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
@@ -46,7 +46,7 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
 
 pub fn snap_to_edge(window: &WebviewWindow, edge: SnapEdge) -> Result<(), String> {
     let size = window.outer_size().map_err(|e| e.to_string())?;
-    let (x, y, _, _) = super::positioning::get_window_bounds(window)?;
+    let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     
     let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
     let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
@@ -83,7 +83,7 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     }
     
     let size = window.outer_size().map_err(|e| e.to_string())?;
-    let (x, y, _, _) = super::positioning::get_window_bounds(window)?;
+    let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     
     let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
     let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
@@ -141,7 +141,7 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     }
     
     let size = window.outer_size().map_err(|e| e.to_string())?;
-    let (x, y, _, _) = super::positioning::get_window_bounds(window)?;
+    let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     
     let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
     let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)

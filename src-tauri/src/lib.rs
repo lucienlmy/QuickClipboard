@@ -17,11 +17,12 @@ pub use services::clipboard::{
 };
 pub use windows::main_window::{
     get_main_window, is_main_window_visible, show_main_window, hide_main_window,
-    toggle_main_window_visibility, position_at_cursor, center_window, get_window_bounds,
-    start_drag, stop_drag, is_dragging, check_snap, snap_to_edge, restore_from_snap,
-    is_window_snapped, hide_snapped_window, show_snapped_window, init_edge_monitor,
-    WindowState, SnapEdge, get_window_state, set_window_state,
+    toggle_main_window_visibility, start_drag, stop_drag, is_dragging, check_snap, 
+    snap_to_edge, restore_from_snap, is_window_snapped, hide_snapped_window, 
+    show_snapped_window, init_edge_monitor, WindowState, SnapEdge, get_window_state, 
+    set_window_state,
 };
+pub use utils::positioning::{position_at_cursor, center_window, get_window_bounds};
 pub use windows::tray::setup_tray;
 pub use windows::settings_window::open_settings_window;
 pub use windows::quickpaste;

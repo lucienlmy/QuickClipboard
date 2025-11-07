@@ -64,14 +64,14 @@ fn show_normal_window(window: &WebviewWindow) {
             if let Some((x, y)) = settings.saved_window_position {
                 let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
             } else {
-                let _ = super::position_at_cursor(window);
+                let _ = crate::utils::positioning::position_at_cursor(window);
             }
         }
         "center" => {
-            let _ = super::center_window(window);
+            let _ = crate::utils::positioning::center_window(window);
         }
         _ => {
-            let _ = super::position_at_cursor(window);
+            let _ = crate::utils::positioning::position_at_cursor(window);
         }
     }
     

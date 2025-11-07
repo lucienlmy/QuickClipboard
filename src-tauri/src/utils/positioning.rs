@@ -1,13 +1,13 @@
 use tauri::{PhysicalPosition, WebviewWindow, Monitor};
 
-/// 定位窗口到鼠标位置
+// 将窗口定位到鼠标位置
 pub fn position_at_cursor(window: &WebviewWindow) -> Result<(), String> {
-    let monitor = get_monitor_at_cursor(window)?;
-    let cursor_pos = get_cursor_position()?;
+    let monitor = crate::screen::ScreenUtils::get_monitor_at_cursor(window)?;
+    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position()?;
     let window_size = window.outer_size().map_err(|e| e.to_string())?;
     
     let best_pos = calculate_best_position(
-        cursor_pos,
+        PhysicalPosition::new(cursor_x, cursor_y),
         window_size,
         &monitor,
     );
@@ -15,20 +15,6 @@ pub fn position_at_cursor(window: &WebviewWindow) -> Result<(), String> {
     window.set_position(best_pos).map_err(|e| e.to_string())
 }
 
-/// 获取鼠标所在的显示器
-fn get_monitor_at_cursor(window: &WebviewWindow) -> Result<Monitor, String> {
-    window.current_monitor()
-        .map_err(|e| e.to_string())?
-        .ok_or("无法获取当前显示器".to_string())
-}
-
-/// 获取鼠标位置
-fn get_cursor_position() -> Result<PhysicalPosition<i32>, String> {
-    let (x, y) = crate::utils::mouse::get_cursor_position()?;
-    Ok(PhysicalPosition::new(x, y))
-}
-
-/// 计算最佳窗口位置
 fn calculate_best_position(
     cursor: PhysicalPosition<i32>,
     window_size: tauri::PhysicalSize<u32>,
@@ -37,7 +23,7 @@ fn calculate_best_position(
     let monitor_pos = monitor.position();
     let monitor_size = monitor.size();
     
-    let margin = 10;
+    let margin = 12;
     let w = window_size.width as i32;
     let h = window_size.height as i32;
     
@@ -46,18 +32,35 @@ fn calculate_best_position(
     let work_w = monitor_size.width as i32;
     let work_h = monitor_size.height as i32;
     
+    // 默认位置：鼠标右下方
     let mut x = cursor.x + margin;
-    let mut y = cursor.y - h / 2;
+    let mut y = cursor.y + margin;
     
+    // 如果右边超出，移到左边
     if x + w > work_x + work_w {
         x = cursor.x - w - margin;
     }
     
-    if x < work_x {
-        x = work_x + margin;
+    // 如果下边超出，移到上边
+    if y + h > work_y + work_h {
+        y = cursor.y - h - margin;
     }
     
-    y = y.max(work_y + margin).min(work_y + work_h - h - margin);
+    x = x.max(work_x).min(work_x + work_w - w);
+    y = y.max(work_y).min(work_y + work_h - h);
     
     PhysicalPosition::new(x, y)
 }
+
+// 将窗口居中显示
+pub fn center_window(window: &WebviewWindow) -> Result<(), String> {
+    window.center().map_err(|e| e.to_string())
+}
+
+// 获取窗口边界
+pub fn get_window_bounds(window: &WebviewWindow) -> Result<(i32, i32, u32, u32), String> {
+    let pos = window.outer_position().map_err(|e| e.to_string())?;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    Ok((pos.x, pos.y, size.width, size.height))
+}
+

@@ -60,6 +60,29 @@ impl ScreenUtils {
 
         Ok((position.x, position.y, size.width as i32, size.height as i32))
     }
+    
+    pub fn get_monitor_at_cursor(window: &WebviewWindow) -> Result<tauri::Monitor, String> {
+        let (cursor_x, cursor_y) = crate::mouse::get_cursor_position()?;
+        
+        let monitors = window
+            .available_monitors()
+            .map_err(|e| format!("获取显示器列表失败: {}", e))?;
+        
+        for monitor in monitors {
+            let pos = monitor.position();
+            let size = monitor.size();
+            let right = pos.x + size.width as i32;
+            let bottom = pos.y + size.height as i32;
+            
+            if cursor_x >= pos.x && cursor_x < right && cursor_y >= pos.y && cursor_y < bottom {
+                return Ok(monitor);
+            }
+        }
+        
+        window.primary_monitor()
+            .map_err(|e| format!("获取主显示器失败: {}", e))?
+            .ok_or_else(|| "主显示器不存在".to_string())
+    }
 
     // 约束窗口位置到屏幕边界内
     pub fn constrain_to_physical_bounds(

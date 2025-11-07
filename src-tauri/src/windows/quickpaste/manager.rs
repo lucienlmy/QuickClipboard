@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Manager, Emitter, WebviewUrl, WebviewWindowBuilder};
 use super::state::set_visible;
-use super::positioning::*;
+use crate::utils::positioning::position_at_cursor;
 
 fn create_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
     let settings = crate::get_settings();
