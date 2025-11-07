@@ -7,62 +7,26 @@ mod services;
 mod utils;
 mod windows;
 
-// ========== 工具 API ==========
-pub use utils::mouse;
-pub use utils::screen;
-
-// ========== 服务 API ==========
-pub use services::{
-    AppSettings,
-    get_settings,
-    update_settings,
-    get_data_directory,
-    hotkey,
-};
-
+pub use utils::{mouse, screen};
+pub use services::{AppSettings, get_settings, update_settings, get_data_directory, hotkey};
 pub use services::system::input_monitor;
 pub use services::clipboard::{
-    start_clipboard_monitor,
-    stop_clipboard_monitor,
+    start_clipboard_monitor, stop_clipboard_monitor,
     is_monitor_running as is_clipboard_monitor_running,
     set_app_handle as set_clipboard_app_handle,
 };
-
-// ========== 窗口 API ==========
 pub use windows::main_window::{
-    get_main_window,
-    is_main_window_visible,
-    show_main_window,
-    hide_main_window,
-    toggle_main_window_visibility,
-    position_at_cursor,
-    center_window,
-    get_window_bounds,
-    start_drag,
-    stop_drag,
-    is_dragging,
-    check_snap,
-    snap_to_edge,
-    restore_from_snap,
-    is_window_snapped,
-    hide_snapped_window,
-    show_snapped_window,
-    init_edge_monitor,
-    WindowState,
-    SnapEdge,
-    get_window_state,
-    set_window_state,
+    get_main_window, is_main_window_visible, show_main_window, hide_main_window,
+    toggle_main_window_visibility, position_at_cursor, center_window, get_window_bounds,
+    start_drag, stop_drag, is_dragging, check_snap, snap_to_edge, restore_from_snap,
+    is_window_snapped, hide_snapped_window, show_snapped_window, init_edge_monitor,
+    WindowState, SnapEdge, get_window_state, set_window_state,
 };
-
 pub use windows::tray::setup_tray;
 pub use windows::settings_window::open_settings_window;
 pub use windows::quickpaste;
-
-
-// ========== 插件 API ==========
 pub use windows::plugins::context_menu::is_context_menu_visible;
 
-// ========== 应用启动 ==========
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -128,85 +92,52 @@ pub fn run() {
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,
                 commands::disable_ai_translation_cancel_shortcut,
-                // 右键菜单命令
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
                 windows::plugins::context_menu::commands::close_all_context_menus,
             ])
         .setup(|app| {
-                // 初始化开机自启
                 #[cfg(desktop)]
                 {
                     use tauri_plugin_autostart::MacosLauncher;
-                    app.handle().plugin(tauri_plugin_autostart::init(
-                        MacosLauncher::LaunchAgent,
-                        Some(vec![]),
-                    )).expect("无法初始化autostart插件");
+                    app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![])))?;
                 }
                 
-                let window = app.get_webview_window("main")
-                    .ok_or("无法获取主窗口")?;
-                window.set_focusable(false)
-                    .map_err(|e| format!("设置窗口无焦点失败: {}", e))?;
+                let window = app.get_webview_window("main").ok_or("无法获取主窗口")?;
+                let _ = window.set_focusable(false);
                 
-                // 初始化数据库
-                let data_dir = get_data_directory()?;
-                let db_path = data_dir.join("quickclipboard.db");
-                services::database::init_database(db_path.to_str()
-                    .ok_or("数据库路径无效")?)?;
+                services::database::init_database(
+                    get_data_directory()?.join("quickclipboard.db").to_str().ok_or("数据库路径无效")?
+                )?;
                 
                 let settings = get_settings();
                 
-                if settings.remember_window_size {
-                    if let Some((w, h)) = settings.saved_window_size {
-                        let _ = window.set_size(tauri::PhysicalSize::new(w, h));
-                    }
+                if let Some((w, h)) = settings.saved_window_size.filter(|_| settings.remember_window_size) {
+                    let _ = window.set_size(tauri::PhysicalSize::new(w, h));
                 }
-                if let Err(e) = services::database::limit_clipboard_history(settings.history_limit) {
-                    eprintln!("应用历史记录限制失败: {}", e);
-                    }
+                let _ = services::database::limit_clipboard_history(settings.history_limit);
                 
                 utils::init_screen_utils(app.handle().clone());
-
                 hotkey::init_hotkey_manager(app.handle().clone(), window.clone());
                 input_monitor::init_input_monitor(window.clone());
                 init_edge_monitor(window.clone());
                 setup_tray(app.handle())?;
                 hotkey::reload_from_settings()?;
                 input_monitor::start_monitoring();
-                
-                // 初始化右键菜单模块
                 windows::plugins::context_menu::init();
-                
-                // 初始化便捷粘贴模块
                 quickpaste::init_quickpaste_state();
-                
-                // 初始化便捷粘贴窗口
-                if let Err(e) = quickpaste::init_quickpaste_window(&app.handle()) {
-                    eprintln!("初始化便捷粘贴窗口失败: {}", e);
-                }
-                
-                // 设置剪贴板监听的App Handle
+                let _ = quickpaste::init_quickpaste_window(&app.handle());
                 set_clipboard_app_handle(app.handle().clone());
                 
-                // 初始化剪贴板监听（根据设置决定是否启动）
                 if settings.clipboard_monitor {
-                    if let Err(e) = start_clipboard_monitor() {
-                        eprintln!("启动剪贴板监听失败: {}", e);
-                    }
+                    let _ = start_clipboard_monitor();
                 }
                 
-                // 恢复贴边隐藏状态
-                if let Err(e) = windows::main_window::restore_edge_snap_on_startup(&window) {
-                    eprintln!("恢复贴边隐藏状态失败: {}", e);
-                }
-
-                // 显示启动通知
+                let _ = windows::main_window::restore_edge_snap_on_startup(&window);
+                
                 if settings.show_startup_notification {
-                    if let Err(e) = services::show_startup_notification(app.handle()) {
-                        eprintln!("显示启动通知失败: {}", e);
-                    }
+                    let _ = services::show_startup_notification(app.handle());
                 }
 
             Ok(())
