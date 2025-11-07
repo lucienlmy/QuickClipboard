@@ -40,8 +40,6 @@ pub struct AppSettings {
     // 预览窗口设置
     pub quickpaste_enabled: bool,
     pub quickpaste_shortcut: String,
-    pub quickpaste_items_count: u32,
-    pub quickpaste_auto_paste: bool,
     pub quickpaste_scroll_sound: bool,
     pub quickpaste_scroll_sound_path: String,
     pub quickpaste_window_width: u32,
@@ -150,8 +148,6 @@ impl Default for AppSettings {
 
             quickpaste_enabled: true,
             quickpaste_shortcut: "Ctrl+`".to_string(),
-            quickpaste_items_count: 5,
-            quickpaste_auto_paste: true,
             quickpaste_scroll_sound: true,
             quickpaste_scroll_sound_path: "sounds/roll.mp3".to_string(),
             quickpaste_window_width: 300,

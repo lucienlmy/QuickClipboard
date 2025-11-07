@@ -3,7 +3,6 @@ import { playScrollSound } from '@shared/api'
 import SettingsSection from '../components/SettingsSection'
 import SettingItem from '../components/SettingItem'
 import Toggle from '@shared/components/ui/Toggle'
-import Select from '@shared/components/ui/Select'
 import FileInput from '../components/FileInput'
 
 function PreviewSection({ settings, onSettingChange }) {
@@ -17,13 +16,6 @@ function PreviewSection({ settings, onSettingChange }) {
     }
   }
 
-  const itemsCountOptions = [
-    { value: 3, label: '3 ' + t('settings.quickpaste.items') },
-    { value: 5, label: '5 ' + t('settings.quickpaste.items') },
-    { value: 7, label: '7 ' + t('settings.quickpaste.items') },
-    { value: 9, label: '9 ' + t('settings.quickpaste.items') }
-  ]
-
   return (
     <SettingsSection
       title={t('settings.quickpaste.title')}
@@ -36,28 +28,6 @@ function PreviewSection({ settings, onSettingChange }) {
         <Toggle
           checked={settings.quickpasteEnabled}
           onChange={(checked) => onSettingChange('quickpasteEnabled', checked)}
-        />
-      </SettingItem>
-
-      <SettingItem
-        label={t('settings.quickpaste.itemsCount')}
-        description={t('settings.quickpaste.itemsCountDesc')}
-      >
-        <Select
-          value={settings.quickpasteItemsCount || 5}
-          onChange={(value) => onSettingChange('quickpasteItemsCount', parseInt(value))}
-          options={itemsCountOptions}
-          className="w-40"
-        />
-      </SettingItem>
-
-      <SettingItem
-        label={t('settings.quickpaste.autoPaste')}
-        description={t('settings.quickpaste.autoPasteDesc')}
-      >
-        <Toggle
-          checked={settings.quickpasteAutoPaste}
-          onChange={(checked) => onSettingChange('quickpasteAutoPaste', checked)}
         />
       </SettingItem>
 

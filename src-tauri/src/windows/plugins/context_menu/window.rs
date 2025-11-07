@@ -1,6 +1,6 @@
 // 右键菜单窗口管理
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindowBuilder, LogicalSize};
 
 // 菜单项
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,7 +50,6 @@ pub async fn show_menu(
     app: AppHandle,
     mut options: ContextMenuOptions,
 ) -> Result<Option<String>, String> {
-    use tauri::{LogicalPosition, LogicalSize};
     
     const MENU_WINDOW_LABEL: &str = "context-menu";
     
@@ -118,34 +117,7 @@ pub async fn show_menu(
         new_window
     };
     
-    let scale_factor = window.scale_factor().unwrap_or(1.0);
-    let physical_x = (options.x as f64 * scale_factor).round() as i32;
-    let physical_y = (options.y as f64 * scale_factor).round() as i32;
-    let physical_width = (width as f64 * scale_factor).round() as i32;
-    let physical_height = (height as f64 * scale_factor).round() as i32;
-    
-    let (constrained_x, constrained_y) = if let Ok(monitor) = window.current_monitor() {
-        if let Some(monitor) = monitor {
-            let screen_size = monitor.size();
-            let max_x = (screen_size.width as i32).saturating_sub(physical_width);
-            let max_y = (screen_size.height as i32).saturating_sub(physical_height);
-            
-            (
-                physical_x.min(max_x).max(0),
-                physical_y.min(max_y).max(0)
-            )
-        } else {
-            (physical_x, physical_y)
-        }
-    } else {
-        (physical_x, physical_y)
-    };
-    
-    let logical_x = (constrained_x as f64) / scale_factor;
-    let logical_y = (constrained_y as f64) / scale_factor;
-    
-    let position = LogicalPosition::new(logical_x, logical_y);
-    window.set_position(position)
+    crate::utils::positioning::position_at_cursor(&window)
         .map_err(|e| format!("设置菜单位置失败: {}", e))?;
 
     window
