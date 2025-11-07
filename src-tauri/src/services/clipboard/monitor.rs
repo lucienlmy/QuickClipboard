@@ -126,6 +126,7 @@ fn handle_clipboard_change() -> Result<(), String> {
     match store_clipboard_item(processed) {
         Ok(_) => {
             let _ = emit_clipboard_updated();
+            crate::AppSounds::play_copy();
         }
         Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
         Err(e) => return Err(format!("存储剪贴板内容失败: {}", e)),

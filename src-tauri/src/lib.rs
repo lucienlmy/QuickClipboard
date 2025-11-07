@@ -8,7 +8,7 @@ mod utils;
 mod windows;
 
 pub use utils::{mouse, screen};
-pub use services::{AppSettings, get_settings, update_settings, get_data_directory, hotkey};
+pub use services::{AppSettings, get_settings, update_settings, get_data_directory, hotkey, SoundPlayer, AppSounds};
 pub use services::system::input_monitor;
 pub use services::clipboard::{
     start_clipboard_monitor, stop_clipboard_monitor,
@@ -93,6 +93,11 @@ pub fn run() {
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,
                 commands::disable_ai_translation_cancel_shortcut,
+                commands::play_sound,
+                commands::play_beep,
+                commands::play_copy_sound,
+                commands::play_paste_sound,
+                commands::play_scroll_sound,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,

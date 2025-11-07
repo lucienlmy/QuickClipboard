@@ -96,9 +96,6 @@
       "icons/icon1024.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "../sounds": "sounds"
-    },
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",

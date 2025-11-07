@@ -144,6 +144,14 @@ fn handle_input_event(event: Event) -> Option<Event> {
 fn handle_key_press(key: Key, _event: &Event) -> bool {
     update_modifier_key(key, true);
     
+    if matches!(key, Key::KeyV) {
+        if let Some(state) = KEYBOARD_STATE.try_lock() {
+            if state.ctrl && !state.alt && !state.shift && !state.meta {
+                crate::AppSounds::play_paste();
+            }
+        }
+    }
+    
     if NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst) {
         return handle_navigation_key(key);
     }
@@ -325,6 +333,7 @@ fn handle_mouse_wheel(_delta_x: i64, delta_y: i64) -> bool {
                 } else { 
                     return false 
                 };
+                crate::AppSounds::play_scroll();
                 let _ = window.emit("quickpaste-scroll", serde_json::json!({ "direction": direction }));
                 return true 
             }
