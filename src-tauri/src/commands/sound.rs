@@ -1,8 +1,9 @@
 use crate::services::sound::{SoundPlayer, AppSounds};
+use std::path::Path;
 
 #[tauri::command]
 pub fn play_sound(path: String, volume: f32) -> Result<(), String> {
-    SoundPlayer::play(path, volume);
+    SoundPlayer::play(Path::new(&path), volume);
     Ok(())
 }
 

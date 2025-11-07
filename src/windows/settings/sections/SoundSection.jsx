@@ -1,16 +1,28 @@
 import { useTranslation } from 'react-i18next'
+import { playCopySound, playPasteSound } from '@shared/api'
 import SettingsSection from '../components/SettingsSection'
 import SettingItem from '../components/SettingItem'
 import Toggle from '@shared/components/ui/Toggle'
 import Slider from '@shared/components/ui/Slider'
 import FileInput from '../components/FileInput'
-import Button from '@shared/components/ui/Button'
-import { IconTrash } from '@tabler/icons-react'
 
 function SoundSection({ settings, onSettingChange }) {
   const { t } = useTranslation()
 
-  const handleClearCache = async () => {
+  const handlePlayCopySound = async () => {
+    try {
+      await playCopySound()
+    } catch (error) {
+      console.error('播放复制音效失败:', error)
+    }
+  }
+
+  const handlePlayPasteSound = async () => {
+    try {
+      await playPasteSound()
+    } catch (error) {
+      console.error('播放粘贴音效失败:', error)
+    }
   }
 
   return (
@@ -51,7 +63,7 @@ function SoundSection({ settings, onSettingChange }) {
           <FileInput
             value={settings.copySoundPath || ''}
             onChange={(value) => onSettingChange('copySoundPath', value)}
-            onTest={() => {/* 播放音效 */}}
+            onTest={handlePlayCopySound}
             onReset={() => onSettingChange('copySoundPath', '')}
             placeholder={t('settings.sound.selectFile')}
           />
@@ -64,23 +76,10 @@ function SoundSection({ settings, onSettingChange }) {
           <FileInput
             value={settings.pasteSoundPath || ''}
             onChange={(value) => onSettingChange('pasteSoundPath', value)}
-            onTest={() => {/* 播放音效 */}}
+            onTest={handlePlayPasteSound}
             onReset={() => onSettingChange('pasteSoundPath', '')}
             placeholder={t('settings.sound.selectFile')}
           />
-        </SettingItem>
-
-        <SettingItem
-          label={t('settings.sound.clearCache')}
-          description={t('settings.sound.clearCacheDesc')}
-        >
-          <Button
-            onClick={handleClearCache}
-            variant="secondary"
-            icon={<IconTrash />}
-          >
-            {t('settings.common.clear')}
-          </Button>
         </SettingItem>
       </SettingsSection>
     </>

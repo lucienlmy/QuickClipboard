@@ -5,4 +5,5 @@ export * from './textEditor'
 export * from './window'
 export * from './settings'
 export * from './system'
+export * from './sound'
 

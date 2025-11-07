@@ -1,3 +1,4 @@
+import { open } from '@tauri-apps/plugin-dialog'
 import { IconFolder, IconPlayerPlay, IconRefresh } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 
@@ -5,6 +6,21 @@ function FileInput({ value, onChange, onTest, onReset, placeholder }) {
   const { t } = useTranslation()
 
   const handleBrowse = async () => {
+    try {
+      const file = await open({
+        multiple: false,
+        filters: [{
+          name: 'Audio',
+          extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac']
+        }]
+      })
+      
+      if (file) {
+        onChange(file)
+      }
+    } catch (error) {
+      console.error('选择文件失败:', error)
+    }
   }
 
   return (
