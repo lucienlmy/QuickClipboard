@@ -1,44 +1,27 @@
-// HTML 安全清理工具函数
+import DOMPurify from 'dompurify'
 
-export function sanitizeHTML(element) {
-  const scripts = element.querySelectorAll('script')
-  scripts.forEach(script => script.remove())
+const PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'span', 'div',
+    'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'b', 'i', 'sub', 'sup', 'strike', 'del', 'ins'
+  ],
+  ALLOWED_ATTR: [
+    'style', 'class', 'data-image-id', 'src', 'alt', 'title',
+    'href', 'target', 'colspan', 'rowspan', 'align', 'valign'
+  ],
+  ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+  KEEP_CONTENT: true,
+  RETURN_DOM: false,
+  RETURN_DOM_FRAGMENT: false,
+  RETURN_TRUSTED_TYPE: false,
+  FORBID_TAGS: ['script', 'iframe', 'embed', 'object', 'form', 'input', 'button'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur']
+}
 
-  const iframes = element.querySelectorAll('iframe, embed, object')
-  iframes.forEach(frame => frame.remove())
-
-  const forms = element.querySelectorAll('form')
-  forms.forEach(form => form.remove())
-
-  const dangerousAttributes = [
-    'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus', 'onblur',
-    'onchange', 'onsubmit', 'onreset', 'onkeydown', 'onkeyup', 'onkeypress',
-    'onerror', 'onabort', 'oncontextmenu', 'ondblclick', 'ondrag', 'ondrop'
-  ]
-
-  function cleanElement(el) {
-    dangerousAttributes.forEach(attr => {
-      if (el.hasAttribute(attr)) {
-        el.removeAttribute(attr)
-      }
-    })
-
-    const style = el.getAttribute('style')
-    if (style) {
-      const cleanStyle = style
-        .replace(/javascript:/gi, '')
-        .replace(/expression\s*\(/gi, '')
-      el.setAttribute('style', cleanStyle)
-    }
-
-    if (el.tagName === 'A') {
-      el.removeAttribute('href')
-      el.removeAttribute('target')
-    }
-
-    Array.from(el.children).forEach(child => cleanElement(child))
-  }
-
-  cleanElement(element)
+// 使用 DOMPurify 清理 HTML 内容
+export function sanitizeHTML(htmlContent) {
+  return DOMPurify.sanitize(htmlContent, PURIFY_CONFIG)
 }
 

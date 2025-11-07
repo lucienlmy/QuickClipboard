@@ -16,9 +16,9 @@ function HtmlContent({ htmlContent, lineClampClass }) {
     
     processedRef.current = htmlContent
     
-    contentRef.current.innerHTML = htmlContent
+    const cleanHTML = sanitizeHTML(htmlContent)
     
-    sanitizeHTML(contentRef.current)
+    contentRef.current.innerHTML = cleanHTML
     
     const images = contentRef.current.querySelectorAll('img')
     
@@ -78,8 +78,11 @@ function HtmlContent({ htmlContent, lineClampClass }) {
         height: '100%',
         overflowY: 'auto',
         overflowX: 'hidden',
-        paddingRight: '4px'
+        paddingRight: '4px',
+        isolation: 'isolate',
+        contain: 'layout style paint'
       }}
+      data-html-content-scope="true"
     />
   )
 }

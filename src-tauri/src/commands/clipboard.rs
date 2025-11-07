@@ -61,7 +61,7 @@ pub struct PasteParams {
 
 // 粘贴剪贴板项或收藏项
 #[tauri::command]
-pub fn paste_content(params: PasteParams) -> Result<(), String> {
+pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), String> {
     use crate::services::database::get_favorite_by_id;
     use crate::services::paste::paste_handler::{
         paste_clipboard_item_with_update, 
@@ -112,6 +112,9 @@ pub fn paste_content(params: PasteParams) -> Result<(), String> {
         return Err("必须 clipboard_id 或 favorite_id".to_string());
     };
     
+    if let Some(window) = crate::get_main_window(&app) {
+        crate::hide_main_window(&window);
+    }
     Ok(())
 }
 
