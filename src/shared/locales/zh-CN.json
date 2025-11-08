@@ -33,7 +33,9 @@
     "title": "收藏",
     "empty": "暂无收藏内容",
     "add": "添加收藏",
-    "edit": "编辑收藏"
+    "edit": "编辑收藏",
+    "confirmDelete": "确定要删除此收藏项吗？",
+    "confirmDeleteTitle": "确认删除"
   },
   "groups": {
     "title": "分组",

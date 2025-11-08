@@ -33,7 +33,9 @@
     "title": "Favorites",
     "empty": "No favorites yet",
     "add": "Add Favorite",
-    "edit": "Edit Favorite"
+    "edit": "Edit Favorite",
+    "confirmDelete": "Are you sure you want to delete this favorite item?",
+    "confirmDeleteTitle": "Confirm Delete"
   },
   "groups": {
     "title": "Groups",

@@ -1,3 +1,4 @@
+import { pasteClipboardItem } from '@shared/store/clipboardStore'
 import { pasteFavorite } from '@shared/store/favoritesStore'
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx'
 import { useSortable, CSS } from '@shared/hooks/useSortable'
@@ -5,8 +6,18 @@ import { useSnapshot } from 'valtio'
 import { groupsStore } from '@shared/store/groupsStore'
 import { showFavoriteItemContextMenu } from '@shared/utils/contextMenu'
 import { getPrimaryType } from '@shared/utils/contentType'
+import { useTranslation } from 'react-i18next'
+import {
+  IconEdit,
+  IconTrash
+} from '@tabler/icons-react'
+import {
+  deleteFavorite
+} from '@shared/api'
+import { openEditorForFavorite } from '@shared/api/textEditor'
 
 function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onHover, onClick }) {
+  const { t } = useTranslation()
   const {
     settings,
     getHeightClass,
@@ -60,6 +71,30 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
     await showFavoriteItemContextMenu(e, item, index)
   }
 
+  // 处理编辑按钮点击
+  const handleEditClick = async (e) => {
+    e.stopPropagation()
+    try {
+      await openEditorForFavorite(item, index)
+    } catch (error) {
+      console.error('编辑失败:', error)
+    }
+  }
+
+  // 处理删除按钮点击
+  const handleDeleteClick = async (e) => {
+    e.stopPropagation()
+    try {
+      const result = await deleteFavorite(item.id)
+      if (!result?.cancelled) {
+        const { refreshFavorites } = await import('@shared/store/favoritesStore')
+        await refreshFavorites()
+      }
+    } catch (error) {
+      console.error('删除失败:', error)
+    }
+  }
+
   // 判断是否显示标题（纯文本和富文本显示标题）
   const shouldShowTitle = () => {
     const primaryType = getPrimaryType(contentType)
@@ -70,6 +105,51 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
   const selectedClasses = isSelected
     ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50'
     : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+
+  const smallElementClasses = `
+    flex items-center justify-center
+    w-5 h-5
+    text-xs font-medium
+    border rounded-md
+    transition-all
+  `.trim().replace(/\s+/g, ' ')
+
+  // 按钮样式
+  const actionButtonClasses = `
+    ${smallElementClasses}
+    text-gray-500 dark:text-gray-400
+    border-gray-200 dark:border-gray-600
+    bg-white/60 dark:bg-gray-900/60
+    backdrop-blur-md
+    hover:text-amber-600 dark:hover:text-amber-400
+    hover:border-amber-300 dark:hover:border-amber-700
+    hover:bg-amber-50/80 dark:hover:bg-amber-900/40
+    opacity-0 group-hover:opacity-100
+    focus:opacity-100
+  `.trim().replace(/\s+/g, ' ')
+
+  // 序号样式
+  const numberBadgeClasses = `
+    ${smallElementClasses}
+    text-blue-600 dark:text-blue-400
+    border-blue-200 dark:border-blue-700
+    bg-blue-50/80 dark:bg-blue-900/40
+    backdrop-blur-md
+    font-semibold
+  `.trim().replace(/\s+/g, ' ')
+
+  // 分组标签样式
+  const groupBadgeClasses = `
+    flex items-center justify-center
+    h-5 px-1.5
+    text-xs font-medium
+    border rounded-md
+    transition-all
+    text-gray-600 dark:text-gray-400
+    border-gray-200 dark:border-gray-600
+    bg-gray-100/80 dark:bg-gray-700/80
+    backdrop-blur-md
+  `.trim().replace(/\s+/g, ' ')
 
   // 小行高模式（不显示标题）
   if (settings.rowHeight === 'small') {
@@ -85,15 +165,38 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
         onMouseEnter={handleMouseEnter}
       >
         {/* 浮动的序号和分组 */}
-        <div className="absolute top-1 right-2 flex flex-col items-end gap-0.5 pointer-events-none">
-          <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-1 py-0.5 rounded-lg font-semibold min-w-[16px] text-center leading-tight">
+        <div className="absolute top-1 right-2 flex flex-col items-end gap-0 pointer-events-none">
+          <span className={numberBadgeClasses}>
             {index + 1}
           </span>
           {showGroupBadge && (
-            <span className="text-[9px] text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded font-medium leading-tight">
+            <span className={groupBadgeClasses}>
               {item.group_name}
             </span>
           )}
+        </div>
+
+        {/* 操作按钮区域 */}
+        <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto">
+          {/* 编辑按钮 */}
+          {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
+            <button
+              className={actionButtonClasses}
+              onClick={handleEditClick}
+              title={t('common.edit')}
+            >
+              <IconEdit size={12} />
+            </button>
+          )}
+
+          {/* 删除按钮 */}
+          <button
+            className={actionButtonClasses}
+            onClick={handleDeleteClick}
+            title={t('common.delete')}
+          >
+            <IconTrash size={12} />
+          </button>
         </div>
 
         {/* 内容区域 */}
@@ -120,14 +223,37 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
     >
       {/* 浮动的序号和分组 */}
       <div className="absolute top-1 right-2 flex flex-col items-end gap-0.5 pointer-events-none">
-        <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-1 py-0.5 rounded-lg font-semibold min-w-[16px] text-center leading-tight">
+        <span className={numberBadgeClasses}>
           {index + 1}
         </span>
         {showGroupBadge && (
-          <span className="text-[9px] text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded font-medium leading-tight">
+          <span className={groupBadgeClasses}>
             {item.group_name}
           </span>
         )}
+      </div>
+
+      {/* 操作按钮区域 */}
+      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto">
+        {/* 编辑按钮 */}
+        {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
+          <button
+            className={actionButtonClasses}
+            onClick={handleEditClick}
+            title={t('common.edit')}
+          >
+            <IconEdit size={12} />
+          </button>
+        )}
+
+        {/* 删除按钮 */}
+        <button
+          className={actionButtonClasses}
+          onClick={handleDeleteClick}
+          title={t('common.delete')}
+        >
+          <IconTrash size={12} />
+        </button>
       </div>
 
       {/* 时间戳 */}

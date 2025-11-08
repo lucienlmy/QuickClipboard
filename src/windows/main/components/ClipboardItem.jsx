@@ -3,8 +3,19 @@ import { useItemCommon } from '@shared/hooks/useItemCommon.jsx'
 import { useSortable, CSS } from '@shared/hooks/useSortable'
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu'
 import { getPrimaryType } from '@shared/utils/contentType'
+import { useTranslation } from 'react-i18next'
+import {
+  IconStar,
+  IconEdit,
+  IconTrash,
+} from '@tabler/icons-react'
+import {
+  addClipboardToFavorites,
+} from '@shared/api'
+import { openEditorForClipboard } from '@shared/api/textEditor'
 
 function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHover }) {
+  const { t } = useTranslation()
   const {
     settings,
     getHeightClass,
@@ -61,26 +72,35 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     await showClipboardItemContextMenu(e, item, index)
   }
 
-  // 获取简短显示内容（用于小行高模式）
-  const getShortContent = () => {
-    const primaryType = getPrimaryType(contentType)
-    if (primaryType === 'image') {
-      return '[图片]'
-    } else if (primaryType === 'file') {
-      try {
-        if (item.content?.startsWith('files:')) {
-          const filesData = JSON.parse(item.content.substring(6))
-          return `${filesData.files.length} 个文件`
-        }
-      } catch (e) {
-        return '[文件]'
-      }
-      return '[文件]'
-    } else if (primaryType === 'rich_text') {
-      // 富文本显示纯文本内容
-      return item.content || '[富文本]'
+  // 处理收藏按钮点击
+  const handleFavoriteClick = async (e) => {
+    e.stopPropagation()
+    try {
+      await addClipboardToFavorites(item.id)
+    } catch (error) {
+      console.error('添加到收藏失败:', error)
     }
-    return item.content || ''
+  }
+
+  // 处理编辑按钮点击
+  const handleEditClick = async (e) => {
+    e.stopPropagation()
+    try {
+      await openEditorForClipboard(item, index)
+    } catch (error) {
+      console.error('编辑失败:', error)
+    }
+  }
+
+  // 处理删除按钮点击
+  const handleDeleteClick = async (e) => {
+    e.stopPropagation()
+    try {
+      const { deleteClipboardItem } = await import('@shared/store/clipboardStore')
+      await deleteClipboardItem(item.id)
+    } catch (error) {
+      console.error('删除失败:', error)
+    }
   }
 
   // 快捷键提示
@@ -98,6 +118,51 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50'
     : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
+  const smallElementClasses = `
+    flex items-center justify-center
+    w-5 h-5
+    text-xs font-medium
+    border rounded-md
+    transition-all
+  `.trim().replace(/\s+/g, ' ')
+
+  // 按钮样式
+  const actionButtonClasses = `
+    ${smallElementClasses}
+    text-gray-500 dark:text-gray-400
+    border-gray-200 dark:border-gray-600
+    bg-white/60 dark:bg-gray-900/60
+    backdrop-blur-md
+    hover:text-blue-600 dark:hover:text-blue-400
+    hover:border-blue-300 dark:hover:border-blue-700
+    hover:bg-blue-50/80 dark:hover:bg-blue-900/40
+    opacity-0 group-hover:opacity-100
+    focus:opacity-100
+  `.trim().replace(/\s+/g, ' ')
+
+  // 序号样式
+  const numberBadgeClasses = `
+    ${smallElementClasses}
+    text-blue-600 dark:text-blue-400
+    border-blue-200 dark:border-blue-700
+    bg-blue-50/80 dark:bg-blue-900/40
+    backdrop-blur-md
+    font-semibold
+  `.trim().replace(/\s+/g, ' ')
+
+  // 快捷键样式
+  const shortcutClasses = `
+    flex items-center justify-center
+    h-5 px-1.5
+    text-xs font-medium
+    border rounded-md
+    transition-all
+    text-gray-500 dark:text-gray-400
+    border-gray-200 dark:border-gray-600
+    bg-gray-100/80 dark:bg-gray-800/80
+    backdrop-blur-md
+  `.trim().replace(/\s+/g, ' ')
+
   return (
     <div
       ref={setNodeRef}
@@ -110,17 +175,49 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
       className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`}
     >
       {/* 悬浮序号和快捷键提示 */}
-      <div className="absolute top-1 right-2 flex flex-col items-end gap-1 pointer-events-none">
+      <div className="absolute top-1 right-2 flex flex-col items-end gap-0 pointer-events-none">
         {/* 序号 */}
-        <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-1 py-0.5 rounded-lg font-semibold min-w-[16px] text-center leading-tight">
+        <span className={numberBadgeClasses}>
           {index + 1}
         </span>
         {/* 快捷键 */}
         {getShortcut() && (
-          <span className="text-[9px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded font-medium leading-tight">
+          <span className={shortcutClasses}>
             {getShortcut()}
           </span>
         )}
+      </div>
+
+      {/* 操作按钮区域 */}
+      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto">
+        {/* 收藏按钮 */}
+        <button
+          className={actionButtonClasses}
+          onClick={handleFavoriteClick}
+          title={t('contextMenu.addToFavorites')}
+        >
+          <IconStar size={12} />
+        </button>
+
+        {/* 编辑按钮 */}
+        {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
+          <button
+            className={actionButtonClasses}
+            onClick={handleEditClick}
+            title={t('common.edit')}
+          >
+            <IconEdit size={12} />
+          </button>
+        )}
+
+        {/* 删除按钮 */}
+        <button
+          className={actionButtonClasses}
+          onClick={handleDeleteClick}
+          title={t('common.delete')}
+        >
+          <IconTrash size={12} />
+        </button>
       </div>
 
       {isSmallHeight ? (
@@ -133,7 +230,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
             ) : (
               // 文本和富文本：显示文字内容
               <p className={`text-sm text-gray-800 dark:text-gray-200 break-all leading-relaxed ${getLineClampClass()}`}>
-                {getShortContent()}
+                {item.content || ''}
               </p>
             )}
           </div>

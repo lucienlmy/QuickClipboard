@@ -1,14 +1,15 @@
 import { invoke } from '@tauri-apps/api/core'
+import i18n from '@shared/i18n'
 
 // 分页查询收藏列表
 export async function getFavoritesHistory(params = {}) {
   const { offset = 0, limit = 50, groupName, search, contentType } = params
-  
+
   const invokeParams = { offset, limit }
   if (groupName && groupName !== '全部') invokeParams.groupName = groupName
   if (search) invokeParams.search = search
   if (contentType) invokeParams.contentType = contentType
-  
+
   return await invoke('get_favorites_history', invokeParams)
 }
 
@@ -35,6 +36,15 @@ export async function updateFavorite(id, title, content, groupName) {
 
 // 删除收藏
 export async function deleteFavorite(id) {
+  const { showConfirm } = await import('@shared/utils/dialog')
+  const confirmed = await showConfirm(
+    i18n.t('favorites.confirmDelete'),
+    i18n.t('favorites.confirmDeleteTitle')
+  )
+  if (!confirmed) {
+    return { cancelled: true }
+  }
+
   return await invoke('delete_quick_text', { id })
 }
 
@@ -54,13 +64,13 @@ export async function pasteFavorite(id, format = null) {
     if (format) {
       params.format = format
     }
-    
+
     await invoke('paste_content', { params })
-    
+
     // 检查是否启用一次性粘贴
     const { getToolState } = await import('@shared/services/toolActions')
     const isOneTimePasteEnabled = getToolState('one-time-paste-button')
-    
+
     if (isOneTimePasteEnabled) {
       try {
         await deleteFavorite(id)
@@ -72,7 +82,7 @@ export async function pasteFavorite(id, format = null) {
         console.error('一次性粘贴：删除收藏项失败', deleteError)
       }
     }
-    
+
     return true
   } catch (error) {
     console.error('粘贴收藏内容失败:', error)
