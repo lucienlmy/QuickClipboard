@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { bracketMatching, indentOnInput } from '@codemirror/language'
+import { bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { search, highlightSelectionMatches, searchKeymap } from '@codemirror/search'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { javascript } from '@codemirror/lang-javascript'
@@ -83,6 +83,7 @@ function TextEditor({ content, onContentChange, onStatsChange, wordWrap, languag
         history(),
         indentOnInput(),
         bracketMatching(),
+        syntaxHighlighting(defaultHighlightStyle),
         themeCompartment.current.of(isDark ? [oneDark, getCustomTheme(true)] : [getCustomTheme(false)]),
         languageCompartment.current.of(languageMap[language] || []),
         search({
@@ -91,7 +92,7 @@ function TextEditor({ content, onContentChange, onStatsChange, wordWrap, languag
         highlightSelectionMatches(),
         wrapCompartment.current.of(wordWrap ? EditorView.lineWrapping : []),
         keymap.of([
-          ...defaultKeymap, 
+          ...defaultKeymap,
           ...historyKeymap,
           ...searchKeymap,
         ]),
@@ -99,7 +100,7 @@ function TextEditor({ content, onContentChange, onStatsChange, wordWrap, languag
           if (update.docChanged) {
             const newContent = update.state.doc.toString()
             onContentChange(newContent)
-            
+
             const chars = newContent.length
             const lines = update.state.doc.lines
             onStatsChange({ chars, lines })
@@ -125,7 +126,7 @@ function TextEditor({ content, onContentChange, onStatsChange, wordWrap, languag
   // 更新内容
   useEffect(() => {
     if (!viewRef.current) return
-    
+
     const currentContent = viewRef.current.state.doc.toString()
     if (currentContent !== content) {
       viewRef.current.dispatch({
@@ -141,7 +142,7 @@ function TextEditor({ content, onContentChange, onStatsChange, wordWrap, languag
   // 更新换行设置
   useEffect(() => {
     if (!viewRef.current) return
-    
+
     viewRef.current.dispatch({
       effects: wrapCompartment.current.reconfigure(
         wordWrap ? EditorView.lineWrapping : []
@@ -152,7 +153,7 @@ function TextEditor({ content, onContentChange, onStatsChange, wordWrap, languag
   // 更新语言设置
   useEffect(() => {
     if (!viewRef.current) return
-    
+
     viewRef.current.dispatch({
       effects: languageCompartment.current.reconfigure(
         languageMap[language] || []
@@ -163,7 +164,7 @@ function TextEditor({ content, onContentChange, onStatsChange, wordWrap, languag
   // 更新主题设置
   useEffect(() => {
     if (!viewRef.current) return
-    
+
     viewRef.current.dispatch({
       effects: themeCompartment.current.reconfigure(
         isDark ? [oneDark, getCustomTheme(true)] : [getCustomTheme(false)]
