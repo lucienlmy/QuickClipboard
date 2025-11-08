@@ -62,18 +62,18 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
   const [activeId, setActiveId] = useState(null)
   const containerRef = useRef(null)
   const searchRef = useRef(null)
-  
+
   const isVertical = position === 'left' || position === 'right'
-  
+
   const dragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', '[data-tool-id]', 'input', 'textarea'],
     allowChildren: true
   })
-  
+
   // 点击外部折叠面板
   useEffect(() => {
     if (!isExpanded) return
-    
+
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         const toggleButton = e.target.closest('#tools-toggle')
@@ -82,38 +82,38 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
         }
       }
     }
-    
+
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isExpanded])
-  
+
   const allTools = [...layout.titlebar, ...layout.panel]
-  
+
   // 拖拽处理
   const handleDragStart = (event) => {
     setActiveId(event.active.id)
   }
-  
+
   const handleDragCancel = () => {
     setActiveId(null)
   }
-  
+
   const handleDragEnd = (event) => {
     const { active, over } = event
     setActiveId(null)
-    
+
     if (!over || active.id === over.id) return
-    
+
     const activeId = active.id
     const overId = over.id
-    
+
     // 确定源位置
     const fromLocation = layout.titlebar.includes(activeId) ? 'titlebar' : 'panel'
-    
+
     // 确定目标位置
     let toLocation = fromLocation
     let toIndex = -1
-    
+
     // 拖到标题栏放置区域
     if (overId === 'titlebar-drop-zone') {
       toLocation = 'titlebar'
@@ -126,7 +126,7 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
     } else {
       // 拖到具体的工具上
       toLocation = layout.titlebar.includes(overId) ? 'titlebar' : 'panel'
-      
+
       // 跨区域拖拽检查
       if (fromLocation !== toLocation && toLocation === 'titlebar') {
         if (layout.titlebar.length >= MAX_TITLEBAR_TOOLS) {
@@ -134,27 +134,27 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
           return
         }
       }
-      
+
       // 计算目标索引
       const toArray = toLocation === 'titlebar' ? layout.titlebar : layout.panel
       toIndex = toArray.findIndex(id => id === overId)
     }
-    
+
     toolsStore.moveTool(activeId, fromLocation, toLocation, toIndex >= 0 ? toIndex : (toLocation === 'titlebar' ? layout.titlebar.length : layout.panel.length))
   }
-  
+
   const {
     DndContext,
     SortableContext,
     sensors,
     collisionDetection,
   } = useSortableList({ items: allTools, onDragEnd: handleDragEnd })
-  
+
   // 获取当前拖拽项的位置
-  const activeLocation = activeId 
+  const activeLocation = activeId
     ? (layout.titlebar.includes(activeId) ? 'titlebar' : 'panel')
     : null
-  
+
   // 暴露搜索框的 focus 方法
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -165,13 +165,12 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
   }))
 
   return (
-    <div 
+    <div
       ref={dragRef}
-      className={`title-bar flex-shrink-0 flex ${
-        isVertical 
-          ? 'w-10 h-full flex-col items-center justify-between py-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-r border-gray-300/80 dark:border-gray-700/30' 
-          : 'h-9 flex-row items-center justify-between px-2 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30'
-      } shadow-sm transition-colors duration-500`}
+      className={`title-bar flex-shrink-0 flex ${isVertical
+        ? 'w-10 h-full flex-col items-center justify-between py-2 bg-white/80 border-r border-gray-200/80 dark:bg-gray-800/80 dark:border-gray-700/80'
+        : 'h-9 flex-row items-center justify-between px-2 bg-white/80 border-b border-gray-200/80 dark:bg-gray-800/80 dark:border-gray-700/80'
+        } shadow-sm transition-colors duration-500`}
     >
       {/* Logo */}
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
@@ -183,7 +182,7 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
       {/* 搜索 + 工具按钮容器 */}
       <div className={`flex ${isVertical ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1'} relative ${isVertical ? '' : 'flex-shrink-0'}`} ref={containerRef}>
         {/* 搜索框 */}
-        <TitleBarSearch 
+        <TitleBarSearch
           ref={searchRef}
           value={searchQuery}
           onChange={onSearchChange}
@@ -206,40 +205,38 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
                 <SortableToolItem key={toolId} toolId={toolId} location="titlebar" />
               ))}
             </DroppableTitlebar>
-            
+
             {/* 展开/折叠按钮 */}
             {layout.panel.length > 0 && (
               <button
                 id="tools-toggle"
-                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
-                  isExpanded
-                    ? 'bg-blue-500 text-white'
-                    : 'hover:bg-white/80 dark:hover:bg-gray-700/60 hover:shadow-sm hover:scale-105 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                }`}
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isExpanded
+                  ? 'bg-blue-500 text-white'
+                  : 'hover:bg-gray-100 text-gray-600 hover:text-blue-500 dark:hover:bg-gray-700 dark:text-gray-300'
+                  }`}
                 title={t('tools.panel')}
                 onClick={() => toolsStore.toggleExpand()}
               >
                 {isExpanded ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
               </button>
             )}
-            
+
             {/* 展开面板 */}
             {isExpanded && layout.panel.length > 0 && (
-              <div className={`tools-panel absolute ${
-                isVertical 
-                  ? (position === 'left' ? 'left-full bottom-0 ml-1' : 'right-full bottom-0 mr-1')
-                  : (position === 'bottom' ? 'bottom-full right-0 mb-1' : 'top-full right-0 mt-1')
-              } bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 px-2.5 z-40`}>
+              <div className={`tools-panel absolute ${isVertical
+                ? (position === 'left' ? 'left-full bottom-0 ml-1' : 'right-full bottom-0 mr-1')
+                : (position === 'bottom' ? 'bottom-full right-0 mb-1' : 'top-full right-0 mt-1')
+                } bg-white/80 border border-gray-200/80 rounded-lg shadow-lg py-2 px-2.5 z-40 backdrop-blur-sm dark:bg-gray-800/80 dark:border-gray-700/80`}>
                 <div className="flex flex-wrap gap-1.5 max-w-[200px]">
                   {layout.panel.map((toolId) => (
                     <SortableToolItem key={toolId} toolId={toolId} location="panel" />
                   ))}
                 </div>
-                
+
                 {/* 底部操作 */}
-                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="mt-2 pt-2 border-t border-gray-200/80 dark:border-gray-700/80">
                   <button
-                    className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors text-center py-1"
+                    className="w-full text-xs text-gray-600 hover:text-blue-500 transition-colors text-center py-1 dark:text-gray-300"
                     onClick={() => toolsStore.resetLayout()}
                   >
                     {t('tools.reset')}
@@ -248,7 +245,7 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
               </div>
             )}
           </SortableContext>
-          
+
           {/* 拖拽覆盖层 */}
           <DragOverlay dropAnimation={null} style={{ zIndex: 9999 }}>
             {activeId ? (

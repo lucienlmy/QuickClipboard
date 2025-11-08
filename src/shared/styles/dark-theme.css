@@ -43,8 +43,8 @@
 .dark .title-bar,
 .theme-dark .settings-header,
 .dark .settings-header {
-  background: var(--bg-tertiary) !important;
-  background-color: var(--bg-tertiary) !important;
+  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent) !important;
+  background-color: color-mix(in srgb, var(--bg-tertiary) 80%, transparent) !important;
   background-image: none !important;
   border-bottom-color: var(--border-primary) !important;
   color: var(--text-primary) !important;
@@ -67,7 +67,8 @@
 /* =================== Tab 导航 =================== */
 .theme-dark .tab-navigation,
 .dark .tab-navigation {
-  background: var(--bg-secondary) !important;
+  background: color-mix(in srgb, var(--bg-secondary) 80%, transparent) !important;
+  background-color: color-mix(in srgb, var(--bg-secondary) 80%, transparent) !important;
   background-image: none !important;
   border-bottom-color: var(--border-primary) !important;
 }
@@ -435,8 +436,8 @@
 }
 
 /* =================== 分隔线 =================== */
-.theme-dark .divide-gray-200 > * + *,
-.dark .divide-gray-200 > * + * {
+.theme-dark .divide-gray-200>*+*,
+.dark .divide-gray-200>*+* {
   border-color: var(--border-primary) !important;
 }
 
@@ -454,4 +455,3 @@
   background-color: #313131 !important;
   border: 0.1px solid #7c7c7c !important;
 }
-

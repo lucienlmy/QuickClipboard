@@ -77,7 +77,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
   }, [updateTabIndicator, updateFilterIndicator])
 
   return (
-    <div className="tab-navigation flex-shrink-0 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm transition-colors duration-500">
+    <div className="tab-navigation flex-shrink-0 bg-gray-100 dark:bg-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm transition-colors duration-500 tab-bar">
       <div className="flex items-stretch h-9">
         {/* 左侧：标签切换 - 50% */}
         <div className="flex-1 flex items-center px-2 relative">
@@ -113,7 +113,7 @@ function TabNavigation({ activeTab, onTabChange, contentFilter, onFilterChange }
         </div>
 
         {/* 分隔线 */}
-        <div className="w-px bg-gradient-to-b from-transparent via-gray-400/60 to-transparent dark:via-gray-600/60 my-1.5" />
+        <div className="w-px bg-gray-400/60 dark:bg-gray-600/60 my-1.5" />
 
         {/* 右侧：内容筛选 - 50% */}
         <div className="flex-1 flex items-center px-2 relative">

@@ -8,7 +8,7 @@ import BottomMenuPopup from './BottomMenuPopup'
 function FooterBar({ children }) {
   const { t } = useTranslation()
   const settings = useSnapshot(settingsStore)
-  
+
   // 使用自定义窗口拖拽，排除右侧自定义内容区域和所有按钮
   const dragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]'],
@@ -44,24 +44,23 @@ function FooterBar({ children }) {
   ]
 
   return (
-    <div 
+    <div
       ref={dragRef}
-      className="flex-shrink-0 h-5 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative"
+      className="flex-shrink-0 h-5 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative footer-bar"
     >
       {/* 左侧快捷键提示 */}
       <div className="flex items-center gap-2 text-[10px]">
         <span>Win+V {t('footer.openClipboard')}</span>
         {/* <span>Ctrl+1~9 {t('footer.pasteShortcut')}</span> */}
       </div>
-      
+
       {/* 右侧区域 - 绝对定位固定在右侧，标记为不可拖拽区域 */}
-      <div 
-        className="absolute right-3 top-0 h-full flex items-center gap-2 pl-4" 
+      <div
+        className="absolute right-3 top-0 h-full flex items-center gap-2 pl-4"
         data-no-drag
       >
         {/* 渐变遮罩 */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-200 to-gray-200 dark:via-gray-900 dark:to-gray-900" />
-        
+
         {/* 内容层 */}
         <div className="relative flex items-center gap-2">
           <BottomMenuPopup
@@ -71,7 +70,7 @@ function FooterBar({ children }) {
             menuItems={menuItems}
             width={120}
           />
-          
+
           {/* 自定义内容（分组按钮） */}
           {children}
         </div>

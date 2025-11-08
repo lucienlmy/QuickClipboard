@@ -24,7 +24,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
     }
     return arr
   }, [clipSnap.items, clipSnap.totalCount])
-  
+
   // 应用自定义滚动条
   useCustomScrollbar(scrollerElement)
 
@@ -33,7 +33,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
       setScrollerElement(element)
     }
   }, [])
-  
+
   // 为剪贴板项生成唯一 ID (使用时间戳+内容作为key)
   const itemsWithId = useMemo(() => {
     return itemsArray.map((item, index) => {
@@ -46,22 +46,22 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
       }
     })
   }, [itemsArray])
-  
+
   // 处理拖拽结束
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return
-    
+
     try {
       await moveClipboardItem(oldIndex, newIndex)
-      
+
       clipboardStore.items = new Map()
-      
+
     } catch (error) {
       console.error('移动剪贴板项失败:', error)
       clipboardStore.items = new Map()
     }
   }
-  
+
   // 拖拽上下文
   const {
     DndContext,
@@ -77,12 +77,12 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
     modifiers,
     collisionDetection,
   } = useSortableList({ items: itemsWithId, onDragEnd: handleDragEnd })
-  
+
   // 获取 activeItem 的索引
-  const activeIndex = activeItem 
+  const activeIndex = activeItem
     ? itemsWithId.findIndex(item => item._sortId === activeId || item.id === activeId)
     : -1
-  
+
   // 导航功能
   const {
     currentSelectedIndex,
@@ -105,16 +105,16 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
     },
     enabled: snap.activeTab === 'clipboard'
   })
-  
+
   // 根据可见范围加载数据
   const handleRangeChanged = useCallback(async (range) => {
     const { startIndex, endIndex } = range
-    
+
     // 检查范围内是否有未加载的数据
     let needsLoad = false
     let rangeStart = -1
     let rangeEnd = -1
-    
+
     for (let i = startIndex; i <= endIndex && i < clipSnap.totalCount; i++) {
       if (!clipSnap.items.has(i)) {
         needsLoad = true
@@ -124,17 +124,17 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
         rangeEnd = i
       }
     }
-    
+
     // 如果有未加载的数据，加载这个范围
     if (needsLoad && rangeStart !== -1) {
       // 扩展范围以预加载更多数据（前后各20项）
       const expandedStart = Math.max(0, rangeStart - 20)
       const expandedEnd = Math.min(clipSnap.totalCount - 1, rangeEnd + 20)
-      
+
       await loadClipboardRange(expandedStart, expandedEnd)
     }
   }, [clipSnap.totalCount, clipSnap.items])
-  
+
   // 首次加载：确保有 totalCount 时加载首屏数据
   useEffect(() => {
     if (clipSnap.totalCount > 0 && clipSnap.items.size === 0) {
@@ -142,7 +142,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
       loadClipboardRange(0, Math.min(49, clipSnap.totalCount - 1))
     }
   }, [clipSnap.totalCount, clipSnap.items.size])
-  
+
   // 暴露导航方法给父组件
   useImperativeHandle(ref, () => ({
     navigateUp,
@@ -170,7 +170,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
   // 获取默认项高度
   const getDefaultItemHeight = () => {
     switch (settings.rowHeight) {
-      case 'auto': return 90 
+      case 'auto': return 90
       case 'large': return 120
       case 'medium': return 90
       case 'small': return 50
@@ -187,7 +187,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
       onDragCancel={handleDragCancel}
       modifiers={modifiers}
     >
-      <div className="flex-1 bg-white dark:bg-gray-900 overflow-hidden custom-scrollbar-container transition-colors duration-500">
+      <div className="flex-1 bg-gray-50 dark:bg-gray-800 overflow-hidden custom-scrollbar-container transition-colors duration-500 clipboard-list">
         <SortableContext items={itemsWithId.map(item => item._sortId)} strategy={strategy}>
           <Virtuoso
             ref={virtuosoRef}
@@ -202,7 +202,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
             itemContent={(index) => {
               // 根据索引获取对应的项
               const item = itemsWithId[index]
-              
+
               // 如果是占位符或数据还没加载，显示骨架屏
               if (!item || item._isPlaceholder) {
                 return (
@@ -214,7 +214,7 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
                   </div>
                 )
               }
-              
+
               const getSkeletonHeight = () => {
                 switch (settings.rowHeight) {
                   case 'auto': return 'min-h-12 h-20'
@@ -227,11 +227,11 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
 
               const animationDelay = Math.min(index * 20, 100)
               const isAutoHeight = settings.rowHeight === 'auto'
-              
+
               return (
                 <div className="px-2.5 pb-2 pt-1 relative">
                   {/* 骨架层 */}
-                  <div 
+                  <div
                     className={`${isAutoHeight ? 'absolute inset-0' : ''} rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${getSkeletonHeight()} animate-pulse`}
                     style={{
                       animation: `pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite, fadeOut 0.3s ease-out ${animationDelay + 200}ms forwards`
@@ -240,17 +240,17 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
                     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
                     <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                   </div>
-                  
+
                   {/* 内容层 */}
-                  <div 
+                  <div
                     className={`${isAutoHeight ? 'relative' : 'absolute inset-0 px-2.5 pb-2 pt-1'} animate-slide-in-left-fast`}
                     style={{
                       animationDelay: `${animationDelay}ms`,
                       animationFillMode: 'backwards'
                     }}
                   >
-                    <ClipboardItem 
-                      item={item} 
+                    <ClipboardItem
+                      item={item}
                       index={index}
                       sortId={item._sortId}
                       isSelected={currentSelectedIndex === index}
@@ -271,12 +271,12 @@ const ClipboardList = forwardRef(({ onScrollStateChange }, ref) => {
           />
         </SortableContext>
       </div>
-      
+
       <DragOverlay>
         {activeItem && activeIndex !== -1 ? (
           <div className="px-2.5 pb-2 pt-1">
-            <ClipboardItem 
-              item={activeItem} 
+            <ClipboardItem
+              item={activeItem}
               index={activeIndex}
               sortId={activeItem._sortId}
             />

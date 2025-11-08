@@ -26,7 +26,7 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
     }
     return arr
   }, [favSnap.items, favSnap.totalCount])
-  
+
   // 应用自定义滚动条
   useCustomScrollbar(scrollerElement)
 
@@ -35,7 +35,7 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
       setScrollerElement(element)
     }
   }, [])
-  
+
   // 为收藏项生成唯一 ID
   const itemsWithId = useMemo(() => {
     return itemsArray.map((item, index) => {
@@ -48,11 +48,11 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
       }
     })
   }, [itemsArray])
-  
+
   // 处理拖拽结束
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return
-    
+
     try {
       await moveFavoriteItem(groupsSnap.currentGroup, oldIndex, newIndex)
 
@@ -63,7 +63,7 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
       favoritesStore.items = new Map()
     }
   }
-  
+
   // 拖拽上下文
   const {
     DndContext,
@@ -79,12 +79,12 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
     modifiers,
     collisionDetection,
   } = useSortableList({ items: itemsWithId, onDragEnd: handleDragEnd })
-  
+
   // 获取 activeItem 的索引
-  const activeIndex = activeItem 
+  const activeIndex = activeItem
     ? itemsWithId.findIndex(item => item._sortId === activeId || item.id === activeId)
     : -1
-  
+
   // 导航功能
   const {
     currentSelectedIndex,
@@ -106,16 +106,16 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
     },
     enabled: snap.activeTab === 'favorites'
   })
-  
+
   // 根据可见范围加载数据
   const handleRangeChanged = useCallback(async (range) => {
     const { startIndex, endIndex } = range
-    
+
     // 检查范围内是否有未加载的数据
     let needsLoad = false
     let rangeStart = -1
     let rangeEnd = -1
-    
+
     for (let i = startIndex; i <= endIndex && i < favSnap.totalCount; i++) {
       if (!favSnap.items.has(i)) {
         needsLoad = true
@@ -125,23 +125,23 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
         rangeEnd = i
       }
     }
-    
+
     // 如果有未加载的数据，加载这个范围
     if (needsLoad && rangeStart !== -1) {
       // 扩展范围以预加载更多数据（前后各20项）
       const expandedStart = Math.max(0, rangeStart - 20)
       const expandedEnd = Math.min(favSnap.totalCount - 1, rangeEnd + 20)
-      
+
       await loadFavoritesRange(expandedStart, expandedEnd, groupsSnap.currentGroup)
     }
   }, [favSnap.totalCount, favSnap.items, groupsSnap.currentGroup])
-  
+
   useEffect(() => {
     if (favSnap.totalCount > 0 && favSnap.items.size === 0) {
       loadFavoritesRange(0, Math.min(49, favSnap.totalCount - 1), groupsSnap.currentGroup)
     }
   }, [favSnap.totalCount, favSnap.items.size])
-  
+
   // 暴露导航方法给父组件
   useImperativeHandle(ref, () => ({
     navigateUp,
@@ -186,7 +186,7 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
       onDragCancel={handleDragCancel}
       modifiers={modifiers}
     >
-      <div className="flex-1 bg-white dark:bg-gray-900 overflow-hidden custom-scrollbar-container transition-colors duration-500">
+      <div className="flex-1 bg-gray-50 dark:bg-gray-800 overflow-hidden custom-scrollbar-container transition-colors duration-500 favorites-list">
         <SortableContext items={itemsWithId.map(item => item._sortId)} strategy={strategy}>
           <Virtuoso
             ref={virtuosoRef}
@@ -211,7 +211,7 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
                   </div>
                 )
               }
-              
+
               const getSkeletonHeight = () => {
                 switch (settings.rowHeight) {
                   case 'auto': return 'min-h-12 h-20'
@@ -224,11 +224,11 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
 
               const animationDelay = Math.min(index * 20, 100)
               const isAutoHeight = settings.rowHeight === 'auto'
-              
+
               return (
                 <div className="px-2.5 pb-2 pt-1 relative">
                   {/* 骨架层 */}
-                  <div 
+                  <div
                     className={`${isAutoHeight ? 'absolute inset-0' : ''} rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${getSkeletonHeight()} animate-pulse`}
                     style={{
                       animation: `pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite, fadeOut 0.3s ease-out ${animationDelay + 200}ms forwards`
@@ -237,17 +237,17 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
                     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
                     <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                   </div>
-                  
+
                   {/* 内容层 */}
-                  <div 
+                  <div
                     className={`${isAutoHeight ? 'relative' : 'absolute inset-0 px-2.5 pb-2 pt-1'} animate-slide-in-left-fast`}
                     style={{
                       animationDelay: `${animationDelay}ms`,
                       animationFillMode: 'backwards'
                     }}
                   >
-                    <FavoriteItem 
-                      item={item} 
+                    <FavoriteItem
+                      item={item}
                       index={index}
                       sortId={item._sortId}
                       isSelected={currentSelectedIndex === index}
@@ -268,12 +268,12 @@ const FavoritesList = forwardRef(({ onScrollStateChange }, ref) => {
           />
         </SortableContext>
       </div>
-      
+
       <DragOverlay>
         {activeItem && activeIndex !== -1 ? (
           <div className="px-2.5 pb-2 pt-1">
-            <FavoriteItem 
-              item={activeItem} 
+            <FavoriteItem
+              item={activeItem}
               index={activeIndex}
               sortId={activeItem._sortId}
             />

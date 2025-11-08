@@ -40,8 +40,8 @@ function FilterButton({ id, label, icon: Icon, isActive, onClick, buttonRef }) {
           relative z-10 flex items-center justify-center w-full h-full rounded-lg 
           focus:outline-none active:scale-95
           ${isActive
-            ? 'text-white'
-            : 'text-gray-600 dark:text-gray-400 hover:bg-white/40 dark:hover:bg-gray-700/40 hover:shadow-sm hover:scale-105 hover:text-gray-800 dark:hover:text-gray-200'
+            ? 'bg-blue-500 text-white shadow-md'
+            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
           }
         `}
         style={{

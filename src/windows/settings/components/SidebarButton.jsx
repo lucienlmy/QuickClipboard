@@ -38,10 +38,9 @@ function SidebarButton({ id, icon: Icon, label, isActive, onClick, index }) {
           group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium 
           focus:outline-none active:scale-[0.98]
           animate-slide-in-left-fast
-          ${
-            isActive
-              ? 'bg-blue-500 text-white shadow-md scale-[1.02] animate-button-bounce'
-              : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700/50 hover:shadow-sm hover:scale-[1.01] hover:translate-x-0.5'
+          ${isActive
+            ? 'bg-blue-500 text-white shadow-md scale-[1.02] animate-button-bounce'
+            : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700/50 hover:shadow-sm hover:scale-[1.01] hover:translate-x-0.5'
           }
         `}
         style={{
@@ -51,8 +50,8 @@ function SidebarButton({ id, icon: Icon, label, isActive, onClick, index }) {
           transitionDuration: '200ms, 200ms, 500ms, 500ms'
         }}
       >
-        <Icon 
-          size={18} 
+        <Icon
+          size={18}
           strokeWidth={2}
           className={`
             transition-transform duration-200

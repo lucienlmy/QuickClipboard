@@ -14,11 +14,11 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
     formatTime,
     renderContent
   } = useItemCommon(item)
-  
+
   const isFileType = getPrimaryType(contentType) === 'file';
   const groups = useSnapshot(groupsStore)
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部'
-  
+
   // 拖拽功能
   const {
     attributes,
@@ -36,7 +36,7 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
     cursor: isDragging ? 'grabbing' : 'pointer',
     zIndex: isDragging ? 1000 : 'auto',
   }
-  
+
   // 点击粘贴
   const handleClick = async () => {
     try {
@@ -45,7 +45,7 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       console.error('粘贴收藏项失败:', err)
     }
   }
-  
+
   // 处理鼠标悬停
   const handleMouseEnter = () => {
     if (onHover) {
@@ -65,9 +65,9 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
     const primaryType = getPrimaryType(contentType)
     return (primaryType === 'text' || primaryType === 'rich_text') && item.title
   }
-  
+
   // 键盘选中样式
-  const selectedClasses = isSelected 
+  const selectedClasses = isSelected
     ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50'
     : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 

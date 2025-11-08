@@ -4,13 +4,13 @@ import { useSnapshot } from 'valtio'
 import { settingsStore, initSettings } from '@shared/store/settingsStore'
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
 import { useSettingsSync } from '@shared/hooks/useSettingsSync'
-import { 
-  getClipboardItemById, 
-  getFavoriteItemById, 
-  updateClipboardItem, 
-  updateFavorite, 
-  addFavorite, 
-  getGroups 
+import {
+  getClipboardItemById,
+  getFavoriteItemById,
+  updateClipboardItem,
+  updateFavorite,
+  addFavorite,
+  getGroups
 } from '@shared/api'
 import TitleBar from './components/TitleBar'
 import EditorToolbar from './components/EditorToolbar'
@@ -40,13 +40,15 @@ function App() {
   useEffect(() => {
     const init = async () => {
       await initSettings()
-      applyThemeToBody(settingsStore.theme, 'text-editor')
+      const editorTheme = settingsStore.theme === 'background' ? 'light' : settingsStore.theme
+      applyThemeToBody(editorTheme, 'text-editor')
     }
     init()
   }, [])
 
   useEffect(() => {
-    applyThemeToBody(theme, 'text-editor')
+    const editorTheme = theme === 'background' ? 'light' : theme
+    applyThemeToBody(editorTheme, 'text-editor')
   }, [theme, effectiveTheme])
 
   // 加载分组列表
@@ -88,7 +90,7 @@ function App() {
         if (type === 'clipboard') {
           const numericId = parseInt(id)
           const item = await getClipboardItemById(numericId)
-          
+
           const displayTitle = t('textEditor.clipboardItem', { number: parseInt(index) })
           setEditorData({ id: item.id, type: 'clipboard', index: parseInt(index) })
           setTitle(displayTitle)
@@ -97,11 +99,11 @@ function App() {
           setOriginalContent(item.content || '')
         } else if (type === 'favorite') {
           const item = await getFavoriteItemById(id)
-          
-          setEditorData({ 
-            id: item.id, 
-            type: 'favorite', 
-            groupId: item.group_name || null 
+
+          setEditorData({
+            id: item.id,
+            type: 'favorite',
+            groupId: item.group_name || null
           })
           setTitle(item.title || '')
           setOriginalTitle(item.title || '')
@@ -140,7 +142,7 @@ function App() {
       setOriginalContent(content)
       setOriginalTitle(title)
       setHasChanges(false)
-      
+
       const { Window } = await import('@tauri-apps/api/window')
       const currentWindow = Window.getCurrent()
       await currentWindow.close()
@@ -169,11 +171,11 @@ function App() {
 
   return (
     <div className={containerClasses}>
-      <TitleBar 
+      <TitleBar
         title={title}
         hasChanges={hasChanges}
       />
-      
+
       <EditorToolbar
         onReset={handleReset}
         title={title}
@@ -188,7 +190,7 @@ function App() {
         onGroupChange={setSelectedGroup}
         showGroupSelector={editorData?.type === 'favorite'}
       />
-      
+
       <TextEditor
         content={content}
         onContentChange={setContent}
@@ -199,7 +201,7 @@ function App() {
         wordWrap={wordWrap}
         language={language}
       />
-      
+
       <StatusBar
         charCount={charCount}
         lineCount={lineCount}
@@ -207,7 +209,7 @@ function App() {
         onSave={handleSave}
         onCancel={handleCancel}
       />
-      
+
       <ToastContainer />
     </div>
   )

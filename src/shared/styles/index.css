@@ -1,7 +1,6 @@
 @import './htmlContent.css';
 @import './customScrollbar.css';
 @import './animations.css';
-@import './theme-background.css';
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -72,4 +71,3 @@ body {
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(75, 85, 99, 0.7);
 }
-

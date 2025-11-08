@@ -5,22 +5,22 @@ export async function getDominantColor(imageUrl) {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'Anonymous'
-    
+
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
-        
+
         // 调整图片大小
         const maxSize = 480
         const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1)
         canvas.width = img.width * ratio
         canvas.height = img.height * ratio
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        
+
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const data = imageData.data
-        
+
         // 提取像素
         const pixels = []
         const step = 4
@@ -32,53 +32,53 @@ export async function getDominantColor(imageUrl) {
           if (a < 128) continue
           pixels.push([r, g, b])
         }
-        
+
         if (pixels.length === 0) {
           return resolve({ r: 128, g: 128, b: 128, brightness: 0.5 })
         }
-        
+
         // Median Cut 聚类
         const clusters = medianCut(pixels, 6)
-        
+
         // 选择最佳颜色
         let bestColor = null
         let bestScore = -1
-        
+
         for (const cluster of clusters) {
           if (cluster.length === 0) continue
           const [r, g, b] = averageColor(cluster)
           const { s, l } = rgbToHsl(r, g, b)
-          
+
           // 过滤极端颜色
           if (l < 10 || l > 92) continue
           if (s < 12 && l > 70) continue
-          
+
           // 计算分数（考虑饱和度和亮度）
           const score = cluster.length * (1 + s / 100) * (0.6 + l / 200)
-          
+
           if (score > bestScore) {
             bestScore = score
             bestColor = { r, g, b }
           }
         }
-        
+
         if (!bestColor) bestColor = { r: 128, g: 128, b: 128 }
-        
+
         // 计算亮度
         const brightness = (bestColor.r * 0.299 + bestColor.g * 0.587 + bestColor.b * 0.114) / 255
-        
+
         resolve({ ...bestColor, brightness })
       } catch (error) {
         reject(error)
       }
     }
-    
+
     img.onerror = () => {
       reject(new Error('Failed to load image'))
     }
-    
+
     img.src = imageUrl
-    
+
     // 超时保护
     setTimeout(() => resolve({ r: 74, g: 137, b: 220, brightness: 0.5 }), 3000)
   })
@@ -87,43 +87,43 @@ export async function getDominantColor(imageUrl) {
 // Median Cut 聚类算法
 function medianCut(pixels, maxClusters) {
   let clusters = [pixels]
-  
+
   while (clusters.length < maxClusters) {
     let maxRangeClusterIndex = -1
     let maxRange = -1
-    
+
     for (let i = 0; i < clusters.length; i++) {
       const cluster = clusters[i]
       if (cluster.length <= 1) continue
-      
+
       const ranges = getColorRange(cluster)
       const range = Math.max(...ranges)
-      
+
       if (range > maxRange) {
         maxRange = range
         maxRangeClusterIndex = i
       }
     }
-    
+
     if (maxRangeClusterIndex === -1) break
-    
+
     const cluster = clusters[maxRangeClusterIndex]
     const ranges = getColorRange(cluster)
     const channel = ranges.indexOf(maxRange)
-    
+
     cluster.sort((a, b) => a[channel] - b[channel])
     const mid = Math.floor(cluster.length / 2)
-    
+
     clusters.splice(maxRangeClusterIndex, 1, cluster.slice(0, mid), cluster.slice(mid))
   }
-  
+
   return clusters
 }
 
 function getColorRange(cluster) {
   let minR = 255, minG = 255, minB = 255
   let maxR = 0, maxG = 0, maxB = 0
-  
+
   for (const [r, g, b] of cluster) {
     if (r < minR) minR = r
     if (g < minG) minG = g
@@ -132,7 +132,7 @@ function getColorRange(cluster) {
     if (g > maxG) maxG = g
     if (b > maxB) maxB = b
   }
-  
+
   return [maxR - minR, maxG - minG, maxB - minB]
 }
 
@@ -152,15 +152,15 @@ function rgbToHsl(r, g, b) {
   r /= 255
   g /= 255
   b /= 255
-  
+
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   let h = 0, s = 0, l = (max + min) / 2
-  
+
   const d = max - min
   if (d !== 0) {
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-    
+
     switch (max) {
       case r:
         h = (g - b) / d + (g < b ? 6 : 0)
@@ -174,7 +174,7 @@ function rgbToHsl(r, g, b) {
     }
     h /= 6
   }
-  
+
   return { h: h * 360, s: s * 100, l: l * 100 }
 }
 
@@ -183,12 +183,12 @@ function hslToRgb(h, s, l) {
   h /= 360
   s /= 100
   l /= 100
-  
+
   if (s === 0) {
     const v = Math.round(l * 255)
     return { r: v, g: v, b: v }
   }
-  
+
   const hue2rgb = (p, q, t) => {
     if (t < 0) t += 1
     if (t > 1) t -= 1
@@ -197,13 +197,13 @@ function hslToRgb(h, s, l) {
     if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
     return p
   }
-  
+
   const q = l < 0.5 ? l * (1 + s) : l + s - l * s
   const p = 2 * l - q
   const r = hue2rgb(p, q, h + 1 / 3)
   const g = hue2rgb(p, q, h)
   const b = hue2rgb(p, q, h - 1 / 3)
-  
+
   return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) }
 }
 
@@ -284,13 +284,13 @@ function generateAccessibleTextColor(backgroundColor, options = {}) {
 // 根据主色调生成完整的主题色系统
 export function generateTitleBarColors(dominantColor) {
   const { r, g, b, brightness } = dominantColor
-  
+
   // 生成文字颜色（使用较低的对比度要求，允许色相偏移）
   const textColor = generateAccessibleTextColor({ r, g, b }, { minContrastRatio: 3.2, maxHueShift: 18 })
-  
+
   // 标题栏背景色（完全不透明，透明度在 CSS 中用 color-mix 控制）
   const backgroundColor = `rgb(${r}, ${g}, ${b})`
-  
+
   // 边框颜色
   let borderColor
   if (brightness > 0.5) {
@@ -300,17 +300,17 @@ export function generateTitleBarColors(dominantColor) {
     const factor = 1.3
     borderColor = `rgba(${Math.min(255, Math.floor(r * factor))}, ${Math.min(255, Math.floor(g * factor))}, ${Math.min(255, Math.floor(b * factor))}, 0.3)`
   }
-  
+
   // 生成主题色系统
   const { h, s } = rgbToHsl(r, g, b)
   const baseS = clamp(s * 1.1, 35, 85)
   const baseL = 52
-  
+
   const primary = hslToRgb(h, baseS, baseL)
   const hover = hslToRgb(h, baseS, clamp(baseL - 8, 20, 80))
   const dark = hslToRgb(h, baseS, clamp(baseL - 18, 10, 70))
   const light = hslToRgb(h, clamp(baseS * 0.4, 10, 60), 94)
-  
+
   return {
     textColor,
     backgroundColor,
@@ -323,39 +323,40 @@ export function generateTitleBarColors(dominantColor) {
   }
 }
 
-// 应用标题栏颜色到 CSS 变量
+// 应用标题栏颜色到 CSS 变量（简化版本）
 export function applyTitleBarColors(colors) {
   if (typeof document === 'undefined') return
-  
+
   const root = document.documentElement
-  
-  root.style.setProperty('--titlebar-bg-dynamic', colors.backgroundColor)
-  root.style.setProperty('--titlebar-text-dynamic', colors.textColor)
-  root.style.setProperty('--titlebar-border-dynamic', colors.borderColor)
-  
+
+  // 使用新的CSS变量命名
+  root.style.setProperty('--bg-titlebar-bg', colors.backgroundColor)
+  root.style.setProperty('--bg-titlebar-text', colors.textColor)
+  root.style.setProperty('--bg-titlebar-border', colors.borderColor)
+
   // 设置主题色系统
-  if (colors.accentPrimary) root.style.setProperty('--primary-color', colors.accentPrimary)
-  if (colors.accentHover) root.style.setProperty('--primary-hover', colors.accentHover)
-  if (colors.accentLight) root.style.setProperty('--primary-light', colors.accentLight)
-  if (colors.accentDark) root.style.setProperty('--primary-dark', colors.accentDark)
-  
+  if (colors.accentPrimary) root.style.setProperty('--bg-dynamic-primary', colors.accentPrimary)
+  if (colors.accentHover) root.style.setProperty('--bg-dynamic-hover', colors.accentHover)
+  if (colors.accentLight) root.style.setProperty('--bg-dynamic-light', colors.accentLight)
+  if (colors.accentDark) root.style.setProperty('--bg-dynamic-dark', colors.accentDark)
+
   // 添加标记类，表示使用了动态颜色
   document.body.classList.add('has-dynamic-titlebar')
 }
 
-// 移除标题栏动态颜色
+// 移除标题栏动态颜色（简化版本）
 export function removeTitleBarColors() {
   if (typeof document === 'undefined') return
-  
+
   const root = document.documentElement
-  root.style.removeProperty('--titlebar-bg-dynamic')
-  root.style.removeProperty('--titlebar-text-dynamic')
-  root.style.removeProperty('--titlebar-border-dynamic')
-  root.style.removeProperty('--primary-color')
-  root.style.removeProperty('--primary-hover')
-  root.style.removeProperty('--primary-light')
-  root.style.removeProperty('--primary-dark')
-  
+  root.style.removeProperty('--bg-titlebar-bg')
+  root.style.removeProperty('--bg-titlebar-text')
+  root.style.removeProperty('--bg-titlebar-border')
+  root.style.removeProperty('--bg-dynamic-primary')
+  root.style.removeProperty('--bg-dynamic-hover')
+  root.style.removeProperty('--bg-dynamic-light')
+  root.style.removeProperty('--bg-dynamic-dark')
+
   document.body.classList.remove('has-dynamic-titlebar')
 }
 
@@ -369,7 +370,7 @@ function preloadBackgroundImage(url) {
       resolve()
     }
     img.src = url
-    
+
     // 超时保护
     setTimeout(() => resolve(), 3000)
   })
@@ -382,28 +383,28 @@ export async function applyBackgroundImage(options) {
     backgroundImagePath,
     windowName = 'window'
   } = options
-  
+
   try {
     const container = document.querySelector(containerSelector)
     if (!container) {
       console.warn(`Container ${containerSelector} not found`)
       return
     }
-    
+
     if (backgroundImagePath) {
       // 转换文件路径为资源URL
       const assetUrl = convertFileSrc(backgroundImagePath, 'asset')
-      
+
       // 预加载图片
       await preloadBackgroundImage(assetUrl)
-      
+
       // 设置背景图（使用 !important 确保优先级）
       container.style.setProperty('background-image', `url("${assetUrl}")`, 'important')
       container.style.setProperty('background-size', 'cover', 'important')
       container.style.setProperty('background-position', 'center', 'important')
       container.style.setProperty('background-repeat', 'no-repeat', 'important')
       container.style.setProperty('background-color', 'transparent', 'important')
-      
+
       // 分析背景图主色调并应用到标题栏
       try {
         const dominantColor = await getDominantColor(assetUrl)

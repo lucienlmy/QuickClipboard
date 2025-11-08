@@ -39,8 +39,8 @@ function TabButton({ id, label, isActive, onClick, index, buttonRef }) {
           relative z-10 w-full py-1 text-sm font-medium rounded-lg 
           focus:outline-none active:scale-95
           ${isActive
-            ? 'text-white'
-            : 'text-gray-700 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-gray-700/40 hover:shadow-sm'
+            ? 'bg-blue-500 text-white hover:bg-blue-600'
+            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
           }
         `}
         style={{

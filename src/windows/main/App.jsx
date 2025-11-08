@@ -33,18 +33,18 @@ function App() {
   const favoritesTabRef = useRef(null)
   const groupsPopupRef = useRef(null)
   const searchRef = useRef(null)
-  
+
   // 监听设置变更事件（跨窗口同步）
   useSettingsSync()
-  
+
   // 窗口动画
   useWindowAnimation()
-  
+
   // 同步当前标签页到导航store
   useEffect(() => {
     navigationStore.setActiveTab(activeTab)
   }, [activeTab])
-  
+
   useEffect(() => {
     const setupListeners = async () => {
       const handleWindowShow = () => {
@@ -57,7 +57,7 @@ function App() {
           }, 50)
         }
       }
-      
+
       const unlisten1 = await listen('window-show-animation', handleWindowShow)
       const unlisten2 = await listen('edge-snap-bounce-animation', handleWindowShow)
       return () => { unlisten1(); unlisten2() }
@@ -65,23 +65,23 @@ function App() {
     let cleanup = setupListeners()
     return () => cleanup.then(fn => fn())
   }, [])
-  
+
   useEffect(() => {
     let resizeTimer = null
     let moveTimer = null
-    
+
     const handleResize = async () => {
       if (!settingsStore.rememberWindowSize) {
         return
       }
-      
+
       if (resizeTimer) clearTimeout(resizeTimer)
-      
+
       resizeTimer = setTimeout(async () => {
         try {
           const appWindow = getCurrentWindow()
           const size = await appWindow.outerSize()
-          
+
           const { saveWindowSize } = await import('@shared/api/settings')
           await saveWindowSize(size.width, size.height)
         } catch (error) {
@@ -89,19 +89,19 @@ function App() {
         }
       }, 500)
     }
-    
+
     const handleMove = async () => {
       if (settingsStore.windowPositionMode !== 'remember') {
         return
       }
-      
+
       if (moveTimer) clearTimeout(moveTimer)
-      
+
       moveTimer = setTimeout(async () => {
         try {
           const appWindow = getCurrentWindow()
           const position = await appWindow.outerPosition()
-          
+
           const { saveWindowPosition } = await import('@shared/api/settings')
           await saveWindowPosition(position.x, position.y)
         } catch (error) {
@@ -109,23 +109,23 @@ function App() {
         }
       }, 500)
     }
-    
+
     const setupListeners = async () => {
       const appWindow = getCurrentWindow()
       const unlistenResize = await appWindow.onResized(handleResize)
       const unlistenMove = await appWindow.onMoved(handleMove)
       return () => { unlistenResize(); unlistenMove() }
     }
-    
+
     let cleanup = setupListeners()
-    
+
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer)
       if (moveTimer) clearTimeout(moveTimer)
       cleanup.then(fn => fn())
     }
   }, [])
-  
+
   // 主内容区域拖拽，排除所有交互元素和列表项
   const contentDragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', 'a', 'input', 'textarea'],
@@ -159,7 +159,7 @@ function App() {
     const { initFavorites } = await import('@shared/store/favoritesStore')
     await initFavorites(groupName)
   }
-  
+
   // 导航键盘事件处理
   const handleNavigateUp = () => {
     if (activeTab === 'clipboard' && clipboardTabRef.current?.navigateUp) {
@@ -168,7 +168,7 @@ function App() {
       favoritesTabRef.current.navigateUp()
     }
   }
-  
+
   const handleNavigateDown = () => {
     if (activeTab === 'clipboard' && clipboardTabRef.current?.navigateDown) {
       clipboardTabRef.current.navigateDown()
@@ -176,7 +176,7 @@ function App() {
       favoritesTabRef.current.navigateDown()
     }
   }
-  
+
   const handleExecuteItem = () => {
     if (activeTab === 'clipboard' && clipboardTabRef.current?.executeCurrentItem) {
       clipboardTabRef.current.executeCurrentItem()
@@ -184,27 +184,27 @@ function App() {
       favoritesTabRef.current.executeCurrentItem()
     }
   }
-  
+
   const handleTabLeft = () => {
     const tabs = ['clipboard', 'favorites']
     const currentIndex = tabs.indexOf(activeTab)
     const newIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1
-    setActiveTab(tabs[newIndex])        
-  }               
-  
+    setActiveTab(tabs[newIndex])
+  }
+
   const handleTabRight = () => {
     const tabs = ['clipboard', 'favorites']
     const currentIndex = tabs.indexOf(activeTab)
     const newIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1
     setActiveTab(tabs[newIndex])
   }
-  
+
   const handleFocusSearch = () => {
     if (searchRef.current?.focus) {
       searchRef.current.focus()
     }
   }
-  
+
   // 处理搜索框内的导航操作
   const handleSearchNavigate = (direction) => {
     if (direction === 'up') {
@@ -215,7 +215,7 @@ function App() {
       handleExecuteItem()
     }
   }
-  
+
   // 固定/取消固定窗口
   const handleTogglePin = async () => {
     try {
@@ -224,49 +224,49 @@ function App() {
       console.error('切换窗口固定状态失败:', error)
     }
   }
-  
+
   // 切换到上一个分组
   const handlePreviousGroup = () => {
     if (activeTab !== 'favorites') {
       setActiveTab('favorites')
     }
-    
+
     const groups = groupsStore.groups
     if (groups.length === 0) return
-    
+
     const currentIndex = groups.findIndex(g => g.name === groupsStore.currentGroup)
     const prevIndex = currentIndex <= 0 ? groups.length - 1 : currentIndex - 1
     const prevGroup = groups[prevIndex]
-    
+
     groupsStore.setCurrentGroup(prevGroup.name)
     handleGroupChange(prevGroup.name)
-    
+
     if (groupsPopupRef.current?.showTemporarily) {
       groupsPopupRef.current.showTemporarily()
     }
   }
-  
+
   // 切换到下一个分组
   const handleNextGroup = () => {
     if (activeTab !== 'favorites') {
       setActiveTab('favorites')
     }
-    
+
     const groups = groupsStore.groups
     if (groups.length === 0) return
-    
+
     const currentIndex = groups.findIndex(g => g.name === groupsStore.currentGroup)
     const nextIndex = currentIndex >= groups.length - 1 ? 0 : currentIndex + 1
     const nextGroup = groups[nextIndex]
-    
+
     groupsStore.setCurrentGroup(nextGroup.name)
     handleGroupChange(nextGroup.name)
-    
+
     if (groupsPopupRef.current?.showTemporarily) {
       groupsPopupRef.current.showTemporarily()
     }
   }
-  
+
   // 设置全局键盘导航
   useNavigationKeyboard({
     onNavigateUp: handleNavigateUp,
@@ -283,7 +283,7 @@ function App() {
 
   const outerContainerClasses = `
     h-screen w-screen 
-    ${isDark && !isBackground ? 'dark' : ''}
+    ${isDark ? 'dark' : ''}
   `.trim().replace(/\s+/g, ' ')
 
   const containerClasses = `
@@ -292,12 +292,12 @@ function App() {
     flex ${settings.titleBarPosition === 'left' || settings.titleBarPosition === 'right' ? 'flex-row' : 'flex-col'}
     overflow-hidden
     transition-colors duration-500 ease-in-out
-    ${isDark && !isBackground ? 'bg-gray-900' : ''}
-    ${!isDark && !isBackground ? 'bg-white' : ''}
+    ${isDark ? 'bg-gray-900' : ''}
+    ${!isDark ? 'bg-white' : ''}
   `.trim().replace(/\s+/g, ' ')
-  
+
   const TitleBarComponent = (
-    <TitleBar 
+    <TitleBar
       ref={searchRef}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
@@ -306,46 +306,46 @@ function App() {
       position={settings.titleBarPosition}
     />
   )
-  
+
   const TabNavigationComponent = (
-    <TabNavigation 
+    <TabNavigation
       activeTab={activeTab}
       onTabChange={setActiveTab}
       contentFilter={contentFilter}
       onFilterChange={setContentFilter}
     />
   )
-  
+
   const ContentComponent = (
     <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
       {activeTab === 'clipboard' && (
-        <ClipboardTab 
+        <ClipboardTab
           ref={clipboardTabRef}
-          contentFilter={contentFilter} 
-          searchQuery={searchQuery} 
+          contentFilter={contentFilter}
+          searchQuery={searchQuery}
         />
       )}
       {activeTab === 'favorites' && (
-        <FavoritesTab 
+        <FavoritesTab
           ref={favoritesTabRef}
-          contentFilter={contentFilter} 
-          searchQuery={searchQuery} 
+          contentFilter={contentFilter}
+          searchQuery={searchQuery}
         />
       )}
     </div>
   )
-  
+
   const FooterComponent = (
     <FooterBar>
-      <GroupsPopup 
+      <GroupsPopup
         ref={groupsPopupRef}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onGroupChange={handleGroupChange} 
+        onGroupChange={handleGroupChange}
       />
     </FooterBar>
   )
-  
+
   const renderLayout = () => {
     switch (settings.titleBarPosition) {
       case 'top':
@@ -406,9 +406,9 @@ function App() {
 
   return (
     <div className={outerContainerClasses} style={{ padding: '5px' }}>
-      <div 
-        className={containerClasses} 
-        style={{ 
+      <div
+        className={containerClasses}
+        style={{
           borderRadius: '8px',
           boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
         }}

@@ -31,7 +31,7 @@ function SettingsHeader() {
 
       <div className="flex items-center gap-3">
         <div className="relative">
-          <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <IconSearch size={16} className="text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
@@ -49,7 +49,7 @@ function SettingsHeader() {
           >
             <IconMinus size={16} className="text-gray-600 dark:text-gray-400" />
           </button>
-          
+
           <button
             onClick={handleMaximize}
             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
@@ -57,7 +57,7 @@ function SettingsHeader() {
           >
             <IconSquare size={16} className="text-gray-600 dark:text-gray-400" />
           </button>
-          
+
           <button
             onClick={handleClose}
             className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"

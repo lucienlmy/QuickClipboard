@@ -19,28 +19,28 @@ function TitleBar({ title, hasChanges }) {
   }
 
   return (
-    <div 
-      className="h-12 flex items-center justify-between px-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
+    <div
+      className="h-12 flex items-center justify-between px-4 bg-white/80 border-b border-gray-200/80 backdrop-blur-sm dark:bg-gray-800/80 dark:border-gray-700/80"
       data-tauri-drag-region
     >
       <div className="flex items-center gap-2 flex-1 min-w-0 pointer-events-none">
-        <IconEdit size={18} className="text-blue-500 dark:text-blue-400 flex-shrink-0" />
-        <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+        <IconEdit size={18} className="text-gray-700 dark:text-gray-200 flex-shrink-0" />
+        <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100 truncate">
           {title || t('textEditor.title')}
-          {hasChanges && <span className="ml-1 text-orange-500">*</span>}
+          {hasChanges && <span className="ml-1 text-amber-500">*</span>}
         </h1>
       </div>
-      
+
       <div className="flex items-center gap-1 flex-shrink-0 pointer-events-auto">
         <button
-          className="w-9 h-9 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+          className="w-9 h-9 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 transition-colors dark:hover:bg-gray-700 dark:text-gray-300"
           onClick={handleMinimize}
           title={t('common.minimize')}
         >
           <IconMinus size={16} />
         </button>
         <button
-          className="w-9 h-9 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+          className="w-9 h-9 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 transition-colors dark:hover:bg-gray-700 dark:text-gray-300"
           onClick={handleMaximize}
           title={t('common.maximize')}
         >

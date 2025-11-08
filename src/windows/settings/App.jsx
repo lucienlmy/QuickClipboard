@@ -97,7 +97,7 @@ function App() {
       default:
         content = <GeneralSection settings={snap} onSettingChange={handleSettingChange} />
     }
-    
+
     return (
       <div key={activeSection} className="animate-slide-in-left-fast">
         {content}
@@ -111,28 +111,28 @@ function App() {
     flex flex-col 
     overflow-hidden 
     transition-colors duration-500 ease-in-out
-    ${isDark && !isBackground ? 'dark bg-gray-900' : ''}
-    ${!isDark && !isBackground ? 'bg-white' : ''}
+    ${isDark ? 'dark bg-gray-900' : ''}
+    ${!isDark ? 'bg-white' : ''}
+    ${isBackground ? 'backdrop-blur-md bg-opacity-0' : ''}
   `.trim().replace(/\s+/g, ' ')
 
   return (
-    <div 
+    <div
       className={containerClasses}
     >
       <SettingsHeader />
-      
+
       <div className="flex-1 flex overflow-hidden">
-        <SettingsSidebar 
+        <SettingsSidebar
           activeSection={activeSection}
           onSectionChange={setActiveSection}
         />
-        
-        <main 
-          className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${
-            isBackground 
-              ? 'bg-gray-50/50 dark:bg-gray-900/50' 
-              : 'bg-gray-50 dark:bg-gray-900'
-          }`}
+
+        <main
+          className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${isBackground
+            ? 'bg-transparent'
+            : 'bg-gray-50 dark:bg-gray-900'
+            }`}
         >
           {renderSection()}
         </main>

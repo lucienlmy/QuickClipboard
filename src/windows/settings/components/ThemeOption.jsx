@@ -43,7 +43,7 @@ function ThemeOption({ option, isActive, onClick }) {
           }
         `}
       >
-        <div 
+        <div
           key={animationKey}
           className={`w-full h-16 rounded-md shadow-sm ${isActive ? 'animate-theme-bounce' : ''}`}
           style={{ background: option.preview }}

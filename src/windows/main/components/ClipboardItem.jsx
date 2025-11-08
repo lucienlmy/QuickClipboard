@@ -14,7 +14,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     renderContent
   } = useItemCommon(item)
   const isFileType = getPrimaryType(contentType) === 'file';
-  
+
   // 拖拽功能
   const {
     attributes,
@@ -46,7 +46,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
       }
     }
   }
-  
+
   // 处理鼠标悬停
   const handleMouseEnter = () => {
     if (onHover) {
@@ -92,14 +92,14 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
   }
 
   const isSmallHeight = settings.rowHeight === 'small'
-  
+
   // 键盘选中样式
-  const selectedClasses = isSelected 
+  const selectedClasses = isSelected
     ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50'
     : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       style={style}
       {...attributes}
