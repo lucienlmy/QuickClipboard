@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, menu::MenuEvent};
+use crate::windows::settings_window::open_settings_window;
 
 pub fn handle_tray_click(app: &AppHandle) {
     crate::toggle_main_window_visibility(app);
@@ -41,7 +42,10 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
         "quit" => {
             quit_app(app);
         }
-        "settings" | "screenshot" => {
+        "settings" => {
+            open_settings_window(app);
+        }
+        "screenshot" => {
             eprintln!("功能 {} 还未重构", event.id.as_ref());
         }
         _ => {}
