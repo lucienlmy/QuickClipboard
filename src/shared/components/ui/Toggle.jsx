@@ -1,4 +1,3 @@
-import * as Switch from '@radix-ui/react-switch'
 import { useState, useEffect } from 'react'
 
 function Toggle({ checked, onChange, disabled = false }) {
@@ -24,24 +23,45 @@ function Toggle({ checked, onChange, disabled = false }) {
     }
   }, [isAnimating])
 
-  const handleChange = (newChecked) => {
+  const handleClick = () => {
+    if (disabled) return
+    const newChecked = !checked
     setIsAnimating(true)
     setAnimationKey(prev => prev + 1)
     onChange(newChecked)
   }
 
+  const handleKeyDown = (e) => {
+    if (disabled) return
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      const newChecked = !checked
+      setIsAnimating(true)
+      setAnimationKey(prev => prev + 1)
+      onChange(newChecked)
+    }
+  }
+
   return (
     <div className="relative">
-      <Switch.Root
-        checked={checked}
-        onCheckedChange={handleChange}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
         disabled={disabled}
-        className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full relative overflow-visible transition-colors duration-200 data-[state=checked]:bg-blue-500 dark:data-[state=checked]:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:scale-105 active:scale-95"
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className={`w-11 h-6 rounded-full relative overflow-visible transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:scale-105 active:scale-95 ${
+          checked 
+            ? 'bg-blue-500 dark:bg-blue-600' 
+            : 'bg-gray-300 dark:bg-gray-600'
+        }`}
       >
-        <Switch.Thumb 
+        <span
           key={animationKey}
-          className="block w-5 h-5 bg-white rounded-full shadow-md animate-toggle-bounce"
+          className="block w-5 h-5 bg-white rounded-full shadow-md animate-toggle-bounce absolute top-0.5 transition-transform duration-200"
           style={{
+            transform: checked ? 'translateX(22px)' : 'translateX(2px)',
             '--toggle-start': checked ? '2px' : '22px',
             '--toggle-end': checked ? '22px' : '2px'
           }}
@@ -60,7 +80,7 @@ function Toggle({ checked, onChange, disabled = false }) {
             }}
           />
         ))}
-      </Switch.Root>
+      </button>
     </div>
   )
 }

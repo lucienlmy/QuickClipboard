@@ -5,7 +5,6 @@ body.theme-background {
   background: transparent;
 }
 
-/* 容器背景色透明，但保留背景图片 */
 .theme-background .main-container,
 .theme-background .settings-container {
   background-color: transparent !important;
@@ -72,14 +71,14 @@ body.theme-background {
   color: var(--titlebar-text-dynamic, #666) !important;
 }
 
-/* 搜索框输入框 - 默认完全透明（收起状态） */
+/* 搜索框输入框（收起状态） */
 .theme-background.has-dynamic-titlebar .titlebar-search input {
   background-color: transparent !important;
   border-color: transparent !important;
   color: var(--titlebar-text-dynamic, #666) !important;
 }
 
-/* 搜索框输入框 - 展开状态半透明背景 */
+/* 搜索框输入框 - 展开状态*/
 .theme-background.has-dynamic-titlebar .titlebar-search input.w-30 {
   background-color: rgba(255, 255, 255, 0.2) !important;
   border-color: var(--titlebar-border-dynamic, rgba(229, 231, 235, 0.8)) !important;
@@ -263,13 +262,13 @@ body.theme-background {
   background-color: var(--primary-hover, #3570b8) !important;
 }
 
-/* 开关组件（Toggle/Switch）- 使用主色调 */
-.theme-background button[role="switch"] {
-  background-color: rgba(209, 213, 219, 0.8) !important;
+/* 开关组件 */
+.theme-background button[role="switch"][aria-checked="true"] {
+  background-color: var(--primary-color, #4a89dc) !important;
 }
 
-/* 选中状态：使用动态主色调 */
-.theme-background.has-dynamic-titlebar button[role="switch"][data-state="checked"] {
+/* 选中状态 */
+.theme-background.has-dynamic-titlebar button[role="switch"][aria-checked="true"] {
   background-color: var(--primary-hover, #3570b8) !important;
 }
 
