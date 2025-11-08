@@ -125,7 +125,7 @@ function FileContent({ item, compact = false }) {
         {filesData.files.map((file, index) => (
           <div
             key={index}
-            className="flex items-center gap-1.0 px-1 py-0 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+            className="flex items-center gap-1.0 px-1 py-0 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors h-full"
           >
             <FileIcon file={file} size={26} />
             <div className="flex-1 min-w-0">
@@ -156,7 +156,7 @@ function FileContent({ item, compact = false }) {
       {filesData.files.map((file, index) => (
         <div
           key={index}
-          className="flex items-center gap-2 px-2 py-1.5 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+          className="flex items-center gap-2 px-2 py-1.5 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors h-full"
         >
           {/* 文件图标 */}
           <FileIcon file={file} size={normalIconSize} />

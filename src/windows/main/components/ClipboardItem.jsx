@@ -13,6 +13,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     formatTime,
     renderContent
   } = useItemCommon(item)
+  const isFileType = getPrimaryType(contentType) === 'file';
   
   // 拖拽功能
   const {
@@ -148,7 +149,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
           </div>
 
           {/* 内容区 */}
-          <div className={`flex-1 min-w-0 overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'} w-full`}>
+          <div className={`flex-1 min-w-0 w-full ${isFileType ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
             {renderContent()}
           </div>
         </>

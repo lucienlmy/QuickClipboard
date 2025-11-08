@@ -15,6 +15,7 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
     renderContent
   } = useItemCommon(item)
   
+  const isFileType = getPrimaryType(contentType) === 'file';
   const groups = useSnapshot(groupsStore)
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部'
   
@@ -146,7 +147,7 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       )}
 
       {/* 内容区域 */}
-      <div className={`flex-1 min-w-0 overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'} w-full`}>
+      <div className={`flex-1 min-w-0 w-full ${isFileType ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
         {renderContent()}
       </div>
     </div>
