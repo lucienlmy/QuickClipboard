@@ -168,8 +168,10 @@ const TitleBar = forwardRef(({ searchQuery, onSearchChange, searchPlaceholder, o
     <div
       ref={dragRef}
       className={`title-bar flex-shrink-0 flex ${isVertical
-        ? 'w-10 h-full flex-col items-center justify-between py-2 bg-white/80 border-r border-gray-200/80 dark:bg-gray-800/80 dark:border-gray-700/80'
-        : 'h-9 flex-row items-center justify-between px-2 bg-white/80 border-b border-gray-200/80 dark:bg-gray-800/80 dark:border-gray-700/80'
+        ? 'w-10 h-full flex-col items-center justify-between py-2 bg-gray-100 dark:bg-gray-900 ' + 
+          (position === 'left' ? 'border-r border-gray-300/80 dark:border-gray-700/30' : 'border-l border-gray-300/80 dark:border-gray-700/30')
+        : 'h-9 flex-row items-center justify-between px-2 bg-gray-100 dark:bg-gray-900 ' + 
+          (position === 'top' ? 'border-b border-gray-300/80 dark:border-gray-700/30' : 'border-t border-gray-300/80 dark:border-gray-700/30')
         } shadow-sm transition-colors duration-500`}
     >
       {/* Logo */}

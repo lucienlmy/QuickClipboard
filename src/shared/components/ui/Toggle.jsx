@@ -51,22 +51,25 @@ function Toggle({ checked, onChange, disabled = false }) {
         disabled={disabled}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        className={`w-11 h-6 rounded-full relative overflow-visible transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:scale-105 active:scale-95 ${
-          checked 
-            ? 'bg-blue-500 dark:bg-blue-600' 
+        className={`w-11 h-6 rounded-full relative overflow-visible transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:scale-105 active:scale-95 ${checked
+            ? 'bg-blue-500 dark:bg-blue-600'
             : 'bg-gray-300 dark:bg-gray-600'
-        }`}
+          }`}
+        style={{
+          backgroundColor: checked ? '#3b82f6' : '#d1d5db'
+        }}
       >
         <span
           key={animationKey}
-          className="block w-5 h-5 bg-white rounded-full shadow-md animate-toggle-bounce absolute top-0.5 transition-transform duration-200"
+          className={`block w-5 h-5 rounded-full shadow-md animate-toggle-bounce absolute top-0.5 transition-transform duration-200 ${checked ? 'bg-gray-100' : 'bg-white'
+            }`}
           style={{
             transform: checked ? 'translateX(22px)' : 'translateX(2px)',
             '--toggle-start': checked ? '2px' : '22px',
             '--toggle-end': checked ? '22px' : '2px'
           }}
         />
-        
+
         {/* 粒子效果 */}
         {particles.map(particle => (
           <div
