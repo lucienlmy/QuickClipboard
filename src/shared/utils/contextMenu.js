@@ -5,6 +5,7 @@ import i18n from '@shared/i18n'
 import { extractAllLinks, normalizeUrl } from './linkUtils'
 import { getPrimaryType } from './contentType'
 import { settingsStore } from '@shared/store/settingsStore'
+import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore'
 import {
   addClipboardToFavorites,
   pinImageToScreen,
@@ -275,36 +276,68 @@ export async function showClipboardItemContextMenu(event, item, index) {
     if (result === 'paste') {
       const { pasteClipboardItem } = await import('@shared/api/clipboard')
       await pasteClipboardItem(item.id)
+      toast.success(i18n.t('common.pasted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
     if (result === 'paste-formatted') {
       const { pasteClipboardItem } = await import('@shared/api/clipboard')
       await pasteClipboardItem(item.id, 'formatted')
+      toast.success(i18n.t('common.pasted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
     if (result === 'paste-plain') {
       const { pasteClipboardItem } = await import('@shared/api/clipboard')
       await pasteClipboardItem(item.id, 'plain')
+      toast.success(i18n.t('common.pasted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
     // 处理链接操作
-    if (await handleLinkActions(result, links)) return
+    if (await handleLinkActions(result, links)) {
+      toast.success(i18n.t('contextMenu.linkOpened'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
+      return
+    }
     
     // 处理搜索操作
-    if (await handleSearchActions(result, plainText)) return
+    if (await handleSearchActions(result, plainText)) {
+      toast.success(i18n.t('contextMenu.searchOpened'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
+      return
+    }
     
     // 处理添加到收藏
     if (result.startsWith('add-to-group-')) {
       const groupName = result.substring(13)
       await addClipboardToFavorites(item.id, groupName)
+      toast.success(i18n.t('contextMenu.addedToFavorites'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
     if (result === 'add-to-favorites') {
       await addClipboardToFavorites(item.id)
+      toast.success(i18n.t('contextMenu.addedToFavorites'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
@@ -312,22 +345,42 @@ export async function showClipboardItemContextMenu(event, item, index) {
     switch (result) {
       case 'pin-image':
         await pinImageToScreen(item.id)
+        toast.success(i18n.t('contextMenu.imagePinned'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
         break
       
       case 'save-image':
         await saveImageFromClipboard(item.id)
+        toast.success(i18n.t('contextMenu.imageSaved'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
         break
       
       case 'open-file':
         await openFileWithDefaultProgram(item.id)
+        toast.success(i18n.t('contextMenu.fileOpened'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
         break
       
       case 'open-location':
         await openFileLocation(item.id)
+        toast.success(i18n.t('contextMenu.locationOpened'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
         break
       
       case 'copy-path':
         await copyFilePaths(item.id)
+        toast.success(i18n.t('contextMenu.pathCopied'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
         break
       
       case 'edit-text':
@@ -338,23 +391,35 @@ export async function showClipboardItemContextMenu(event, item, index) {
       case 'delete-item':
         const { deleteClipboardItem } = await import('@shared/store/clipboardStore')
         await deleteClipboardItem(item.id)
+        toast.success(i18n.t('common.deleted'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
         break
       
       case 'clear-all':
         const { showConfirm } = await import('@shared/utils/dialog')
         const confirmed = await showConfirm(
-          '确定要清空所有剪贴板历史记录吗？此操作不可撤销。',
-          '确认清空'
+          i18n.t('contextMenu.clearAllConfirm'),
+          i18n.t('contextMenu.clearAllConfirmTitle')
         )
         if (confirmed) {
           await clearClipboardHistory()
           const { loadClipboardItems } = await import('@shared/store/clipboardStore')
           await loadClipboardItems()
+          toast.success(i18n.t('contextMenu.allCleared'), { 
+            size: TOAST_SIZES.EXTRA_SMALL,
+            position: TOAST_POSITIONS.BOTTOM_RIGHT
+          })
         }
         break
     }
   } catch (error) {
     console.error('处理菜单操作失败:', error)
+    toast.error(i18n.t('common.operationFailed'), { 
+      size: TOAST_SIZES.EXTRA_SMALL,
+      position: TOAST_POSITIONS.BOTTOM_RIGHT
+    })
   }
 }
 
@@ -412,22 +477,40 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     if (result === 'paste') {
       const { pasteFavorite } = await import('@shared/api/favorites')
       await pasteFavorite(item.id)
+      toast.success(i18n.t('common.pasted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
     if (result === 'paste-formatted') {
       const { pasteFavorite } = await import('@shared/api/favorites')
       await pasteFavorite(item.id, 'formatted')
+      toast.success(i18n.t('common.pasted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
     if (result === 'paste-plain') {
       const { pasteFavorite } = await import('@shared/api/favorites')
       await pasteFavorite(item.id, 'plain')
+      toast.success(i18n.t('common.pasted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
-    if (await handleLinkActions(result, links)) return
+    if (await handleLinkActions(result, links)) {
+      toast.success(i18n.t('contextMenu.linkOpened'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
+      return
+    }
     
     // 处理移动到分组
     if (result.startsWith('move-to-group-')) {
@@ -435,6 +518,10 @@ export async function showFavoriteItemContextMenu(event, item, index) {
       await moveFavoriteToGroup(item.id, groupName)
       const { refreshFavorites } = await import('@shared/store/favoritesStore')
       await refreshFavorites()
+      toast.success(i18n.t('contextMenu.movedToGroup'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
       return
     }
     
@@ -447,17 +534,25 @@ export async function showFavoriteItemContextMenu(event, item, index) {
       case 'delete-item':
         const { showConfirm } = await import('@shared/utils/dialog')
         const confirmed = await showConfirm(
-          '确定要删除此收藏项吗？',
-          '确认删除'
+          i18n.t('favorites.confirmDelete'),
+          i18n.t('favorites.confirmDeleteTitle')
         )
         if (confirmed) {
           await deleteFavorite(item.id)
           const { refreshFavorites } = await import('@shared/store/favoritesStore')
           await refreshFavorites()
+          toast.success(i18n.t('common.deleted'), { 
+            size: TOAST_SIZES.EXTRA_SMALL,
+            position: TOAST_POSITIONS.BOTTOM_RIGHT
+          })
         }
         break
     }
   } catch (error) {
     console.error('处理菜单操作失败:', error)
+    toast.error(i18n.t('common.operationFailed'), { 
+      size: TOAST_SIZES.EXTRA_SMALL,
+      position: TOAST_POSITIONS.BOTTOM_RIGHT
+    })
   }
 }

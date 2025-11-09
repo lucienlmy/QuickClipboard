@@ -15,6 +15,7 @@ import {
   deleteFavorite
 } from '@shared/api'
 import { openEditorForFavorite } from '@shared/api/textEditor'
+import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore'
 
 function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onHover, onClick }) {
   const { t } = useTranslation()
@@ -52,8 +53,16 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
   const handleClick = async () => {
     try {
       await pasteFavorite(item.id)
+      toast.success(t('common.pasted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     } catch (err) {
       console.error('粘贴收藏项失败:', err)
+      toast.error(t('common.pasteFailed'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     }
   }
 
@@ -78,6 +87,10 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       await openEditorForFavorite(item, index)
     } catch (error) {
       console.error('编辑失败:', error)
+      toast.error(t('common.editFailed'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     }
   }
 
@@ -89,9 +102,17 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       if (!result?.cancelled) {
         const { refreshFavorites } = await import('@shared/store/favoritesStore')
         await refreshFavorites()
+        toast.success(t('common.deleted'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
       }
     } catch (error) {
       console.error('删除失败:', error)
+      toast.error(t('common.deleteFailed'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     }
   }
 

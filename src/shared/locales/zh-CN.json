@@ -18,7 +18,13 @@
     "loading": "加载中...",
     "loadError": "加载失败",
     "minimize": "最小化",
-    "maximize": "最大化"
+    "maximize": "最大化",
+    "pasted": "已粘贴",
+    "pasteFailed": "粘贴失败",
+    "deleted": "已删除",
+    "deleteFailed": "删除失败",
+    "editFailed": "编辑失败",
+    "operationFailed": "操作失败"
   },
   "clipboard": {
     "title": "剪贴板",
@@ -75,6 +81,8 @@
   "settings": {
     "title": "设置",
     "searchPlaceholder": "搜索设置项...",
+    "saved": "设置已保存",
+    "saveFailed": "保存设置失败",
     "common": {
       "pixels": "像素",
       "seconds": "秒",
@@ -502,10 +510,23 @@
     "pastePlainText": "粘贴为纯文本",
     "pasteWithFormat": "粘贴为带格式文本",
     "addToFavorites": "添加到收藏",
+    "addedToFavorites": "已添加到收藏",
+    "addToFavoritesFailed": "添加到收藏失败",
     "moveToGroup": "移动到分组",
+    "movedToGroup": "已移动到分组",
     "deleteItem": "删除当前项",
     "clearAll": "清空剪贴板",
-    "delete": "删除"
+    "delete": "删除",
+    "linkOpened": "链接已打开",
+    "searchOpened": "搜索已打开",
+    "imagePinned": "图片已固定到屏幕",
+    "imageSaved": "图片已保存",
+    "fileOpened": "文件已打开",
+    "locationOpened": "位置已打开",
+    "pathCopied": "路径已复制",
+    "allCleared": "已清空所有剪贴板历史",
+    "clearAllConfirm": "确定要清空所有剪贴板历史记录吗？此操作不可撤销。",
+    "clearAllConfirmTitle": "确认清空"
   },
   "tools": {
     "panel": "工具栏",

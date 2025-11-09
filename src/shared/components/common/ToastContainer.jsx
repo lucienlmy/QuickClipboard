@@ -26,20 +26,19 @@ function ToastContainer() {
     const baseClass = 'fixed z-9999 flex flex-col gap-2 pointer-events-none'
     
     const topOffset = 'top-16'
-    const sideOffset = 'left-4 right-4'
     const bottomOffset = 'bottom-4'
     
     switch (position) {
       case TOAST_POSITIONS.TOP_LEFT:
-        return `${baseClass} ${topOffset} left-4`
+        return `${baseClass} ${topOffset} left-4 items-start`
       case TOAST_POSITIONS.TOP_RIGHT:
-        return `${baseClass} ${topOffset} right-4`
+        return `${baseClass} ${topOffset} right-4 items-end`
       case TOAST_POSITIONS.BOTTOM_LEFT:
-        return `${baseClass} ${bottomOffset} left-4`
+        return `${baseClass} ${bottomOffset} left-4 items-start`
       case TOAST_POSITIONS.BOTTOM_RIGHT:
-        return `${baseClass} ${bottomOffset} right-4`
+        return `${baseClass} ${bottomOffset} right-4 items-end`
       default:
-        return `${baseClass} ${topOffset} right-4`
+        return `${baseClass} ${topOffset} right-4 items-end`
     }
   }
 

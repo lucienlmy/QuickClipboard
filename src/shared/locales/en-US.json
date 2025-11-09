@@ -18,7 +18,13 @@
     "settings": "Settings",
     "language": "Language",
     "minimize": "Minimize",
-    "maximize": "Maximize"
+    "maximize": "Maximize",
+    "pasted": "Pasted",
+    "pasteFailed": "Paste failed",
+    "deleted": "Deleted",
+    "deleteFailed": "Delete failed",
+    "editFailed": "Edit failed",
+    "operationFailed": "Operation failed"
   },
   "clipboard": {
     "title": "Clipboard",
@@ -75,6 +81,8 @@
   "settings": {
     "title": "Settings",
     "searchPlaceholder": "Search settings...",
+    "saved": "Settings saved",
+    "saveFailed": "Failed to save settings",
     "common": {
       "pixels": "px",
       "seconds": "s",
@@ -502,10 +510,23 @@
     "pastePlainText": "Paste as Plain Text",
     "pasteWithFormat": "Paste with Formatting",
     "addToFavorites": "Add to Favorites",
+    "addedToFavorites": "Added to favorites",
+    "addToFavoritesFailed": "Failed to add to favorites",
     "moveToGroup": "Move to Group",
+    "movedToGroup": "Moved to group",
     "deleteItem": "Delete Item",
     "clearAll": "Clear Clipboard",
-    "delete": "Delete"
+    "delete": "Delete",
+    "linkOpened": "Link opened",
+    "searchOpened": "Search opened",
+    "imagePinned": "Image pinned to screen",
+    "imageSaved": "Image saved",
+    "fileOpened": "File opened",
+    "locationOpened": "Location opened",
+    "pathCopied": "Path copied",
+    "allCleared": "All clipboard history cleared",
+    "clearAllConfirm": "Are you sure you want to clear all clipboard history? This cannot be undone.",
+    "clearAllConfirmTitle": "Confirm Clear"
   },
   "tools": {
     "panel": "Tools",

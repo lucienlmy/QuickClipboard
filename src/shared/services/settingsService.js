@@ -9,6 +9,7 @@ import {
 } from '@shared/api'
 import { emit } from '@tauri-apps/api/event'
 import { toast } from '@shared/store/toastStore'
+import i18n from '@shared/i18n'
 
 // 默认设置配置
 export const defaultSettings = {
@@ -134,13 +135,13 @@ export async function saveSettingsToBackend(settings, options = {}) {
     await emit('settings-changed', settings)
     
     if (showToast) {
-      toast.success('设置已保存')
+      toast.success(i18n.t('settings.saved'))
     }
     return { success: true }
   } catch (error) {
     console.error('保存设置失败:', error)
     if (showToast) {
-      toast.error('保存设置失败')
+      toast.error(i18n.t('settings.saveFailed'))
     }
     return { success: false, error: error.message }
   }

@@ -13,7 +13,7 @@ import {
   addClipboardToFavorites,
 } from '@shared/api'
 import { openEditorForClipboard } from '@shared/api/textEditor'
-
+import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore'
 function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHover }) {
   const { t } = useTranslation()
   const {
@@ -51,9 +51,16 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     } else {
       try {
         await pasteClipboardItem(item.id)
-        console.log('粘贴成功:', item.id)
+        toast.success(t('common.pasted'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
       } catch (error) {
         console.error('粘贴失败:', error)
+        toast.error(t('common.pasteFailed'), { 
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        })
       }
     }
   }
@@ -77,8 +84,16 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     e.stopPropagation()
     try {
       await addClipboardToFavorites(item.id)
+      toast.success(t('contextMenu.addedToFavorites'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     } catch (error) {
       console.error('添加到收藏失败:', error)
+      toast.error(t('contextMenu.addToFavoritesFailed'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     }
   }
 
@@ -89,6 +104,10 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
       await openEditorForClipboard(item, index)
     } catch (error) {
       console.error('编辑失败:', error)
+      toast.error(t('common.editFailed'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     }
   }
 
@@ -98,8 +117,16 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
     try {
       const { deleteClipboardItem } = await import('@shared/store/clipboardStore')
       await deleteClipboardItem(item.id)
+      toast.success(t('common.deleted'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     } catch (error) {
       console.error('删除失败:', error)
+      toast.error(t('common.deleteFailed'), { 
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      })
     }
   }
 
