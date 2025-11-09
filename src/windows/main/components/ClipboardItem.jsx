@@ -175,7 +175,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
       className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`}
     >
       {/* 悬浮序号和快捷键提示 */}
-      <div className="absolute top-1 right-2 flex flex-col items-end gap-0 pointer-events-none">
+      <div className="absolute top-1 right-2 flex flex-col items-end gap-0 pointer-events-none  z-20">
         {/* 序号 */}
         <span className={numberBadgeClasses}>
           {index + 1}
@@ -189,7 +189,7 @@ function ClipboardItem({ item, index, onClick, sortId, isSelected = false, onHov
       </div>
 
       {/* 操作按钮区域 */}
-      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto">
+      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto z-20">
         {/* 收藏按钮 */}
         <button
           className={actionButtonClasses}

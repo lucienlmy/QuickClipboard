@@ -151,65 +151,9 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ')
 
-  // 小行高模式（不显示标题）
-  if (settings.rowHeight === 'small') {
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        {...listeners}
-        className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`}
-        onClick={handleClick}
-        onContextMenu={handleContextMenu}
-        onMouseEnter={handleMouseEnter}
-      >
-        {/* 浮动的序号和分组 */}
-        <div className="absolute top-1 right-2 flex flex-col items-end gap-0 pointer-events-none">
-          <span className={numberBadgeClasses}>
-            {index + 1}
-          </span>
-          {showGroupBadge && (
-            <span className={groupBadgeClasses}>
-              {item.group_name}
-            </span>
-          )}
-        </div>
+  const isSmallHeight = settings.rowHeight === 'small'
+  const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text'
 
-        {/* 操作按钮区域 */}
-        <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto">
-          {/* 编辑按钮 */}
-          {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
-            <button
-              className={actionButtonClasses}
-              onClick={handleEditClick}
-              title={t('common.edit')}
-            >
-              <IconEdit size={12} />
-            </button>
-          )}
-
-          {/* 删除按钮 */}
-          <button
-            className={actionButtonClasses}
-            onClick={handleDeleteClick}
-            title={t('common.delete')}
-          >
-            <IconTrash size={12} />
-          </button>
-        </div>
-
-        {/* 内容区域 */}
-        <div className="flex items-center gap-2 h-full overflow-hidden">
-          <div className="flex-1 min-w-0 overflow-hidden h-full">
-            {renderContent(true)}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // 中/大行高模式
   return (
     <div
       ref={setNodeRef}
@@ -222,7 +166,7 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       onMouseEnter={handleMouseEnter}
     >
       {/* 浮动的序号和分组 */}
-      <div className="absolute top-1 right-2 flex flex-col items-end gap-0.5 pointer-events-none">
+      <div className={`absolute top-1 right-2 flex flex-col items-end ${isSmallHeight ? 'gap-0' : 'gap-0.5'} pointer-events-none z-20`}>
         <span className={numberBadgeClasses}>
           {index + 1}
         </span>
@@ -234,9 +178,9 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
       </div>
 
       {/* 操作按钮区域 */}
-      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto">
+      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto z-20">
         {/* 编辑按钮 */}
-        {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
+        {isTextOrRichText && (
           <button
             className={actionButtonClasses}
             onClick={handleEditClick}
@@ -256,26 +200,36 @@ function FavoriteItem({ item, index, isDraggable = true, isSelected = false, onH
         </button>
       </div>
 
-      {/* 时间戳 */}
-      <div className="flex items-center flex-shrink-0 mb-0.5">
-        <span className="text-xs text-gray-400 dark:text-gray-500">
-          {formatTime()}
-        </span>
-      </div>
-
-      {/* 标题（如果有） */}
-      {shouldShowTitle() && (
-        <div className="flex-shrink-0 mb-1">
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
-            {item.title}
-          </p>
+      {isSmallHeight ? (
+        <div className="flex items-center gap-2 h-full overflow-hidden">
+          <div className="flex-1 min-w-0 overflow-hidden h-full">
+            {renderContent(true)}
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* 时间戳 */}
+          <div className="flex items-center flex-shrink-0 mb-0.5">
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {formatTime()}
+            </span>
+          </div>
 
-      {/* 内容区域 */}
-      <div className={`flex-1 min-w-0 w-full ${isFileType ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
-        {renderContent()}
-      </div>
+          {/* 标题（如果有） */}
+          {shouldShowTitle() && (
+            <div className="flex-shrink-0 mb-1">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
+                {item.title}
+              </p>
+            </div>
+          )}
+
+          {/* 内容区域 */}
+          <div className={`flex-1 min-w-0 w-full ${isFileType ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+            {renderContent()}
+          </div>
+        </>
+      )}
     </div>
   )
 }
