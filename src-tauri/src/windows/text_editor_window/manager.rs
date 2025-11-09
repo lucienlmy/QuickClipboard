@@ -1,4 +1,4 @@
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use super::creator::create_text_editor_window;
 
 pub fn open_text_editor_window(
@@ -7,7 +7,10 @@ pub fn open_text_editor_window(
     item_type: &str,
     item_index: Option<i32>,
 ) -> Result<(), String> {
-    create_text_editor_window(app, item_id, item_type, item_index)?;
+    let window_label = create_text_editor_window(app, item_id, item_type, item_index)?;
+    if let Some(window) = app.get_webview_window(&window_label) {
+        window.set_focus().map_err(|e| format!("聚焦文本编辑器窗口失败: {}", e))?;
+    }
     Ok(())
 }
 

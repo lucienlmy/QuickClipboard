@@ -6,7 +6,7 @@ pub fn create_text_editor_window(
     item_id: &str,
     item_type: &str,
     item_index: Option<i32>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -18,7 +18,7 @@ pub fn create_text_editor_window(
         url = format!("{}&index={}", url, index);
     }
     
-    let editor_window = tauri::WebviewWindowBuilder::new(
+    let _editor_window = tauri::WebviewWindowBuilder::new(
         app,
         &window_label,
         tauri::WebviewUrl::App(url.into()),
@@ -37,6 +37,6 @@ pub fn create_text_editor_window(
     .build()
     .map_err(|e| format!("创建文本编辑器窗口失败: {}", e))?;
 
-    Ok(())
+    Ok(window_label)
 }
 
