@@ -193,8 +193,9 @@ function FavoriteItem({
           backgroundColor: groupColor,
           backgroundImage: `linear-gradient(135deg, ${groupColor}dd, ${groupColor})`
         } : {}}
+        title={item.group_name}
       >
-        {item.group_name}
+        {item.group_name.length > 6 ? item.group_name.substring(0, 6) + '...' : item.group_name}
       </span>}
     </div>
 

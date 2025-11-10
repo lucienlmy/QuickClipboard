@@ -40,6 +40,8 @@ function updateScrollIndicator(element) {
 function createSubmenu(items) {
     const submenu = document.createElement('div');
     submenu.className = 'submenu-container';
+    submenu.style.maxWidth = '250px';
+    submenu.style.overflow = 'hidden';
 
     items.forEach(item => {
         const menuItemElement = createMenuItem(item);
@@ -154,6 +156,10 @@ function createMenuItem(item) {
     const label = document.createElement('div');
     label.className = 'menu-item-label';
     label.textContent = item.label;
+    label.style.maxWidth = '200px';
+    label.style.overflow = 'hidden';
+    label.style.textOverflow = 'ellipsis';
+    label.style.whiteSpace = 'nowrap';
     menuItem.appendChild(label);
 
     if (hasChildren) {
