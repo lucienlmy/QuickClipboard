@@ -120,6 +120,9 @@ pub fn run() {
                 
                 let window = app.get_webview_window("main").ok_or("无法获取主窗口")?;
                 let _ = window.set_focusable(false);
+                // 打开开发者工具
+                #[cfg(debug_assertions)] // 仅在调试模式下打开
+                let _ = window.open_devtools();
                 
                 services::database::init_database(
                     get_data_directory()?.join("quickclipboard.db").to_str().ok_or("数据库路径无效")?

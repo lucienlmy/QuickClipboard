@@ -45,7 +45,7 @@ export async function loadGroups() {
 
   try {
     let groups = await apiGetGroups()
-    
+
     // 确保"全部"分组始终存在并排在最前面
     const allGroupIndex = groups.findIndex(g => g.name === '全部')
     if (allGroupIndex === -1) {
@@ -58,7 +58,6 @@ export async function loadGroups() {
 
     groupsStore.groups = groups
   } catch (error) {
-    console.warn('后端分组功能暂未实现，使用默认全部分组:', error)
     groupsStore.groups = [{ name: '全部', icon: 'ti ti-list', order: -1, item_count: 0 }]
   } finally {
     groupsStore.loading = false
@@ -93,12 +92,12 @@ export async function updateGroup(oldName, newName, newIcon) {
 export async function deleteGroup(name) {
   try {
     await apiDeleteGroup(name)
-    
+
     // 如果删除的是当前选中的分组，切换到全部
     if (groupsStore.currentGroup === name) {
       groupsStore.setCurrentGroup('全部')
     }
-    
+
     await loadGroups()
     return true
   } catch (error) {

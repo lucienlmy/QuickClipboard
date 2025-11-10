@@ -1,24 +1,18 @@
-import { useTranslation } from 'react-i18next'
-import { IconBrandGithub, IconDownload } from '@tabler/icons-react'
-import SettingsSection from '../components/SettingsSection'
-import Button from '@shared/components/ui/Button'
-
+import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+import { useTranslation } from 'react-i18next';
+import SettingsSection from '../components/SettingsSection';
+import Button from '@shared/components/ui/Button';
 function AboutSection() {
-  const { t } = useTranslation()
-
+  const {
+    t
+  } = useTranslation();
   const handleCheckUpdates = () => {
-    console.log('检查更新')
-  }
-
+    console.log('检查更新');
+  };
   const handleOpenGitHub = () => {
-    window.open('https://github.com/mosheng1/QuickClipboard', '_blank')
-  }
-
-  return (
-    <SettingsSection
-      title={t('settings.about.title')}
-      description={t('settings.about.description')}
-    >
+    window.open('https://github.com/mosheng1/QuickClipboard', '_blank');
+  };
+  return <SettingsSection title={t('settings.about.title')} description={t('settings.about.description')}>
       <div className="text-center py-8">
         <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 dark:bg-blue-900/20 rounded-full mb-4">
           <svg className="w-12 h-12 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,26 +33,19 @@ function AboutSection() {
         </p>
         
         <div className="flex gap-3 justify-center">
-          <Button
-            variant="primary"
-            icon={<IconDownload size={20} />}
-            onClick={handleCheckUpdates}
-          >
+          <Button variant="primary" icon={<i className="ti ti-download" style={{
+          fontSize: 20
+        }}></i>} onClick={handleCheckUpdates}>
             {t('settings.about.checkUpdates')}
           </Button>
           
-          <Button
-            variant="secondary"
-            icon={<IconBrandGithub size={20} />}
-            onClick={handleOpenGitHub}
-          >
+          <Button variant="secondary" icon={<i className="ti ti-brand-github" style={{
+          fontSize: 20
+        }}></i>} onClick={handleOpenGitHub}>
             {t('settings.about.github')}
           </Button>
         </div>
       </div>
-    </SettingsSection>
-  )
+    </SettingsSection>;
 }
-
-export default AboutSection
-
+export default AboutSection;

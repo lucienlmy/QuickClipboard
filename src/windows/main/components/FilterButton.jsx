@@ -1,58 +1,49 @@
-import { useState, useEffect } from 'react'
-
-function FilterButton({ id, label, icon: Icon, isActive, onClick, buttonRef }) {
-  const [particles, setParticles] = useState([])
-  const [isAnimating, setIsAnimating] = useState(false)
+import { useState, useEffect } from 'react';
+function FilterButton({ id, label, icon, isActive, onClick, buttonRef }) {
+  const [particles, setParticles] = useState([]);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     if (isAnimating) {
       const delayTimer = setTimeout(() => {
         const newParticles = Array.from({ length: 6 }, (_, i) => ({
           id: Date.now() + i,
-          angle: (i * 60) + Math.random() * 30,
+          angle: i * 60 + Math.random() * 30,
           distance: 10 + Math.random() * 6
-        }))
-        setParticles(newParticles)
-
+        }));
+        setParticles(newParticles);
         const clearTimer = setTimeout(() => {
-          setParticles([])
-          setIsAnimating(false)
-        }, 600)
-
-        return () => clearTimeout(clearTimer)
-      }, 300)
-
-      return () => clearTimeout(delayTimer)
+          setParticles([]);
+          setIsAnimating(false);
+        }, 600);
+        return () => clearTimeout(clearTimer);
+      }, 300);
+      return () => clearTimeout(delayTimer);
     }
-  }, [isAnimating])
+  }, [isAnimating]);
 
   const handleClick = () => {
-    setIsAnimating(true)
-    onClick(id)
-  }
+    setIsAnimating(true);
+    onClick(id);
+  };
 
   return (
     <div ref={buttonRef} className="relative w-7 h-7">
       <button
         onClick={handleClick}
         title={label}
-        className={`
-          relative z-10 flex items-center justify-center w-full h-full rounded-lg 
+        className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg
           focus:outline-none active:scale-95
-          ${isActive
-            ? 'bg-blue-500 text-white shadow-md'
-            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
-          }
+          ${isActive ? 'bg-blue-500 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}
         `}
         style={{
           transitionProperty: 'transform, box-shadow, background-color, color',
           transitionDuration: '200ms, 200ms, 500ms, 500ms'
         }}
       >
-        <Icon size={16} />
+        <i className={icon} style={{ fontSize: 16 }} />
       </button>
 
-      {/* 粒子效果 */}
       {particles.map(particle => (
         <div
           key={particle.id}
@@ -65,8 +56,7 @@ function FilterButton({ id, label, icon: Icon, isActive, onClick, buttonRef }) {
         />
       ))}
     </div>
-  )
+  );
 }
 
-export default FilterButton
-
+export default FilterButton;

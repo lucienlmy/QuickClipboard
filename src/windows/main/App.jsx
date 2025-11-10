@@ -1,141 +1,146 @@
-import { useState, useEffect, useRef } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useSnapshot } from 'valtio'
-import { listen } from '@tauri-apps/api/event'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { settingsStore } from '@shared/store/settingsStore'
-import { groupsStore } from '@shared/store/groupsStore'
-import { navigationStore } from '@shared/store/navigationStore'
-import { toolsStore } from '@shared/store/toolsStore'
-import { useWindowDrag } from '@shared/hooks/useWindowDrag'
-import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme'
-import { useSettingsSync } from '@shared/hooks/useSettingsSync'
-import { useNavigationKeyboard } from '@shared/hooks/useNavigationKeyboard'
-import { useWindowAnimation } from '@shared/hooks/useWindowAnimation'
-import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager'
-import TitleBar from './components/TitleBar'
-import TabNavigation from './components/TabNavigation'
-import ClipboardTab from './components/ClipboardTab'
-import FavoritesTab from './components/FavoritesTab'
-import FooterBar from './components/FooterBar'
-import GroupsPopup from './components/GroupsPopup'
-import ToastContainer from '@shared/components/common/ToastContainer'
-
+import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSnapshot } from 'valtio';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { settingsStore } from '@shared/store/settingsStore';
+import { groupsStore } from '@shared/store/groupsStore';
+import { navigationStore } from '@shared/store/navigationStore';
+import { toolsStore } from '@shared/store/toolsStore';
+import { useWindowDrag } from '@shared/hooks/useWindowDrag';
+import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
+import { useSettingsSync } from '@shared/hooks/useSettingsSync';
+import { useNavigationKeyboard } from '@shared/hooks/useNavigationKeyboard';
+import { useWindowAnimation } from '@shared/hooks/useWindowAnimation';
+import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
+import TitleBar from './components/TitleBar';
+import TabNavigation from './components/TabNavigation';
+import ClipboardTab from './components/ClipboardTab';
+import FavoritesTab from './components/FavoritesTab';
+import FooterBar from './components/FooterBar';
+import GroupsPopup from './components/GroupsPopup';
+import ToastContainer from '@shared/components/common/ToastContainer';
 function App() {
-  const { t } = useTranslation()
-  const settings = useSnapshot(settingsStore)
-  const { theme, darkThemeStyle, backgroundImagePath } = settings
-  const { effectiveTheme, isDark, isBackground } = useTheme()
-  const [activeTab, setActiveTab] = useState('clipboard')
-  const [contentFilter, setContentFilter] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const clipboardTabRef = useRef(null)
-  const favoritesTabRef = useRef(null)
-  const groupsPopupRef = useRef(null)
-  const searchRef = useRef(null)
+  const {
+    t
+  } = useTranslation();
+  const settings = useSnapshot(settingsStore);
+  const {
+    theme,
+    darkThemeStyle,
+    backgroundImagePath
+  } = settings;
+  const {
+    effectiveTheme,
+    isDark,
+    isBackground
+  } = useTheme();
+  const [activeTab, setActiveTab] = useState('clipboard');
+  const [contentFilter, setContentFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const clipboardTabRef = useRef(null);
+  const favoritesTabRef = useRef(null);
+  const groupsPopupRef = useRef(null);
+  const searchRef = useRef(null);
 
   // 监听设置变更事件（跨窗口同步）
-  useSettingsSync()
+  useSettingsSync();
 
   // 窗口动画
-  useWindowAnimation()
+  useWindowAnimation();
 
   // 同步当前标签页到导航store
   useEffect(() => {
-    navigationStore.setActiveTab(activeTab)
-  }, [activeTab])
-
+    navigationStore.setActiveTab(activeTab);
+  }, [activeTab]);
   useEffect(() => {
     const setupListeners = async () => {
       const handleWindowShow = () => {
         if (settingsStore.autoClearSearch) {
-          setSearchQuery('')
+          setSearchQuery('');
         }
         if (settingsStore.autoFocusSearch) {
           setTimeout(() => {
-            searchRef.current?.focus?.()
-          }, 50)
+            searchRef.current?.focus?.();
+          }, 50);
         }
-      }
-
-      const unlisten1 = await listen('window-show-animation', handleWindowShow)
-      const unlisten2 = await listen('edge-snap-bounce-animation', handleWindowShow)
-      return () => { unlisten1(); unlisten2() }
-    }
-    let cleanup = setupListeners()
-    return () => cleanup.then(fn => fn())
-  }, [])
-
+      };
+      const unlisten1 = await listen('window-show-animation', handleWindowShow);
+      const unlisten2 = await listen('edge-snap-bounce-animation', handleWindowShow);
+      return () => {
+        unlisten1();
+        unlisten2();
+      };
+    };
+    let cleanup = setupListeners();
+    return () => cleanup.then(fn => fn());
+  }, []);
   useEffect(() => {
-    let resizeTimer = null
-    let moveTimer = null
-
+    let resizeTimer = null;
+    let moveTimer = null;
     const handleResize = async () => {
       if (!settingsStore.rememberWindowSize) {
-        return
+        return;
       }
-
-      if (resizeTimer) clearTimeout(resizeTimer)
-
+      if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(async () => {
         try {
-          const appWindow = getCurrentWindow()
-          const size = await appWindow.outerSize()
-
-          const { saveWindowSize } = await import('@shared/api/settings')
-          await saveWindowSize(size.width, size.height)
+          const appWindow = getCurrentWindow();
+          const size = await appWindow.outerSize();
+          const {
+            saveWindowSize
+          } = await import('@shared/api/settings');
+          await saveWindowSize(size.width, size.height);
         } catch (error) {
-          console.error('保存窗口大小失败:', error)
+          console.error('保存窗口大小失败:', error);
         }
-      }, 500)
-    }
-
+      }, 500);
+    };
     const handleMove = async () => {
       if (settingsStore.windowPositionMode !== 'remember') {
-        return
+        return;
       }
-
-      if (moveTimer) clearTimeout(moveTimer)
-
+      if (moveTimer) clearTimeout(moveTimer);
       moveTimer = setTimeout(async () => {
         try {
-          const appWindow = getCurrentWindow()
-          const position = await appWindow.outerPosition()
-
-          const { saveWindowPosition } = await import('@shared/api/settings')
-          await saveWindowPosition(position.x, position.y)
+          const appWindow = getCurrentWindow();
+          const position = await appWindow.outerPosition();
+          const {
+            saveWindowPosition
+          } = await import('@shared/api/settings');
+          await saveWindowPosition(position.x, position.y);
         } catch (error) {
-          console.error('保存窗口位置失败:', error)
+          console.error('保存窗口位置失败:', error);
         }
-      }, 500)
-    }
-
+      }, 500);
+    };
     const setupListeners = async () => {
-      const appWindow = getCurrentWindow()
-      const unlistenResize = await appWindow.onResized(handleResize)
-      const unlistenMove = await appWindow.onMoved(handleMove)
-      return () => { unlistenResize(); unlistenMove() }
-    }
-
-    let cleanup = setupListeners()
-
+      const appWindow = getCurrentWindow();
+      const unlistenResize = await appWindow.onResized(handleResize);
+      const unlistenMove = await appWindow.onMoved(handleMove);
+      return () => {
+        unlistenResize();
+        unlistenMove();
+      };
+    };
+    let cleanup = setupListeners();
     return () => {
-      if (resizeTimer) clearTimeout(resizeTimer)
-      if (moveTimer) clearTimeout(moveTimer)
-      cleanup.then(fn => fn())
-    }
-  }, [])
+      if (resizeTimer) clearTimeout(resizeTimer);
+      if (moveTimer) clearTimeout(moveTimer);
+      cleanup.then(fn => fn());
+    };
+  }, []);
 
   // 主内容区域拖拽，排除所有交互元素和列表项
   const contentDragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', 'a', 'input', 'textarea'],
     allowChildren: true
-  })
+  });
 
   // 应用主题到body
   useEffect(() => {
-    applyThemeToBody(theme, 'main')
-  }, [theme, effectiveTheme])
+    applyThemeToBody(theme, 'main');
+  }, [theme, effectiveTheme]);
 
   // 应用背景图片（仅在背景主题时）
   useEffect(() => {
@@ -144,128 +149,117 @@ function App() {
         containerSelector: '.main-container',
         backgroundImagePath,
         windowName: 'main'
-      })
+      });
     } else {
-      clearBackgroundImage('.main-container')
+      clearBackgroundImage('.main-container');
     }
-  }, [isBackground, backgroundImagePath])
+  }, [isBackground, backgroundImagePath]);
 
   // 处理分组切换
-  const handleGroupChange = async (groupName) => {
-    groupsStore.setCurrentGroup(groupName)
+  const handleGroupChange = async groupName => {
+    groupsStore.setCurrentGroup(groupName);
     // 重置导航索引
-    navigationStore.resetNavigation()
+    navigationStore.resetNavigation();
     // 重新加载收藏列表
-    const { initFavorites } = await import('@shared/store/favoritesStore')
-    await initFavorites(groupName)
-  }
+    const {
+      initFavorites
+    } = await import('@shared/store/favoritesStore');
+    await initFavorites(groupName);
+  };
 
   // 导航键盘事件处理
   const handleNavigateUp = () => {
     if (activeTab === 'clipboard' && clipboardTabRef.current?.navigateUp) {
-      clipboardTabRef.current.navigateUp()
+      clipboardTabRef.current.navigateUp();
     } else if (activeTab === 'favorites' && favoritesTabRef.current?.navigateUp) {
-      favoritesTabRef.current.navigateUp()
+      favoritesTabRef.current.navigateUp();
     }
-  }
-
+  };
   const handleNavigateDown = () => {
     if (activeTab === 'clipboard' && clipboardTabRef.current?.navigateDown) {
-      clipboardTabRef.current.navigateDown()
+      clipboardTabRef.current.navigateDown();
     } else if (activeTab === 'favorites' && favoritesTabRef.current?.navigateDown) {
-      favoritesTabRef.current.navigateDown()
+      favoritesTabRef.current.navigateDown();
     }
-  }
-
+  };
   const handleExecuteItem = () => {
     if (activeTab === 'clipboard' && clipboardTabRef.current?.executeCurrentItem) {
-      clipboardTabRef.current.executeCurrentItem()
+      clipboardTabRef.current.executeCurrentItem();
     } else if (activeTab === 'favorites' && favoritesTabRef.current?.executeCurrentItem) {
-      favoritesTabRef.current.executeCurrentItem()
+      favoritesTabRef.current.executeCurrentItem();
     }
-  }
-
+  };
   const handleTabLeft = () => {
-    const tabs = ['clipboard', 'favorites']
-    const currentIndex = tabs.indexOf(activeTab)
-    const newIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1
-    setActiveTab(tabs[newIndex])
-  }
-
+    const tabs = ['clipboard', 'favorites'];
+    const currentIndex = tabs.indexOf(activeTab);
+    const newIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
+    setActiveTab(tabs[newIndex]);
+  };
   const handleTabRight = () => {
-    const tabs = ['clipboard', 'favorites']
-    const currentIndex = tabs.indexOf(activeTab)
-    const newIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1
-    setActiveTab(tabs[newIndex])
-  }
-
+    const tabs = ['clipboard', 'favorites'];
+    const currentIndex = tabs.indexOf(activeTab);
+    const newIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1;
+    setActiveTab(tabs[newIndex]);
+  };
   const handleFocusSearch = () => {
     if (searchRef.current?.focus) {
-      searchRef.current.focus()
+      searchRef.current.focus();
     }
-  }
+  };
 
   // 处理搜索框内的导航操作
-  const handleSearchNavigate = (direction) => {
+  const handleSearchNavigate = direction => {
     if (direction === 'up') {
-      handleNavigateUp()
+      handleNavigateUp();
     } else if (direction === 'down') {
-      handleNavigateDown()
+      handleNavigateDown();
     } else if (direction === 'execute') {
-      handleExecuteItem()
+      handleExecuteItem();
     }
-  }
+  };
 
   // 固定/取消固定窗口
   const handleTogglePin = async () => {
     try {
-      await toolsStore.handleToolClick('pin-button')
+      await toolsStore.handleToolClick('pin-button');
     } catch (error) {
-      console.error('切换窗口固定状态失败:', error)
+      console.error('切换窗口固定状态失败:', error);
     }
-  }
+  };
 
   // 切换到上一个分组
   const handlePreviousGroup = () => {
     if (activeTab !== 'favorites') {
-      setActiveTab('favorites')
+      setActiveTab('favorites');
     }
-
-    const groups = groupsStore.groups
-    if (groups.length === 0) return
-
-    const currentIndex = groups.findIndex(g => g.name === groupsStore.currentGroup)
-    const prevIndex = currentIndex <= 0 ? groups.length - 1 : currentIndex - 1
-    const prevGroup = groups[prevIndex]
-
-    groupsStore.setCurrentGroup(prevGroup.name)
-    handleGroupChange(prevGroup.name)
-
+    const groups = groupsStore.groups;
+    if (groups.length === 0) return;
+    const currentIndex = groups.findIndex(g => g.name === groupsStore.currentGroup);
+    const prevIndex = currentIndex <= 0 ? groups.length - 1 : currentIndex - 1;
+    const prevGroup = groups[prevIndex];
+    groupsStore.setCurrentGroup(prevGroup.name);
+    handleGroupChange(prevGroup.name);
     if (groupsPopupRef.current?.showTemporarily) {
-      groupsPopupRef.current.showTemporarily()
+      groupsPopupRef.current.showTemporarily();
     }
-  }
+  };
 
   // 切换到下一个分组
   const handleNextGroup = () => {
     if (activeTab !== 'favorites') {
-      setActiveTab('favorites')
+      setActiveTab('favorites');
     }
-
-    const groups = groupsStore.groups
-    if (groups.length === 0) return
-
-    const currentIndex = groups.findIndex(g => g.name === groupsStore.currentGroup)
-    const nextIndex = currentIndex >= groups.length - 1 ? 0 : currentIndex + 1
-    const nextGroup = groups[nextIndex]
-
-    groupsStore.setCurrentGroup(nextGroup.name)
-    handleGroupChange(nextGroup.name)
-
+    const groups = groupsStore.groups;
+    if (groups.length === 0) return;
+    const currentIndex = groups.findIndex(g => g.name === groupsStore.currentGroup);
+    const nextIndex = currentIndex >= groups.length - 1 ? 0 : currentIndex + 1;
+    const nextGroup = groups[nextIndex];
+    groupsStore.setCurrentGroup(nextGroup.name);
+    handleGroupChange(nextGroup.name);
     if (groupsPopupRef.current?.showTemporarily) {
-      groupsPopupRef.current.showTemporarily()
+      groupsPopupRef.current.showTemporarily();
     }
-  }
+  };
 
   // 设置全局键盘导航
   useNavigationKeyboard({
@@ -279,13 +273,11 @@ function App() {
     onPreviousGroup: handlePreviousGroup,
     onNextGroup: handleNextGroup,
     enabled: true
-  })
-
+  });
   const outerContainerClasses = `
     h-screen w-screen 
     ${isDark ? 'dark' : ''}
-  `.trim().replace(/\s+/g, ' ')
-
+  `.trim().replace(/\s+/g, ' ');
   const containerClasses = `
     main-container 
     h-full w-full
@@ -294,81 +286,34 @@ function App() {
     transition-colors duration-500 ease-in-out
     ${isDark ? 'bg-gray-900' : ''}
     ${!isDark ? 'bg-white' : ''}
-  `.trim().replace(/\s+/g, ' ')
-
-  const TitleBarComponent = (
-    <TitleBar
-      ref={searchRef}
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder={t('search.placeholder')}
-      onNavigate={handleSearchNavigate}
-      position={settings.titleBarPosition}
-    />
-  )
-
-  const TabNavigationComponent = (
-    <TabNavigation
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      contentFilter={contentFilter}
-      onFilterChange={setContentFilter}
-    />
-  )
-
-  const ContentComponent = (
-    <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
-      {activeTab === 'clipboard' && (
-        <ClipboardTab
-          ref={clipboardTabRef}
-          contentFilter={contentFilter}
-          searchQuery={searchQuery}
-        />
-      )}
-      {activeTab === 'favorites' && (
-        <FavoritesTab
-          ref={favoritesTabRef}
-          contentFilter={contentFilter}
-          searchQuery={searchQuery}
-        />
-      )}
-    </div>
-  )
-
-  const FooterComponent = (
-    <FooterBar>
-      <GroupsPopup
-        ref={groupsPopupRef}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onGroupChange={handleGroupChange}
-      />
-    </FooterBar>
-  )
-
+  `.trim().replace(/\s+/g, ' ');
+  const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} onNavigate={handleSearchNavigate} position={settings.titleBarPosition} />;
+  const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} />;
+  const ContentComponent = <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
+      {activeTab === 'clipboard' && <ClipboardTab ref={clipboardTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
+      {activeTab === 'favorites' && <FavoritesTab ref={favoritesTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
+    </div>;
+  const FooterComponent = <FooterBar>
+      <GroupsPopup ref={groupsPopupRef} activeTab={activeTab} onTabChange={setActiveTab} onGroupChange={handleGroupChange} />
+    </FooterBar>;
   const renderLayout = () => {
     switch (settings.titleBarPosition) {
       case 'top':
-        return (
-          <>
+        return <>
             {TitleBarComponent}
             {TabNavigationComponent}
             {ContentComponent}
             {FooterComponent}
-          </>
-        )
+          </>;
       case 'bottom':
-        return (
-          <>
+        return <>
             {TabNavigationComponent}
             {ContentComponent}
             {FooterComponent}
             {TitleBarComponent}
-          </>
-        )
+          </>;
       case 'left':
-        return (
-          <>
+        return <>
             <div className="flex flex-col h-full">
               {TitleBarComponent}
             </div>
@@ -377,11 +322,9 @@ function App() {
               {ContentComponent}
               {FooterComponent}
             </div>
-          </>
-        )
+          </>;
       case 'right':
-        return (
-          <>
+        return <>
             <div className="flex-1 flex flex-col overflow-hidden">
               {TabNavigationComponent}
               {ContentComponent}
@@ -390,34 +333,26 @@ function App() {
             <div className="flex flex-col h-full">
               {TitleBarComponent}
             </div>
-          </>
-        )
+          </>;
       default:
-        return (
-          <>
+        return <>
             {TitleBarComponent}
             {TabNavigationComponent}
             {ContentComponent}
             {FooterComponent}
-          </>
-        )
+          </>;
     }
-  }
-
-  return (
-    <div className={outerContainerClasses} style={{ padding: '5px' }}>
-      <div
-        className={containerClasses}
-        style={{
-          borderRadius: '8px',
-          boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
-        }}
-      >
+  };
+  return <div className={outerContainerClasses} style={{
+    padding: '5px'
+  }}>
+      <div className={containerClasses} style={{
+      borderRadius: '8px',
+      boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
+    }}>
         {renderLayout()}
         <ToastContainer />
       </div>
-    </div>
-  )
+    </div>;
 }
-
-export default App
+export default App;

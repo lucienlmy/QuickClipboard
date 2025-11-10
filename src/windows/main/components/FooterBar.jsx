@@ -1,83 +1,83 @@
-import { useTranslation } from 'react-i18next'
-import { useSnapshot } from 'valtio'
-import { IconList, IconRowInsertBottom, IconLayoutGrid } from '@tabler/icons-react'
-import { useWindowDrag } from '@shared/hooks/useWindowDrag'
-import { settingsStore } from '@shared/store/settingsStore'
-import BottomMenuPopup from './BottomMenuPopup'
-
-function FooterBar({ children }) {
-  const { t } = useTranslation()
-  const settings = useSnapshot(settingsStore)
+import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+import { useTranslation } from 'react-i18next';
+import { useSnapshot } from 'valtio';
+import { useWindowDrag } from '@shared/hooks/useWindowDrag';
+import { settingsStore } from '@shared/store/settingsStore';
+import BottomMenuPopup from './BottomMenuPopup';
+function FooterBar({
+  children
+}) {
+  const {
+    t
+  } = useTranslation();
+  const settings = useSnapshot(settingsStore);
 
   // 使用自定义窗口拖拽，排除右侧自定义内容区域和所有按钮
   const dragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]'],
     allowChildren: true
-  })
+  });
 
   // 定义菜单项配置
-  const menuItems = [
-    {
-      id: 'rowHeight',
-      label: t('listSettings.rowHeight.label'),
-      icon: IconRowInsertBottom,
-      currentValue: settings.rowHeight,
-      options: [
-        { value: 'auto', label: t('listSettings.rowHeight.auto') },
-        { value: 'large', label: t('listSettings.rowHeight.large') },
-        { value: 'medium', label: t('listSettings.rowHeight.medium') },
-        { value: 'small', label: t('listSettings.rowHeight.small') }
-      ],
-      onSelect: (value) => settingsStore.setRowHeight(value)
-    },
-    {
-      id: 'fileDisplayMode',
-      label: t('listSettings.fileDisplayMode.label'),
-      icon: IconLayoutGrid,
-      currentValue: settings.fileDisplayMode,
-      options: [
-        { value: 'detailed', label: t('listSettings.fileDisplayMode.detailed') },
-        { value: 'iconOnly', label: t('listSettings.fileDisplayMode.iconOnly') }
-      ],
-      onSelect: (value) => settingsStore.setFileDisplayMode(value)
-    }
-  ]
+  const menuItems = [{
+    id: 'rowHeight',
+    label: t('listSettings.rowHeight.label'),
+    icon: "ti ti-row-insert-bottom",
+    currentValue: settings.rowHeight,
+    options: [{
+      value: 'auto',
+      label: t('listSettings.rowHeight.auto')
+    }, {
+      value: 'large',
+      label: t('listSettings.rowHeight.large')
+    }, {
+      value: 'medium',
+      label: t('listSettings.rowHeight.medium')
+    }, {
+      value: 'small',
+      label: t('listSettings.rowHeight.small')
+    }],
+    onSelect: value => settingsStore.setRowHeight(value)
+  }, {
+    id: 'fileDisplayMode',
+    label: t('listSettings.fileDisplayMode.label'),
+    icon: "ti ti-layout-grid",
+    currentValue: settings.fileDisplayMode,
+    options: [{
+      value: 'detailed',
+      label: t('listSettings.fileDisplayMode.detailed')
+    }, {
+      value: 'iconOnly',
+      label: t('listSettings.fileDisplayMode.iconOnly')
+    }],
+    onSelect: value => settingsStore.setFileDisplayMode(value)
+  }];
+  return <div ref={dragRef} className="flex-shrink-0 h-5 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative footer-bar">
+    {/* 左侧快捷键提示 */}
+    <div className="flex items-center gap-2 text-[10px]">
+      <span>Win+V {t('footer.openClipboard')}</span>
+      {/* <span>Ctrl+1~9 {t('footer.pasteShortcut')}</span> */}
+    </div>
 
-  return (
-    <div
-      ref={dragRef}
-      className="flex-shrink-0 h-5 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative footer-bar"
-    >
-      {/* 左侧快捷键提示 */}
-      <div className="flex items-center gap-2 text-[10px]">
-        <span>Win+V {t('footer.openClipboard')}</span>
-        {/* <span>Ctrl+1~9 {t('footer.pasteShortcut')}</span> */}
-      </div>
+    {/* 右侧区域 - 绝对定位固定在右侧，标记为不可拖拽区域 */}
+    <div className="absolute right-3 top-0 h-full flex items-center gap-2 pl-4" data-no-drag>
+      {/* 渐变遮罩 */}
 
-      {/* 右侧区域 - 绝对定位固定在右侧，标记为不可拖拽区域 */}
-      <div
-        className="absolute right-3 top-0 h-full flex items-center gap-2 pl-4"
-        data-no-drag
-      >
-        {/* 渐变遮罩 */}
+      {/* 内容层 */}
+      <div className="relative flex items-center gap-2">
+        <BottomMenuPopup
+          icon="ti ti-list"
+          label={t('listSettings.title')}
+          title={t('listSettings.title')}
+          menuItems={menuItems}
+          width={120}
+        />
 
-        {/* 内容层 */}
-        <div className="relative flex items-center gap-2">
-          <BottomMenuPopup
-            icon={IconList}
-            label={t('listSettings.title')}
-            title={t('listSettings.title')}
-            menuItems={menuItems}
-            width={120}
-          />
 
-          {/* 自定义内容（分组按钮） */}
-          {children}
-        </div>
+        {/* 自定义内容（分组按钮） */}
+        {children}
       </div>
     </div>
-  )
+  </div>;
 }
-
-export default FooterBar
-
+export default FooterBar;

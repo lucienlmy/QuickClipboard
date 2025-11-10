@@ -1,17 +1,11 @@
-import { 
-  IconPin, 
-  IconSettings, 
-  IconCamera, 
-  IconTrash, 
-  IconLanguage, 
-  IconTypography
-} from '@tabler/icons-react'
+import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+
 
 // 工具注册表配置
 export const TOOL_REGISTRY = {
   'pin-button': {
     id: 'pin-button',
-    icon: IconPin,
+    icon:"ti ti-pin",
     titleKey: 'tools.pin',
     type: 'toggle',
     defaultLocation: 'titlebar',
@@ -19,21 +13,21 @@ export const TOOL_REGISTRY = {
   },
   'settings-button': {
     id: 'settings-button',
-    icon: IconSettings,
+    icon:"ti ti-settings",
     titleKey: 'tools.settings',
     type: 'action',
     defaultLocation: 'titlebar',
   },
   'screenshot-button': {
     id: 'screenshot-button',
-    icon: IconCamera,
+    icon:"ti ti-camera",
     titleKey: 'tools.screenshot',
     type: 'action',
     defaultLocation: 'panel',
   },
   'one-time-paste-button': {
     id: 'one-time-paste-button',
-    icon: IconTrash,
+    icon:"ti ti-trash",
     titleKey: 'tools.oneTimePaste',
     type: 'toggle',
     defaultLocation: 'panel',
@@ -41,7 +35,7 @@ export const TOOL_REGISTRY = {
   },
   // 'ai-translation-button': {
   //   id: 'ai-translation-button',
-  //   icon: IconLanguage,
+  //   icon:"ti ti-language",
   //   titleKey: 'tools.aiTranslation',
   //   type: 'toggle',
   //   defaultLocation: 'panel',
@@ -49,7 +43,7 @@ export const TOOL_REGISTRY = {
   // },
   'format-toggle-button': {
     id: 'format-toggle-button',
-    icon: IconTypography,
+    icon:"ti ti-typography",
     titleKey: 'tools.formatToggle',
     type: 'toggle',
     defaultLocation: 'panel',
