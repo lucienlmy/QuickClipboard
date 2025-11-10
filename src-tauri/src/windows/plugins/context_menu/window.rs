@@ -15,6 +15,9 @@ pub struct MenuItem {
     // Favicon URL
     #[serde(skip_serializing_if = "Option::is_none")]
     pub favicon: Option<String>,
+    // 图标颜色
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_color: Option<String>,
     // 是否禁用
     #[serde(default)]
     pub disabled: bool,

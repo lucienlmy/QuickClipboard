@@ -8,14 +8,14 @@ pub fn get_groups() -> Result<Vec<GroupInfo>, String> {
 
 // 添加分组
 #[tauri::command]
-pub fn add_group(name: String, icon: String) -> Result<GroupInfo, String> {
-    db_add_group(name, icon)
+pub fn add_group(name: String, icon: String, color: String) -> Result<GroupInfo, String> {
+    db_add_group(name, icon, color)
 }
 
 // 更新分组
 #[tauri::command]
-pub fn update_group(old_name: String, new_name: String, new_icon: String) -> Result<GroupInfo, String> {
-    db_update_group(old_name, new_name, new_icon)
+pub fn update_group(old_name: String, new_name: String, new_icon: String, new_color: String) -> Result<GroupInfo, String> {
+    db_update_group(old_name, new_name, new_icon, new_color)
 }
 
 // 删除分组

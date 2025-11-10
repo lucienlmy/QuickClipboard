@@ -49,25 +49,26 @@ export async function loadGroups() {
     // 确保"全部"分组始终存在并排在最前面
     const allGroupIndex = groups.findIndex(g => g.name === '全部')
     if (allGroupIndex === -1) {
-      groups.unshift({ name: '全部', icon: 'ti ti-list', order: -1, item_count: 0 })
+      groups.unshift({ name: '全部', icon: 'ti ti-list', color: '#dc2626', order: -1, item_count: 0 })
     } else if (allGroupIndex !== 0) {
       const allGroup = groups.splice(allGroupIndex, 1)[0]
       allGroup.order = -1
+      allGroup.color = allGroup.color || '#dc2626';
       groups.unshift(allGroup)
     }
 
     groupsStore.groups = groups
   } catch (error) {
-    groupsStore.groups = [{ name: '全部', icon: 'ti ti-list', order: -1, item_count: 0 }]
+    groupsStore.groups = [{ name: '全部', icon: 'ti ti-list', color: '#dc2626', order: -1, item_count: 0 }] // 使用红色作为默认颜色
   } finally {
     groupsStore.loading = false
   }
 }
 
 // 添加分组
-export async function addGroup(name, icon = 'ti ti-folder') {
+export async function addGroup(name, icon = 'ti ti-folder', color = '#ffffff') {
   try {
-    const newGroup = await apiAddGroup(name, icon)
+    const newGroup = await apiAddGroup(name, icon, color)
     await loadGroups()
     return newGroup
   } catch (error) {
@@ -77,9 +78,9 @@ export async function addGroup(name, icon = 'ti ti-folder') {
 }
 
 // 更新分组
-export async function updateGroup(oldName, newName, newIcon) {
+export async function updateGroup(oldName, newName, newIcon, newColor) {
   try {
-    const updatedGroup = await apiUpdateGroup(oldName, newName, newIcon)
+    const updatedGroup = await apiUpdateGroup(oldName, newName, newIcon, newColor)
     await loadGroups()
     return updatedGroup
   } catch (error) {

@@ -59,7 +59,8 @@
       "namePlaceholder": "Enter group name",
       "nameRequired": "Please enter group name",
       "iconLabel": "Select Icon",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "customColor": "Custom Color"
     }
   },
   "filter": {

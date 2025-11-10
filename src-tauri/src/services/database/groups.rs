@@ -8,16 +8,16 @@ pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {
     with_connection(|conn| {
         let mut groups = Vec::new();
         
-        let mut stmt = conn.prepare("SELECT name, icon, order_index FROM groups ORDER BY order_index, name")?;
-        let group_rows: Vec<(String, String, i32)> = stmt
+        let mut stmt = conn.prepare("SELECT name, icon, color, order_index FROM groups ORDER BY order_index, name")?;
+        let group_rows: Vec<(String, String, String, i32)> = stmt
             .query_map([], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
             })?
             .collect::<Result<Vec<_>, _>>()?;
         
         drop(stmt);
         
-        for (name, icon, order) in group_rows {
+        for (name, icon, color, order) in group_rows {
             let count: i32 = conn.query_row(
                 "SELECT COUNT(*) FROM favorites WHERE group_name = ?1",
                 params![&name],
@@ -27,6 +27,7 @@ pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {
             groups.push(GroupInfo {
                 name,
                 icon,
+                color,
                 order,
                 item_count: count,
             });
@@ -37,7 +38,7 @@ pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {
 }
 
 // 添加分组
-pub fn add_group(name: String, icon: String) -> Result<GroupInfo, String> {
+pub fn add_group(name: String, icon: String, color: String) -> Result<GroupInfo, String> {
     with_connection(|conn| {
         let exists: i64 = conn.query_row(
             "SELECT COUNT(*) FROM groups WHERE name = ?1",
@@ -61,13 +62,14 @@ pub fn add_group(name: String, icon: String) -> Result<GroupInfo, String> {
         let now = chrono::Local::now().timestamp();
         
         conn.execute(
-            "INSERT INTO groups (name, icon, order_index, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![&name, &icon, new_order, now, now],
+            "INSERT INTO groups (name, icon, color, order_index, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![&name, &icon, &color, new_order, now, now],
         )?;
         
         Ok(GroupInfo {
             name,
             icon,
+            color,
             order: new_order,
             item_count: 0,
         })
@@ -75,7 +77,7 @@ pub fn add_group(name: String, icon: String) -> Result<GroupInfo, String> {
 }
 
 // 更新分组
-pub fn update_group(old_name: String, new_name: String, new_icon: String) -> Result<GroupInfo, String> {
+pub fn update_group(old_name: String, new_name: String, new_icon: String, new_color: String) -> Result<GroupInfo, String> {
     with_connection(|conn| {
         if old_name != new_name {
             let exists: i64 = conn.query_row(
@@ -95,8 +97,8 @@ pub fn update_group(old_name: String, new_name: String, new_icon: String) -> Res
         let tx = conn.unchecked_transaction()?;
         
         tx.execute(
-            "UPDATE groups SET name = ?1, icon = ?2, updated_at = ?3 WHERE name = ?4",
-            params![&new_name, &new_icon, now, &old_name],
+            "UPDATE groups SET name = ?1, icon = ?2, color = ?3, updated_at = ?4 WHERE name = ?5",
+            params![&new_name, &new_icon, &new_color, now, &old_name],
         )?;
         
         if old_name != new_name {
@@ -114,15 +116,16 @@ pub fn update_group(old_name: String, new_name: String, new_icon: String) -> Res
             |row| row.get(0)
         )?;
         
-        let order: i32 = conn.query_row(
-            "SELECT order_index FROM groups WHERE name = ?1",
+        let (order, color): (i32, String) = conn.query_row(
+            "SELECT order_index, color FROM groups WHERE name = ?1",
             params![&new_name],
-            |row| row.get(0)
+            |row| Ok((row.get(0)?, row.get(1)?))
         )?;
         
         Ok(GroupInfo {
             name: new_name,
             icon: new_icon,
+            color,
             order,
             item_count: count,
         })

@@ -199,7 +199,11 @@ const GroupsPopup = forwardRef(({
               <div className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer transition-all ${isActive ? 'bg-blue-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}>
                 {/* 图标 */}
                 <div className="flex-shrink-0">
-                  <i className={group.icon} style={{ fontSize: 14 }}></i>
+                  {group.name === '全部' ? (
+                    <i className={group.icon} style={{ fontSize: 14 }}></i>
+                  ) : (
+                    <i className={group.icon} style={{ fontSize: 14, color: group.color || '#dc2626' }}></i>
+                  )}
                 </div>
 
                 {/* 名称 */}

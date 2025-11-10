@@ -37,6 +37,7 @@ pub struct FavoriteItem {
 pub struct GroupInfo {
     pub name: String,
     pub icon: String,
+    pub color: String,
     pub order: i32,
     pub item_count: i32,
 }

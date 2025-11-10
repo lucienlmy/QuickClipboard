@@ -66,12 +66,30 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         "CREATE TABLE IF NOT EXISTS groups (
             name TEXT PRIMARY KEY,
             icon TEXT NOT NULL DEFAULT 'ti ti-folder',
+            color TEXT NOT NULL DEFAULT '#dc2626',
             order_index INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         )",
         [],
     ).map_err(|e| format!("创建分组表失败: {}", e))?;
+
+    let color_exists = conn
+        .prepare("PRAGMA table_info(groups)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| {
+                Ok(row.get::<_, String>(1)?)
+            })?;
+            Ok(columns.into_iter().any(|col| col.map(|c| c == "color").unwrap_or(false)))
+        })
+        .unwrap_or(false);
+    
+    if !color_exists {
+        conn.execute(
+            "ALTER TABLE groups ADD COLUMN color TEXT NOT NULL DEFAULT '#dc2626'",
+            [],
+        ).map_err(|e| format!("添加颜色字段失败: {}", e))?;
+    }
 
 
     conn.execute(

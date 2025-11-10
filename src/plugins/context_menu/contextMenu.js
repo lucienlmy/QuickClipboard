@@ -28,7 +28,7 @@ function applyTheme(theme) {
 
 function updateScrollIndicator(element) {
     if (!element) return;
-    
+
     const hasScroll = element.scrollHeight > element.clientHeight;
     if (hasScroll) {
         element.classList.add('has-scroll');
@@ -40,22 +40,22 @@ function updateScrollIndicator(element) {
 function createSubmenu(items) {
     const submenu = document.createElement('div');
     submenu.className = 'submenu-container';
-    
+
     items.forEach(item => {
         const menuItemElement = createMenuItem(item);
         submenu.appendChild(menuItemElement);
     });
-    
+
     submenu.addEventListener('scroll', () => {
         updateScrollIndicator(submenu);
     });
-    
+
     return submenu;
 }
 
 async function restoreWindowSize() {
     if (!initialMenuSize) return;
-    
+
     try {
         const size = new LogicalSize(initialMenuSize.width, initialMenuSize.height);
         await currentWindow.setSize(size);
@@ -68,38 +68,38 @@ async function positionSubmenu(submenu, parentItem) {
     const parentRect = parentItem.getBoundingClientRect();
     const menuRect = menuContainer.getBoundingClientRect();
     const bodyPadding = 16;
-    
+
     const relativeTop = parentRect.top - menuRect.top;
-    
+
     submenu.style.left = (menuRect.width - 4) + 'px';
     submenu.style.top = relativeTop + 'px';
     submenu.style.right = 'auto';
-    
+
     setTimeout(async () => {
         const submenuRect = submenu.getBoundingClientRect();
-        
+
         const scrollbarWidth = 8;
         const menuWidth = Math.ceil(menuRect.width + submenuRect.width - 4 + scrollbarWidth);
         const windowWidth = menuWidth + bodyPadding;
-        
+
         const submenuMaxHeight = 400;
         const actualSubmenuHeight = Math.min(submenuRect.height, submenuMaxHeight);
-        
+
         const submenuBottom = relativeTop + actualSubmenuHeight;
         const menuHeight = Math.ceil(Math.max(menuRect.height, submenuBottom + 8));
         const windowHeight = menuHeight + bodyPadding;
-        
+
         try {
             const size = new LogicalSize(windowWidth, windowHeight);
             await currentWindow.setSize(size);
-            
+
             const availableSpace = menuHeight - 8;
             if (submenuBottom > availableSpace) {
                 const overflow = submenuBottom - availableSpace;
                 const newTop = Math.max(0, relativeTop - overflow);
                 submenu.style.top = newTop + 'px';
             }
-            
+
             setTimeout(() => {
                 updateScrollIndicator(submenu);
             }, 50);
@@ -122,7 +122,7 @@ function createMenuItem(item) {
         menuItem.classList.add('disabled');
     }
     menuItem.dataset.itemId = item.id;
-    
+
     const hasChildren = item.children && item.children.length > 0;
     if (hasChildren) {
         menuItem.classList.add('has-submenu');
@@ -141,6 +141,9 @@ function createMenuItem(item) {
     } else if (item.icon) {
         const icon = document.createElement('i');
         icon.className = `menu-item-icon ${item.icon}`;
+        if (item.icon_color) {
+            icon.style.color = item.icon_color;
+        }
         menuItem.appendChild(icon);
     } else {
         const iconPlaceholder = document.createElement('div');
@@ -157,12 +160,12 @@ function createMenuItem(item) {
         const indicator = document.createElement('i');
         indicator.className = 'menu-item-submenu-indicator ti ti-chevron-right';
         menuItem.appendChild(indicator);
-        
+
         const submenu = createSubmenu(item.children);
         menuContainer.appendChild(submenu);
-        
+
         menuItem.submenuElement = submenu;
-        
+
         if (!item.disabled) {
             menuItem.addEventListener('click', (e) => {
                 if (!e.target.classList.contains('menu-item-submenu-indicator')) {
@@ -171,7 +174,7 @@ function createMenuItem(item) {
                 }
             });
         }
-        
+
         let showTimeout;
         menuItem.addEventListener('mouseenter', () => {
             clearTimeout(showTimeout);
@@ -185,7 +188,7 @@ function createMenuItem(item) {
                 positionSubmenu(submenu, menuItem);
             }, 100);
         });
-        
+
         menuItem.addEventListener('mouseleave', (e) => {
             clearTimeout(showTimeout);
             if (!submenu.contains(e.relatedTarget)) {
@@ -200,7 +203,7 @@ function createMenuItem(item) {
                 }, 100);
             }
         });
-        
+
         submenu.addEventListener('mouseleave', (e) => {
             if (!menuItem.contains(e.relatedTarget)) {
                 setTimeout(async () => {
@@ -243,7 +246,7 @@ let isClosing = false;
 
 async function loadAndRenderMenu() {
     isClosing = false;
-    
+
     try {
         const options = await invoke('get_context_menu_options');
         renderMenu(options);
@@ -274,7 +277,7 @@ if (!reloadListenerRegistered) {
 async function hideMenu(itemId = null) {
     if (isClosing) return;
     isClosing = true;
-    
+
     try {
         await invoke('submit_context_menu', { itemId: itemId || null });
 

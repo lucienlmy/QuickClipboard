@@ -33,6 +33,13 @@ function FavoriteItem({
   const groups = useSnapshot(groupsStore);
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部';
 
+  const getGroupColor = (groupName) => {
+    const group = groups.groups.find(g => g.name === groupName);
+    return group?.color || '#dc2626';
+  };
+
+  const groupColor = showGroupBadge ? getGroupColor(item.group_name) : null;
+
   // 拖拽功能
   const {
     attributes,
@@ -163,71 +170,75 @@ function FavoriteItem({
   `.trim().replace(/\s+/g, ' ');
 
   // 分组标签样式
-  const groupBadgeClasses = `
+  const groupBadgeClasses = (color) => `
     flex items-center justify-center
     h-5 px-1.5
     text-xs font-medium
     border rounded-md
     transition-all
-    text-gray-600 dark:text-gray-400
-    border-gray-200 dark:border-gray-600
-    bg-gray-100/80 dark:bg-gray-700/80
     backdrop-blur-md
+    ${color ? 'text-white border-white/20 shadow-sm' : 'text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 bg-gray-100/80 dark:bg-gray-700/80'}
   `.trim().replace(/\s+/g, ' ');
   const isSmallHeight = settings.rowHeight === 'small';
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter}>
-      {/* 浮动的序号和分组 */}
-      <div className={`absolute top-1 right-2 flex flex-col items-end ${isSmallHeight ? 'gap-0' : 'gap-0.5'} pointer-events-none z-20`}>
-        <span className={numberBadgeClasses}>
-          {index + 1}
+    {/* 浮动的序号和分组 */}
+    <div className={`absolute top-1 right-2 flex flex-col items-end ${isSmallHeight ? 'gap-0' : 'gap-0.5'} pointer-events-none z-20`}>
+      <span className={numberBadgeClasses}>
+        {index + 1}
+      </span>
+      {showGroupBadge && <span
+        className={groupBadgeClasses(groupColor)}
+        style={groupColor ? {
+          backgroundColor: groupColor,
+          backgroundImage: `linear-gradient(135deg, ${groupColor}dd, ${groupColor})`
+        } : {}}
+      >
+        {item.group_name}
+      </span>}
+    </div>
+
+    {/* 操作按钮区域 */}
+    <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto z-20">
+      {/* 编辑按钮 */}
+      {isTextOrRichText && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
+        <i className="ti ti-edit" style={{
+          fontSize: 12
+        }}></i>
+      </button>}
+
+      {/* 删除按钮 */}
+      <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
+        <i className="ti ti-trash" style={{
+          fontSize: 12
+        }}></i>
+      </button>
+    </div>
+
+    {isSmallHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden h-full">
+        {renderContent(true)}
+      </div>
+    </div> : <>
+      {/* 时间戳 */}
+      <div className="flex items-center flex-shrink-0 mb-0.5">
+        <span className="text-xs text-gray-400 dark:text-gray-500">
+          {formatTime()}
         </span>
-        {showGroupBadge && <span className={groupBadgeClasses}>
-            {item.group_name}
-          </span>}
       </div>
 
-      {/* 操作按钮区域 */}
-      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto z-20">
-        {/* 编辑按钮 */}
-        {isTextOrRichText && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-            <i className="ti ti-edit" style={{
-          fontSize: 12
-        }}></i>
-          </button>}
+      {/* 标题 */}
+      {shouldShowTitle() && <div className="flex-shrink-0 mb-1">
+        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
+          {item.title}
+        </p>
+      </div>}
 
-        {/* 删除按钮 */}
-        <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
-          <i className="ti ti-trash" style={{
-          fontSize: 12
-        }}></i>
-        </button>
+      {/* 内容区域 */}
+      <div className={`flex-1 min-w-0 w-full ${isFileType ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+        {renderContent()}
       </div>
-
-      {isSmallHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
-          <div className="flex-1 min-w-0 overflow-hidden h-full">
-            {renderContent(true)}
-          </div>
-        </div> : <>
-          {/* 时间戳 */}
-          <div className="flex items-center flex-shrink-0 mb-0.5">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              {formatTime()}
-            </span>
-          </div>
-
-          {/* 标题（如果有） */}
-          {shouldShowTitle() && <div className="flex-shrink-0 mb-1">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
-                {item.title}
-              </p>
-            </div>}
-
-          {/* 内容区域 */}
-          <div className={`flex-1 min-w-0 w-full ${isFileType ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
-            {renderContent()}
-          </div>
-        </>}
-    </div>;
+    </>}
+  </div>;
 }
 export default FavoriteItem;

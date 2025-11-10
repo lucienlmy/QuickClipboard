@@ -59,7 +59,8 @@
       "namePlaceholder": "请输入分组名称",
       "nameRequired": "请输入分组名称",
       "iconLabel": "选择图标",
-      "saving": "保存中..."
+      "saving": "保存中...",
+      "customColor": "自定义颜色"
     }
   },
   "filter": {
