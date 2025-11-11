@@ -14,6 +14,7 @@ import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { ImageContent, FileContent, HtmlContent, TextContent } from '@windows/main/components/ClipboardContent';
 import { getPrimaryType } from '@shared/utils/contentType';
+import logoIcon from '@/assets/icon1024.png';
 function QuickPasteWindow() {
   const {
     t
@@ -32,6 +33,8 @@ function QuickPasteWindow() {
     isDark
   } = useTheme();
   useSettingsSync();
+
+  const getRowHeightStyle = () => 'h-12';
   const isClipboardTab = navSnap.activeTab === 'clipboard';
   const currentItems = isClipboardTab ? clipSnap.items : favSnap.items;
   const totalCount = isClipboardTab ? clipSnap.totalCount : favSnap.totalCount;
@@ -77,6 +80,13 @@ function QuickPasteWindow() {
         align: 'start',
         behavior: 'auto'
       });
+
+      const container = document.querySelector('.quickpaste-container');
+      if (container) {
+        container.style.animation = 'none';
+        container.offsetHeight;
+        container.style.animation = 'slideIn 0.3s ease-out';
+      }
     });
     return () => unlisten.then(fn => fn());
   }, []);
@@ -172,99 +182,198 @@ function QuickPasteWindow() {
   // 渲染内容
   const renderItemContent = item => {
     if (!item || !item.content_type) {
-      return <div className="w-full min-h-[32px] flex items-center">
-          <span className="truncate text-gray-400">加载中...</span>
-        </div>;
+      return (
+        <div className="w-full flex items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full animate-pulse" />
+            <span className="text-xs text-gray-400 dark:text-gray-500">加载中...</span>
+          </div>
+        </div>
+      );
     }
+
     const primaryType = getPrimaryType(item.content_type);
+
     if (primaryType === 'image') {
-      return <div className="w-full h-14 overflow-hidden rounded-sm bg-gray-100 dark:bg-gray-900">
+      return (
+        <div className="w-full h-8 overflow-hidden rounded bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border border-gray-200/50 dark:border-gray-600/50 flex items-center">
           <ImageContent item={item} />
-        </div>;
+        </div>
+      );
     }
+
     if (primaryType === 'file') {
-      return <div className="w-full">
+      return (
+        <div className="w-full h-8 overflow-hidden flex items-center">
           <FileContent item={item} compact={true} />
-        </div>;
+        </div>
+      );
     }
+
     if (primaryType === 'rich_text') {
       if (settings.pasteWithFormat && item.html_content) {
-        return <div className="w-full min-h-[32px] overflow-hidden">
-            <HtmlContent htmlContent={item.html_content} lineClampClass="line-clamp-2" />
-          </div>;
+        return (
+          <div className="w-full h-8 overflow-hidden">
+            <HtmlContent htmlContent={item.html_content} lineClampClass="line-clamp-1" />
+          </div>
+        );
       } else {
-        return <div className="w-full min-h-[32px]">
-            <TextContent content={item.content || ''} lineClampClass="line-clamp-2" />
-          </div>;
+        return (
+          <div className="w-full h-8 overflow-hidden">
+            <TextContent content={item.content || ''} lineClampClass="line-clamp-1" />
+          </div>
+        );
       }
     }
-    return <div className="w-full min-h-[32px]">
-        <TextContent content={item.content || ''} lineClampClass="line-clamp-2" />
-      </div>;
+
+    return (
+      <div className="w-full h-8 overflow-hidden">
+        <TextContent content={item.content || ''} lineClampClass="line-clamp-1" />
+      </div>
+    );
   };
   const outerContainerClasses = `
     absolute inset-0 flex items-center justify-center
     ${isDark ? 'dark' : ''}
   `.trim().replace(/\s+/g, ' ');
+
   return <div className={outerContainerClasses} style={{
     padding: '5px'
   }}>
-      <div className="quickpaste-container w-full h-full flex flex-col bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl overflow-hidden" style={{
+    <div className="quickpaste-container w-full h-full flex flex-col bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl overflow-hidden" style={{
       borderRadius: '8px',
       boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
     }}>
-        <style>{`
+      <style>{`
           * { box-sizing: border-box; }
-          .quickpaste-scrollbar-container div[style*="overflow"]{scrollbar-width:none!important;-ms-overflow-style:none!important}
-          .quickpaste-scrollbar-container div[style*="overflow"]::-webkit-scrollbar{display:none!important}
+          .quickpaste-scrollbar-container {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+          }
+          .quickpaste-scrollbar-container::-webkit-scrollbar {
+            width: 4px;
+          }
+          .quickpaste-scrollbar-container::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .quickpaste-scrollbar-container::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 2px;
+          }
+          .quickpaste-scrollbar-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+          }
+          .dark .quickpaste-scrollbar-container {
+            scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+          }
+          .dark .quickpaste-scrollbar-container::-webkit-scrollbar-thumb {
+            background: rgba(75, 85, 99, 0.5);
+          }
+          .dark .quickpaste-scrollbar-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(75, 85, 99, 0.7);
+          }
+
         `}</style>
 
-      {/* 顶部 */}
-      <div className="flex-shrink-0 px-2 py-2 bg-gradient-to-b from-gray-50/50 dark:from-gray-800/50 to-transparent">
-        <div className="flex items-center gap-1">
-          <div className="w-0.5 h-3.5 bg-blue-500 dark:bg-blue-400 rounded-full flex-shrink-0" />
-          <h2 className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300 truncate overflow-hidden">{title}</h2>
-          <span className="text-[10px] text-gray-400 dark:text-gray-600 font-mono flex-shrink-0">{totalCount}</span>
+      {/* 顶部标题栏 */}
+      <div className="flex-shrink-0 px-3 py-2 bg-gradient-to-br from-gray-50/80 dark:from-gray-800/80 via-transparent to-transparent backdrop-blur-sm border-b border-white/30 dark:border-gray-700/30">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center w-6 h-6 rounded-lg shadow-sm overflow-hidden">
+            <img src={logoIcon} alt="QuickClipboard" className="w-full h-full object-contain" />
+          </div>
+          <h2 className="flex-1 text-sm font-semibold text-gray-800 dark:text-gray-200 tracking-wide truncate overflow-hidden">
+            {title}
+          </h2>
+          <span className="inline-flex items-center justify-center min-w-[24px] h-5 px-1.5 bg-gradient-to-br from-gray-100 dark:from-gray-700 to-gray-50 dark:to-gray-600 rounded-full text-[10px] font-bold text-gray-600 dark:text-gray-300 shadow-inner">
+            {totalCount}
+          </span>
         </div>
       </div>
 
       {/* 列表 */}
-      {!totalCount ? <div className="flex-1 flex items-center justify-center">
-          <span className="text-xs text-gray-400 dark:text-gray-600">
+      {!totalCount ? (
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-gray-100 dark:from-gray-700 to-gray-50 dark:to-gray-600 rounded-xl mb-3 shadow-inner">
+            <i className={`ti ti-${isClipboardTab ? 'clipboard-off' : 'star-off'} text-gray-400 dark:text-gray-500 text-lg`} />
+          </div>
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium text-center max-w-[120px]">
             {isClipboardTab ? t('settings.quickpaste.window.emptyClipboard') : t('settings.quickpaste.window.emptyFavorites')}
           </span>
-        </div> : <div className="flex-1 overflow-hidden quickpaste-scrollbar-container">
-          <Virtuoso ref={virtuosoRef} totalCount={totalCount} rangeChanged={handleRangeChanged} increaseViewportBy={{
-          top: 100,
-          bottom: 100
-        }} style={{
-          height: '100%'
-        }} itemContent={index => {
-          const item = itemsArray[index];
-          const active = activeIndex === index;
-          return item ? <div className="px-2 py-1">
-                  <div className={`relative pl-6 pr-2 py-2 rounded-md transition-all cursor-pointer ${active ? 'bg-gradient-to-r from-blue-500/20 to-blue-400/10 dark:from-blue-500/30 dark:to-blue-400/20 shadow-sm' : 'bg-gray-50/80 dark:bg-gray-800/50 hover:bg-gray-100/80 dark:hover:bg-gray-800/80'}`} onClick={() => handleItemClick(item, index)}>
-                    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3/4 bg-blue-500 dark:bg-blue-400 rounded-r-full" />}
-                    <span className={`absolute left-1.5 top-2.5 text-[9px] font-bold ${active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-600'}`}>{index + 1}</span>
-                    <div className={`text-xs ${active ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-700 dark:text-gray-400'}`}>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-hidden quickpaste-scrollbar-container">
+          <Virtuoso
+            ref={virtuosoRef}
+            totalCount={totalCount}
+            rangeChanged={handleRangeChanged}
+            increaseViewportBy={{ top: 100, bottom: 100 }}
+            style={{ height: '100%' }}
+            itemContent={index => {
+              const item = itemsArray[index];
+              const active = activeIndex === index;
+
+              return item ? (
+                <div className="px-2 py-1.5">
+                  <div className={`
+                    relative pl-3 pr-12 py-3 rounded-lg transition-all duration-200 cursor-pointer
+                    ${getRowHeightStyle()}
+                    ${active
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                      : 'bg-white/60 dark:bg-gray-800/60 hover:bg-gray-50/80 dark:hover:bg-gray-700/50 border border-transparent'
+                    }
+                  `} onClick={() => handleItemClick(item, index)}>
+
+                    {/* 内容区域 */}
+                    <div className={`text-xs h-full flex items-center ${active ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
                       {renderItemContent(item)}
                     </div>
-                  </div>
-                </div> : <div className="px-2 py-1">
-                  <div className="px-2 py-2 bg-gray-100/50 dark:bg-gray-800/50 rounded-md overflow-hidden">
-                    <div className="text-xs bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse h-10" />
-                  </div>
-                </div>;
-        }} />
-        </div>}
 
-      {/* 底部 */}
-      <div className={`flex-shrink-0 px-2 py-2 text-center text-[10px] font-medium transition-all rounded-b-lg overflow-hidden cursor-pointer ${isHoveringCancel ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-gradient-to-b from-transparent to-red-50/50 dark:to-red-900/10 text-red-500 dark:text-red-400'}`} onMouseEnter={() => setIsHoveringCancel(true)} onMouseLeave={() => setIsHoveringCancel(false)} onClick={handleCancelClick}>
-        <span className="truncate overflow-hidden">
-          {isHoveringCancel ? t('settings.quickpaste.window.cancelHover') : t('settings.quickpaste.window.cancelNormal')}
-        </span>
+                    {/* 序号 */}
+                    <div className={`
+                      absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold transition-all
+                      ${active
+                        ? 'bg-blue-500 text-white shadow-sm'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      }
+                    `}>
+                      {index + 1}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-2 py-1.5">
+                  <div className={`
+                    px-2 py-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-lg overflow-hidden border border-gray-200/50 dark:border-gray-700/30
+                    ${getRowHeightStyle()}
+                  `}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                      <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              );
+            }}
+          />
+        </div>
+      )}
+
+      {/* 底部取消按钮 */}
+      <div className={`
+        flex-shrink-0 px-3 py-3 text-center text-[11px] font-semibold transition-all duration-300 overflow-hidden cursor-pointer
+        ${isHoveringCancel
+          ? 'bg-gradient-to-r from-red-500 via-red-600 to-red-500 text-white shadow-2xl shadow-red-500/40 transform scale-[1.02]'
+          : 'bg-gradient-to-t from-red-50/70 dark:from-red-900/20 to-transparent text-red-600 dark:text-red-400 hover:from-red-100/70 dark:hover:from-red-900/30'
+        }
+      `} onMouseEnter={() => setIsHoveringCancel(true)} onMouseLeave={() => setIsHoveringCancel(false)} onClick={handleCancelClick}>
+        <div className="flex items-center justify-center gap-2">
+          <i className={`ti ti-${isHoveringCancel ? 'x' : 'chevron-down'} transition-all duration-200`} />
+          <span className="truncate overflow-hidden font-bold tracking-wide">
+            {isHoveringCancel ? t('settings.quickpaste.window.cancelHover') : t('settings.quickpaste.window.cancelNormal')}
+          </span>
+        </div>
       </div>
-      </div>
-    </div>;
+    </div>
+  </div>;
 }
 export default QuickPasteWindow;

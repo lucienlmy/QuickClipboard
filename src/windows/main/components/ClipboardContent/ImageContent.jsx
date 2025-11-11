@@ -65,16 +65,16 @@ function ImageContent({
   };
   if (loading) {
     return <div className="w-full min-h-[80px] bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
-        <span className="text-sm text-gray-500 dark:text-gray-400">加载中...</span>
-      </div>;
+      <span className="text-sm text-gray-500 dark:text-gray-400">加载中...</span>
+    </div>;
   }
   if (error) {
     return <div className="w-full min-h-[80px] bg-red-50 dark:bg-red-900/20 rounded flex items-center justify-center">
-        <span className="text-sm text-red-500 dark:text-red-400">图片加载失败</span>
-      </div>;
-  }
-  return <div className="w-full h-full rounded overflow-hidden flex items-start justify-start bg-gray-100 dark:bg-gray-800">
-      <img src={imageSrc} alt="剪贴板图片" className="max-w-full max-h-full object-contain object-left-top" loading="lazy" decoding="async" />
+      <span className="text-sm text-red-500 dark:text-red-400">图片加载失败</span>
     </div>;
+  }
+  return <div className="w-full h-full rounded overflow-hidden flex items-center justify-strit bg-gray-100 dark:bg-gray-800">
+    <img src={imageSrc} alt="剪贴板图片" className="max-w-full max-h-full object-contain" loading="lazy" decoding="async" />
+  </div>;
 }
 export default ImageContent;
