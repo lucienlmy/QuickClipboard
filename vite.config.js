@@ -53,6 +53,8 @@ export default defineConfig({
         screenshot: resolve(__dirname, 'src/windows/screenshot/index.html'),
         textEditor: resolve(__dirname, 'src/windows/textEditor/index.html'),
         contextMenu: resolve(__dirname, 'src/plugins/context_menu/contextMenu.html'),
+        inputDialog: resolve(__dirname, 'src/plugins/input_dialog/inputDialog.html'),
+        pinImage: resolve(__dirname, 'src/windows/pinImage/pinImage.html'),
       },
       output: {
         manualChunks(id) {

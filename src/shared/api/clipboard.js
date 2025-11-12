@@ -4,11 +4,11 @@ import { invoke } from '@tauri-apps/api/core'
 export async function getClipboardHistory(params = {}) {
   try {
     const { offset = 0, limit = 50, search, contentType } = params
-    
+
     const invokeParams = { offset, limit }
     if (search) invokeParams.search = search
     if (contentType) invokeParams.contentType = contentType
-    
+
     return await invoke('get_clipboard_history', invokeParams)
   } catch (error) {
     console.error('获取剪贴板历史失败:', error)
@@ -39,13 +39,13 @@ export async function pasteClipboardItem(clipboardId, format = null) {
     if (format) {
       params.format = format
     }
-    
+
     await invoke('paste_content', { params })
-    
+
     // 检查是否启用一次性粘贴
     const { getToolState } = await import('@shared/services/toolActions')
     const isOneTimePasteEnabled = getToolState('one-time-paste-button')
-    
+
     if (isOneTimePasteEnabled) {
       try {
         await deleteClipboardItem(clipboardId)
@@ -57,7 +57,7 @@ export async function pasteClipboardItem(clipboardId, format = null) {
         console.error('一次性粘贴：删除失败', deleteError)
       }
     }
-    
+
     return true
   } catch (error) {
     console.error('粘贴失败:', error)
@@ -133,9 +133,9 @@ export async function openTextEditor() {
 }
 
 // 钉图片到屏幕
-export async function pinImageToScreen(clipboardId) {
+export async function pinImageToScreen(filePath) {
   try {
-    await invoke('pin_image_to_screen', { clipboardId })
+    await invoke('pin_image_from_file', { filePath })
     return true
   } catch (error) {
     console.error('钉图到屏幕失败:', error)

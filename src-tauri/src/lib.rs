@@ -110,6 +110,13 @@ pub fn run() {
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
                 windows::plugins::context_menu::commands::close_all_context_menus,
+                windows::plugins::input_dialog::commands::show_input,
+                windows::plugins::input_dialog::commands::get_input_dialog_options,
+                windows::plugins::input_dialog::commands::submit_input_dialog,
+                windows::pin_image_window::pin_image_from_file,
+                windows::pin_image_window::get_pin_image_data,
+                windows::pin_image_window::animate_window_resize,
+                windows::pin_image_window::close_pin_image_window_by_self,
             ])
         .setup(|app| {
                 #[cfg(desktop)]
@@ -143,9 +150,12 @@ pub fn run() {
                 hotkey::reload_from_settings()?;
                 input_monitor::start_monitoring();
                 windows::plugins::context_menu::init();
+                windows::plugins::input_dialog::init();
                 quickpaste::init_quickpaste_state();
                 let _ = quickpaste::init_quickpaste_window(&app.handle());
                 set_clipboard_app_handle(app.handle().clone());
+                
+                windows::pin_image_window::init_pin_image_window();
                 
                 if settings.clipboard_monitor {
                     let _ = start_clipboard_monitor();

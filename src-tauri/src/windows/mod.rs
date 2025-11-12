@@ -4,3 +4,4 @@ pub mod text_editor_window;
 pub mod quickpaste;
 pub mod tray;
 pub mod plugins;
+pub mod pin_image_window;

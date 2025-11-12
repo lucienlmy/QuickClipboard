@@ -345,7 +345,10 @@ export async function showClipboardItemContextMenu(event, item, index) {
     // 处理其他操作
     switch (result) {
       case 'pin-image':
-        await pinImageToScreen(item.id)
+        const filesData = JSON.parse(item.content.substring(6));
+        const filePath = filesData.files[0].path;
+        console.log(filePath)
+        await pinImageToScreen(filePath)
         toast.success(i18n.t('contextMenu.imagePinned'), {
           size: TOAST_SIZES.EXTRA_SMALL,
           position: TOAST_POSITIONS.BOTTOM_RIGHT

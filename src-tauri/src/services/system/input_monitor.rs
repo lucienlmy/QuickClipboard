@@ -306,7 +306,10 @@ fn handle_mouse_button_press(button: rdev::Button) {
         return;
     }
     
-    if !MOUSE_MONITORING_ENABLED.load(Ordering::Relaxed) {
+    let mouse_monitoring_enabled = MOUSE_MONITORING_ENABLED.load(Ordering::Relaxed);
+    let context_menu_visible = crate::is_context_menu_visible();
+    
+    if !mouse_monitoring_enabled && !context_menu_visible {
         return;
     }
 

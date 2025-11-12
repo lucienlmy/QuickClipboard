@@ -1,0 +1,138 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+html {
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+.image-clip,
+#pinImage {
+    transform-style: flat;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 5px;
+    overflow: hidden;
+    background: transparent;
+    position: relative;
+    border: none !important;
+}
+
+
+
+/* 边框 */
+.image-clip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+    transition: outline-color 0.15s;
+    z-index: 999;
+}
+
+.image-clip:hover::after {
+    outline-color: #328DFC;
+}
+
+body.thumbnail-mode .image-clip::after {
+    outline: none;
+    border: 2px solid;
+    border-image: conic-gradient(from 0deg at center,
+            #ff6b6b 0deg 90deg,
+            #4ecdc4 90deg 180deg,
+            #feca57 180deg 270deg,
+            #54a0ff 270deg 360deg) 3;
+}
+
+body.thumbnail-mode .image-clip:hover::after {
+    border-image: conic-gradient(from 0deg at center,
+            #00ff1e 0deg 90deg,
+            #266bff 90deg 180deg,
+            #ed5031 180deg 270deg,
+            #ffe15a 270deg 360deg) 3;
+    transition: border-color 0.3s ease;
+}
+
+/* 裁剪容器 */
+.image-clip {
+    position: absolute;
+    top: 4.5px;
+    left: 4.5px;
+    right: 5px;
+    bottom: 5px;
+    overflow: hidden;
+    box-shadow: none;
+    transition: box-shadow 0.2s ease;
+}
+
+body.shadow-enabled .image-clip {
+    box-shadow:
+        0 0 5px 2px rgba(0, 108, 215, 0.7),
+        0 0 5px 1px rgba(0, 108, 215, 0.8);
+}
+
+#pinImage {
+    display: block;
+    cursor: move;
+    image-rendering: crisp-edges;
+    max-width: none;
+    max-height: none;
+}
+
+body.thumbnail-mode #pinImage {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: fill;
+}
+
+#pinImage:not([src]),
+#pinImage[src=""] {
+    visibility: hidden;
+}
+
+
+.size-indicator {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    padding: 6px 10px;
+    max-width: 90%;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 12px;
+    font-family: 'Segoe UI', sans-serif;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1000;
+    line-height: 1.5;
+    cursor: default;
+}
+
+.size-indicator.show {
+    opacity: 1;
+    pointer-events: auto;
+}
