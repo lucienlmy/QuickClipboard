@@ -400,6 +400,12 @@ fn handle_click_outside() {
     
     // 主窗口
     if let Some(window) = MAIN_WINDOW.get() {
+        let state = crate::get_window_state();
+
+        if state.is_hidden {
+            return;
+        }
+
         if window.is_visible().unwrap_or(false) && is_mouse_outside_window(window) {
             let _ = crate::check_snap(window);
             crate::hide_main_window(window);
