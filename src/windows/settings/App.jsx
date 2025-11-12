@@ -32,8 +32,45 @@ function App() {
     isBackground
   } = useTheme();
   const [activeSection, setActiveSection] = useState('general');
+  const [pendingTargetLabel, setPendingTargetLabel] = useState('');
 
-  // 监听设置变更事件（跨窗口同步）
+  const handleSearchNavigate = (section, targetLabel) => {
+    setActiveSection(section);
+    setPendingTargetLabel(targetLabel || '');
+  };
+
+  useEffect(() => {
+    if (!pendingTargetLabel) return;
+
+    const anchor = encodeURIComponent(pendingTargetLabel);
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = 80;
+    let timerId;
+
+    const tryScroll = () => {
+      attempts += 1;
+      const el = document.querySelector(`[data-setting-anchor="${anchor}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('settings-scroll-highlight');
+        setTimeout(() => {
+          el.classList.remove('settings-scroll-highlight');
+        }, 1600);
+        setPendingTargetLabel('');
+        clearInterval(timerId);
+      } else if (attempts >= maxAttempts) {
+        setPendingTargetLabel('');
+        clearInterval(timerId);
+      }
+    };
+
+    tryScroll();
+    timerId = setInterval(tryScroll, interval);
+    return () => clearInterval(timerId);
+  }, [activeSection, pendingTargetLabel]);
+
+  // 监听设置变更事件
   useSettingsSync();
 
   // 应用主题到body
@@ -113,7 +150,7 @@ function App() {
     ${isBackground ? 'backdrop-blur-md bg-opacity-0' : ''}
   `.trim().replace(/\s+/g, ' ');
   return <div className={containerClasses}>
-      <SettingsHeader />
+      <SettingsHeader onNavigate={handleSearchNavigate} />
 
       <div className="flex-1 flex overflow-hidden">
         <SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />

@@ -84,6 +84,10 @@
     "searchPlaceholder": "Search settings...",
     "saved": "Settings saved",
     "saveFailed": "Failed to save settings",
+    "search": {
+      "noResults": "No matching settings found",
+      "tryAnother": "Try another keyword"
+    },
     "common": {
       "pixels": "px",
       "seconds": "s",

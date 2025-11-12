@@ -1,12 +1,12 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-function SettingsHeader() {
+import SettingsSearch from './SettingsSearch';
+
+function SettingsHeader({ onNavigate }) {
   const {
     t
   } = useTranslation();
-  const [searchQuery, setSearchQuery] = useState('');
   const currentWindow = getCurrentWindow();
   const handleMinimize = async () => {
     await currentWindow.minimize();
@@ -28,13 +28,7 @@ function SettingsHeader() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <i className="ti ti-search text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" style={{
-          fontSize: 16
-        }}></i>
-
-          <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t('settings.searchPlaceholder')} className="pl-9 pr-4 py-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-56" />
-        </div>
+        <SettingsSearch onNavigate={onNavigate} className="w-80" />
 
         <div className="flex items-center gap-0.5">
           <button onClick={handleMinimize} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="最小化">

@@ -84,6 +84,10 @@
     "searchPlaceholder": "搜索设置项...",
     "saved": "设置已保存",
     "saveFailed": "保存设置失败",
+    "search": {
+      "noResults": "未找到匹配的设置项",
+      "tryAnother": "尝试使用其他关键词搜索"
+    },
     "common": {
       "pixels": "像素",
       "seconds": "秒",

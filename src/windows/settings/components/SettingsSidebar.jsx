@@ -1,7 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import SidebarButton from './SidebarButton';
-const navigationItems = [{
+export const navigationItems = [{
   id: 'general',
   icon: "ti ti-settings",
   labelKey: 'settings.sections.general'
