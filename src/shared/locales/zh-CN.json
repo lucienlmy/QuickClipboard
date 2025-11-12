@@ -106,7 +106,6 @@
       "sound": "音效设置",
       "appFilter": "应用过滤",
       "dataManagement": "数据管理",
-      "support": "支持作者",
       "about": "关于"
     },
     "general": {
@@ -465,30 +464,18 @@
       "resetAllButton": "重置应用",
       "resetAllConfirm": "确定要重置所有数据吗？这将删除所有内容并恢复默认设置，此操作不可恢复！"
     },
-    "support": {
-      "title": "支持作者",
-      "description": "如果您觉得这个项目对您有帮助，可以考虑支持一下作者",
-      "thankYou": "感谢您的使用",
-      "intro": "QuickClipboard 是一个开源的剪贴板管理工具，致力于提升您的工作效率。如果这个工具对您有帮助，您可以通过以下方式支持作者：",
-      "star": "给项目点个 Star",
-      "feedback": "反馈 Bug 和建议",
-      "share": "推荐给朋友使用",
-      "donate": "请作者喝杯咖啡",
-      "followAuthor": "关注作者",
-      "bilibili": "哔哩哔哩",
-      "appreciateTitle": "赞赏支持",
-      "appreciateDesc": "如果这个工具让您的工作更高效，欢迎请作者喝杯咖啡！",
-      "wechatCode": "微信赞赏码",
-      "thankSupport": "您的支持是作者持续开发的动力！❤️"
-    },
     "about": {
       "title": "关于",
       "description": "应用信息和版本详情",
-      "appName": "快速剪贴板",
+      "appName": "QuickClipboard",
       "version": "版本",
       "descriptionText": "一个功能强大的剪贴板管理工具，帮助您更高效地管理和使用剪贴板内容。",
       "checkUpdates": "检查更新",
-      "github": "GitHub"
+      "github": "GitHub",
+      "star": "给个Star",
+      "feedback": "反馈问题",
+      "share": "推荐分享",
+      "donate": "赞赏支持"
     }
   },
   "footer": {

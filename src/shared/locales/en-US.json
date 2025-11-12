@@ -106,7 +106,6 @@
       "sound": "Sound",
       "appFilter": "App Filter",
       "dataManagement": "Data Management",
-      "support": "Support",
       "about": "About"
     },
     "general": {
@@ -465,22 +464,6 @@
       "resetAllButton": "Reset App",
       "resetAllConfirm": "Reset all data? This will delete all content and restore default settings. This cannot be undone!"
     },
-    "support": {
-      "title": "Support",
-      "description": "If you find this project helpful, consider supporting the author",
-      "thankYou": "Thank You for Using",
-      "intro": "QuickClipboard is an open-source clipboard management tool dedicated to improving your productivity. If you find this tool helpful, you can support the author in the following ways:",
-      "star": "Star the project",
-      "feedback": "Report bugs and suggestions",
-      "share": "Recommend to friends",
-      "donate": "Buy the author a coffee",
-      "followAuthor": "Follow Author",
-      "bilibili": "Bilibili",
-      "appreciateTitle": "Appreciation",
-      "appreciateDesc": "If this tool makes your work more efficient, feel free to buy the author a coffee!",
-      "wechatCode": "WeChat QR Code",
-      "thankSupport": "Your support is the motivation for continuous development! ❤️"
-    },
     "about": {
       "title": "About",
       "description": "Application information and version details",
@@ -488,7 +471,11 @@
       "version": "Version",
       "descriptionText": "A powerful clipboard management tool to help you manage and use clipboard content more efficiently.",
       "checkUpdates": "Check Updates",
-      "github": "GitHub"
+      "github": "GitHub",
+      "star": "Give a Star",
+      "feedback": "Report Issues",
+      "share": "Share & Recommend",
+      "donate": "Support & Donate"
     }
   },
   "footer": {

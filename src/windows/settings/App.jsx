@@ -17,7 +17,6 @@ import ScreenshotSection from './sections/ScreenshotSection';
 import SoundSection from './sections/SoundSection';
 import AppFilterSection from './sections/AppFilterSection';
 import DataManagementSection from './sections/DataManagementSection';
-import SupportSection from './sections/SupportSection';
 import AboutSection from './sections/AboutSection';
 import ToastContainer from '@shared/components/common/ToastContainer';
 function App() {
@@ -92,9 +91,6 @@ function App() {
         break;
       case 'dataManagement':
         content = <DataManagementSection />;
-        break;
-      case 'support':
-        content = <SupportSection />;
         break;
       case 'about':
         content = <AboutSection />;

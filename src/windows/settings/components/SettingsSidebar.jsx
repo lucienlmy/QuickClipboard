@@ -41,10 +41,6 @@ const navigationItems = [{
   icon: "ti ti-database",
   labelKey: 'settings.sections.dataManagement'
 }, {
-  id: 'support',
-  icon: "ti ti-heart",
-  labelKey: 'settings.sections.support'
-}, {
   id: 'about',
   icon: "ti ti-info-circle",
   labelKey: 'settings.sections.about'
