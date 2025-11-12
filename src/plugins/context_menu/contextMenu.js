@@ -41,7 +41,6 @@ function createSubmenu(items) {
     const submenu = document.createElement('div');
     submenu.className = 'submenu-container';
     submenu.style.maxWidth = '250px';
-    submenu.style.overflow = 'hidden';
 
     items.forEach(item => {
         const menuItemElement = createMenuItem(item);

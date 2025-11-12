@@ -8,6 +8,15 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "opener:allow-open-path",
+    {
+      "identifier": "opener:default",
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
+    },
     "notification:default",
     "autostart:default",
     "autostart:allow-enable",

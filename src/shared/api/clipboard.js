@@ -154,27 +154,6 @@ export async function saveImageToFile(content, filePath) {
   }
 }
 
-// 使用默认程序打开文件
-export async function openFileWithDefaultProgram(clipboardId) {
-  try {
-    await invoke('open_file_with_default_program', { clipboardId })
-    return true
-  } catch (error) {
-    console.error('打开文件失败:', error)
-    throw error
-  }
-}
-
-// 打开文件位置
-export async function openFileLocation(clipboardId) {
-  try {
-    await invoke('open_file_location', { clipboardId })
-    return true
-  } catch (error) {
-    console.error('打开文件位置失败:', error)
-    throw error
-  }
-}
 
 // 获取单个剪贴板项
 export async function getClipboardItemById(id) {
@@ -203,8 +182,4 @@ export async function saveImageFromClipboard(clipboardId) {
   return await invoke('save_image_from_clipboard', { clipboardId })
 }
 
-// 复制文件路径
-export async function copyFilePaths(clipboardId) {
-  return await invoke('copy_file_paths', { clipboardId })
-}
 

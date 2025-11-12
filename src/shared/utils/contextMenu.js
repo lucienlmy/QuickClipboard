@@ -1,6 +1,6 @@
 // 右键菜单工具函数
 import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plugins/context_menu/index.js'
-import { openUrl } from '@tauri-apps/plugin-opener'
+import { openUrl, openPath } from '@tauri-apps/plugin-opener'
 import i18n from '@shared/i18n'
 import { extractAllLinks, normalizeUrl } from './linkUtils'
 import { getPrimaryType } from './contentType'
@@ -10,9 +10,6 @@ import {
   addClipboardToFavorites,
   pinImageToScreen,
   saveImageFromClipboard,
-  openFileWithDefaultProgram,
-  openFileLocation,
-  copyFilePaths,
   clearClipboardHistory,
   moveFavoriteToGroup,
   deleteFavorite
@@ -243,10 +240,15 @@ async function handlePasteActions(result, item, isClipboard = true) {
 
 // 处理内容类型操作
 async function handleContentTypeActions(result, item, index) {
+  const filesData = JSON.parse(item.content.substring(6))
+  const filePath = filesData.files[0].path
+
+  const dirPath = filePath.substring(0, filePath.lastIndexOf('\\') !== -1
+    ? filePath.lastIndexOf('\\')
+    : filePath.lastIndexOf('/'))
   const actions = {
     'pin-image': async () => {
-      const filesData = JSON.parse(item.content.substring(6))
-      await pinImageToScreen(filesData.files[0].path)
+      await pinImageToScreen(filePath)
       toast.success(i18n.t('contextMenu.imagePinned'), TOAST_CONFIG)
     },
     'save-image': async () => {
@@ -254,16 +256,31 @@ async function handleContentTypeActions(result, item, index) {
       toast.success(i18n.t('contextMenu.imageSaved'), TOAST_CONFIG)
     },
     'open-file': async () => {
-      await openFileWithDefaultProgram(item.id)
-      toast.success(i18n.t('contextMenu.fileOpened'), TOAST_CONFIG)
+      try {
+        await openPath(filePath)
+        toast.success(i18n.t('contextMenu.fileOpened'), TOAST_CONFIG)
+      } catch (error) {
+        console.error('打开文件失败:', error)
+        toast.error(i18n.t('common.operationFailed'), TOAST_CONFIG)
+      }
     },
     'open-location': async () => {
-      await openFileLocation(item.id)
-      toast.success(i18n.t('contextMenu.locationOpened'), TOAST_CONFIG)
+      try {
+        await openPath(dirPath)
+        toast.success(i18n.t('contextMenu.locationOpened'), TOAST_CONFIG)
+      } catch (error) {
+        console.error('打开文件位置失败:', error)
+        toast.error(i18n.t('common.operationFailed'), TOAST_CONFIG)
+      }
     },
     'copy-path': async () => {
-      await copyFilePaths(item.id)
-      toast.success(i18n.t('contextMenu.pathCopied'), TOAST_CONFIG)
+      try {
+        await navigator.clipboard.writeText(filePaths)
+        toast.success(i18n.t('contextMenu.pathCopied'), TOAST_CONFIG)
+      } catch (error) {
+        console.error('复制文件路径失败:', error)
+        toast.error(i18n.t('common.operationFailed'), TOAST_CONFIG)
+      }
     },
     'edit-text': async () => {
       const { openEditorForClipboard } = await import('@shared/api/textEditor')
