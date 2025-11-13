@@ -93,6 +93,8 @@ pub struct AppSettings {
 
     // 格式设置
     pub paste_with_format: bool,
+    
+    pub paste_to_top: bool,
 
     // 快捷键设置
     pub hotkeys_enabled: bool,
@@ -191,6 +193,7 @@ impl Default for AppSettings {
             title_bar_position: "top".to_string(),
 
             paste_with_format: true,
+            paste_to_top: false,
 
             hotkeys_enabled: true,
             navigate_up_shortcut: "ArrowUp".to_string(),

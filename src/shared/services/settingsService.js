@@ -60,6 +60,7 @@ export const defaultSettings = {
   edgeHideOffset: 3,
   autoFocusSearch: false,
   pasteWithFormat: true,
+  pasteToTop: false,
   
   // 音效设置
   soundEnabled: true,

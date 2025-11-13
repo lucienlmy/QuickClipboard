@@ -13,8 +13,11 @@ import {
   moveFavoriteToGroup,
   deleteFavorite,
   saveImageFromPath,
-  copyTextToClipboard
+  copyTextToClipboard,
+  moveClipboardItem
 } from '@shared/api'
+import { getToolState } from '@shared/services/toolActions'
+import { clipboardStore } from '@shared/store/clipboardStore'
 
 const TOAST_CONFIG = {
   size: TOAST_SIZES.EXTRA_SMALL,
@@ -220,7 +223,7 @@ async function handleSearchActions(result, plainText) {
 }
 
 // 处理粘贴操作
-async function handlePasteActions(result, item, isClipboard = true) {
+async function handlePasteActions(result, item, isClipboard = true, index = undefined) {
   const pasteActions = {
     'paste': null,
     'paste-formatted': 'formatted',
@@ -235,6 +238,18 @@ async function handlePasteActions(result, item, isClipboard = true) {
   
   const pasteFunc = isClipboard ? pasteClipboardItem : (await import('@shared/api/favorites')).pasteFavorite
   await pasteFunc(item.id, pasteActions[result])
+
+  // 粘贴后置顶
+  if (isClipboard) {
+    const oneTimeEnabled = getToolState('one-time-paste-button')
+    if (settingsStore.pasteToTop && !oneTimeEnabled && typeof index === 'number' && index > 0) {
+      try {
+        await moveClipboardItem(index, 0)
+      } finally {
+        clipboardStore.items = new Map()
+      }
+    }
+  }
   toast.success(i18n.t('common.pasted'), TOAST_CONFIG)
   return true
 }
@@ -371,7 +386,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
 
   try {
     // 处理粘贴操作
-    if (await handlePasteActions(result, item, true)) return
+    if (await handlePasteActions(result, item, true, index)) return
 
     // 处理链接操作
     if (await handleLinkActions(result, links)) {
@@ -480,7 +495,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
 
   try {
     // 处理粘贴操作
-    if (await handlePasteActions(result, item, false)) return
+    if (await handlePasteActions(result, item, false, index)) return
 
     if (await handleLinkActions(result, links)) {
       toast.success(i18n.t('contextMenu.linkOpened'), TOAST_CONFIG)

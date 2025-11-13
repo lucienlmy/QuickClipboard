@@ -73,6 +73,10 @@ function ClipboardSection({
         <SettingItem label={t('settings.clipboard.autoFocusSearch')} description={t('settings.clipboard.autoFocusSearchDesc')}>
           <Toggle checked={settings.autoFocusSearch} onChange={checked => onSettingChange('autoFocusSearch', checked)} />
         </SettingItem>
+
+        <SettingItem label={t('settings.clipboard.pasteToTop')} description={t('settings.clipboard.pasteToTopDesc')}>
+          <Toggle checked={settings.pasteToTop} onChange={checked => onSettingChange('pasteToTop', checked)} />
+        </SettingItem>
       </SettingsSection>
     </>;
 }

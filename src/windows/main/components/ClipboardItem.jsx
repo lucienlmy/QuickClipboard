@@ -1,5 +1,5 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import { pasteClipboardItem } from '@shared/store/clipboardStore';
+import { pasteClipboardItem, clipboardStore } from '@shared/store/clipboardStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
@@ -8,6 +8,9 @@ import { useTranslation } from 'react-i18next';
 import { addClipboardToFavorites } from '@shared/api';
 import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
+import { moveClipboardItem } from '@shared/api';
+import { getToolState } from '@shared/services/toolActions';
+
 function ClipboardItem({
   item,
   index,
@@ -59,6 +62,15 @@ function ClipboardItem({
           size: TOAST_SIZES.EXTRA_SMALL,
           position: TOAST_POSITIONS.BOTTOM_RIGHT
         });
+        // 粘贴后置顶
+        const oneTimeEnabled = getToolState('one-time-paste-button');
+        if (settings.pasteToTop && !oneTimeEnabled && typeof index === 'number' && index > 0) {
+          try {
+            await moveClipboardItem(index, 0);
+          } finally {
+            clipboardStore.items = new Map();
+          }
+        }
       } catch (error) {
         console.error('粘贴失败:', error);
         toast.error(t('common.pasteFailed'), {

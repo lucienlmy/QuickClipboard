@@ -8,6 +8,7 @@ import { clipboardStore, loadClipboardRange, pasteClipboardItem } from '@shared/
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
 import { moveClipboardItem } from '@shared/api';
+import { getToolState } from '@shared/services/toolActions';
 import ClipboardItem from './ClipboardItem';
 const ClipboardList = forwardRef(({
   onScrollStateChange
@@ -84,7 +85,15 @@ const ClipboardList = forwardRef(({
     onExecuteItem: async (item, index) => {
       try {
         await pasteClipboardItem(item.id);
-        console.log('粘贴成功:', item.id);
+        // 粘贴后置顶
+        const oneTimeEnabled = getToolState('one-time-paste-button');
+        if (settings.pasteToTop && !oneTimeEnabled && typeof index === 'number' && index > 0) {
+          try {
+            await moveClipboardItem(index, 0);
+          } finally {
+            clipboardStore.items = new Map();
+          }
+        }
       } catch (error) {
         console.error('粘贴失败:', error);
       }
