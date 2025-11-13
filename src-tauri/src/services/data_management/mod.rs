@@ -135,3 +135,70 @@ pub fn reset_storage_dir_to_default() -> Result<PathBuf, String> {
 
     Ok(default_dir)
 }
+
+pub fn export_data_zip(target_path: PathBuf) -> Result<PathBuf, String> {
+    let current_dir = get_current_storage_dir()?;
+    close_database();
+
+    let images_dir = current_dir.join("clipboard_images");
+    let db_files = [
+        "quickclipboard.db",
+        "quickclipboard.db-shm",
+        "quickclipboard.db-wal",
+    ];
+    let settings_path = crate::services::settings::storage::SettingsStorage::get_settings_path()?;
+
+    // 创建zip
+    if let Some(parent) = target_path.parent() { fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
+    let file = fs::File::create(&target_path).map_err(|e| format!("创建导出文件失败: {}", e))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .unix_permissions(0o644);
+
+    for name in &db_files {
+        let src = current_dir.join(name);
+        if src.exists() {
+            let mut f = fs::File::open(&src).map_err(|e| format!("读取文件失败: {}", e))?;
+            zip.start_file(name, options).map_err(|e| e.to_string())?;
+            std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+        }
+    }
+
+    if images_dir.exists() {
+        fn add_dir_recursively(base: &Path, dir: &Path, zip: &mut zip::ZipWriter<fs::File>, options: zip::write::SimpleFileOptions) -> Result<(), String> {
+            for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let path = entry.path();
+                let rel = path.strip_prefix(base).map_err(|e| e.to_string())?;
+                if path.is_dir() {
+                    add_dir_recursively(base, &path, zip, options)?;
+                } else {
+                    let zip_path = Path::new("clipboard_images").join(rel);
+                    let mut f = fs::File::open(&path).map_err(|e| format!("读取文件失败: {}", e))?;
+                    let zip_name = zip_path.to_string_lossy();
+                    zip.start_file(zip_name.as_ref(), options).map_err(|e| e.to_string())?;
+                    std::io::copy(&mut f, zip).map_err(|e| e.to_string())?;
+                }
+            }
+            Ok(())
+        }
+
+        add_dir_recursively(&images_dir, &images_dir, &mut zip, options)?;
+    }
+
+    if settings_path.exists() {
+        let mut f = fs::File::open(&settings_path).map_err(|e| format!("读取settings失败: {}", e))?;
+        zip.start_file("settings.json", options).map_err(|e| e.to_string())?;
+        std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+    }
+
+    zip.finish().map_err(|e| e.to_string())?;
+
+    let db_path = current_dir.join("quickclipboard.db");
+    if db_path.exists() {
+        init_database(db_path.to_str().ok_or("数据库路径无效")?)?;
+    }
+
+    Ok(target_path)
+}

@@ -100,6 +100,7 @@ pub fn run() {
                 commands::dm_get_current_storage_path,
                 commands::dm_change_storage_path,
                 commands::dm_reset_storage_path_to_default,
+                commands::dm_export_data_zip,
                 commands::start_builtin_screenshot,
                 commands::copy_text_to_clipboard,
                 commands::check_ai_translation_config,

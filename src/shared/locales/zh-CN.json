@@ -470,10 +470,13 @@
       "resetAllButton": "重置应用",
       "resetAllConfirm": "确定要重置所有数据吗？这将删除所有内容并恢复默认设置，此操作不可恢复！",
       "overlayMigrating": "正在迁移数据，请稍候...",
+      "overlayExporting": "正在导出数据，请稍候...",
       "updateSuccess": "数据位置已更新",
       "resetSuccess": "已重置为默认存储位置",
       "changeFailed": "更改存储位置失败: {{message}}",
-      "resetFailed": "重置存储位置失败: {{message}}"
+      "resetFailed": "重置存储位置失败: {{message}}",
+      "exportSuccess": "数据已导出到：{{path}}",
+      "exportFailed": "导出失败: {{message}}"
     },
     "about": {
       "title": "关于",

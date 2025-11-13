@@ -5,9 +5,9 @@ import { createPortal } from 'react-dom';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Button from '@shared/components/ui/Button';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
-import { getCurrentStoragePath, changeStoragePath, resetStoragePathToDefault } from '@shared/api/dataManagement';
+import { getCurrentStoragePath, changeStoragePath, resetStoragePathToDefault, exportDataZip } from '@shared/api/dataManagement';
 import { showError, showMessage } from '@shared/utils/dialog';
 function DataManagementSection() {
   const {
@@ -16,6 +16,7 @@ function DataManagementSection() {
   const [storagePath, setStoragePath] = useState(t('common.loading'));
   const [importMode, setImportMode] = useState('replace');
   const [busy, setBusy] = useState(false);
+  const [busyText, setBusyText] = useState('');
   useEffect(() => {
     (async () => {
       try {
@@ -27,7 +28,29 @@ function DataManagementSection() {
     })();
   }, []);
   const handleExportData = async () => {
-    console.log('导出数据');
+    try {
+      const ts = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const tsText = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
+      const suggested = `quickclipboardData_${tsText}.zip`;
+
+      const target = await save({
+        defaultPath: suggested,
+        filters: [{ name: 'Zip', extensions: ['zip'] }]
+      });
+      if (!target) return;
+
+      const targetPath = target.toLowerCase().endsWith('.zip') ? target : `${target}.zip`;
+      setBusyText(t('settings.dataManagement.overlayExporting'));
+      setBusy(true);
+      const out = await exportDataZip(targetPath);
+      await showMessage(t('settings.dataManagement.exportSuccess', { path: out }));
+    } catch (e) {
+      await showError(t('settings.dataManagement.exportFailed', { message: e?.message || e }));
+    } finally {
+      setBusy(false);
+      setBusyText('');
+    }
   };
   const handleImportData = async () => {
     console.log('导入数据');
@@ -43,6 +66,7 @@ function DataManagementSection() {
     try {
       const dir = await open({ directory: true, multiple: false });
       if (!dir) return;
+      setBusyText(t('settings.dataManagement.overlayMigrating'));
       setBusy(true);
       await changeStoragePath(dir);
       const latest = await getCurrentStoragePath();
@@ -53,10 +77,12 @@ function DataManagementSection() {
     }
     finally {
       setBusy(false);
+      setBusyText('');
     }
   };
   const handleResetStorageLocation = async () => {
     try {
+      setBusyText(t('settings.dataManagement.overlayMigrating'));
       setBusy(true);
       await resetStoragePathToDefault();
       const latest = await getCurrentStoragePath();
@@ -67,6 +93,7 @@ function DataManagementSection() {
     }
     finally {
       setBusy(false);
+      setBusyText('');
     }
   };
   const handleClearHistory = async () => {
@@ -176,7 +203,7 @@ function DataManagementSection() {
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <div className="text-sm text-gray-700 dark:text-gray-200">{t('settings.dataManagement.overlayMigrating')}</div>
+            <div className="text-sm text-gray-700 dark:text-gray-200">{busyText || t('settings.dataManagement.overlayMigrating')}</div>
           </div>
         </div>,
         document.body

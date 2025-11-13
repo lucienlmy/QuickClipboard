@@ -1,10 +1,15 @@
-use tauri::Manager;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct ChangePathPayload {
     #[serde(alias = "new_path", alias = "newPath")]
     new_path: String,
+}
+
+#[derive(Deserialize)]
+pub struct ExportPayload {
+    #[serde(alias = "target_path", alias = "targetPath")]
+    target_path: String,
 }
 
 #[tauri::command]
@@ -26,4 +31,11 @@ pub fn dm_reset_storage_path_to_default(app: tauri::AppHandle) -> Result<String,
     let dir = crate::services::data_management::reset_storage_dir_to_default()?;
 
     Ok(dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn dm_export_data_zip(payload: ExportPayload) -> Result<String, String> {
+    let path = std::path::PathBuf::from(payload.target_path);
+    let out = crate::services::data_management::export_data_zip(path)?;
+    Ok(out.to_string_lossy().to_string())
 }
