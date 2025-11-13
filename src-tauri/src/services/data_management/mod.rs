@@ -1,4 +1,5 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{fs, path::{Path, PathBuf}, time::{SystemTime, UNIX_EPOCH}};
+use chrono::Local;
 
 use crate::services::{get_data_directory, get_settings, update_settings};
 use crate::services::settings::storage::SettingsStorage;
@@ -23,9 +24,49 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn backup_db_in(dir: &Path) -> Result<Option<PathBuf>, String> {
+    let db = dir.join("quickclipboard.db");
+    if !db.exists() { return Ok(None); }
+    let backups = dir.join("backups");
+    fs::create_dir_all(&backups).map_err(|e| e.to_string())?;
+    let ts_str = Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let rand = fastrand::u32(..);
+    let name = format!("quickclipboard-{}-{:010}.db", ts_str, rand);
+    let target = backups.join(name);
+    fs::copy(&db, &target).map_err(|e| e.to_string())?;
+    enforce_retention(&backups, 10)?;
+    Ok(Some(target))
+}
+
+fn enforce_retention(backups_dir: &Path, keep: usize) -> Result<(), String> {
+    let mut items: Vec<(SystemTime, PathBuf)> = Vec::new();
+    for e in fs::read_dir(backups_dir).map_err(|e| e.to_string())? {
+        let e = e.map_err(|e| e.to_string())?;
+        let p = e.path();
+        let fname = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        if !fname.starts_with("quickclipboard-") || !fname.ends_with(".db") { continue; }
+        let md = e.metadata().map_err(|e| e.to_string())?;
+        let t = md.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+        items.push((t, p));
+    }
+    items.sort_by(|a, b| b.0.cmp(&a.0));
+    if items.len() > keep {
+        for (_, p) in items.into_iter().skip(keep) {
+            let _ = fs::remove_file(p);
+        }
+    }
+    Ok(())
+}
+
 pub fn reset_all_data() -> Result<String, String> {
     let current_dir = get_current_storage_dir()?;
     let default_dir = get_default_data_dir()?;
+
+    let _ = crate::services::database::connection::with_connection(|conn| {
+        conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
+    });
+    let _ = backup_db_in(&current_dir);
+    if current_dir != default_dir { let _ = backup_db_in(&default_dir); }
 
     close_database();
 
@@ -49,6 +90,9 @@ pub fn reset_all_data() -> Result<String, String> {
 
     let db_path = default_dir.join("quickclipboard.db");
     init_database(db_path.to_str().ok_or("数据库路径无效")?)?;
+    let _ = crate::services::database::connection::with_connection(|conn| {
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+    });
 
     Ok(default_dir.to_string_lossy().to_string())
 }
@@ -81,6 +125,11 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
 
     match mode {
         "replace" => {
+            let current_dir_for_backup = get_current_storage_dir()?;
+            let _ = crate::services::database::connection::with_connection(|conn| {
+                conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
+            });
+            let _ = backup_db_in(&current_dir_for_backup);
             let mut new_settings = if imported_settings.exists() {
                 let s = fs::read_to_string(&imported_settings).map_err(|e| e.to_string())?;
                 serde_json::from_str::<crate::services::AppSettings>(&s).map_err(|e| e.to_string())?
@@ -112,21 +161,22 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             if target_images.exists() { fs::remove_dir_all(&target_images).map_err(|e| e.to_string())?; }
             if imported_images.exists() { copy_dir_all(&imported_images, &target_images)?; }
 
-            for name in ["quickclipboard.db", "quickclipboard.db-shm", "quickclipboard.db-wal"] {
-                let src = temp_root.join(name);
-                let dst = target_dir.join(name);
-                if src.exists() {
-                    if let Some(p) = dst.parent() { fs::create_dir_all(p).map_err(|e| e.to_string())?; }
-                    fs::copy(&src, &dst).map_err(|e| e.to_string())?;
-                } else {
-                    if dst.exists() && name != "quickclipboard.db" {
-                        let _ = fs::remove_file(&dst);
-                    }
-                }
+            let src_db = temp_root.join("quickclipboard.db");
+            let dst_db = target_dir.join("quickclipboard.db");
+            if src_db.exists() {
+                if let Some(p) = dst_db.parent() { fs::create_dir_all(p).map_err(|e| e.to_string())?; }
+                fs::copy(&src_db, &dst_db).map_err(|e| e.to_string())?;
+            }
+            for name in ["quickclipboard.db-shm", "quickclipboard.db-wal"] {
+                let p = target_dir.join(name);
+                if p.exists() { let _ = fs::remove_file(&p); }
             }
 
             let db_path = target_dir.join("quickclipboard.db");
             init_database(db_path.to_str().ok_or("数据库路径无效")?)?;
+            let _ = crate::services::database::connection::with_connection(|conn| {
+                conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+            });
 
             Ok(target_dir.to_string_lossy().to_string())
         }
@@ -226,13 +276,17 @@ pub fn change_storage_dir(new_dir: PathBuf) -> Result<PathBuf, String> {
         return Err("新位置与当前存储位置相同，无需迁移".to_string());
     }
 
+    let _ = crate::services::database::connection::with_connection(|conn| {
+        conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
+    });
+    let _ = backup_db_in(&current_dir);
+
     // 关闭数据库连接
     close_database();
 
     // 要迁移的目录和文件
     let src_images = current_dir.join("clipboard_images");
     let dst_images = new_dir.join("clipboard_images");
-    let db_names = ["quickclipboard.db", "quickclipboard.db-shm", "quickclipboard.db-wal"]; 
 
     // 迁移图片目录
     if src_images.exists() {
@@ -244,10 +298,12 @@ pub fn change_storage_dir(new_dir: PathBuf) -> Result<PathBuf, String> {
         }
     }
 
-    for name in db_names { 
-        let src = current_dir.join(name);
-        let dst = new_dir.join(name);
-        if src.exists() { safe_move_item(&src, &dst)?; }
+    let src_db = current_dir.join("quickclipboard.db");
+    let dst_db = new_dir.join("quickclipboard.db");
+    if src_db.exists() { safe_move_item(&src_db, &dst_db)?; }
+    for name in ["quickclipboard.db-shm", "quickclipboard.db-wal"] {
+        let p = new_dir.join(name);
+        if p.exists() { let _ = fs::remove_file(&p); }
     }
 
     let mut settings = get_settings();
@@ -257,6 +313,9 @@ pub fn change_storage_dir(new_dir: PathBuf) -> Result<PathBuf, String> {
 
     let db_path = new_dir.join("quickclipboard.db");
     init_database(db_path.to_str().ok_or("数据库路径无效")?)?;
+    let _ = crate::services::database::connection::with_connection(|conn| {
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+    });
 
     Ok(new_dir)
 }
@@ -266,11 +325,14 @@ pub fn reset_storage_dir_to_default() -> Result<PathBuf, String> {
     let current_dir = get_current_storage_dir()?;
 
     if current_dir != default_dir {
+        let _ = crate::services::database::connection::with_connection(|conn| {
+            conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
+        });
+        let _ = backup_db_in(&current_dir);
         close_database();
 
         let src_images = current_dir.join("clipboard_images");
         let dst_images = default_dir.join("clipboard_images");
-        let db_names = ["quickclipboard.db", "quickclipboard.db-shm", "quickclipboard.db-wal"]; 
 
         if src_images.exists() {
             if dst_images.exists() {
@@ -281,10 +343,12 @@ pub fn reset_storage_dir_to_default() -> Result<PathBuf, String> {
             }
         }
 
-        for name in db_names { 
-            let src = current_dir.join(name);
-            let dst = default_dir.join(name);
-            if src.exists() { safe_move_item(&src, &dst)?; }
+        let src_db = current_dir.join("quickclipboard.db");
+        let dst_db = default_dir.join("quickclipboard.db");
+        if src_db.exists() { safe_move_item(&src_db, &dst_db)?; }
+        for name in ["quickclipboard.db-shm", "quickclipboard.db-wal"] {
+            let p = default_dir.join(name);
+            if p.exists() { let _ = fs::remove_file(&p); }
         }
     }
 
@@ -303,13 +367,14 @@ pub fn reset_storage_dir_to_default() -> Result<PathBuf, String> {
 
 pub fn export_data_zip(target_path: PathBuf) -> Result<PathBuf, String> {
     let current_dir = get_current_storage_dir()?;
+    let _ = crate::services::database::connection::with_connection(|conn| {
+        conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
+    });
     close_database();
 
     let images_dir = current_dir.join("clipboard_images");
     let db_files = [
         "quickclipboard.db",
-        "quickclipboard.db-shm",
-        "quickclipboard.db-wal",
     ];
     let settings_path = crate::services::settings::storage::SettingsStorage::get_settings_path()?;
 

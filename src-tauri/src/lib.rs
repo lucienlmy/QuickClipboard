@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
+use std::{fs};
 
 mod commands;
 mod services;
@@ -139,9 +140,21 @@ pub fn run() {
                 #[cfg(debug_assertions)]
                 let _ = window.open_devtools();
                 
-                services::database::init_database(
-                    get_data_directory()?.join("quickclipboard.db").to_str().ok_or("数据库路径无效")?
-                )?;
+                let db_path_buf = get_data_directory()?.join("quickclipboard.db");
+                let db_path_str = db_path_buf.to_str().ok_or("数据库路径无效")?;
+                if let Err(e1) = services::database::init_database(db_path_str) {
+                    if let Some(dir) = db_path_buf.parent() {
+                        for name in ["quickclipboard.db-wal", "quickclipboard.db-shm"] {
+                            let p = dir.join(name);
+                            if p.exists() { let _ = fs::remove_file(&p); }
+                        }
+                    }
+                    services::database::init_database(db_path_str)
+                        .map_err(|e2| format!("数据库初始化失败(已尝试清理 wal/shm): {} -> {}", e1, e2))?;
+                }
+                let _ = services::database::connection::with_connection(|conn| {
+                    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+                });
                 
                 let mut settings = get_settings();
                 

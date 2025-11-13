@@ -113,6 +113,7 @@ pub struct AppSettings {
     // 数据存储设置
     #[serde(alias = "custom_storage_path")]
     pub custom_storage_path: Option<String>,
+    #[serde(alias = "use_custom_storage")]
     pub use_custom_storage: bool,
 }
 
