@@ -7,6 +7,7 @@ pub struct AppSettings {
     pub auto_start: bool,
     pub start_hidden: bool,
     pub show_startup_notification: bool,
+    #[serde(alias = "history_limit")]
     pub history_limit: u64,
     pub language: String,
     pub theme: String,
@@ -110,6 +111,7 @@ pub struct AppSettings {
     pub toggle_pin_shortcut: String,
 
     // 数据存储设置
+    #[serde(alias = "custom_storage_path")]
     pub custom_storage_path: Option<String>,
     pub use_custom_storage: bool,
 }

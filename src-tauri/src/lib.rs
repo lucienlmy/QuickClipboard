@@ -143,10 +143,19 @@ pub fn run() {
                     get_data_directory()?.join("quickclipboard.db").to_str().ok_or("数据库路径无效")?
                 )?;
                 
-                let settings = get_settings();
+                let mut settings = get_settings();
                 
                 if let Some((w, h)) = settings.saved_window_size.filter(|_| settings.remember_window_size) {
                     let _ = window.set_size(tauri::PhysicalSize::new(w, h));
+                }
+                let settings_exists = services::settings::storage::SettingsStorage::exists().unwrap_or(true);
+                if !settings_exists {
+                    if let Ok(count) = services::database::get_clipboard_count() {
+                        if count as u64 > settings.history_limit {
+                            settings.history_limit = count as u64;
+                            let _ = update_settings(settings.clone());
+                        }
+                    }
                 }
                 let _ = services::database::limit_clipboard_history(settings.history_limit);
                 

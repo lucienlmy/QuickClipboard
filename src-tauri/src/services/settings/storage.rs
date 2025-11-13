@@ -43,6 +43,11 @@ impl SettingsStorage {
         serde_json::from_str(&content).map_err(|e| e.to_string())
     }
 
+    pub fn exists() -> Result<bool, String> {
+        let path = Self::get_settings_path()?;
+        Ok(path.exists())
+    }
+
     pub fn save(settings: &AppSettings) -> Result<(), String> {
         let path = Self::get_settings_path()?;
         let content = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
