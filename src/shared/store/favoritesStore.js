@@ -191,6 +191,14 @@ export async function refreshFavorites(groupName = null) {
 // 删除收藏项
 export async function deleteFavorite(id) {
   try {
+    const { showConfirm } = await import('@shared/utils/dialog')
+    const i18n = (await import('@shared/i18n')).default
+    const confirmed = await showConfirm(
+      i18n.t('favorites.confirmDelete'),
+      i18n.t('favorites.confirmDeleteTitle')
+    )
+    if (!confirmed) return false
+
     await apiDeleteFavorite(id)
     // 清空数据，触发重新加载
     favoritesStore.removeItem(id)

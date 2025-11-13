@@ -36,15 +36,6 @@ export async function updateFavorite(id, title, content, groupName) {
 
 // 删除收藏
 export async function deleteFavorite(id) {
-  const { showConfirm } = await import('@shared/utils/dialog')
-  const confirmed = await showConfirm(
-    i18n.t('favorites.confirmDelete'),
-    i18n.t('favorites.confirmDeleteTitle')
-  )
-  if (!confirmed) {
-    return { cancelled: true }
-  }
-
   return await invoke('delete_quick_text', { id })
 }
 

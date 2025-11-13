@@ -444,14 +444,6 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     menuItems.push(...linkMenuItems, createSeparator())
   }
 
-  // 添加编辑菜单（仅文本类型）
-  const primaryType = getPrimaryType(contentType)
-  if (primaryType === 'text' || primaryType === 'rich_text') {
-    menuItems.push(
-      createMenuItem('edit-item', i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' }),
-      createSeparator()
-    )
-  }
 
   // 添加内容类型特定菜单项（图片、文件等）
   const contentMenuItems = createContentTypeMenuItems(contentType)
@@ -492,6 +484,12 @@ export async function showFavoriteItemContextMenu(event, item, index) {
 
     if (await handleLinkActions(result, links)) {
       toast.success(i18n.t('contextMenu.linkOpened'), TOAST_CONFIG)
+      return
+    }
+
+    if (result === 'edit-text') {
+      const { openEditorForFavorite } = await import('@shared/api/textEditor')
+      await openEditorForFavorite(item)
       return
     }
 

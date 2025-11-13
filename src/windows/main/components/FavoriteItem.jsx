@@ -8,7 +8,7 @@ import { groupsStore } from '@shared/store/groupsStore';
 import { showFavoriteItemContextMenu } from '@shared/utils/contextMenu';
 import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
-import { deleteFavorite } from '@shared/api';
+import { deleteFavorite } from '@shared/store/favoritesStore';
 import { openEditorForFavorite } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 function FavoriteItem({
@@ -109,12 +109,8 @@ function FavoriteItem({
   const handleDeleteClick = async e => {
     e.stopPropagation();
     try {
-      const result = await deleteFavorite(item.id);
-      if (!result?.cancelled) {
-        const {
-          refreshFavorites
-        } = await import('@shared/store/favoritesStore');
-        await refreshFavorites();
+      const confirmedAndDeleted = await deleteFavorite(item.id);
+      if (confirmedAndDeleted) {
         toast.success(t('common.deleted'), {
           size: TOAST_SIZES.EXTRA_SMALL,
           position: TOAST_POSITIONS.BOTTOM_RIGHT
