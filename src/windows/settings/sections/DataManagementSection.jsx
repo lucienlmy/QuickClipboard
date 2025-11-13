@@ -1,15 +1,31 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Button from '@shared/components/ui/Button';
+import { open } from '@tauri-apps/plugin-dialog';
+import { openPath } from '@tauri-apps/plugin-opener';
+import { getCurrentStoragePath, changeStoragePath, resetStoragePathToDefault } from '@shared/api/dataManagement';
+import { showError, showMessage } from '@shared/utils/dialog';
 function DataManagementSection() {
   const {
     t
   } = useTranslation();
-  const [storagePath, setStoragePath] = useState('正在获取...');
+  const [storagePath, setStoragePath] = useState(t('common.loading'));
   const [importMode, setImportMode] = useState('replace');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const path = await getCurrentStoragePath();
+        setStoragePath(path);
+      } catch (e) {
+        setStoragePath(t('common.loadError'));
+      }
+    })();
+  }, []);
   const handleExportData = async () => {
     console.log('导出数据');
   };
@@ -17,13 +33,41 @@ function DataManagementSection() {
     console.log('导入数据');
   };
   const handleOpenStorageFolder = async () => {
-    console.log('打开存储文件夹');
+    try {
+      if (storagePath && typeof storagePath === 'string') {
+        await openPath(storagePath);
+      }
+    } catch (e) {}
   };
   const handleChangeStorageLocation = async () => {
-    console.log('更改存储位置');
+    try {
+      const dir = await open({ directory: true, multiple: false });
+      if (!dir) return;
+      setBusy(true);
+      await changeStoragePath(dir);
+      const latest = await getCurrentStoragePath();
+      setStoragePath(latest);
+      await showMessage(t('settings.dataManagement.updateSuccess'));
+    } catch (e) {
+      await showError(t('settings.dataManagement.changeFailed', { message: e?.message || e }));
+    }
+    finally {
+      setBusy(false);
+    }
   };
   const handleResetStorageLocation = async () => {
-    console.log('重置存储位置');
+    try {
+      setBusy(true);
+      await resetStoragePathToDefault();
+      const latest = await getCurrentStoragePath();
+      setStoragePath(latest);
+      await showMessage(t('settings.dataManagement.resetSuccess'));
+    } catch (e) {
+      await showError(t('settings.dataManagement.resetFailed', { message: e?.message || e }));
+    }
+    finally {
+      setBusy(false);
+    }
   };
   const handleClearHistory = async () => {
     if (window.confirm(t('settings.dataManagement.clearConfirm'))) {
@@ -89,19 +133,19 @@ function DataManagementSection() {
       {/* 数据存储位置 */}
       <SettingsSection title={t('settings.dataManagement.storageTitle')} description={t('settings.dataManagement.storageDesc')}>
         <SettingItem label={t('settings.dataManagement.currentPath')} description={storagePath}>
-          <Button onClick={handleOpenStorageFolder} variant="secondary" icon={<i className="ti ti-folder-open"></i>}>
+          <Button onClick={handleOpenStorageFolder} disabled={busy} variant="secondary" icon={<i className="ti ti-folder-open"></i>}>
             {t('settings.dataManagement.openFolder')}
           </Button>
         </SettingItem>
 
         <SettingItem label={t('settings.dataManagement.changePath')} description={t('settings.dataManagement.changePathDesc')}>
-          <Button onClick={handleChangeStorageLocation} variant="primary" icon={<i className="ti ti-folder-plus"></i>}>
+          <Button onClick={handleChangeStorageLocation} disabled={busy} variant="primary" icon={<i className="ti ti-folder-plus"></i>}>
             {t('settings.dataManagement.selectNewPath')}
           </Button>
         </SettingItem>
 
         <SettingItem label={t('settings.dataManagement.resetPath')} description={t('settings.dataManagement.resetPathDesc')}>
-          <Button onClick={handleResetStorageLocation} variant="secondary" icon={<i className="ti ti-home"></i>}>
+          <Button onClick={handleResetStorageLocation} disabled={busy} variant="secondary" icon={<i className="ti ti-home"></i>}>
             {t('settings.dataManagement.resetPathButton')}
           </Button>
         </SettingItem>
@@ -127,6 +171,17 @@ function DataManagementSection() {
           </Button>
         </SettingItem>
       </SettingsSection>
-    </>;
+
+      {busy && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="text-sm text-gray-700 dark:text-gray-200">{t('settings.dataManagement.overlayMigrating')}</div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
 }
+
 export default DataManagementSection;

@@ -468,7 +468,12 @@
       "resetAll": "Reset All Data",
       "resetAllDesc": "Delete all data and restore default settings",
       "resetAllButton": "Reset App",
-      "resetAllConfirm": "Reset all data? This will delete all content and restore default settings. This cannot be undone!"
+      "resetAllConfirm": "Reset all data? This will delete all content and restore default settings. This cannot be undone!",
+      "overlayMigrating": "Migrating data, please wait...",
+      "updateSuccess": "Storage location updated",
+      "resetSuccess": "Reset to default storage location",
+      "changeFailed": "Failed to change storage location: {{message}}",
+      "resetFailed": "Failed to reset storage location: {{message}}"
     },
     "about": {
       "title": "About",

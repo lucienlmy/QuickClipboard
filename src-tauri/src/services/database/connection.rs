@@ -30,6 +30,14 @@ pub fn init_database(db_path: &str) -> Result<(), String> {
     Ok(())
 }
 
+// 关闭数据库连接
+pub fn close_database() {
+    let mut db_conn = DB_CONNECTION.lock();
+    if db_conn.is_some() {
+        *db_conn = None;
+    }
+}
+
 // 创建数据库表
 fn create_tables(conn: &Connection) -> Result<(), String> {
     conn.execute(

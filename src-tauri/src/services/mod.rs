@@ -1,5 +1,6 @@
 pub mod clipboard;
 pub mod database;
+pub mod data_management;
 pub mod notification;
 pub mod settings;
 pub mod system;
