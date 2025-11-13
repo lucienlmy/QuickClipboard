@@ -12,6 +12,13 @@ pub struct ExportPayload {
     target_path: String,
 }
 
+#[derive(Deserialize)]
+pub struct ImportPayload {
+    #[serde(alias = "zip_path", alias = "zipPath")]
+    zip_path: String,
+    mode: String,
+}
+
 #[tauri::command]
 pub fn dm_get_current_storage_path() -> Result<String, String> {
     let path = crate::services::data_management::get_current_storage_dir()?;
@@ -38,4 +45,17 @@ pub fn dm_export_data_zip(payload: ExportPayload) -> Result<String, String> {
     let path = std::path::PathBuf::from(payload.target_path);
     let out = crate::services::data_management::export_data_zip(path)?;
     Ok(out.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn dm_import_data_zip(payload: ImportPayload) -> Result<String, String> {
+    let zip = std::path::PathBuf::from(payload.zip_path);
+    let result = crate::services::data_management::import_data_zip(zip, &payload.mode)?;
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn dm_reset_all_data(app: tauri::AppHandle) -> Result<String, String> {
+    let path = crate::services::data_management::reset_all_data()?;
+    Ok(path)
 }

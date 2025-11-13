@@ -80,6 +80,7 @@ pub fn run() {
                 commands::delete_group,
                 commands::reload_settings,
                 commands::save_settings,
+                commands::reset_settings_to_default,
                 commands::get_settings_cmd,
                 commands::set_edge_hide_enabled,
                 commands::get_all_windows_info_cmd,
@@ -101,6 +102,8 @@ pub fn run() {
                 commands::dm_change_storage_path,
                 commands::dm_reset_storage_path_to_default,
                 commands::dm_export_data_zip,
+                commands::dm_import_data_zip,
+                commands::dm_reset_all_data,
                 commands::start_builtin_screenshot,
                 commands::copy_text_to_clipboard,
                 commands::check_ai_translation_config,
@@ -111,6 +114,7 @@ pub fn run() {
                 commands::play_copy_sound,
                 commands::play_paste_sound,
                 commands::play_scroll_sound,
+                commands::reload_all_windows,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
@@ -132,8 +136,7 @@ pub fn run() {
                 
                 let window = app.get_webview_window("main").ok_or("无法获取主窗口")?;
                 let _ = window.set_focusable(false);
-                // 打开开发者工具
-                #[cfg(debug_assertions)] // 仅在调试模式下打开
+                #[cfg(debug_assertions)]
                 let _ = window.open_devtools();
                 
                 services::database::init_database(

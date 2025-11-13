@@ -23,6 +23,171 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
+pub fn reset_all_data() -> Result<String, String> {
+    let current_dir = get_current_storage_dir()?;
+    let default_dir = get_default_data_dir()?;
+
+    close_database();
+
+    fn clean_dir(dir: &Path) -> Result<(), String> {
+        let images = dir.join("clipboard_images");
+        if images.exists() { let _ = fs::remove_dir_all(&images); }
+        for name in ["quickclipboard.db", "quickclipboard.db-shm", "quickclipboard.db-wal"] {
+            let p = dir.join(name);
+            if p.exists() { let _ = fs::remove_file(&p); }
+        }
+        Ok(())
+    }
+
+    clean_dir(&current_dir)?;
+    if current_dir != default_dir { clean_dir(&default_dir)?; }
+
+    let mut defaults = crate::services::AppSettings::default();
+    defaults.use_custom_storage = false;
+    defaults.custom_storage_path = None;
+    update_settings(defaults.clone())?;
+
+    let db_path = default_dir.join("quickclipboard.db");
+    init_database(db_path.to_str().ok_or("数据库路径无效")?)?;
+
+    Ok(default_dir.to_string_lossy().to_string())
+}
+pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> {
+    if !zip_path.exists() {
+        return Err("导入文件不存在".into());
+    }
+
+    let temp_root = std::env::temp_dir().join(format!("quickclipboard_import_{}", fastrand::u32(..)));
+    fs::create_dir_all(&temp_root).map_err(|e| e.to_string())?;
+    let file = fs::File::open(&zip_path).map_err(|e| format!("打开导入文件失败: {}", e))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("读取压缩包失败: {}", e))?;
+    for i in 0..archive.len() {
+        let mut f = archive.by_index(i).map_err(|e| e.to_string())?;
+        let name = f.name().to_string();
+        if name.contains("..") { continue; }
+        let out_path = temp_root.join(&name);
+        if f.is_dir() {
+            fs::create_dir_all(&out_path).map_err(|e| e.to_string())?;
+        } else {
+            if let Some(p) = out_path.parent() { fs::create_dir_all(p).map_err(|e| e.to_string())?; }
+            let mut out = fs::File::create(&out_path).map_err(|e| e.to_string())?;
+            std::io::copy(&mut f, &mut out).map_err(|e| e.to_string())?;
+        }
+    }
+
+    let imported_db = temp_root.join("quickclipboard.db");
+    let imported_images = temp_root.join("clipboard_images");
+    let imported_settings = temp_root.join("settings.json");
+
+    match mode {
+        "replace" => {
+            let mut new_settings = if imported_settings.exists() {
+                let s = fs::read_to_string(&imported_settings).map_err(|e| e.to_string())?;
+                serde_json::from_str::<crate::services::AppSettings>(&s).map_err(|e| e.to_string())?
+            } else {
+                get_settings()
+            };
+
+            let target_dir = if new_settings.use_custom_storage {
+                if let Some(ref path) = new_settings.custom_storage_path {
+                    let p = PathBuf::from(path);
+                    if p.exists() { p } else {
+                        // 回退到默认
+                        new_settings.use_custom_storage = false;
+                        new_settings.custom_storage_path = None;
+                        get_default_data_dir()?
+                    }
+                } else {
+                    get_default_data_dir()?
+                }
+            } else {
+                get_default_data_dir()?
+            };
+
+            update_settings(new_settings.clone())?;
+
+            close_database();
+
+            let target_images = target_dir.join("clipboard_images");
+            if target_images.exists() { fs::remove_dir_all(&target_images).map_err(|e| e.to_string())?; }
+            if imported_images.exists() { copy_dir_all(&imported_images, &target_images)?; }
+
+            for name in ["quickclipboard.db", "quickclipboard.db-shm", "quickclipboard.db-wal"] {
+                let src = temp_root.join(name);
+                let dst = target_dir.join(name);
+                if src.exists() {
+                    if let Some(p) = dst.parent() { fs::create_dir_all(p).map_err(|e| e.to_string())?; }
+                    fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+                } else {
+                    if dst.exists() && name != "quickclipboard.db" {
+                        let _ = fs::remove_file(&dst);
+                    }
+                }
+            }
+
+            let db_path = target_dir.join("quickclipboard.db");
+            init_database(db_path.to_str().ok_or("数据库路径无效")?)?;
+
+            Ok(target_dir.to_string_lossy().to_string())
+        }
+        "merge" => {
+            let current_dir = get_current_storage_dir()?;
+
+            let target_images = current_dir.join("clipboard_images");
+            if imported_images.exists() {
+                if !target_images.exists() { fs::create_dir_all(&target_images).map_err(|e| e.to_string())?; }
+                fn merge_dir(src: &Path, dst: &Path) -> Result<(), String> {
+                    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
+                        let entry = entry.map_err(|e| e.to_string())?;
+                        let sp = entry.path();
+                        let dp = dst.join(entry.file_name());
+                        if sp.is_dir() {
+                            fs::create_dir_all(&dp).map_err(|e| e.to_string())?;
+                            merge_dir(&sp, &dp)?;
+                        } else {
+                            if let Some(parent) = dp.parent() { fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
+                            fs::copy(&sp, &dp).map_err(|e| e.to_string())?;
+                        }
+                    }
+                    Ok(())
+                }
+                merge_dir(&imported_images, &target_images)?;
+            }
+
+            if imported_db.exists() {
+                use crate::services::database::connection::with_connection;
+                with_connection(|conn| {
+                    let import_path = imported_db.to_str().ok_or(rusqlite::Error::InvalidPath("bad path".into()))?;
+                    conn.execute("ATTACH DATABASE ?1 AS importdb", [import_path])?;
+
+                    let _ = conn.execute(
+                        "INSERT OR IGNORE INTO groups (name, icon, color, order_index, created_at, updated_at)
+                         SELECT name, icon, color, order_index, created_at, updated_at FROM importdb.groups",
+                        [],
+                    );
+
+                    let _ = conn.execute(
+                        "INSERT OR IGNORE INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at)
+                         SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at FROM importdb.favorites",
+                        [],
+                    );
+
+                    let _ = conn.execute(
+                        "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, created_at, updated_at)
+                         SELECT content, html_content, content_type, image_id, item_order, created_at, updated_at FROM importdb.clipboard",
+                        [],
+                    );
+
+                    let _ = conn.execute("DETACH DATABASE importdb", []);
+                    Ok(())
+                })?;
+            }
+
+            Ok(current_dir.to_string_lossy().to_string())
+        }
+        _ => Err("不支持的导入模式".into()),
+    }
+}
 fn safe_move_item(src: &Path, dst: &Path) -> Result<(), String> {
     if !src.exists() {
         return Ok(());

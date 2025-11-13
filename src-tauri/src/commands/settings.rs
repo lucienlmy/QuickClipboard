@@ -11,9 +11,7 @@ fn handle_disable_edge_hide(app: &tauri::AppHandle) {
             if state.is_hidden {
                 let _ = crate::windows::main_window::show_snapped_window(&window);
             }
-            
             let _ = crate::windows::main_window::restore_from_snap(&window);
-            
             crate::windows::main_window::stop_edge_monitoring();
         }
     }
@@ -73,6 +71,12 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     }
     
     Ok(())
+}
+
+#[tauri::command]
+pub fn reset_settings_to_default(app: tauri::AppHandle) -> Result<(), String> {
+    let defaults = AppSettings::default();
+    save_settings(defaults, app)
 }
 
 #[tauri::command]

@@ -40,3 +40,8 @@ export async function hideMainWindowIfAutoShown() {
   return await invoke('hide_main_window_if_auto_shown')
 }
 
+// 刷新所有窗口
+export async function reloadAllWindows() {
+  return await invoke('reload_all_windows')
+}
+

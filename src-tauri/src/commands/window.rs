@@ -1,4 +1,4 @@
-use tauri::{AppHandle, WebviewWindow};
+use tauri::{AppHandle, WebviewWindow, Manager};
 
 #[tauri::command]
 pub fn start_custom_drag(window: WebviewWindow, mouse_screen_x: i32, mouse_screen_y: i32) -> Result<(), String> {
@@ -112,4 +112,14 @@ pub fn emit_quick_texts_updated(app: AppHandle) -> Result<(), String> {
     use tauri::Emitter;
     app.emit("quick-texts-updated", ())
         .map_err(|e| format!("发射收藏列表更新事件失败: {}", e))
+}
+
+// 刷新所有窗口
+#[tauri::command]
+pub fn reload_all_windows(app: AppHandle) -> Result<(), String> {
+    let windows = app.webview_windows();
+    for (_label, window) in windows {
+        let _ = window.eval("location.reload()");
+    }
+    Ok(())
 }

@@ -7,8 +7,11 @@ import SettingItem from '../components/SettingItem';
 import Button from '@shared/components/ui/Button';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
-import { getCurrentStoragePath, changeStoragePath, resetStoragePathToDefault, exportDataZip } from '@shared/api/dataManagement';
-import { showError, showMessage } from '@shared/utils/dialog';
+import { getCurrentStoragePath, changeStoragePath, resetStoragePathToDefault, exportDataZip, importDataZip, resetAllData } from '@shared/api/dataManagement';
+import { showError, showMessage, showConfirm } from '@shared/utils/dialog';
+import { reloadAllWindows } from '@shared/api/window';
+import { resetSettingsToDefault } from '@shared/api/settings';
+import { clearClipboardHistory } from '@shared/api/clipboard';
 function DataManagementSection() {
   const {
     t
@@ -53,7 +56,22 @@ function DataManagementSection() {
     }
   };
   const handleImportData = async () => {
-    console.log('导入数据');
+    try {
+      const file = await open({ multiple: false, filters: [{ name: 'Zip', extensions: ['zip'] }] });
+      if (!file) return;
+      setBusyText(t('settings.dataManagement.overlayImporting'));
+      setBusy(true);
+      const resultPath = await importDataZip(file, importMode);
+      const latest = await getCurrentStoragePath();
+      setStoragePath(latest);
+      await showMessage(t('settings.dataManagement.importSuccess', { path: resultPath }));
+      try { await reloadAllWindows(); } catch (_) {}
+    } catch (e) {
+      await showError(t('settings.dataManagement.importFailed', { message: e?.message || e }));
+    } finally {
+      setBusy(false);
+      setBusyText('');
+    }
   };
   const handleOpenStorageFolder = async () => {
     try {
@@ -72,6 +90,7 @@ function DataManagementSection() {
       const latest = await getCurrentStoragePath();
       setStoragePath(latest);
       await showMessage(t('settings.dataManagement.updateSuccess'));
+      try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
       await showError(t('settings.dataManagement.changeFailed', { message: e?.message || e }));
     }
@@ -88,6 +107,7 @@ function DataManagementSection() {
       const latest = await getCurrentStoragePath();
       setStoragePath(latest);
       await showMessage(t('settings.dataManagement.resetSuccess'));
+      try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
       await showError(t('settings.dataManagement.resetFailed', { message: e?.message || e }));
     }
@@ -97,18 +117,55 @@ function DataManagementSection() {
     }
   };
   const handleClearHistory = async () => {
-    if (window.confirm(t('settings.dataManagement.clearConfirm'))) {
-      console.log('清空历史');
+    const ok = await showConfirm(t('settings.dataManagement.clearConfirm'));
+    if (!ok) return;
+    try {
+      setBusyText(t('settings.dataManagement.overlayCleaning') || t('settings.dataManagement.overlayMigrating'));
+      setBusy(true);
+      await clearClipboardHistory();
+      await showMessage(t('settings.dataManagement.clearSuccess') || t('common.success'));
+      try { await reloadAllWindows(); } catch (_) {}
+    } catch (e) {
+      await showError(t('settings.dataManagement.clearFailed', { message: e?.message || e }) || String(e));
+    } finally {
+      setBusy(false);
+      setBusyText('');
     }
   };
   const handleResetSettings = async () => {
-    if (window.confirm(t('settings.dataManagement.resetConfirm'))) {
-      console.log('重置设置');
+    const ok = await showConfirm(t('settings.dataManagement.resetConfirm'));
+    if (!ok) return;
+    try {
+      setBusyText(t('settings.dataManagement.overlayResetSettings') || t('settings.dataManagement.overlayMigrating'));
+      setBusy(true);
+      await resetSettingsToDefault();
+      try { window.localStorage?.clear?.(); } catch (_) {}
+      await showMessage(t('settings.dataManagement.resetSettingsSuccess') || t('common.success'));
+      try { await reloadAllWindows(); } catch (_) {}
+    } catch (e) {
+      await showError(t('settings.dataManagement.resetSettingsFailed', { message: e?.message || e }) || String(e));
+    } finally {
+      setBusy(false);
+      setBusyText('');
     }
   };
   const handleResetAllData = async () => {
-    if (window.confirm(t('settings.dataManagement.resetAllConfirm'))) {
-      console.log('重置所有数据');
+    const ok = await showConfirm(t('settings.dataManagement.resetAllConfirm'));
+    if (!ok) return;
+    try {
+      setBusyText(t('settings.dataManagement.overlayResetAll') || t('settings.dataManagement.overlayMigrating'));
+      setBusy(true);
+      const dir = await resetAllData();
+      try { window.localStorage?.clear?.(); } catch (_) {}
+      const latest = await getCurrentStoragePath();
+      setStoragePath(latest);
+      await showMessage(t('settings.dataManagement.resetAllSuccess', { path: dir }) || t('common.success'));
+      try { await reloadAllWindows(); } catch (_) {}
+    } catch (e) {
+      await showError(t('settings.dataManagement.resetAllFailed', { message: e?.message || e }) || String(e));
+    } finally {
+      setBusy(false);
+      setBusyText('');
     }
   };
   return <>

@@ -15,3 +15,11 @@ export async function resetStoragePathToDefault() {
 export async function exportDataZip(targetPath) {
   return await invoke('dm_export_data_zip', { payload: { target_path: targetPath } })
 }
+
+export async function importDataZip(zipPath, mode) {
+  return await invoke('dm_import_data_zip', { payload: { zip_path: zipPath, mode } })
+}
+
+export async function resetAllData() {
+  return await invoke('dm_reset_all_data')
+}

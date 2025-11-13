@@ -10,6 +10,11 @@ export async function saveSettings(settings) {
   return await invoke('save_settings', { settings })
 }
 
+// 重置设置为默认
+export async function resetSettingsToDefault() {
+  return await invoke('reset_settings_to_default')
+}
+
 // 设置边缘隐藏
 export async function setEdgeHideEnabled(enabled) {
   return await invoke('set_edge_hide_enabled', { enabled })
