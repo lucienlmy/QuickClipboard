@@ -1,7 +1,50 @@
 use super::models::{ClipboardItem, PaginatedResult, QueryParams};
 use super::connection::{with_connection, truncate_string, MAX_CONTENT_LENGTH};
 use rusqlite::{params, OptionalExtension};
+use std::collections::HashSet;
 use chrono;
+
+// 按逗号拆分图片ID
+fn split_image_ids(s: &str) -> Vec<String> {
+    s.split(',')
+        .map(|x| x.trim())
+        .filter(|x| !x.is_empty())
+        .map(|x| x.to_string())
+        .collect()
+}
+
+// 检查图片ID是否仍被 clipboard 或 favorites 引用
+fn is_image_id_referenced(conn: &rusqlite::Connection, image_id: &str) -> Result<bool, rusqlite::Error> {
+    let exact = image_id;
+    let p1 = format!("{},%", image_id);
+    let p2 = format!("%,{},%", image_id);
+    let p3 = format!("%,{}", image_id);
+
+    let mut q = |table: &str| -> Result<bool, rusqlite::Error> {
+        let sql = format!(
+            "SELECT EXISTS(SELECT 1 FROM {} WHERE image_id = ?1 OR image_id LIKE ?2 OR image_id LIKE ?3 OR image_id LIKE ?4)",
+            table
+        );
+        let exists: i64 = conn.query_row(&sql, params![exact, p1, p2, p3], |row| row.get(0))?;
+        Ok(exists != 0)
+    };
+
+    Ok(q("clipboard")? || q("favorites")?)
+}
+
+// 删除图片文件
+fn delete_image_files(image_ids: Vec<String>) -> Result<(), String> {
+    if image_ids.is_empty() { return Ok(()); }
+    let data_dir = crate::services::get_data_directory()?;
+    let images_dir = data_dir.join("clipboard_images");
+    for iid in image_ids {
+        let p = images_dir.join(format!("{}.png", iid));
+        if p.exists() {
+            let _ = std::fs::remove_file(&p);
+        }
+    }
+    Ok(())
+}
 
 // 分页查询剪贴板历史
 pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<ClipboardItem>, String> {
@@ -142,31 +185,96 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
         return Ok(());
     }
     
-    with_connection(|conn| {
+    let images_to_delete: Vec<String> = with_connection(|conn| {
+        let sql_ids = "SELECT image_id FROM clipboard WHERE id NOT IN (SELECT id FROM clipboard ORDER BY item_order, updated_at DESC LIMIT ?1) AND image_id IS NOT NULL AND image_id <> ''";
+        let mut stmt = conn.prepare(sql_ids)?;
+        let ids_iter = stmt.query_map(params![max_count], |row| row.get::<_, String>(0))?;
+        let mut set: HashSet<String> = HashSet::new();
+        for r in ids_iter {
+            if let Ok(s) = r {
+                for iid in split_image_ids(&s) {
+                    set.insert(iid);
+                }
+            }
+        }
+        drop(stmt);
+
         conn.execute(
             "DELETE FROM clipboard WHERE id NOT IN (
                 SELECT id FROM clipboard ORDER BY item_order, updated_at DESC LIMIT ?1
             )",
             params![max_count],
         )?;
-        Ok(())
-    })
+
+        let mut to_delete = Vec::new();
+        for iid in set.into_iter() {
+            if !is_image_id_referenced(conn, &iid)? {
+                to_delete.push(iid);
+            }
+        }
+        Ok(to_delete)
+    })?;
+
+    delete_image_files(images_to_delete)
 }
 
 // 删除单个剪贴板项
 pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
-    with_connection(|conn| {
+    let images_to_delete: Vec<String> = with_connection(|conn| {
+        let image_ids_opt: Option<Option<String>> = conn
+            .query_row(
+                "SELECT image_id FROM clipboard WHERE id = ?",
+                params![id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+        let image_ids: Option<String> = image_ids_opt.flatten();
+
         conn.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
-        Ok(())
-    })
+
+        let mut to_delete = Vec::new();
+        if let Some(ids) = image_ids {
+            for iid in split_image_ids(&ids) {
+                if !is_image_id_referenced(conn, &iid)? {
+                    to_delete.push(iid);
+                }
+            }
+        }
+        Ok(to_delete)
+    })?;
+
+    delete_image_files(images_to_delete)
 }
 
 // 清空所有剪贴板历史
 pub fn clear_clipboard_history() -> Result<(), String> {
-    with_connection(|conn| {
+    let images_to_delete: Vec<String> = with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT image_id FROM clipboard WHERE image_id IS NOT NULL AND image_id <> ''",
+        )?;
+        let ids_iter = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut set: HashSet<String> = HashSet::new();
+        for r in ids_iter {
+            if let Ok(s) = r {
+                for iid in split_image_ids(&s) {
+                    set.insert(iid);
+                }
+            }
+        }
+        drop(stmt);
+
         conn.execute("DELETE FROM clipboard", [])?;
-        Ok(())
-    })
+
+        let mut to_delete = Vec::new();
+        for iid in set.into_iter() {
+            if !is_image_id_referenced(conn, &iid)? {
+                to_delete.push(iid);
+            }
+        }
+        Ok(to_delete)
+    })?;
+
+    delete_image_files(images_to_delete)
 }
 
 // 移动剪贴板项（拖拽排序）

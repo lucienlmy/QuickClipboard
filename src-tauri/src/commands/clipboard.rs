@@ -30,6 +30,28 @@ pub fn get_clipboard_history(
     query_clipboard_items(params)
 }
 
+// 另存图片
+#[tauri::command]
+pub async fn save_image_from_path(file_path: String, app: tauri::AppHandle) -> Result<String, String> {
+    use std::path::Path;
+    use tauri_plugin_dialog::DialogExt;
+
+    let path = Path::new(&file_path);
+    if !path.exists() { return Err("图片文件不存在".to_string()); }
+
+    let filename = format!("QC_{}.png", path.file_stem().and_then(|s| s.to_str()).unwrap_or("image"));
+
+    let save_path = app.dialog().file()
+        .set_file_name(filename)
+        .blocking_save_file()
+        .ok_or("用户取消保存")?;
+
+    let dest = save_path.as_path().ok_or("无效的文件路径")?;
+    std::fs::copy(&file_path, dest).map_err(|e| format!("保存失败: {}", e))?;
+
+    Ok(dest.to_string_lossy().to_string())
+}
+
 // 获取剪贴板总数
 #[tauri::command]
 pub fn get_clipboard_total_count() -> Result<i64, String> {
@@ -130,39 +152,6 @@ pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
 pub fn clear_clipboard_history() -> Result<(), String> {
     db_clear_clipboard_history()
 }
-
-// 另存为图片
-#[tauri::command]
-pub async fn save_image_from_clipboard(clipboard_id: i64, app: tauri::AppHandle) -> Result<String, String> {
-    use tauri_plugin_dialog::DialogExt;
-    
-    let item = get_clipboard_item_by_id(clipboard_id)?.ok_or("剪贴板项不存在")?;
-    
-    let image_path = if item.content.starts_with("files:") {
-        let json: serde_json::Value = serde_json::from_str(&item.content[6..])
-            .map_err(|_| "解析文件数据失败")?;
-        json["files"][0]["path"].as_str().ok_or("无法获取图片路径")?.to_string()
-    } else {
-        item.content.clone()
-    };
-    
-    let path = std::path::Path::new(&image_path);
-    if !path.exists() { return Err("图片文件不存在".to_string()); }
-    
-    let filename = format!("QC_{}.png", path.file_stem().and_then(|s| s.to_str()).unwrap_or("image"));
-    
-    let save_path = app.dialog().file()
-        .add_filter("PNG Image", &["png"])
-        .set_file_name(&filename)
-        .blocking_save_file()
-        .ok_or("用户取消保存")?;
-    
-    let dest = save_path.as_path().ok_or("无效的文件路径")?;
-    std::fs::copy(&image_path, dest).map_err(|e| format!("保存失败: {}", e))?;
-    
-    Ok(dest.to_string_lossy().to_string())
-}
-
 // 根据 ID 获取单个剪贴板项
 #[tauri::command]
 pub fn get_clipboard_item_by_id_cmd(id: i64) -> Result<ClipboardItem, String> {

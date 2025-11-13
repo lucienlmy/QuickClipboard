@@ -27,12 +27,13 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
         }
         
         conn.execute(
-            "INSERT INTO clipboard (content, html_content, content_type, item_order, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, 0, ?4, ?5)",
+            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6)",
             params![
                 content.content,
                 content.html_content,
                 content.content_type,
+                content.image_id,
                 now,
                 now
             ],

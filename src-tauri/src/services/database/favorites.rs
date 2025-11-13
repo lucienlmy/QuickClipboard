@@ -102,6 +102,48 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
     })
 }
 
+// 按逗号拆分图片ID
+fn split_image_ids(s: &str) -> Vec<String> {
+    s.split(',')
+        .map(|x| x.trim())
+        .filter(|x| !x.is_empty())
+        .map(|x| x.to_string())
+        .collect()
+}
+
+// 检查图片ID是否仍被 clipboard 或 favorites 引用
+fn is_image_id_referenced(conn: &rusqlite::Connection, image_id: &str) -> Result<bool, rusqlite::Error> {
+    let exact = image_id;
+    let p1 = format!("{},%", image_id);
+    let p2 = format!("%,{},%", image_id);
+    let p3 = format!("%,{}", image_id);
+
+    let mut q = |table: &str| -> Result<bool, rusqlite::Error> {
+        let sql = format!(
+            "SELECT EXISTS(SELECT 1 FROM {} WHERE image_id = ?1 OR image_id LIKE ?2 OR image_id LIKE ?3 OR image_id LIKE ?4)",
+            table
+        );
+        let exists: i64 = conn.query_row(&sql, params![exact, p1, p2, p3], |row| row.get(0))?;
+        Ok(exists != 0)
+    };
+
+    Ok(q("clipboard")? || q("favorites")?)
+}
+
+// 删除图片文件
+fn delete_image_files(image_ids: Vec<String>) -> Result<(), String> {
+    if image_ids.is_empty() { return Ok(()); }
+    let data_dir = crate::services::get_data_directory()?;
+    let images_dir = data_dir.join("clipboard_images");
+    for iid in image_ids {
+        let p = images_dir.join(format!("{}.png", iid));
+        if p.exists() {
+            let _ = std::fs::remove_file(&p);
+        }
+    }
+    Ok(())
+}
+
 // 获取收藏总数
 pub fn get_favorites_count(group_name: Option<String>) -> Result<i64, String> {
     with_connection(|conn| {
@@ -222,10 +264,10 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
             }
         )?;
         
-        let title = if content.len() > 50 {
-            format!("{}...", &content[..50])
-        } else {
-            content.clone()
+        let title = {
+            let mut t: String = content.chars().take(50).collect();
+            if content.chars().count() > 50 { t.push_str("..."); }
+            t
         };
         
         let id = Uuid::new_v4().to_string();
@@ -319,10 +361,30 @@ pub fn move_favorite_to_group(id: String, group_name: String) -> Result<(), Stri
 
 // 删除收藏项
 pub fn delete_favorite(id: String) -> Result<(), String> {
-    with_connection(|conn| {
+    let images_to_delete: Vec<String> = with_connection(|conn| {
+        let image_ids_opt: Option<Option<String>> = conn
+            .query_row(
+                "SELECT image_id FROM favorites WHERE id = ?",
+                params![&id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+        let image_ids: Option<String> = image_ids_opt.flatten();
+
         conn.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
-        Ok(())
-    })
+
+        let mut to_delete = Vec::new();
+        if let Some(ids) = image_ids {
+            for iid in split_image_ids(&ids) {
+                if !is_image_id_referenced(conn, &iid)? {
+                    to_delete.push(iid);
+                }
+            }
+        }
+        Ok(to_delete)
+    })?;
+
+    delete_image_files(images_to_delete)
 }
 
 // 添加收藏项

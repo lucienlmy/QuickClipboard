@@ -9,10 +9,11 @@ import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore'
 import {
   addClipboardToFavorites,
   pinImageToScreen,
-  saveImageFromClipboard,
   clearClipboardHistory,
   moveFavoriteToGroup,
-  deleteFavorite
+  deleteFavorite,
+  saveImageFromPath,
+  copyTextToClipboard
 } from '@shared/api'
 
 const TOAST_CONFIG = {
@@ -240,19 +241,40 @@ async function handlePasteActions(result, item, isClipboard = true) {
 
 // 处理内容类型操作
 async function handleContentTypeActions(result, item, index) {
-  const filesData = JSON.parse(item.content.substring(6))
-  const filePath = filesData.files[0].path
+  if (result === 'edit-text') {
+    const { openEditorForClipboard } = await import('@shared/api/textEditor')
+    await openEditorForClipboard(item, index)
+    return true
+  }
+  if (result === 'edit-item') {
+    const { openEditorForFavorite } = await import('@shared/api/textEditor')
+    await openEditorForFavorite(item)
+    return true
+  }
 
-  const dirPath = filePath.substring(0, filePath.lastIndexOf('\\') !== -1
-    ? filePath.lastIndexOf('\\')
-    : filePath.lastIndexOf('/'))
+  const contentType = item.content_type || 'text'
+  if (!contentType.includes('file') && !contentType.includes('image')) return false
+
+  if (typeof item.content !== 'string' || !item.content.startsWith('files:')) return false
+
+  let filePath = null
+  try {
+    const filesData = JSON.parse(item.content.substring(6))
+    filePath = filesData?.files?.[0]?.path || null
+  } catch (_) {
+    filePath = null
+  }
+  if (!filePath) return false
+
+  const dirPath = filePath.substring(0, Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/')))
+
   const actions = {
     'pin-image': async () => {
       await pinImageToScreen(filePath)
       toast.success(i18n.t('contextMenu.imagePinned'), TOAST_CONFIG)
     },
     'save-image': async () => {
-      await saveImageFromClipboard(item.id)
+      await saveImageFromPath(filePath)
       toast.success(i18n.t('contextMenu.imageSaved'), TOAST_CONFIG)
     },
     'open-file': async () => {
@@ -275,20 +297,12 @@ async function handleContentTypeActions(result, item, index) {
     },
     'copy-path': async () => {
       try {
-        await navigator.clipboard.writeText(filePaths)
+        await copyTextToClipboard(filePath)
         toast.success(i18n.t('contextMenu.pathCopied'), TOAST_CONFIG)
       } catch (error) {
         console.error('复制文件路径失败:', error)
         toast.error(i18n.t('common.operationFailed'), TOAST_CONFIG)
       }
-    },
-    'edit-text': async () => {
-      const { openEditorForClipboard } = await import('@shared/api/textEditor')
-      await openEditorForClipboard(item, index)
-    },
-    'edit-item': async () => {
-      const { openEditorForFavorite } = await import('@shared/api/textEditor')
-      await openEditorForFavorite(item)
     }
   }
   

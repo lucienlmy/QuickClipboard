@@ -31,3 +31,8 @@ export async function disableAiTranslationCancelShortcut() {
   return await invoke('disable_ai_translation_cancel_shortcut')
 }
 
+// 复制文本
+export async function copyTextToClipboard(text) {
+  return await invoke('copy_text_to_clipboard', { text })
+}
+

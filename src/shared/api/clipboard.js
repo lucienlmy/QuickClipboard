@@ -177,9 +177,10 @@ export async function addClipboardToFavorites(id, groupName) {
   await invoke('emit_quick_texts_updated')
 }
 
-// 保存剪贴板图片
-export async function saveImageFromClipboard(clipboardId) {
-  return await invoke('save_image_from_clipboard', { clipboardId })
+
+// 另存图片
+export async function saveImageFromPath(filePath) {
+  return await invoke('save_image_from_path', { filePath })
 }
 
 

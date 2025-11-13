@@ -32,6 +32,7 @@ pub struct ProcessedContent {
     pub content: String,              // 主要内容
     pub html_content: Option<String>, // HTML富文本内容
     pub content_type: String,         // 内容类型：text/rich_text/image/file/link
+    pub image_id: Option<String>,
 }
 
 // 处理剪贴板内容，将原始数据转换为可存储的格式
@@ -53,6 +54,7 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 content: text,
                 html_content: None,
                 content_type: ct.to_db_string(),
+                image_id: None,
             })
         }
         
@@ -69,12 +71,14 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                     ct.add_type("link");
                 }
                 
-                let (processed_html, _image_ids) = process_html_images(&html)?;
+                let (processed_html, image_ids) = process_html_images(&html)?;
+                let image_id = if image_ids.is_empty() { None } else { Some(image_ids.join(",")) };
                 
                 Ok(ProcessedContent {
                     content: text,
                     html_content: Some(processed_html),
                     content_type: ct.to_db_string(),
+                    image_id,
                 })
             }
         
@@ -99,11 +103,25 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
             } else {
                 ContentType::new("file")
             };
+            let image_id = if file_infos.len() == 1 && ct.to_db_string() == "image" {
+                let p = std::path::Path::new(&file_infos[0].path);
+                if let (Some(stem), Ok(data_dir)) = (p.file_stem().and_then(|s| s.to_str()), crate::services::get_data_directory()) {
+                    let images_dir = data_dir.join("clipboard_images");
+                    if p.starts_with(&images_dir) {
+                        Some(stem.to_string())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else { None };
             
             Ok(ProcessedContent {
                 content: format!("files:{}", json_str),
                 html_content: None,
                 content_type: ct.to_db_string(),
+                image_id,
             })
         }
     }

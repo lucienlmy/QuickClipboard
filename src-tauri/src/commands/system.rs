@@ -1,4 +1,5 @@
 use serde_json::Value;
+use clipboard_rs::{Clipboard, ClipboardContext};
 
 // 启动内置截图功能
 #[tauri::command]
@@ -32,5 +33,14 @@ pub fn enable_ai_translation_cancel_shortcut() -> Result<(), String> {
 #[tauri::command]
 pub fn disable_ai_translation_cancel_shortcut() -> Result<(), String> {
     Ok(())
+}
+
+// 复制纯文本
+#[tauri::command]
+pub fn copy_text_to_clipboard(text: String) -> Result<(), String> {
+    let ctx = ClipboardContext::new()
+        .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
+    ctx.set_text(text)
+        .map_err(|e| format!("设置剪贴板文本失败: {}", e))
 }
 
