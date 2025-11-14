@@ -11,3 +11,11 @@ pub use settings::{AppSettings, get_settings, update_settings, get_data_director
 pub use notification::show_startup_notification;
 pub use system::hotkey;
 pub use sound::{SoundPlayer, AppSounds};
+
+pub fn is_portable_build() -> bool {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_name().and_then(|s| s.to_str()).map(|s| s.to_ascii_lowercase()))
+        .map(|name| name.contains("portable"))
+        .unwrap_or(false)
+}

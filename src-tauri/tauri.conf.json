@@ -83,7 +83,8 @@
   "bundle": {
     "active": true,
     "targets": [
-      "nsis"
+      "nsis",
+      "app"
     ],
     "publisher": "MoSheng",
     "homepage": "https://github.com/mosheng1/QuickClipboard",

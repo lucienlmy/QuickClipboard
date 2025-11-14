@@ -11,6 +11,7 @@ import { getCurrentStoragePath, changeStoragePath, resetStoragePathToDefault, ex
 import { showError, showMessage, showConfirm } from '@shared/utils/dialog';
 import { reloadAllWindows } from '@shared/api/window';
 import { resetSettingsToDefault } from '@shared/api/settings';
+import { isPortableMode } from '@shared/api/system';
 import { clearClipboardHistory } from '@shared/api/clipboard';
 function DataManagementSection() {
   const {
@@ -18,6 +19,7 @@ function DataManagementSection() {
   } = useTranslation();
   const [storagePath, setStoragePath] = useState(t('common.loading'));
   const [importMode, setImportMode] = useState('replace');
+  const [portable, setPortable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [busyText, setBusyText] = useState('');
   useEffect(() => {
@@ -28,6 +30,10 @@ function DataManagementSection() {
       } catch (e) {
         setStoragePath(t('common.loadError'));
       }
+      try {
+        const p = await isPortableMode();
+        setPortable(!!p);
+      } catch (_) {}
     })();
   }, []);
   const handleExportData = async () => {
@@ -223,13 +229,13 @@ function DataManagementSection() {
         </SettingItem>
 
         <SettingItem label={t('settings.dataManagement.changePath')} description={t('settings.dataManagement.changePathDesc')}>
-          <Button onClick={handleChangeStorageLocation} disabled={busy} variant="primary" icon={<i className="ti ti-folder-plus"></i>}>
+          <Button onClick={handleChangeStorageLocation} disabled={busy || portable} variant="primary" icon={<i className="ti ti-folder-plus"></i>}>
             {t('settings.dataManagement.selectNewPath')}
           </Button>
         </SettingItem>
 
         <SettingItem label={t('settings.dataManagement.resetPath')} description={t('settings.dataManagement.resetPathDesc')}>
-          <Button onClick={handleResetStorageLocation} disabled={busy} variant="secondary" icon={<i className="ti ti-home"></i>}>
+          <Button onClick={handleResetStorageLocation} disabled={busy || portable} variant="secondary" icon={<i className="ti ti-home"></i>}>
             {t('settings.dataManagement.resetPathButton')}
           </Button>
         </SettingItem>

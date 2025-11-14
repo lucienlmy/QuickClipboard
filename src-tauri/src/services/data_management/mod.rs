@@ -136,6 +136,10 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             } else {
                 get_settings()
             };
+            if crate::services::is_portable_build() || std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("portable.txt").exists())).unwrap_or(false) {
+                new_settings.use_custom_storage = false;
+                new_settings.custom_storage_path = None;
+            }
 
             let target_dir = if new_settings.use_custom_storage {
                 if let Some(ref path) = new_settings.custom_storage_path {
@@ -268,6 +272,9 @@ pub fn get_current_storage_dir() -> Result<PathBuf, String> {
 }
 
 pub fn change_storage_dir(new_dir: PathBuf) -> Result<PathBuf, String> {
+    if crate::services::is_portable_build() || std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("portable.txt").exists())).unwrap_or(false) {
+        return Err("便携版不支持更改存储路径".into());
+    }
     let new_dir = new_dir;
     if !new_dir.exists() { fs::create_dir_all(&new_dir).map_err(|e| e.to_string())?; }
 
@@ -321,6 +328,9 @@ pub fn change_storage_dir(new_dir: PathBuf) -> Result<PathBuf, String> {
 }
 
 pub fn reset_storage_dir_to_default() -> Result<PathBuf, String> {
+    if crate::services::is_portable_build() || std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("portable.txt").exists())).unwrap_or(false) {
+        return Err("便携版不支持重置存储路径".into());
+    }
     let default_dir = get_default_data_dir()?;
     let current_dir = get_current_storage_dir()?;
 

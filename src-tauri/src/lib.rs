@@ -140,6 +140,17 @@ pub fn run() {
                 #[cfg(debug_assertions)]
                 let _ = window.open_devtools();
                 
+                if services::is_portable_build() {
+                    if let Ok(exe) = std::env::current_exe() {
+                        if let Some(dir) = exe.parent() {
+                            let marker = dir.join("portable.flag");
+                            if !marker.exists() {
+                                let _ = std::fs::write(&marker, b"portable\n");
+                            }
+                        }
+                    }
+                }
+
                 let db_path_buf = get_data_directory()?.join("quickclipboard.db");
                 let db_path_str = db_path_buf.to_str().ok_or("数据库路径无效")?;
                 if let Err(e1) = services::database::init_database(db_path_str) {

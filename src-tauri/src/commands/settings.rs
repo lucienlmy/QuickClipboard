@@ -105,6 +105,7 @@ pub fn get_all_windows_info_cmd() -> Result<Vec<crate::services::system::AppInfo
 
 #[tauri::command]
 pub fn is_portable_mode() -> bool {
+    if crate::services::is_portable_build() { return true; }
     use std::env;
     env::current_exe()
         .ok()

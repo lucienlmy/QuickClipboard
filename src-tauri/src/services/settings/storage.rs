@@ -5,6 +5,9 @@ pub struct SettingsStorage;
 
 impl SettingsStorage {
     fn is_portable_mode() -> bool {
+        if crate::services::is_portable_build() {
+            return true;
+        }
         env::current_exe()
             .ok()
             .and_then(|exe| exe.parent().map(|p| p.join("portable.txt").exists()))
