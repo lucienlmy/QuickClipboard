@@ -72,7 +72,17 @@ function QuickPasteWindow() {
     return () => unlisten.then(fn => fn());
   }, [isHoveringCancel, activeIndex, itemsArray, isClipboardTab]);
   useEffect(() => {
-    const unlisten = listen('quickpaste-show', () => {
+    const unlisten = listen('quickpaste-show', async () => {
+      try {
+        if (navigationStore.activeTab === 'clipboard') {
+          await initClipboardItems();
+        } else {
+          await initFavorites();
+        }
+      } catch (error) {
+        console.error('刷新便捷粘贴数据失败:', error);
+      }
+
       setActiveIndex(0);
       setIsHoveringCancel(false);
       virtuosoRef.current?.scrollToIndex({
@@ -315,7 +325,7 @@ function QuickPasteWindow() {
               return item ? (
                 <div className="px-2 py-1.5">
                   <div className={`
-                    relative pl-3 pr-12 py-3 rounded-lg transition-all duration-200 cursor-pointer
+                    relative pl-3 pr-3 py-3 rounded-lg transition-all duration-200 cursor-pointer
                     ${getRowHeightStyle()}
                     ${active
                       ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
