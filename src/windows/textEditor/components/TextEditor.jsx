@@ -3,36 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
-import { search, highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { javascript } from '@codemirror/lang-javascript';
-import { python } from '@codemirror/lang-python';
-import { html } from '@codemirror/lang-html';
-import { css } from '@codemirror/lang-css';
-import { json } from '@codemirror/lang-json';
-import { xml } from '@codemirror/lang-xml';
-import { markdown } from '@codemirror/lang-markdown';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 
-// 语言映射
-const languageMap = {
-  javascript: javascript(),
-  python: python(),
-  html: html(),
-  css: css(),
-  json: json(),
-  xml: xml(),
-  markdown: markdown(),
-  plaintext: []
-};
 function TextEditor({
   content,
   onContentChange,
   onStatsChange,
-  wordWrap,
-  language = 'plaintext'
+  wordWrap
 }) {
   const {
     t
@@ -40,7 +19,6 @@ function TextEditor({
   const editorRef = useRef(null);
   const viewRef = useRef(null);
   const wrapCompartment = useRef(new Compartment());
-  const languageCompartment = useRef(new Compartment());
   const themeCompartment = useRef(new Compartment());
   const {
     theme
@@ -86,9 +64,7 @@ function TextEditor({
     if (!editorRef.current) return;
     const startState = EditorState.create({
       doc: content || '',
-      extensions: [lineNumbers(), highlightActiveLine(), history(), indentOnInput(), bracketMatching(), syntaxHighlighting(defaultHighlightStyle), themeCompartment.current.of(isDark ? [oneDark, getCustomTheme(true)] : [getCustomTheme(false)]), languageCompartment.current.of(languageMap[language] || []), search({
-        top: true
-      }), highlightSelectionMatches(), wrapCompartment.current.of(wordWrap ? EditorView.lineWrapping : []), keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]), EditorView.updateListener.of(update => {
+      extensions: [lineNumbers(), highlightActiveLine(), history(), themeCompartment.current.of(isDark ? [oneDark, getCustomTheme(true)] : [getCustomTheme(false)]), wrapCompartment.current.of(wordWrap ? EditorView.lineWrapping : []), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.updateListener.of(update => {
         if (update.docChanged) {
           const newContent = update.state.doc.toString();
           onContentChange(newContent);
@@ -134,14 +110,6 @@ function TextEditor({
       effects: wrapCompartment.current.reconfigure(wordWrap ? EditorView.lineWrapping : [])
     });
   }, [wordWrap]);
-
-  // 更新语言设置
-  useEffect(() => {
-    if (!viewRef.current) return;
-    viewRef.current.dispatch({
-      effects: languageCompartment.current.reconfigure(languageMap[language] || [])
-    });
-  }, [language]);
 
   // 更新主题设置
   useEffect(() => {

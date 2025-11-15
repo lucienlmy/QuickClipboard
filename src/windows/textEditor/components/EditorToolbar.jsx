@@ -6,8 +6,6 @@ function EditorToolbar({
   onTitleChange,
   wordWrap,
   onWordWrapChange,
-  language,
-  onLanguageChange,
   showTitle = true,
   groups = [],
   selectedGroup = '全部',
@@ -17,31 +15,6 @@ function EditorToolbar({
   const {
     t
   } = useTranslation();
-  const languages = [{
-    value: 'plaintext',
-    label: t('textEditor.languages.plaintext')
-  }, {
-    value: 'javascript',
-    label: 'JavaScript'
-  }, {
-    value: 'python',
-    label: 'Python'
-  }, {
-    value: 'html',
-    label: 'HTML'
-  }, {
-    value: 'css',
-    label: 'CSS'
-  }, {
-    value: 'json',
-    label: 'JSON'
-  }, {
-    value: 'xml',
-    label: 'XML'
-  }, {
-    value: 'markdown',
-    label: 'Markdown'
-  }];
   const buttonClasses = `
     flex items-center gap-1 px-3 h-8
     rounded
@@ -90,16 +63,6 @@ function EditorToolbar({
             {title}
           </div>}
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-            {t('textEditor.language')}:
-          </label>
-          <select value={language} onChange={e => onLanguageChange(e.target.value)} className="h-8 px-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            {languages.map(lang => <option key={lang.value} value={lang.value}>
-                {lang.label}
-              </option>)}
-          </select>
-        </div>
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">

@@ -30,7 +30,6 @@ function App() {
   const [charCount, setCharCount] = useState(0);
   const [lineCount, setLineCount] = useState(1);
   const [wordWrap, setWordWrap] = useState(true);
-  const [language, setLanguage] = useState('plaintext');
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState('全部');
   useSettingsSync();
@@ -170,15 +169,12 @@ function App() {
   return <div className={containerClasses}>
       <TitleBar title={title} hasChanges={hasChanges} />
 
-      <EditorToolbar onReset={handleReset} title={title} onTitleChange={setTitle} wordWrap={wordWrap} onWordWrapChange={() => setWordWrap(!wordWrap)} language={language} onLanguageChange={setLanguage} showTitle={editorData?.type === 'favorite'} groups={groups} selectedGroup={selectedGroup} onGroupChange={setSelectedGroup} showGroupSelector={editorData?.type === 'favorite'} />
+      <EditorToolbar onReset={handleReset} title={title} onTitleChange={setTitle} wordWrap={wordWrap} onWordWrapChange={() => setWordWrap(!wordWrap)} showTitle={editorData?.type === 'favorite'} groups={groups} selectedGroup={selectedGroup} onGroupChange={setSelectedGroup} showGroupSelector={editorData?.type === 'favorite'} />
 
-      <TextEditor content={content} onContentChange={setContent} onStatsChange={({
-      chars,
-      lines
-    }) => {
-      setCharCount(chars);
-      setLineCount(lines);
-    }} wordWrap={wordWrap} language={language} />
+      <TextEditor content={content} onContentChange={setContent} onStatsChange={({ chars, lines }) => {
+        setCharCount(chars);
+        setLineCount(lines);
+      }} wordWrap={wordWrap} />
 
       <StatusBar charCount={charCount} lineCount={lineCount} hasChanges={hasChanges} onSave={handleSave} onCancel={handleCancel} />
 
