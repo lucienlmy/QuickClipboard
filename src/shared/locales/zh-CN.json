@@ -165,6 +165,7 @@
       "globalDesc": "在任何应用程序中都可以使用的快捷键",
       "toggleWindow": "显示/隐藏窗口",
       "toggleWindowDesc": "快速显示或隐藏剪贴板窗口",
+      "restoreSystemWinV": "恢复系统 Win+V",
       "quickpasteWindow": "便捷粘贴",
       "quickpasteWindowDesc": "快速预览剪贴板内容并粘贴",
       "screenshot": "截屏快捷键",

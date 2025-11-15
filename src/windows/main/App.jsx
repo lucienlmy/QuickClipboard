@@ -13,6 +13,7 @@ import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { useNavigationKeyboard } from '@shared/hooks/useNavigationKeyboard';
 import { useWindowAnimation } from '@shared/hooks/useWindowAnimation';
 import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
+import { promptDisableWinVHotkeyIfNeeded } from '@shared/api/system';
 import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
@@ -43,8 +44,23 @@ function App() {
   const groupsPopupRef = useRef(null);
   const searchRef = useRef(null);
 
-  // 监听设置变更事件（跨窗口同步）
+  // 监听设置变更事件
   useSettingsSync();
+
+  // 启动时检查 Win+V
+  useEffect(() => {
+    const checkWinV = async () => {
+      try {
+        if (settings.toggleShortcut === 'Win+V') {
+          await promptDisableWinVHotkeyIfNeeded();
+        }
+      } catch (error) {
+        console.error('调用 Win+V 禁用提示命令失败:', error);
+      }
+    };
+
+    checkWinV();
+  }, []);
 
   // 窗口动画
   useWindowAnimation();

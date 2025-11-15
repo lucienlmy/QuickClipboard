@@ -165,6 +165,7 @@
       "globalDesc": "Shortcuts available in any application",
       "toggleWindow": "Toggle Window",
       "toggleWindowDesc": "Show or hide clipboard window",
+      "restoreSystemWinV": "Restore system Win+V",
       "quickpasteWindow": "Quick Paste",
       "quickpasteWindowDesc": "Quickly preview and paste clipboard content",
       "screenshot": "Screenshot",

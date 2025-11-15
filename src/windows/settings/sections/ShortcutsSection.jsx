@@ -6,6 +6,7 @@ import Select from '@shared/components/ui/Select';
 import ShortcutInput from '../components/ShortcutInput';
 import { useShortcutStatuses } from '@shared/hooks/useShortcutStatuses';
 import { useShortcutDuplicateCheck } from '@shared/hooks/useShortcutDuplicateCheck';
+import { promptDisableWinVHotkeyIfNeeded, promptEnableWinVHotkey } from '@shared/api/system';
 function ShortcutsSection({
   settings,
   onSettingChange
@@ -23,6 +24,24 @@ function ShortcutsSection({
     getDuplicateError
   } = useShortcutDuplicateCheck(settings);
   const handleShortcutChange = async (key, value) => {
+    if (key === 'toggleShortcut' && value === 'Win+V' && settings.toggleShortcut !== 'Win+V') {
+      try {
+        const ok = await promptDisableWinVHotkeyIfNeeded();
+        if (!ok) {
+          setTimeout(() => {
+            reload();
+          }, 150);
+          return;
+        }
+      } catch (error) {
+        console.error('调用 Win+V 禁用提示命令失败:', error);
+        setTimeout(() => {
+          reload();
+        }, 150);
+        return;
+      }
+    }
+
     await onSettingChange(key, value);
     setTimeout(() => {
       reload();
@@ -83,7 +102,34 @@ function ShortcutsSection({
   return <>
       <SettingsSection title={t('settings.shortcuts.globalTitle')} description={t('settings.shortcuts.globalDesc')}>
         <SettingItem label={t('settings.shortcuts.toggleWindow')} description={t('settings.shortcuts.toggleWindowDesc')}>
-          <ShortcutInput value={settings.toggleShortcut} onChange={value => handleShortcutChange('toggleShortcut', value)} onReset={() => handleShortcutChange('toggleShortcut', 'Alt+V')} presets={['Alt+V', 'Win+V', 'Ctrl+Alt+V', 'F1']} hasError={hasErrorStatus('toggleShortcut', 'toggle')} errorMessage={getErrorMessage('toggleShortcut', 'toggle')} />
+          <div className="flex flex-col items-end gap-1">
+            <ShortcutInput
+              value={settings.toggleShortcut}
+              onChange={value => handleShortcutChange('toggleShortcut', value)}
+              onReset={() => handleShortcutChange('toggleShortcut', 'Alt+V')}
+              presets={['Alt+V', 'Win+V', 'Ctrl+Alt+V', 'F1']}
+              hasError={hasErrorStatus('toggleShortcut', 'toggle')}
+              errorMessage={getErrorMessage('toggleShortcut', 'toggle')}
+            />
+
+            <button
+              type="button"
+              className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+              onClick={async () => {
+                try {
+                  await onSettingChange('toggleShortcut', 'Alt+V');
+                  await promptEnableWinVHotkey();
+                  setTimeout(() => {
+                    reload();
+                  }, 150);
+                } catch (error) {
+                  console.error('调用恢复系统 Win+V 命令失败:', error);
+                }
+              }}
+            >
+              {t('settings.shortcuts.restoreSystemWinV')}
+            </button>
+          </div>
         </SettingItem>
 
         <SettingItem label={t('settings.shortcuts.quickpasteWindow')} description={t('settings.shortcuts.quickpasteWindowDesc')}>
