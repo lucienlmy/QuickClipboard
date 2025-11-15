@@ -603,6 +603,27 @@
       "detailed": "Detailed",
       "iconOnly": "Icon Only"
     }
+  },
+  "updater": {
+    "title": "Update",
+    "checking": "Checking for updates...",
+    "noUpdate": "You are up to date",
+    "noUpdateShort": "No updates found",
+    "newVersionFound": "New version found {{version}}",
+    "updateWindowOpened": "New version found, updater window opened",
+    "checkFailed": "Failed to check updates: {{msg}}",
+    "downloading": "Downloading update...",
+    "installedRestarting": "Update installed, restarting...",
+    "downloadFailed": "Failed to download or install the update. Please try again later or download the latest installer from GitHub.",
+    "latestVersion": "Latest version: {{version}}",
+    "notes": "Release Notes",
+    "viewOnGithub": "View on GitHub",
+    "loadingNotes": "Loading release notes...",
+    "viewInBrowser": "View in browser",
+    "noNotes": "No release notes",
+    "downloadAndInstall": "Download and Install",
+    "later": "Later",
+    "backgroundUpdate": "Run in Background"
   }
 }
 

@@ -36,6 +36,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
             .invoke_handler(tauri::generate_handler![
                 commands::start_custom_drag,
@@ -116,6 +117,7 @@ pub fn run() {
                 commands::play_paste_sound,
                 commands::play_scroll_sound,
                 commands::reload_all_windows,
+                commands::check_updates_and_open_window,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
@@ -195,17 +197,24 @@ pub fn run() {
                 quickpaste::init_quickpaste_state();
                 let _ = quickpaste::init_quickpaste_window(&app.handle());
                 set_clipboard_app_handle(app.handle().clone());
-                
+
                 windows::pin_image_window::init_pin_image_window();
-                
+
                 if settings.clipboard_monitor {
                     let _ = start_clipboard_monitor();
                 }
                 
                 let _ = windows::main_window::restore_edge_snap_on_startup(&window);
-                
+
                 if settings.show_startup_notification {
                     let _ = services::show_startup_notification(app.handle());
+                }
+
+                {
+                    let app_handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        let _ = crate::commands::window::check_updates_and_open_window(app_handle).await;
+                    });
                 }
 
             Ok(())

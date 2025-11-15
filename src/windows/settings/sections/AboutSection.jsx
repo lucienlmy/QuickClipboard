@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { getAppVersion } from '@shared/services/settingsService';
+import { toast } from '@shared/store/toastStore';
 import SettingsSection from '../components/SettingsSection';
 import Button from '@shared/components/ui/Button';
 import logoIcon from '@/assets/icon1024.png';
@@ -13,6 +14,7 @@ function AboutSection() {
   } = useTranslation();
   const [showQROverlay, setShowQROverlay] = useState(false);
   const [version, setVersion] = useState('1.0.0');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   
   useEffect(() => {
     const fetchVersion = async () => {
@@ -28,8 +30,22 @@ function AboutSection() {
     fetchVersion();
   }, []);
   
-  const handleCheckUpdates = () => {
-    console.log('检查更新');
+  const handleCheckUpdates = async () => {
+    if (checkingUpdate) return;
+    setCheckingUpdate(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const opened = await invoke('check_updates_and_open_window');
+      if (opened) {
+        toast.success(t('updater.updateWindowOpened'));
+      } else {
+        toast.info(t('updater.noUpdate'));
+      }
+    } catch (e) {
+      toast.error(t('updater.checkFailed', { msg: (e?.message || String(e)) }));
+    } finally {
+      setCheckingUpdate(false);
+    }
   };
   const handleOpenGitHub = async () => {
     try {
@@ -72,8 +88,13 @@ function AboutSection() {
         </div>
 
         <div className="flex flex-wrap gap-2 justify-center">
-          <Button variant="primary" icon={<i className="ti ti-download"></i>} onClick={handleCheckUpdates}>
-            {t('settings.about.checkUpdates')}
+          <Button
+            variant="primary"
+            icon={checkingUpdate ? <i className="ti ti-loader-2 animate-spin"></i> : <i className="ti ti-download"></i>}
+            onClick={handleCheckUpdates}
+            disabled={checkingUpdate}
+          >
+            {checkingUpdate ? t('updater.checking') : t('settings.about.checkUpdates')}
           </Button>
           <Button variant="secondary" icon={<i className="ti ti-brand-github"></i>} onClick={handleOpenGitHub}>
             GitHub

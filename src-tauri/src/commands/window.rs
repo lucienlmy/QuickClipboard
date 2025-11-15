@@ -123,3 +123,10 @@ pub fn reload_all_windows(app: AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn check_updates_and_open_window(app: AppHandle) -> Result<bool, String> {
+    crate::windows::updater_window::check_updates_and_open_window(&app).await
+}
+
+

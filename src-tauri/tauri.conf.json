@@ -115,6 +115,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
+        "https://api.quickclipboard.cn/update/latest.json",
         "https://github.com/mosheng1/QuickClipboard/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlCMDU4RTQxRTUyRTg3Q0MKUldUTWh5N2xRWTRGbTVxWUFhdXJPUzVKTkZkcjF6OE55dzg3UUJlRGF4em8yczliUUpTR29CKzQK"

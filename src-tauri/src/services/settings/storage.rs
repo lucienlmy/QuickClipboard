@@ -10,7 +10,7 @@ impl SettingsStorage {
         }
         env::current_exe()
             .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("portable.txt").exists()))
+            .and_then(|exe| exe.parent().map(|p| p.join("portable.flag").exists() || p.join("portable.txt").exists()))
             .unwrap_or(false)
     }
 
