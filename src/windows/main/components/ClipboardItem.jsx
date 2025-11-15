@@ -148,12 +148,18 @@ function ClipboardItem({
     }
   };
 
-  // 快捷键提示
   const getShortcut = () => {
-    if (index < 9) {
-      return `Ctrl+${index + 1}`;
+    if (!settings.numberShortcuts) return null;
+
+    if (index >= 9) return null;
+
+    const modifier = settings.numberShortcutsModifier || 'Ctrl';
+
+    if (modifier === 'None') {
+      return `${index + 1}`;
     }
-    return null;
+
+    return `${modifier}+${index + 1}`;
   };
   const isSmallHeight = settings.rowHeight === 'small';
 

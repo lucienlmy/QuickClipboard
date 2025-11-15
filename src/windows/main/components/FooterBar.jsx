@@ -12,13 +12,11 @@ function FooterBar({
   } = useTranslation();
   const settings = useSnapshot(settingsStore);
 
-  // 使用自定义窗口拖拽，排除右侧自定义内容区域和所有按钮
   const dragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]'],
     allowChildren: true
   });
 
-  // 定义菜单项配置
   const menuItems = [{
     id: 'rowHeight',
     label: t('listSettings.rowHeight.label'),
@@ -52,18 +50,24 @@ function FooterBar({
     }],
     onSelect: value => settingsStore.setFileDisplayMode(value)
   }];
+  const toggleShortcutHint = settings.toggleShortcut || 'Alt+V';
+  let numberShortcutHint = null;
+  if (settings.numberShortcuts) {
+    const modifier = settings.numberShortcutsModifier || 'Ctrl';
+    if (modifier === 'None') {
+      numberShortcutHint = '1~9';
+    } else {
+      numberShortcutHint = `${modifier}+1~9`;
+    }
+  }
   return <div ref={dragRef} className="flex-shrink-0 h-5 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative footer-bar">
-    {/* 左侧快捷键提示 */}
     <div className="flex items-center gap-2 text-[10px]">
-      <span>Win+V {t('footer.openClipboard')}</span>
-      {/* <span>Ctrl+1~9 {t('footer.pasteShortcut')}</span> */}
+      <span>{toggleShortcutHint} {t('footer.openClipboard')}</span>
+      {/* {numberShortcutHint && <span>{numberShortcutHint} {t('footer.pasteShortcut')}</span>} */}
     </div>
 
-    {/* 右侧区域 - 绝对定位固定在右侧，标记为不可拖拽区域 */}
     <div className="absolute right-3 top-0 h-full flex items-center gap-2 pl-4" data-no-drag>
-      {/* 渐变遮罩 */}
 
-      {/* 内容层 */}
       <div className="relative flex items-center gap-2">
         <BottomMenuPopup
           icon="ti ti-list"
@@ -73,8 +77,6 @@ function FooterBar({
           width={120}
         />
 
-
-        {/* 自定义内容（分组按钮） */}
         {children}
       </div>
     </div>
