@@ -87,35 +87,13 @@ fn check_and_handle_duplicate(
             continue;
         }
         
-        let old_is_rich = db_type.contains("rich_text");
-        let new_is_rich = content.content_type.contains("rich_text");
-        
-        if old_is_rich && !new_is_rich {
-            update_item_timestamp(conn, db_id, now)?;
-            return Ok(Some(db_id));
-        } else if !old_is_rich && new_is_rich {
-            conn.execute("DELETE FROM clipboard WHERE id = ?", params![db_id])?;
-            return Ok(None);
-        } else {
-            update_item_timestamp(conn, db_id, now)?;
-            return Ok(Some(db_id));
-        }
+        conn.execute("DELETE FROM clipboard WHERE id = ?", params![db_id])?;
+        return Ok(None);
     }
     
     Ok(None)
 }
 
-fn update_item_timestamp(
-    conn: &rusqlite::Connection,
-    id: i64,
-    now: i64,
-) -> Result<(), rusqlite::Error> {
-    conn.execute(
-        "UPDATE clipboard SET created_at = ?, updated_at = ? WHERE id = ?",
-        params![now, now, id],
-    )?;
-    Ok(())
-}
 
 fn is_text_type(content_type: &str) -> bool {
     content_type.starts_with("text") || content_type.contains("rich_text") || content_type.contains("link")
