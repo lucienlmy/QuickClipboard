@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { restoreLastFocus, startCustomDrag, stopCustomDrag } from '@shared/api'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { restoreLastFocus, startCustomDrag } from '@shared/api'
 
 // 自定义窗口拖拽 Hook
 export function useWindowDrag(options = {}) {
@@ -11,32 +12,33 @@ export function useWindowDrag(options = {}) {
     const element = elementRef.current
     if (!element) return
 
+    const unlistenPromise = getCurrentWindow().listen('drag-ended', () => {
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      isDraggingRef.current = false
+    })
+
     const handleMouseDown = async (e) => {
-      // 如果不允许子元素拖拽，只允许元素本身触发
       if (!allowChildren && e.target !== element) {
         return
       }
 
-      // 检查是否点击了需要排除的元素
       for (const selector of excludeSelectors) {
         if (e.target.closest(selector)) {
           return
         }
       }
 
-      // 检查是否是左键点击
       if (e.buttons !== 1) {
         return
       }
 
       try {
-        // 恢复上次的焦点窗口
         await restoreLastFocus()
       } catch (error) {
         console.error('恢复焦点窗口失败:', error)
       }
 
-      // 启动拖拽
       startDrag(e)
     }
 
@@ -45,40 +47,17 @@ export function useWindowDrag(options = {}) {
       isDraggingRef.current = true
 
       try {
-        // 调用 Rust 后端开始拖拽
-        await startCustomDrag(initialEvent.screenX, initialEvent.screenY)
-
-        // 设置拖拽样式
         document.body.style.userSelect = 'none'
         document.body.style.cursor = 'move'
 
-        // 监听鼠标松开事件
-        const onMouseUp = async () => {
-          // 停止 Rust 拖拽
-          try {
-            await stopCustomDrag()
-          } catch (error) {
-            console.error('停止拖拽失败:', error)
-          }
+        await startCustomDrag(initialEvent.screenX, initialEvent.screenY)
 
-          // 恢复样式
-          document.body.style.userSelect = ''
-          document.body.style.cursor = ''
-
-          isDraggingRef.current = false
-
-          // 移除事件监听
-          document.removeEventListener('mouseup', onMouseUp)
-        }
-
-        // 监听鼠标松开
-        document.addEventListener('mouseup', onMouseUp, { passive: false })
-
-        // 阻止默认拖拽行为
         initialEvent.preventDefault()
       } catch (error) {
         console.error('启动拖拽失败:', error)
         isDraggingRef.current = false
+        document.body.style.userSelect = ''
+        document.body.style.cursor = ''
       }
     }
 
@@ -86,6 +65,7 @@ export function useWindowDrag(options = {}) {
 
     return () => {
       element.removeEventListener('mousedown', handleMouseDown)
+      unlistenPromise.then(unlisten => unlisten())
     }
   }, [excludeSelectors, allowChildren])
 
