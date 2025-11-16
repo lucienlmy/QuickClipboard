@@ -9,7 +9,7 @@ pub struct AppInfo {
     pub icon: Option<String>,
 }
 
-/// 获取所有可见窗口的信息
+// 获取所有可见窗口的信息
 #[cfg(target_os = "windows")]
 pub fn get_all_windows_info() -> Vec<AppInfo> {
     use windows::Win32::Foundation::{HWND, LPARAM};
@@ -78,7 +78,7 @@ pub fn get_all_windows_info() -> Vec<AppInfo> {
     Vec::new()
 }
 
-/// 检查当前应用是否在允许列表中
+// 检查当前应用是否在允许列表中
 pub fn is_current_app_allowed(
     app_filter_enabled: bool,
     app_filter_mode: &str,

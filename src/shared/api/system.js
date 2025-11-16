@@ -16,6 +16,16 @@ export async function startScreenshot() {
   return await invoke('start_builtin_screenshot')
 }
 
+// 捕获所有显示器截图（每个显示器一张图，带坐标和 DPI 缩放）
+export async function captureAllScreenshots() {
+  return await invoke('capture_all_screenshots')
+}
+
+// 获取最近一次截屏结果（由 startScreenshot 触发）
+export async function getLastScreenshotCaptures() {
+  return await invoke('get_last_screenshot_captures')
+}
+
 // 检查 AI 翻译配置
 export async function checkAiTranslationConfig() {
   return await invoke('check_ai_translation_config')

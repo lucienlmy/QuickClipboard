@@ -6,6 +6,7 @@ pub mod settings;
 pub mod system;
 pub mod paste;
 pub mod sound;
+pub mod screenshot;
 
 pub use settings::{AppSettings, get_settings, update_settings, get_data_directory};
 pub use notification::show_startup_notification;

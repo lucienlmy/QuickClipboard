@@ -8,6 +8,18 @@ pub fn start_builtin_screenshot(app: tauri::AppHandle) -> Result<(), String> {
     crate::windows::screenshot_window::start_screenshot(&app)
 }
 
+// 捕获所有显示器截图
+#[tauri::command]
+pub fn capture_all_screenshots(app: tauri::AppHandle) -> Result<Vec<crate::services::screenshot::MonitorScreenshotInfo>, String> {
+    crate::services::screenshot::capture_all_monitors_to_files(&app)
+}
+
+// 获取最近一次截屏结果
+#[tauri::command]
+pub fn get_last_screenshot_captures() -> Result<Vec<crate::services::screenshot::MonitorScreenshotInfo>, String> {
+    crate::services::screenshot::get_last_captures()
+}
+
 // 检查 AI 翻译配置
 #[tauri::command]
 pub fn check_ai_translation_config() -> Result<Value, String> {

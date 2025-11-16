@@ -2,7 +2,7 @@ use file_icon_provider::get_file_icon;
 use image::{RgbaImage, ImageFormat};
 use std::io::Cursor;
 
-/// 获取文件图标并转换为 Base64 Data URL
+// 获取文件图标并转换为 Base64 Data URL
 pub fn get_file_icon_base64(path: &str) -> Option<String> {
     match get_file_icon(path, 32) {
         Ok(icon) => {
@@ -23,7 +23,7 @@ pub fn get_file_icon_base64(path: &str) -> Option<String> {
     }
 }
 
-/// 将 Icon 转换为 PNG 格式
+// 将 Icon 转换为 PNG 格式
 pub fn icon_to_png(icon: &file_icon_provider::Icon) -> Result<Vec<u8>, String> {
     let img = RgbaImage::from_raw(icon.width, icon.height, icon.pixels.clone())
         .ok_or("创建图像失败")?;
@@ -36,7 +36,7 @@ pub fn icon_to_png(icon: &file_icon_provider::Icon) -> Result<Vec<u8>, String> {
     Ok(png_data)
 }
 
-/// 判断是否是图片文件
+// 判断是否是图片文件
 pub fn is_image_file(path: &str) -> bool {
     let path_lower = path.to_lowercase();
     path_lower.ends_with(".jpg") || 
@@ -47,7 +47,7 @@ pub fn is_image_file(path: &str) -> bool {
     path_lower.ends_with(".webp")
 }
 
-/// 读取图片文件的缩略图
+// 读取图片文件的缩略图
 fn read_image_thumbnail(path: &str, size: u32) -> Result<String, String> {
     use base64::{Engine as _, engine::general_purpose};
     

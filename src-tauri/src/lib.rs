@@ -107,6 +107,8 @@ pub fn run() {
                 commands::dm_import_data_zip,
                 commands::dm_reset_all_data,
                 commands::start_builtin_screenshot,
+                commands::capture_all_screenshots,
+                commands::get_last_screenshot_captures,
                 commands::copy_text_to_clipboard,
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,

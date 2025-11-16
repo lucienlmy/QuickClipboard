@@ -40,6 +40,8 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    crate::services::screenshot::capture_and_store_last(app)?;
+
     let window = get_or_create_window(app)?;
     let _ = window.show();
     let _ = window.set_focus();
