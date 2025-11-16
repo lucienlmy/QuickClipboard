@@ -1,5 +1,6 @@
 use serde_json::Value;
 use clipboard_rs::{Clipboard, ClipboardContext};
+use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 // 启动内置截图功能
@@ -18,6 +19,16 @@ pub fn capture_all_screenshots(app: tauri::AppHandle) -> Result<Vec<crate::servi
 #[tauri::command]
 pub fn get_last_screenshot_captures() -> Result<Vec<crate::services::screenshot::MonitorScreenshotInfo>, String> {
     crate::services::screenshot::get_last_captures()
+}
+
+// 取消当前截屏会话
+#[tauri::command]
+pub fn cancel_screenshot_session(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("screenshot") {
+        let _ = win.hide();
+        let _ = win.eval("window.location.reload()");
+    }
+    Ok(())
 }
 
 // 检查 AI 翻译配置

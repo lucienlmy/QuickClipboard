@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Emitter};
 
 fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     let (x, y, width, height) =
@@ -15,7 +15,7 @@ fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
         .decorations(false)
         .transparent(true)
         .shadow(false)
-        .always_on_top(true)
+        .always_on_top(false)
         .skip_taskbar(true)
         .visible(false)
         .resizable(false)
@@ -39,12 +39,11 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
     if !settings.screenshot_enabled {
         return Ok(());
     }
-
     crate::services::screenshot::capture_and_store_last(app)?;
-
     let window = get_or_create_window(app)?;
     let _ = window.show();
     let _ = window.set_focus();
+    let _ = window.emit("screenshot:new-session", ());
 
     Ok(())
 }

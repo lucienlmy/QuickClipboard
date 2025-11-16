@@ -109,6 +109,7 @@ pub fn run() {
                 commands::start_builtin_screenshot,
                 commands::capture_all_screenshots,
                 commands::get_last_screenshot_captures,
+                commands::cancel_screenshot_session,
                 commands::copy_text_to_clipboard,
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,
