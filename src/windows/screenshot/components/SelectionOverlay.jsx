@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Layer, Rect, Circle } from 'react-konva';
 import { cancelScreenshotSession } from '@shared/api/system';
+import SelectionInfoBar from './SelectionInfoBar';
 
 function SelectionOverlay({ stageWidth, stageHeight }) {
   const stageW = stageWidth;
@@ -19,6 +20,7 @@ function SelectionOverlay({ stageWidth, stageHeight }) {
   const [isAdjustingRadius, setIsAdjustingRadius] = useState(false);
   const [initialRadius, setInitialRadius] = useState(0);
   const [radiusHandleType, setRadiusHandleType] = useState(null);
+  const [aspectRatio, setAspectRatio] = useState('free');
 
   const overlayColor = 'black';
   const overlayOpacity = 0.4;
@@ -254,6 +256,7 @@ function SelectionOverlay({ stageWidth, stageHeight }) {
     if (selection) {
       setSelection(null);
       setCornerRadius(0);
+      setAspectRatio('free');
       return;
     }
 
@@ -287,6 +290,22 @@ function SelectionOverlay({ stageWidth, stageHeight }) {
     ];
     
     return [...handles, ...radiusHandles];
+  };
+
+  const handleAspectRatioChange = (value) => {
+    setAspectRatio(value);
+    
+    if (value !== 'free' && selection) {
+      const ratio = parseFloat(value);
+      if (!isNaN(ratio) && ratio > 0) {
+        const newHeight = selection.width / ratio;
+        setSelection({ ...selection, height: newHeight });
+      }
+    }
+  };
+
+  const handleCornerRadiusChange = (value) => {
+    setCornerRadius(value);
   };
 
   const hasSelection = selection && selection.width > 0 && selection.height > 0;
@@ -328,7 +347,7 @@ function SelectionOverlay({ stageWidth, stageHeight }) {
             strokeWidth={2}
             listening={false}
           />
-          {getHandlePositions().map((handle) => {
+          {!isDrawing && !isMoving && getHandlePositions().map((handle) => {
             const isRadiusHandle = handle.type.startsWith('radius-');
             return (
               <Circle
@@ -345,6 +364,14 @@ function SelectionOverlay({ stageWidth, stageHeight }) {
           })}
         </>
       )}
+      <SelectionInfoBar
+        selection={selection}
+        cornerRadius={cornerRadius}
+        aspectRatio={aspectRatio}
+        isMoving={isMoving}
+        onCornerRadiusChange={handleCornerRadiusChange}
+        onAspectRatioChange={handleAspectRatioChange}
+      />
     </Layer>
   );
 }
