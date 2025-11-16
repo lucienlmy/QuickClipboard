@@ -11,6 +11,4 @@ import '@shared/i18n';
 
 // 组件
 import App from './App';
-ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode>
-    <App />
-  </React.StrictMode>);
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);

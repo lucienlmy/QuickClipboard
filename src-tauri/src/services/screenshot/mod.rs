@@ -1,9 +1,7 @@
-use image::codecs::bmp::BmpEncoder;
-use image::ExtendedColorType;
 use xcap::Monitor;
-use std::io::Cursor;
 use std::fs;
 use std::path::PathBuf;
+use std::io::Write;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 use rayon::prelude::*;
@@ -118,14 +116,35 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
 
             let (width, height) = img.dimensions();
             let raw = img.as_raw();
-            let mut buf = Vec::new();
-
-            {
-                let mut cursor = Cursor::new(&mut buf);
-                let mut encoder = BmpEncoder::new(&mut cursor);
-                encoder
-                    .encode(raw, width, height, ExtendedColorType::Rgba8)
-                    .map_err(|e| format!("编码 BMP 失败: {}", e))?;
+            
+            let pixel_data_size = width * height * 4;
+            let file_size = 14 + 40 + pixel_data_size;
+            
+            let mut buf = vec![0u8; file_size as usize];
+            
+            buf[0..2].copy_from_slice(b"BM");
+            buf[2..6].copy_from_slice(&(file_size as u32).to_le_bytes());
+            buf[10..14].copy_from_slice(&54u32.to_le_bytes());
+            
+            buf[14..18].copy_from_slice(&40u32.to_le_bytes());
+            buf[18..22].copy_from_slice(&(width as i32).to_le_bytes());
+            buf[22..26].copy_from_slice(&(-(height as i32)).to_le_bytes());
+            buf[26..28].copy_from_slice(&1u16.to_le_bytes());
+            buf[28..30].copy_from_slice(&32u16.to_le_bytes());
+            buf[34..38].copy_from_slice(&(pixel_data_size as u32).to_le_bytes());
+            
+            unsafe {
+                let raw_ptr = raw.as_ptr();
+                let buf_ptr = buf.as_mut_ptr().add(54);
+                let pixel_count = (width * height) as usize;
+                for i in 0..pixel_count {
+                    let src_offset = i * 4;
+                    let dst_offset = i * 4;
+                    *buf_ptr.add(dst_offset) = *raw_ptr.add(src_offset + 2);     // B
+                    *buf_ptr.add(dst_offset + 1) = *raw_ptr.add(src_offset + 1); // G
+                    *buf_ptr.add(dst_offset + 2) = *raw_ptr.add(src_offset);     // R
+                    *buf_ptr.add(dst_offset + 3) = *raw_ptr.add(src_offset + 3); // A
+                }
             }
 
             let mut path: PathBuf = std::env::temp_dir();
@@ -172,9 +191,7 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
         })
         .collect();
 
-    let results = results?;
-
-    Ok(results)
+    results
 }
 
 // 截取所有显示器并将结果写入全局缓存
