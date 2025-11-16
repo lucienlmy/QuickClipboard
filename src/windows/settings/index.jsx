@@ -9,7 +9,7 @@ import App from './App';
 const FIRST_LOAD_KEY = 'app_first_load_done';
 const isFirstLoad = !sessionStorage.getItem(FIRST_LOAD_KEY);
 initStores().then(() => {
-  if (isFirstLoad) {
+  if (import.meta.env.DEV && isFirstLoad) {
     sessionStorage.setItem(FIRST_LOAD_KEY, 'true');
     window.location.reload();
   }
