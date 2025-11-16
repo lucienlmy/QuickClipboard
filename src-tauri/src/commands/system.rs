@@ -4,8 +4,8 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 // 启动内置截图功能
 #[tauri::command]
-pub fn start_builtin_screenshot() -> Result<(), String> {
-    Ok(())
+pub fn start_builtin_screenshot(app: tauri::AppHandle) -> Result<(), String> {
+    crate::windows::screenshot_window::start_screenshot(&app)
 }
 
 // 检查 AI 翻译配置

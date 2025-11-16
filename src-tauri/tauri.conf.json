@@ -34,27 +34,6 @@
         "dragDropEnabled": false,
         "shadow": false,
         "visibleOnAllWorkspaces": true
-      },
-      {
-        "label": "screenshot",
-        "title": "截屏窗口",
-        "url": "windows/screenshot/index.html",
-        "width": 1920,
-        "height": 1080,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "center": false,
-        "visible": false,
-        "resizable": false,
-        "focus": false,
-        "maximizable": false,
-        "minimizable": false,
-        "dragDropEnabled": false,
-        "fullscreen": false,
-        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {

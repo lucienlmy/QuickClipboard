@@ -144,8 +144,10 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
 }
 
 pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
-    register_shortcut("screenshot", shortcut_str, |_app| {
-        println!("截图快捷键触发");
+    register_shortcut("screenshot", shortcut_str, |app| {
+        if let Err(e) = crate::windows::screenshot_window::start_screenshot(app) {
+            eprintln!("启动截图窗口失败: {}", e);
+        }
     })
 }
 

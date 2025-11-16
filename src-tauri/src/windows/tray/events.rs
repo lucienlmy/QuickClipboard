@@ -46,7 +46,9 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
             open_settings_window(app);
         }
         "screenshot" => {
-            eprintln!("功能 {} 还未重构", event.id.as_ref());
+            if let Err(e) = crate::windows::screenshot_window::start_screenshot(app) {
+                eprintln!("启动截图窗口失败: {}", e);
+            }
         }
         _ => {}
     }
