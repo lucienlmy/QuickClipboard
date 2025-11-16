@@ -209,7 +209,7 @@ function ClipboardItem({
     bg-gray-100/80 dark:bg-gray-800/80
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`}>
+  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border hover:translate-y-[-3px] ${getHeightClass()}`}>
       {/* 悬浮序号和快捷键提示 */}
       <div className="absolute top-1 right-2 flex flex-col items-end gap-0 pointer-events-none  z-20">
         {/* 序号 */}

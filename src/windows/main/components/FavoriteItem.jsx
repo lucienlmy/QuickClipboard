@@ -177,7 +177,7 @@ function FavoriteItem({
   `.trim().replace(/\s+/g, ' ');
   const isSmallHeight = settings.rowHeight === 'small';
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter}>
+  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter}>
     {/* 浮动的序号和分组 */}
     <div className={`absolute top-1 right-2 flex flex-col items-end ${isSmallHeight ? 'gap-0' : 'gap-0.5'} pointer-events-none z-20`}>
       <span className={numberBadgeClasses}>
