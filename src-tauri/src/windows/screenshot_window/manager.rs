@@ -50,5 +50,9 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
     let _ = window.show();
     resize_window_to_virtual_screen(&window);
     let _ = window.set_focus();
+
+    if let Err(e) = crate::windows::screenshot_window::auto_selection::start_auto_selection(app.clone()) {
+        eprintln!("无法启动自动选区: {}", e);
+    }
     Ok(())
 }

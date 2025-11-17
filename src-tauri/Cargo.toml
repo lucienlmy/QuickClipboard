@@ -53,6 +53,8 @@ enigo = "0.6.1"
 tauri-plugin-autostart = "2.5.1"
 active-win-pos-rs = "0.8"
 xcap = "0.7.1"
+atree = "0.5.2"
+rtree_rs = "0.1.4"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [

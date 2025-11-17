@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layer, Rect, Circle } from 'react-konva';
 import { cancelScreenshotSession } from '@shared/api/system';
 import SelectionInfoBar from './SelectionInfoBar';
 import SelectionToolbar from './SelectionToolbar';
 import { exportSelectionToClipboard } from '../utils/exportSelectionToClipboard';
+import { ensureAutoSelectionStarted, subscribe as subscribeAutoSelection } from '../utils/autoSelectionManager';
 
 function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   const stageW = stageWidth;
@@ -23,6 +24,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   const [initialRadius, setInitialRadius] = useState(0);
   const [radiusHandleType, setRadiusHandleType] = useState(null);
   const [aspectRatio, setAspectRatio] = useState('free');
+  const [autoSelectionRect, setAutoSelectionRect] = useState(null);
 
   const overlayColor = 'black';
   const overlayOpacity = 0.4;
@@ -33,6 +35,40 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   const handleStrokeWidth = 1;
   const radiusHandleColor = 'orange';
   const radiusHandleOffset = 12;
+
+  useEffect(() => {
+    let unsub = null;
+    (async () => {
+      await ensureAutoSelectionStarted();
+      unsub = subscribeAutoSelection((hier) => {
+        if (selection || isDrawing || isMoving || isResizing || isAdjustingRadius) {
+          return;
+        }
+
+        if (!hier || !Array.isArray(hier.hierarchy) || hier.hierarchy.length === 0) {
+          setAutoSelectionRect(null);
+          return;
+        }
+
+        const b = hier.hierarchy[0];
+        if (!b || b.width <= 0 || b.height <= 0) {
+          setAutoSelectionRect(null);
+          return;
+        }
+
+        setAutoSelectionRect({
+          x: b.x,
+          y: b.y,
+          width: b.width,
+          height: b.height,
+        });
+      });
+    })();
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [selection, isDrawing, isMoving, isResizing, isAdjustingRadius]);
 
   const checkHandleHit = (pos) => {
     if (!selection) return null;
@@ -60,6 +96,17 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
     if (!stage) return;
     const pos = stage.getPointerPosition();
     if (!pos) return;
+
+    if (!selection && autoSelectionRect && autoSelectionRect.width > 0 && autoSelectionRect.height > 0) {
+      setSelection({
+        x: autoSelectionRect.x,
+        y: autoSelectionRect.y,
+        width: autoSelectionRect.width,
+        height: autoSelectionRect.height,
+      });
+      setAutoSelectionRect(null);
+      return;
+    }
 
     if (selection) {
       const handleType = checkHandleHit(pos);
@@ -311,6 +358,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   };
 
   const hasSelection = selection && selection.width > 0 && selection.height > 0;
+  const hasAutoSelection = !hasSelection && autoSelectionRect && autoSelectionRect.width > 0 && autoSelectionRect.height > 0;
 
   const handleCancelSelection = () => {
     if (!selection) return;
@@ -343,6 +391,28 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
         onMouseLeave={handleMouseUp}
         onContextMenu={handleContextMenu}
       />
+      {hasAutoSelection && (
+        <>
+          <Rect
+            x={autoSelectionRect.x}
+            y={autoSelectionRect.y}
+            width={autoSelectionRect.width}
+            height={autoSelectionRect.height}
+            fill={overlayColor}
+            globalCompositeOperation="destination-out"
+            listening={false}
+          />
+          <Rect
+            x={autoSelectionRect.x}
+            y={autoSelectionRect.y}
+            width={autoSelectionRect.width}
+            height={autoSelectionRect.height}
+            stroke="deepskyblue"
+            strokeWidth={2}
+            listening={false}
+          />
+        </>
+      )}
       {hasSelection && (
         <>
           <Rect

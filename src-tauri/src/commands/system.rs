@@ -6,6 +6,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 // 启动内置截图功能
 #[tauri::command]
 pub fn start_builtin_screenshot(app: tauri::AppHandle) -> Result<(), String> {
+    crate::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
     crate::windows::screenshot_window::start_screenshot(&app)
 }
 
@@ -25,6 +26,7 @@ pub fn get_last_screenshot_captures() -> Result<Vec<crate::services::screenshot:
 #[tauri::command]
 pub fn cancel_screenshot_session(app: tauri::AppHandle) -> Result<(), String> {
     crate::services::screenshot::clear_last_captures();
+    crate::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
     if let Some(win) = app.get_webview_window("screenshot") {
         let _ = win.hide();
         let _ = win.eval("window.location.reload()");
