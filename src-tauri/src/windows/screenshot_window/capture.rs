@@ -24,6 +24,12 @@ pub struct MonitorScreenshotInfo {
 static LAST_CAPTURES: Lazy<Mutex<Option<Vec<MonitorScreenshotInfo>>>> =
     Lazy::new(|| Mutex::new(None));
 
+// 清除最近一次截屏结果
+pub fn clear_last_captures() {
+    let mut guard = LAST_CAPTURES.lock();
+    *guard = None;
+}
+
 // 捕获所有显示器的截图
 pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScreenshotInfo>, String> {
     let xcap_monitors = Monitor::all().map_err(|e| format!("枚举显示器失败: {}", e))?;

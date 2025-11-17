@@ -18,6 +18,7 @@ function App() {
         unlisten = await win.listen('screenshot:new-session', () => {
           reloadFromLastCapture();
         });
+        await reloadFromLastCapture();
       } catch (err) {
         console.error('监听 screenshot:new-session 事件失败:', err);
       }

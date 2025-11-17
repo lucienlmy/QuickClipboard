@@ -24,6 +24,7 @@ pub fn get_last_screenshot_captures() -> Result<Vec<crate::services::screenshot:
 // 取消当前截屏会话
 #[tauri::command]
 pub fn cancel_screenshot_session(app: tauri::AppHandle) -> Result<(), String> {
+    crate::services::screenshot::clear_last_captures();
     if let Some(win) = app.get_webview_window("screenshot") {
         let _ = win.hide();
         let _ = win.eval("window.location.reload()");
