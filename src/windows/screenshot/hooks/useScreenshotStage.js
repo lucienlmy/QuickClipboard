@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { readFile } from '@tauri-apps/plugin-fs';
 import { getLastScreenshotCaptures } from '@shared/api/system';
 
 export default function useScreenshotStage() {
@@ -9,20 +8,21 @@ export default function useScreenshotStage() {
   const reloadFromLastCapture = useCallback(async () => {
     try {
       setScreens([]);
-
       const infos = await getLastScreenshotCaptures();
+
       if (!infos || !infos.length) {
         return;
       }
 
       const windowScale = window.devicePixelRatio || 1;
 
-      const meta = infos.map((m) => {
+      const meta = infos.map((m, index) => {
         const logicalWidth = m.physical_width / windowScale;
         const logicalHeight = m.physical_height / windowScale;
         const logicalX = m.physical_x / windowScale;
         const logicalY = m.physical_y / windowScale;
         return {
+          index,
           filePath: m.file_path,
           logicalX,
           logicalY,
@@ -48,23 +48,22 @@ export default function useScreenshotStage() {
         meta.map((m) => {
           return new Promise(async (resolve, reject) => {
             try {
-              const data = await readFile(m.filePath);
-              const blob = new Blob([data], { type: "image/bmp" });
-              const url = URL.createObjectURL(blob);
-
-
               const img = new window.Image();
+              img.crossOrigin = 'anonymous';
               img.onload = () => {
-                resolve({
+                const screen = {
                   image: img,
                   x: m.logicalX - offsetX,
                   y: m.logicalY - offsetY,
                   width: m.logicalWidth,
                   height: m.logicalHeight,
-                });
+                };
+                resolve(screen);
               };
-              img.onerror = reject;
-              img.src = url;
+              img.onerror = (e) => {
+                reject(e);
+              };
+              img.src = m.filePath;
             } catch (e) {
               reject(e);
             }
