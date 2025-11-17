@@ -20,12 +20,14 @@ export async function exportSelectionToClipboard(stageRef, selection) {
   const bgLayer = stage.findOne('#screenshot-bg-layer');
   const exportNode = bgLayer && typeof bgLayer.toDataURL === 'function' ? bgLayer : stage;
 
+  const stagePixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
+
   const dataURL = exportNode.toDataURL({
     x: safeX,
     y: safeY,
     width: safeWidth,
     height: safeHeight,
-    pixelRatio: 1,
+    pixelRatio: stagePixelRatio,
   });
 
   if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {

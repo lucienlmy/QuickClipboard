@@ -33,7 +33,7 @@ function App() {
 
   return (
     <div className="w-screen h-screen bg-transparent">
-      <Stage ref={stageRef} width={stageSize.width} height={stageSize.height}>
+      <Stage ref={stageRef} width={stageSize.width} height={stageSize.height} pixelRatio={window.devicePixelRatio || 1}>
         <BackgroundLayer screens={screens} />
         <SelectionOverlay stageWidth={stageSize.width} stageHeight={stageSize.height} stageRef={stageRef} />
       </Stage>
