@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { readFile } from '@tauri-apps/plugin-fs';
 import { getLastScreenshotCaptures } from '@shared/api/system';
 
 export default function useScreenshotStage() {
@@ -46,20 +46,28 @@ export default function useScreenshotStage() {
 
       const loadedScreens = await Promise.all(
         meta.map((m) => {
-          return new Promise((resolve, reject) => {
-            const url = convertFileSrc(m.filePath);
-            const img = new window.Image();
-            img.onload = () => {
-              resolve({
-                image: img,
-                x: m.logicalX - offsetX,
-                y: m.logicalY - offsetY,
-                width: m.logicalWidth,
-                height: m.logicalHeight,
-              });
-            };
-            img.onerror = reject;
-            img.src = url;
+          return new Promise(async (resolve, reject) => {
+            try {
+              const data = await readFile(m.filePath);
+              const blob = new Blob([data], { type: "image/bmp" });
+              const url = URL.createObjectURL(blob);
+
+
+              const img = new window.Image();
+              img.onload = () => {
+                resolve({
+                  image: img,
+                  x: m.logicalX - offsetX,
+                  y: m.logicalY - offsetY,
+                  width: m.logicalWidth,
+                  height: m.logicalHeight,
+                });
+              };
+              img.onerror = reject;
+              img.src = url;
+            } catch (e) {
+              reject(e);
+            }
           });
         })
       );

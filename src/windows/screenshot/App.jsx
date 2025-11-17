@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
 import { Stage } from 'react-konva';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import useScreenshotStage from './hooks/useScreenshotStage';
@@ -7,6 +8,7 @@ import SelectionOverlay from './components/SelectionOverlay';
 
 function App() {
   const { screens, stageSize, reloadFromLastCapture } = useScreenshotStage();
+  const stageRef = useRef(null);
 
   useEffect(() => {
     let unlisten;
@@ -30,9 +32,9 @@ function App() {
 
   return (
     <div className="w-screen h-screen bg-transparent">
-      <Stage width={stageSize.width} height={stageSize.height}>
+      <Stage ref={stageRef} width={stageSize.width} height={stageSize.height}>
         <BackgroundLayer screens={screens} />
-        <SelectionOverlay stageWidth={stageSize.width} stageHeight={stageSize.height} />
+        <SelectionOverlay stageWidth={stageSize.width} stageHeight={stageSize.height} stageRef={stageRef} />
       </Stage>
     </div>
   );

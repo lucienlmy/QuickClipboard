@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Layer, Rect, Circle } from 'react-konva';
 import { cancelScreenshotSession } from '@shared/api/system';
 import SelectionInfoBar from './SelectionInfoBar';
+import SelectionToolbar from './SelectionToolbar';
+import { exportSelectionToClipboard } from '../utils/exportSelectionToClipboard';
 
-function SelectionOverlay({ stageWidth, stageHeight }) {
+function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   const stageW = stageWidth;
   const stageH = stageHeight;
   if (stageW <= 0 || stageH <= 0) return null;
@@ -310,6 +312,22 @@ function SelectionOverlay({ stageWidth, stageHeight }) {
 
   const hasSelection = selection && selection.width > 0 && selection.height > 0;
 
+  const handleCancelSelection = () => {
+    if (!selection) return;
+    setSelection(null);
+    setCornerRadius(0);
+    setAspectRatio('free');
+  };
+
+  const handleConfirmSelection = async () => {
+    if (!selection) return;
+    try {
+      await exportSelectionToClipboard(stageRef, selection);
+    } catch (err) {
+      console.error('复制选区到剪贴板失败:', err);
+    }
+  };
+
   return (
     <Layer>
       <Rect
@@ -371,6 +389,14 @@ function SelectionOverlay({ stageWidth, stageHeight }) {
         isMoving={isMoving}
         onCornerRadiusChange={handleCornerRadiusChange}
         onAspectRatioChange={handleAspectRatioChange}
+      />
+      <SelectionToolbar
+        selection={selection}
+        isDrawing={isDrawing}
+        isMoving={isMoving}
+        isResizing={isResizing}
+        onCancel={handleCancelSelection}
+        onConfirm={handleConfirmSelection}
       />
     </Layer>
   );

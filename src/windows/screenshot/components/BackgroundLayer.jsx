@@ -2,7 +2,7 @@ import { Layer, Image as KonvaImage } from 'react-konva';
 
 function BackgroundLayer({ screens }) {
   return (
-    <Layer>
+    <Layer id="screenshot-bg-layer">
       {screens.map((s, idx) => (
         <KonvaImage
           key={idx}
