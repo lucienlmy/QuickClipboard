@@ -26,6 +26,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   const [radiusHandleType, setRadiusHandleType] = useState(null);
   const [aspectRatio, setAspectRatio] = useState('free');
   const [autoSelectionRect, setAutoSelectionRect] = useState(null);
+  const [isDraggingFromAuto, setIsDraggingFromAuto] = useState(false);
 
   const overlayColor = 'black';
   const overlayOpacity = 0.4;
@@ -99,13 +100,8 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
     if (!pos) return;
 
     if (!selection && autoSelectionRect && autoSelectionRect.width > 0 && autoSelectionRect.height > 0) {
-      setSelection({
-        x: autoSelectionRect.x,
-        y: autoSelectionRect.y,
-        width: autoSelectionRect.width,
-        height: autoSelectionRect.height,
-      });
-      setAutoSelectionRect(null);
+      setStartPos(pos);
+      setIsDraggingFromAuto(true);
       return;
     }
 
@@ -152,6 +148,20 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
     if (!stage) return;
     const pos = stage.getPointerPosition();
     if (!pos) return;
+
+    if (isDraggingFromAuto && startPos && autoSelectionRect) {
+      const dx = Math.abs(pos.x - startPos.x);
+      const dy = Math.abs(pos.y - startPos.y);
+      const dragThreshold = 5;
+      
+      if (dx > dragThreshold || dy > dragThreshold) {
+        setIsDraggingFromAuto(false);
+        setIsDrawing(true);
+        setAutoSelectionRect(null);
+        setSelection({ x: startPos.x, y: startPos.y, width: 0, height: 0 });
+      }
+      return;
+    }
 
     if (!isDrawing && !isMoving && !isResizing && !isAdjustingRadius && selection) {
       const handleType = checkHandleHit(pos);
@@ -284,6 +294,19 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   };
 
   const handleMouseUp = () => {
+    if (isDraggingFromAuto && autoSelectionRect) {
+      setSelection({
+        x: autoSelectionRect.x,
+        y: autoSelectionRect.y,
+        width: autoSelectionRect.width,
+        height: autoSelectionRect.height,
+      });
+      setAutoSelectionRect(null);
+      setIsDraggingFromAuto(false);
+      setStartPos(null);
+      return;
+    }
+
     if (!isDrawing && !isMoving && !isResizing && !isAdjustingRadius) return;
     setIsDrawing(false);
     setIsMoving(false);
@@ -302,6 +325,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
     setResizeHandle(null);
     setIsAdjustingRadius(false);
     setRadiusHandleType(null);
+    setIsDraggingFromAuto(false);
 
     if (selection) {
       setSelection(null);
