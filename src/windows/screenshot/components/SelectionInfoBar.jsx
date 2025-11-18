@@ -17,10 +17,10 @@ function SelectionInfoBar({
 
   const getInfoBarPosition = () => {
     const padding = 8;
-    const infoBarHeight = 40;
-    const infoBarWidth = 280;
+    const infoBarHeight = 35;
+    const infoBarWidth = 270;
     let x = selection.x;
-    let y = selection.y - infoBarHeight;
+    let y = selection.y - infoBarHeight - padding;
     
     if (stageRegionManager) {
       const centerX = selection.x + selection.width / 2;
@@ -66,7 +66,7 @@ function SelectionInfoBar({
   return (
     <Group x={getInfoBarPosition().x} y={getInfoBarPosition().y}>
         <Html>
-          <div className="flex items-center gap-3 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none pointer-events-auto">
+          <div className="flex items-center gap-2 px-2 py-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none pointer-events-auto">
             <div className="flex items-center gap-1.5">
               <i className="ti ti-dimensions text-sm text-gray-500 dark:text-gray-400"></i>
               <span className="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-20">

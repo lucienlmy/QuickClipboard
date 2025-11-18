@@ -8,9 +8,9 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
 
   const getToolbarPosition = () => {
     const padding = 8;
-    const toolbarHeight = 40;
-    const toolbarWidth = 120;
-    const infoBarWidth = 280;
+    const toolbarHeight = 35;
+    const toolbarWidth = 100;
+    const infoBarWidth = 270;
     
     let x = selection.x + selection.width;
     let y = selection.y + selection.height + padding;
@@ -23,14 +23,15 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
       
       if (targetScreen) {
         const hasBottomSpace = y + toolbarHeight <= targetScreen.y + targetScreen.height;
-        const hasTopSpace = selection.y - toolbarHeight >= targetScreen.y;
+        const hasTopSpace = selection.y - toolbarHeight - padding >= targetScreen.y;
         
         if (!hasBottomSpace) {
           if (hasTopSpace) {
             position = 'top';
-            y = selection.y - toolbarHeight;
+            y = selection.y - toolbarHeight - padding;
             
-            const infoBarY = selection.y - 40;
+            const infoBarHeight = 35;
+            const infoBarY = selection.y - infoBarHeight - padding;
             const infoBarIsOnTop = infoBarY >= targetScreen.y;
             
             if (infoBarIsOnTop) {
@@ -66,9 +67,9 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
     } else {
       const estimatedWindowHeight = window.innerHeight || 1080;
       if (y + toolbarHeight > estimatedWindowHeight - 10) {
-        const hasTopSpace = selection.y - toolbarHeight >= 10;
+        const hasTopSpace = selection.y - toolbarHeight - padding >= 10;
         if (hasTopSpace) {
-          y = selection.y - toolbarHeight;
+          y = selection.y - toolbarHeight - padding;
         } else {
           x = selection.x + selection.width - padding;
           y = selection.y + selection.height - toolbarHeight - padding;
@@ -109,7 +110,7 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
     <Group x={x} y={y}>
       <Html>
         <div
-          className="flex flex-row-reverse items-center gap-1.5 px-1.5 py-1 bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none pointer-events-auto"
+          className="flex flex-row-reverse items-center gap-2 px-2 py-[5px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none pointer-events-auto"
           style={{ transform: 'translateX(-100%)' }}
         >
           {tools.map((tool) => (
@@ -120,7 +121,7 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
               title={tool.title}
               aria-label={tool.title}
               className={[
-                'flex items-center justify-center w-7 h-7 rounded-md border text-gray-600 dark:text-gray-200',
+                'flex items-center justify-center w-6 h-6 rounded-md border text-gray-600 dark:text-gray-200',
                 tool.variant === 'primary'
                   ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white shadow-sm'
                   : tool.variant === 'default'
@@ -129,7 +130,7 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
                 'transition-colors duration-150',
               ].join(' ')}
             >
-              <i className={`${tool.icon} text-base`}></i>
+              <i className={`${tool.icon} text-sm`}></i>
             </button>
           ))}
         </div>
