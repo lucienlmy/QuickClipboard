@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layer, Rect, Circle } from 'react-konva';
 import { cancelScreenshotSession } from '@shared/api/system';
 import SelectionInfoBar from './SelectionInfoBar';
 import SelectionToolbar from './SelectionToolbar';
 import { exportSelectionToClipboard } from '../utils/exportSelectionToClipboard';
 import { exportSelectionToPin } from '../utils/exportSelectionToPin';
-import { ensureAutoSelectionStarted, subscribe as subscribeAutoSelection } from '../utils/autoSelectionManager';
+import { ensureAutoSelectionStarted, subscribe as subscribeAutoSelection, getCurrentHierarchy } from '../utils/autoSelectionManager';
 
 function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   const stageW = stageWidth;
@@ -26,6 +26,9 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   const [radiusHandleType, setRadiusHandleType] = useState(null);
   const [aspectRatio, setAspectRatio] = useState('free');
   const [autoSelectionRect, setAutoSelectionRect] = useState(null);
+  const [animatedAutoSelectionRect, setAnimatedAutoSelectionRect] = useState(null);
+  const autoAnimationFrameRef = useRef(null);
+  const autoAnimationStartRef = useRef(null);
   const [isDraggingFromAuto, setIsDraggingFromAuto] = useState(false);
 
   const overlayColor = 'black';
@@ -71,6 +74,53 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
       if (unsub) unsub();
     };
   }, [selection, isDrawing, isMoving, isResizing, isAdjustingRadius]);
+
+  useEffect(() => {
+    if (autoAnimationFrameRef.current) {
+      cancelAnimationFrame(autoAnimationFrameRef.current);
+      autoAnimationFrameRef.current = null;
+    }
+
+    if (!autoSelectionRect) {
+      setAnimatedAutoSelectionRect(null);
+      autoAnimationStartRef.current = null;
+      return;
+    }
+
+    const duration = 30;
+    const fromRect = animatedAutoSelectionRect || autoSelectionRect;
+    autoAnimationStartRef.current = null;
+
+    const animate = (timestamp) => {
+      if (!autoAnimationStartRef.current) {
+        autoAnimationStartRef.current = timestamp;
+      }
+      const progress = Math.min((timestamp - autoAnimationStartRef.current) / duration, 1);
+      const lerp = (start, end) => start + (end - start) * progress;
+
+      setAnimatedAutoSelectionRect({
+        x: lerp(fromRect.x, autoSelectionRect.x),
+        y: lerp(fromRect.y, autoSelectionRect.y),
+        width: lerp(fromRect.width, autoSelectionRect.width),
+        height: lerp(fromRect.height, autoSelectionRect.height),
+      });
+
+      if (progress < 1) {
+        autoAnimationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        autoAnimationFrameRef.current = null;
+      }
+    };
+
+    autoAnimationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (autoAnimationFrameRef.current) {
+        cancelAnimationFrame(autoAnimationFrameRef.current);
+        autoAnimationFrameRef.current = null;
+      }
+    };
+  }, [autoSelectionRect]);
 
   const checkHandleHit = (pos) => {
     if (!selection) return null;
@@ -331,6 +381,19 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
       setSelection(null);
       setCornerRadius(0);
       setAspectRatio('free');
+      
+      const hier = getCurrentHierarchy();
+      if (hier && Array.isArray(hier.hierarchy) && hier.hierarchy.length > 0) {
+        const b = hier.hierarchy[0];
+        if (b && b.width > 0 && b.height > 0) {
+          setAutoSelectionRect({
+            x: b.x,
+            y: b.y,
+            width: b.width,
+            height: b.height,
+          });
+        }
+      }
       return;
     }
 
@@ -383,13 +446,28 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
   };
 
   const hasSelection = selection && selection.width > 0 && selection.height > 0;
-  const hasAutoSelection = !hasSelection && autoSelectionRect && autoSelectionRect.width > 0 && autoSelectionRect.height > 0;
+  const displayAutoSelectionRect = animatedAutoSelectionRect || autoSelectionRect;
+  const hasAutoSelection =
+    !hasSelection && displayAutoSelectionRect && displayAutoSelectionRect.width > 0 && displayAutoSelectionRect.height > 0;
 
   const handleCancelSelection = () => {
     if (!selection) return;
     setSelection(null);
     setCornerRadius(0);
     setAspectRatio('free');
+    
+    const hier = getCurrentHierarchy();
+    if (hier && Array.isArray(hier.hierarchy) && hier.hierarchy.length > 0) {
+      const b = hier.hierarchy[0];
+      if (b && b.width > 0 && b.height > 0) {
+        setAutoSelectionRect({
+          x: b.x,
+          y: b.y,
+          width: b.width,
+          height: b.height,
+        });
+      }
+    }
   };
 
   const handleConfirmSelection = async () => {
@@ -425,22 +503,22 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
         onMouseLeave={handleMouseUp}
         onContextMenu={handleContextMenu}
       />
-      {hasAutoSelection && (
+      {hasAutoSelection && displayAutoSelectionRect && (
         <>
           <Rect
-            x={autoSelectionRect.x}
-            y={autoSelectionRect.y}
-            width={autoSelectionRect.width}
-            height={autoSelectionRect.height}
+            x={displayAutoSelectionRect.x}
+            y={displayAutoSelectionRect.y}
+            width={displayAutoSelectionRect.width}
+            height={displayAutoSelectionRect.height}
             fill={overlayColor}
             globalCompositeOperation="destination-out"
             listening={false}
           />
           <Rect
-            x={autoSelectionRect.x}
-            y={autoSelectionRect.y}
-            width={autoSelectionRect.width}
-            height={autoSelectionRect.height}
+            x={displayAutoSelectionRect.x}
+            y={displayAutoSelectionRect.y}
+            width={displayAutoSelectionRect.width}
+            height={displayAutoSelectionRect.height}
             stroke="deepskyblue"
             strokeWidth={2}
             listening={false}

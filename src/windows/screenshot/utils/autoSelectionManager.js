@@ -70,3 +70,7 @@ export function subscribe(callback) {
     subscribers.delete(callback)
   }
 }
+
+export function getCurrentHierarchy() {
+  return currentHierarchy
+}
