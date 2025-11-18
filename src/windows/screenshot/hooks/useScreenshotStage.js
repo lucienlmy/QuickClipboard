@@ -1,18 +1,15 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { getLastScreenshotCaptures } from '@shared/api/system';
 import { createStageRegionManager } from '../utils/stageRegionManager';
 
 export default function useScreenshotStage() {
   const [screens, setScreens] = useState([]);
-  const [stageSize, setStageSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
-  const stageRegionManager = useMemo(() => {
-    return createStageRegionManager(screens);
-  }, [screens]);
+  const stageRegionManager = useMemo(() => createStageRegionManager(screens), [screens]);
 
   const reloadFromLastCapture = useCallback(async () => {
     try {
-      setScreens([]);
       const infos = await getLastScreenshotCaptures();
 
       if (!infos || !infos.length) {
@@ -80,18 +77,6 @@ export default function useScreenshotStage() {
     } catch (error) {
       console.error('加载截屏数据失败:', error);
     }
-  }, []);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setStageSize((prev) => ({ ...prev }));
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
   }, []);
 
   return { screens, stageSize, stageRegionManager, reloadFromLastCapture };

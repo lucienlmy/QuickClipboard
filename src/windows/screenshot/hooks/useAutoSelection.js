@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  ensureAutoSelectionStarted,
   subscribe as subscribeAutoSelection,
   getCurrentHierarchy,
 } from '../utils/autoSelectionManager';
@@ -16,33 +15,29 @@ export function useAutoSelection(isInteracting) {
   const autoAnimationStartRef = useRef(null);
 
   useEffect(() => {
-    let unsub = null;
-    (async () => {
-      await ensureAutoSelectionStarted();
-      unsub = subscribeAutoSelection((hier) => {
-        if (isInteracting) {
-          return;
-        }
+    const unsub = subscribeAutoSelection((hier) => {
+      if (isInteracting) {
+        return;
+      }
 
-        if (!hier || !Array.isArray(hier.hierarchy) || hier.hierarchy.length === 0) {
-          setAutoSelectionRect(null);
-          return;
-        }
+      if (!hier || !Array.isArray(hier.hierarchy) || hier.hierarchy.length === 0) {
+        setAutoSelectionRect(null);
+        return;
+      }
 
-        const b = hier.hierarchy[0];
-        if (!b || b.width <= 0 || b.height <= 0) {
-          setAutoSelectionRect(null);
-          return;
-        }
+      const b = hier.hierarchy[0];
+      if (!b || b.width <= 0 || b.height <= 0) {
+        setAutoSelectionRect(null);
+        return;
+      }
 
-        setAutoSelectionRect({
-          x: b.x,
-          y: b.y,
-          width: b.width,
-          height: b.height,
-        });
+      setAutoSelectionRect({
+        x: b.x,
+        y: b.y,
+        width: b.width,
+        height: b.height,
       });
-    })();
+    });
 
     return () => {
       if (unsub) unsub();

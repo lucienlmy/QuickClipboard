@@ -1,4 +1,6 @@
 import { listen } from '@tauri-apps/api/event'
+import { invoke } from '@tauri-apps/api/core'
+
 let listening = false
 let unlistenHierarchy = null
 let unlistenClear = null
@@ -46,6 +48,11 @@ async function ensureListeners() {
 
 export async function ensureAutoSelectionStarted() {
   await ensureListeners()
+  try {
+    await invoke('request_auto_selection_emit')
+  } catch (e) {
+    console.error('[autoSelectionManager] failed to request emit:', e)
+  }
 }
 
 export async function stopAutoSelection() {

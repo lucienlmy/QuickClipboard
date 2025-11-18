@@ -6,6 +6,7 @@ import useScreenshotStage from './hooks/useScreenshotStage';
 import BackgroundLayer from './components/BackgroundLayer';
 import SelectionOverlay from './components/SelectionOverlay';
 import Magnifier from './components/Magnifier';
+import { ensureAutoSelectionStarted } from './utils/autoSelectionManager';
 
 function App() {
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
@@ -16,24 +17,29 @@ function App() {
 
   useEffect(() => {
     let unlisten;
+    
+    const initializeScreenshot = async () => {
+      await Promise.all([
+        reloadFromLastCapture(),
+        ensureAutoSelectionStarted()
+      ]);
+      setTimeout(() => {
+        if (stageRef.current) {
+          const stage = stageRef.current;
+          const pos = stage.getPointerPosition();
+          if (pos) {
+            setMousePos(pos);
+            setTimeout(() => magnifierUpdateRef.current?.(pos), 50);
+          }
+        }
+      }, 0);
+    };
+    
     (async () => {
       try {
         const win = getCurrentWebviewWindow();
-        unlisten = await win.listen('screenshot:new-session', async () => {
-          await reloadFromLastCapture();
-          // 截屏开始，获取当前鼠标位置并初始化放大镜
-          setTimeout(() => {
-            if (stageRef.current) {
-              const stage = stageRef.current;
-              const pos = stage.getPointerPosition();
-              if (pos) {
-                setMousePos(pos);
-                setTimeout(() => magnifierUpdateRef.current?.(pos), 50);
-              }
-            }
-          }, 100);
-        });
-        await reloadFromLastCapture();
+        unlisten = await win.listen('screenshot:new-session', initializeScreenshot);
+        await initializeScreenshot();
       } catch (err) {
         console.error('监听 screenshot:new-session 事件失败:', err);
       }

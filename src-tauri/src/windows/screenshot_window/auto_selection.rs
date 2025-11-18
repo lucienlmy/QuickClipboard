@@ -45,6 +45,7 @@ pub struct ElementHierarchy {
 
 pub struct AutoSelectionManager {
     is_active: Arc<AtomicBool>,
+    force_emit: Arc<AtomicBool>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
     screenshot_hwnd: Arc<Mutex<Option<isize>>>,
     thread_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -54,6 +55,7 @@ impl AutoSelectionManager {
     pub fn new() -> Self {
         Self {
             is_active: Arc::new(AtomicBool::new(false)),
+            force_emit: Arc::new(AtomicBool::new(false)),
             app_handle: Arc::new(Mutex::new(None)),
             screenshot_hwnd: Arc::new(Mutex::new(None)),
             thread_handle: Arc::new(Mutex::new(None)),
@@ -132,13 +134,14 @@ impl AutoSelectionManager {
         self.is_active.store(true, Ordering::Relaxed);
 
         let is_active = Arc::clone(&self.is_active);
+        let force_emit = Arc::clone(&self.force_emit);
         let app_handle = Arc::clone(&self.app_handle);
         let screenshot_hwnd = Arc::clone(&self.screenshot_hwnd);
 
         let handle = thread::Builder::new()
             .name("auto-selection".to_string())
             .spawn(move || {
-                let _ = Self::detection_loop(is_active, app_handle, screenshot_hwnd);
+                let _ = Self::detection_loop(is_active, force_emit, app_handle, screenshot_hwnd);
             })
             .map_err(|e| format!("创建自动选区检测线程失败: {}", e))?;
 
@@ -163,8 +166,13 @@ impl AutoSelectionManager {
         self.is_active.load(Ordering::Relaxed)
     }
 
+    pub fn request_emit(&self) {
+        self.force_emit.store(true, Ordering::Relaxed);
+    }
+
     fn detection_loop(
         is_active: Arc<AtomicBool>,
+        force_emit: Arc<AtomicBool>,
         app_handle: Arc<Mutex<Option<AppHandle>>>,
         screenshot_hwnd: Arc<Mutex<Option<isize>>>,
     ) -> Result<(), String> {
@@ -224,6 +232,16 @@ impl AutoSelectionManager {
                 }
             };
 
+            // 前端主动请求时：强制发送当前状态
+            if force_emit.load(Ordering::Relaxed) {
+                force_emit.store(false, Ordering::Relaxed);
+                if !rects.is_empty() {
+                    Self::emit_hierarchy(&app_handle, &rects);
+                }
+                thread::sleep(Duration::from_millis(16));
+                continue;
+            }
+
             if rects.is_empty() {
                 thread::sleep(Duration::from_millis(16));
                 continue;
@@ -252,6 +270,11 @@ pub fn start_auto_selection(app: AppHandle) -> Result<(), String> {
 pub fn stop_auto_selection() -> Result<(), String> {
     AUTO_SELECTION_MANAGER.stop();
     Ok(())
+}
+
+#[tauri::command]
+pub fn request_auto_selection_emit() {
+    AUTO_SELECTION_MANAGER.request_emit();
 }
 
 #[tauri::command]

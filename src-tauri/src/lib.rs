@@ -114,6 +114,7 @@ pub fn run() {
                 windows::screenshot_window::auto_selection::start_auto_selection,
                 windows::screenshot_window::auto_selection::stop_auto_selection,
                 windows::screenshot_window::auto_selection::is_auto_selection_active,
+                windows::screenshot_window::auto_selection::request_auto_selection_emit,
                 windows::screenshot_window::auto_selection::clear_auto_selection_cache,
                 commands::copy_text_to_clipboard,
                 commands::check_ai_translation_config,
