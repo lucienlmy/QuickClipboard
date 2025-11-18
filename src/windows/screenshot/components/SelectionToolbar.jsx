@@ -2,14 +2,80 @@ import { Group } from 'react-konva';
 import { Html } from 'react-konva-utils';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
-function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, onCancel, onConfirm, onPin }) {
+function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageRegionManager, onCancel, onConfirm, onPin }) {
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
 
   const getToolbarPosition = () => {
-    const margin = 8;
-    const x = selection.x + selection.width;
-    const y = selection.y + selection.height + margin;
+    const padding = 8;
+    const toolbarHeight = 40;
+    const toolbarWidth = 120;
+    const infoBarWidth = 280;
+    
+    let x = selection.x + selection.width;
+    let y = selection.y + selection.height + padding;
+    let position = 'bottom';
+    
+    if (stageRegionManager) {
+      const centerX = selection.x + selection.width / 2;
+      const centerY = selection.y + selection.height / 2;
+      const targetScreen = stageRegionManager.getNearestScreen(centerX, centerY);
+      
+      if (targetScreen) {
+        const hasBottomSpace = y + toolbarHeight <= targetScreen.y + targetScreen.height;
+        const hasTopSpace = selection.y - toolbarHeight >= targetScreen.y;
+        
+        if (!hasBottomSpace) {
+          if (hasTopSpace) {
+            position = 'top';
+            y = selection.y - toolbarHeight;
+            
+            const infoBarY = selection.y - 40;
+            const infoBarIsOnTop = infoBarY >= targetScreen.y;
+            
+            if (infoBarIsOnTop) {
+              const infoBarLeft = selection.x;
+              const infoBarRight = selection.x + infoBarWidth;
+              const toolbarLeft = x - toolbarWidth;
+              const toolbarRight = x;
+              
+              if (toolbarLeft < infoBarRight && toolbarRight > infoBarLeft) {
+                x = selection.x - toolbarWidth - padding;
+                if (x < targetScreen.x) {
+                  x = Math.max(infoBarRight + padding, selection.x + selection.width);
+                }
+              }
+            }
+          } else {
+            position = 'inside';
+            x = selection.x + selection.width - padding;
+            y = selection.y + selection.height - toolbarHeight - padding;
+          }
+        }
+        
+        if (position === 'bottom' || position === 'top') {
+          if (x > targetScreen.x + targetScreen.width) {
+            x = targetScreen.x + targetScreen.width - padding;
+          }
+          
+          if (x - toolbarWidth < targetScreen.x) {
+            x = targetScreen.x + toolbarWidth + padding;
+          }
+        }
+      }
+    } else {
+      const estimatedWindowHeight = window.innerHeight || 1080;
+      if (y + toolbarHeight > estimatedWindowHeight - 10) {
+        const hasTopSpace = selection.y - toolbarHeight >= 10;
+        if (hasTopSpace) {
+          y = selection.y - toolbarHeight;
+        } else {
+          x = selection.x + selection.width - padding;
+          y = selection.y + selection.height - toolbarHeight - padding;
+        }
+      }
+    }
+    
     return { x, y };
   };
 

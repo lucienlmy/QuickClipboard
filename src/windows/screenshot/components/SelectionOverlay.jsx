@@ -184,6 +184,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
         cornerRadius={cornerRadius}
         aspectRatio={aspectRatio}
         isMoving={isMoving}
+        stageRegionManager={stageRegionManager}
         onCornerRadiusChange={updateCornerRadius}
         onAspectRatioChange={updateAspectRatio}
       />
@@ -194,6 +195,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
         isDrawing={isDrawing}
         isMoving={isMoving}
         isResizing={isResizing}
+        stageRegionManager={stageRegionManager}
         onCancel={handleCancelSelection}
         onConfirm={handleConfirmSelection}
         onPin={handlePinSelection}

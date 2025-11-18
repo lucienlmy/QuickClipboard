@@ -7,6 +7,7 @@ function SelectionInfoBar({
   cornerRadius, 
   aspectRatio,
   isMoving,
+  stageRegionManager,
   onCornerRadiusChange, 
   onAspectRatioChange 
 }) {
@@ -16,11 +17,37 @@ function SelectionInfoBar({
 
   const getInfoBarPosition = () => {
     const padding = 8;
+    const infoBarHeight = 40;
+    const infoBarWidth = 280;
     let x = selection.x;
-    let y = selection.y - 40;
+    let y = selection.y - infoBarHeight;
     
-    if (y < 10) {
-      y = selection.y + selection.height + padding;
+    if (stageRegionManager) {
+      const centerX = selection.x + selection.width / 2;
+      const centerY = selection.y + selection.height / 2;
+      const targetScreen = stageRegionManager.getNearestScreen(centerX, centerY);
+      
+      if (targetScreen) {
+        const hasTopSpace = y >= targetScreen.y;
+        
+        if (!hasTopSpace) {
+          x = selection.x + padding;
+          y = selection.y + padding;
+        }
+        
+        if (x + infoBarWidth > targetScreen.x + targetScreen.width) {
+          x = targetScreen.x + targetScreen.width - infoBarWidth - padding;
+        }
+        
+        if (x < targetScreen.x) {
+          x = targetScreen.x + padding;
+        }
+      }
+    } else {
+      if (y < 10) {
+        x = selection.x + padding;
+        y = selection.y + padding;
+      }
     }
     
     return { x, y };
