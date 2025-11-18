@@ -17,6 +17,8 @@
     "core:window:allow-request-user-attention",
     "core:path:default",
     "fs:allow-temp-read",
-    "fs:allow-temp-read-recursive"
+    "fs:allow-temp-read-recursive",
+    "fs:allow-temp-write",
+    "fs:allow-temp-write-recursive"
   ]
 }

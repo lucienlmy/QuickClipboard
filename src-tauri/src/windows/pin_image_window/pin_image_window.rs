@@ -22,57 +22,28 @@ pub fn init_pin_image_window() {
     PIN_IMAGE_DATA_MAP.get_or_init(|| Mutex::new(HashMap::new()));
 }
 
-// 创建并显示贴图窗口
-pub async fn show_pin_image_window(
-    app: AppHandle,
-    image_data: Vec<u8>,
-    width: u32,
-    height: u32,
-    x: i32,
-    y: i32,
-) -> Result<(), String> {
-    let counter = PIN_IMAGE_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let window_label = format!("pin-image-{}", counter);
-    
-    // 保存图片到临时文件
-    let file_path = save_pin_image_to_temp(&image_data, counter)?;
-    
-    // 存储图片数据
-    if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
-        let mut map = data_map.lock().unwrap();
-        map.insert(
-        window_label.clone(),
-        PinImageData {
-            file_path,
-            width,
-            height,
-        },
-    );
-}
-
-// 创建窗口
-let window = create_pin_image_window(app, &window_label, width, height, x, y).await?;
-
-// 显示窗口
-window.show().map_err(|e| format!("显示贴图窗口失败: {}", e))?;
-
-Ok(())
-}
 
 // 从文件路径创建贴图窗口
 #[tauri::command]
 pub async fn pin_image_from_file(
     app: AppHandle,
     file_path: String,
+    x: Option<i32>,
+    y: Option<i32>,
+    width: Option<u32>,
+    height: Option<u32>,
 ) -> Result<(), String> {
-    let image_data = std::fs::read(&file_path)
-        .map_err(|e| format!("读取图片文件失败: {}", e))?;
-    
-    let img = image::load_from_memory(&image_data)
-        .map_err(|e| format!("解析图片失败: {}", e))?;
-    
-    let width = img.width();
-    let height = img.height();
+    let (img_width, img_height) = if let (Some(w), Some(h)) = (width, height) {
+        (w, h)
+    } else {
+        let image_data = std::fs::read(&file_path)
+            .map_err(|e| format!("读取图片文件失败: {}", e))?;
+        
+        let img = image::load_from_memory(&image_data)
+            .map_err(|e| format!("解析图片失败: {}", e))?;
+        
+        (img.width(), img.height())
+    };
     
     let counter = PIN_IMAGE_COUNTER.fetch_add(1, Ordering::SeqCst);
     let window_label = format!("pin-image-{}", counter);
@@ -84,30 +55,34 @@ pub async fn pin_image_from_file(
             window_label.clone(),
             PinImageData {
                 file_path,
-                width,
-                height,
+                width: img_width,
+                height: img_height,
             },
         );
     }
     
-    // 获取主屏幕尺寸并居中显示
-    let (x, y) = if let Ok(monitors) = app.primary_monitor() {
-        if let Some(monitor) = monitors {
-            let screen_size = monitor.size();
-            let screen_width = screen_size.width as f64 / monitor.scale_factor();
-            let screen_height = screen_size.height as f64 / monitor.scale_factor();
-            
-            let x = ((screen_width - width as f64) / 2.0).max(0.0) as i32;
-            let y = ((screen_height - height as f64) / 2.0).max(0.0) as i32;
-            (x, y)
+    let (pos_x, pos_y) = if let (Some(px), Some(py)) = (x, y) {
+        (px, py)
+    } else {
+        // 获取主屏幕尺寸并居中显示
+        if let Ok(monitors) = app.primary_monitor() {
+            if let Some(monitor) = monitors {
+                let screen_size = monitor.size();
+                let screen_width = screen_size.width as f64 / monitor.scale_factor();
+                let screen_height = screen_size.height as f64 / monitor.scale_factor();
+                
+                let x = ((screen_width - img_width as f64) / 2.0).max(0.0) as i32;
+                let y = ((screen_height - img_height as f64) / 2.0).max(0.0) as i32;
+                (x, y)
+            } else {
+                (100, 100)
+            }
         } else {
             (100, 100)
         }
-    } else {
-        (100, 100)
     };
     
-    let window = create_pin_image_window(app, &window_label, width, height, x, y).await?;
+    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y).await?;
     
     window.show().map_err(|e| format!("显示贴图窗口失败: {}", e))?;
     

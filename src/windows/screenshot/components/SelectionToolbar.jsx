@@ -2,7 +2,7 @@ import { Group } from 'react-konva';
 import { Html } from 'react-konva-utils';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
-function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, onCancel, onConfirm }) {
+function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, onCancel, onConfirm, onPin }) {
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
 
@@ -20,6 +20,13 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, onCancel
       title: '取消',
       onClick: onCancel,
       variant: 'ghost',
+    },
+    {
+      id: 'pin',
+      icon: 'ti ti-pin',
+      title: '贴图',
+      onClick: onPin,
+      variant: 'default',
     },
     {
       id: 'confirm',
@@ -50,6 +57,8 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, onCancel
                 'flex items-center justify-center w-7 h-7 rounded-md border text-gray-600 dark:text-gray-200',
                 tool.variant === 'primary'
                   ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white shadow-sm'
+                  : tool.variant === 'default'
+                  ? 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                   : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700',
                 'transition-colors duration-150',
               ].join(' ')}

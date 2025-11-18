@@ -4,6 +4,7 @@ import { cancelScreenshotSession } from '@shared/api/system';
 import SelectionInfoBar from './SelectionInfoBar';
 import SelectionToolbar from './SelectionToolbar';
 import { exportSelectionToClipboard } from '../utils/exportSelectionToClipboard';
+import { exportSelectionToPin } from '../utils/exportSelectionToPin';
 import { ensureAutoSelectionStarted, subscribe as subscribeAutoSelection } from '../utils/autoSelectionManager';
 
 function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
@@ -376,6 +377,15 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
     }
   };
 
+  const handlePinSelection = async () => {
+    if (!selection) return;
+    try {
+      await exportSelectionToPin(stageRef, selection);
+    } catch (err) {
+      console.error('创建贴图失败:', err);
+    }
+  };
+
   return (
     <Layer>
       <Rect
@@ -467,6 +477,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
         isResizing={isResizing}
         onCancel={handleCancelSelection}
         onConfirm={handleConfirmSelection}
+        onPin={handlePinSelection}
       />
     </Layer>
   );
