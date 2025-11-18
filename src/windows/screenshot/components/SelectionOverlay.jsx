@@ -1,6 +1,6 @@
 //选区覆盖层组件
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Layer, Rect } from 'react-konva';
 import { cancelScreenshotSession } from '@shared/api/system';
 import SelectionInfoBar from './SelectionInfoBar';
@@ -16,7 +16,7 @@ import { useSelectionInteraction } from '../hooks/useSelectionInteraction';
 import { useCursorStyle } from '../hooks/useCursorStyle';
 import { OVERLAY_COLOR, OVERLAY_OPACITY } from '../constants/selectionConstants';
 
-function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManager }) {
+function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManager, onSelectionChange }) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
   // 选区状态管理
@@ -30,6 +30,10 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
     updateCornerRadius,
     updateAspectRatio,
   } = useSelection();
+
+  useEffect(() => {
+    onSelectionChange?.(hasValidSelection);
+  }, [hasValidSelection, onSelectionChange]);
 
   // 选区交互管理
   const {
