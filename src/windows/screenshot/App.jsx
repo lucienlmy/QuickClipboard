@@ -7,7 +7,7 @@ import BackgroundLayer from './components/BackgroundLayer';
 import SelectionOverlay from './components/SelectionOverlay';
 
 function App() {
-  const { screens, stageSize, reloadFromLastCapture } = useScreenshotStage();
+  const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
   const stageRef = useRef(null);
 
   useEffect(() => {
@@ -35,7 +35,12 @@ function App() {
     <div className="w-screen h-screen bg-transparent">
       <Stage ref={stageRef} width={stageSize.width} height={stageSize.height} pixelRatio={window.devicePixelRatio || 1}>
         <BackgroundLayer screens={screens} />
-        <SelectionOverlay stageWidth={stageSize.width} stageHeight={stageSize.height} stageRef={stageRef} />
+        <SelectionOverlay 
+          stageWidth={stageSize.width} 
+          stageHeight={stageSize.height} 
+          stageRef={stageRef}
+          stageRegionManager={stageRegionManager}
+        />
       </Stage>
     </div>
   );

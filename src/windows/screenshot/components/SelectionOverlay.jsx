@@ -16,7 +16,7 @@ import { useSelectionInteraction } from '../hooks/useSelectionInteraction';
 import { useCursorStyle } from '../hooks/useCursorStyle';
 import { OVERLAY_COLOR, OVERLAY_OPACITY } from '../constants/selectionConstants';
 
-function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
+function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManager }) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
   // 选区状态管理
@@ -41,7 +41,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef }) {
     handleMouseMove: interactionMouseMove,
     handleMouseUp: interactionMouseUp,
     resetInteractionState,
-  } = useSelectionInteraction(selection, updateSelection, cornerRadius, updateCornerRadius);
+  } = useSelectionInteraction(selection, updateSelection, cornerRadius, updateCornerRadius, stageRegionManager);
 
   // 自动选择管理
   const {

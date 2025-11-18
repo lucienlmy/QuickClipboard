@@ -15,7 +15,8 @@ export function useSelectionInteraction(
   selection,
   updateSelection,
   cornerRadius,
-  updateCornerRadius
+  updateCornerRadius,
+  stageRegionManager
 ) {
   // 交互状态
   const [isDrawing, setIsDrawing] = useState(false);
@@ -152,21 +153,36 @@ export function useSelectionInteraction(
       if (isResizing && resizeHandle && startPos && initialSelection) {
         const dx = pos.x - startPos.x;
         const dy = pos.y - startPos.y;
-        const newSelection = calculateResizedSelection(initialSelection, resizeHandle, dx, dy);
+        let newSelection = calculateResizedSelection(initialSelection, resizeHandle, dx, dy);
+        
+        if (stageRegionManager) {
+          newSelection = stageRegionManager.constrainRect(newSelection);
+        }
+        
         updateSelection(newSelection);
         return;
       }
 
       // 处理移动
       if (isMoving && selection && moveOffset) {
-        const newSelection = calculateMovedSelection(selection, pos, moveOffset);
+        let newSelection = calculateMovedSelection(selection, pos, moveOffset);
+        
+        if (stageRegionManager) {
+          newSelection = stageRegionManager.constrainRect(newSelection);
+        }
+        
         updateSelection(newSelection);
         return;
       }
 
       // 处理绘制
       if (isDrawing && startPos) {
-        const newSelection = calculateSelectionFromPoints(startPos, pos);
+        let newSelection = calculateSelectionFromPoints(startPos, pos);
+        
+        if (stageRegionManager) {
+          newSelection = stageRegionManager.constrainRect(newSelection);
+        }
+        
         updateSelection(newSelection);
         return;
       }
@@ -186,6 +202,7 @@ export function useSelectionInteraction(
       moveOffset,
       updateSelection,
       updateCornerRadius,
+      stageRegionManager,
     ]
   );
 

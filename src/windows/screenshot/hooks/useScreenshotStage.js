@@ -1,9 +1,14 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getLastScreenshotCaptures } from '@shared/api/system';
+import { createStageRegionManager } from '../utils/stageRegionManager';
 
 export default function useScreenshotStage() {
   const [screens, setScreens] = useState([]);
   const [stageSize, setStageSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  const stageRegionManager = useMemo(() => {
+    return createStageRegionManager(screens);
+  }, [screens]);
 
   const reloadFromLastCapture = useCallback(async () => {
     try {
@@ -89,5 +94,5 @@ export default function useScreenshotStage() {
     };
   }, []);
 
-  return { screens, stageSize, reloadFromLastCapture };
+  return { screens, stageSize, stageRegionManager, reloadFromLastCapture };
 }
