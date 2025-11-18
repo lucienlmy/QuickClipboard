@@ -15,6 +15,13 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, onCancel
 
   const tools = [
     {
+      id: 'confirm',
+      icon: 'ti ti-check',
+      title: '确定',
+      onClick: onConfirm,
+      variant: 'primary',
+    },
+    {
       id: 'cancel',
       icon: 'ti ti-x',
       title: '取消',
@@ -27,14 +34,7 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, onCancel
       title: '贴图',
       onClick: onPin,
       variant: 'default',
-    },
-    {
-      id: 'confirm',
-      icon: 'ti ti-check',
-      title: '确定',
-      onClick: onConfirm,
-      variant: 'primary',
-    },
+    }
   ];
 
   const { x, y } = getToolbarPosition();
