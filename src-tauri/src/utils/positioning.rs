@@ -3,7 +3,7 @@ use tauri::{PhysicalPosition, WebviewWindow, Monitor};
 // 将窗口定位到鼠标位置
 pub fn position_at_cursor(window: &WebviewWindow) -> Result<(), String> {
     let monitor = crate::screen::ScreenUtils::get_monitor_at_cursor(window)?;
-    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position()?;
+    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let window_size = window.outer_size().map_err(|e| e.to_string())?;
     
     let best_pos = calculate_best_position(

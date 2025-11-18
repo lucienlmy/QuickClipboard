@@ -91,7 +91,7 @@ fn check_mouse_near_edge(
     window: &WebviewWindow,
     state: &super::state::MainWindowState,
 ) -> Result<bool, String> {
-    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position()?;
+    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let (win_x, win_y, win_width, win_height) = crate::get_window_bounds(window)?;
     
     let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;

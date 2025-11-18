@@ -211,13 +211,7 @@ impl AutoSelectionManager {
                 continue;
             }
 
-            let cursor = match crate::mouse::get_cursor_position() {
-                Ok((x, y)) => (x, y),
-                Err(_) => {
-                    thread::sleep(Duration::from_millis(10));
-                    continue;
-                }
-            };
+            let cursor = crate::mouse::get_cursor_position();
 
             if current_mode == DetectionMode::Window {
                 thread::sleep(Duration::from_millis(20));

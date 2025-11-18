@@ -370,10 +370,7 @@ fn check_modifier_requirement(required: &str) -> bool {
 
 // 检查鼠标是否在窗口外部
 fn is_mouse_outside_window(window: &WebviewWindow) -> bool {
-    let (cursor_x, cursor_y) = match crate::mouse::get_cursor_position() {
-        Ok(pos) => pos,
-        Err(_) => return false,
-    };
+    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     
     let (win_x, win_y, win_width, win_height) = match crate::get_window_bounds(window) {
         Ok(bounds) => bounds,

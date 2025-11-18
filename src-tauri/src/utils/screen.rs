@@ -62,7 +62,7 @@ impl ScreenUtils {
     }
     
     pub fn get_monitor_at_cursor(window: &WebviewWindow) -> Result<tauri::Monitor, String> {
-        let (cursor_x, cursor_y) = crate::mouse::get_cursor_position()?;
+        let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
         
         let monitors = window
             .available_monitors()
