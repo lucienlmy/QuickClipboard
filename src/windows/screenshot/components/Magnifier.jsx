@@ -56,12 +56,11 @@ function Magnifier({ screens, mousePos, visible, stageRegionManager, onMousePosU
   }, [screens]);
 
   const getPixelColor = useCallback((x, y) => {
-    const px = Math.floor(x), py = Math.floor(y);
     for (const [, data] of screenImageDataRef.current) {
       const { imageData, bounds, scaleX, scaleY, imageWidth, imageHeight } = data;
-      if (px >= bounds.x1 && px < bounds.x2 && py >= bounds.y1 && py < bounds.y2) {
-        const pixelX = Math.floor((px - bounds.x1) * scaleX);
-        const pixelY = Math.floor((py - bounds.y1) * scaleY);
+      if (x >= bounds.x1 && x < bounds.x2 && y >= bounds.y1 && y < bounds.y2) {
+        const pixelX = Math.floor((x - bounds.x1) * scaleX + 0.05);
+        const pixelY = Math.floor((y - bounds.y1) * scaleY + 0.05);
         if (pixelX >= 0 && pixelX < imageWidth && pixelY >= 0 && pixelY < imageHeight) {
           const idx = (pixelY * imageWidth + pixelX) * 4;
           return { r: imageData.data[idx] ?? 0, g: imageData.data[idx + 1] ?? 0, b: imageData.data[idx + 2] ?? 0 };
@@ -77,9 +76,16 @@ function Magnifier({ screens, mousePos, visible, stageRegionManager, onMousePosU
     const ctx = canvas.getContext('2d');
     const centerRow = Math.floor(GRID_ROWS / 2), centerCol = Math.floor(GRID_COLS / 2);
     let centerColor = { r: 0, g: 0, b: 0 };
+    
+    const step = 1 / (window.devicePixelRatio || 1);
+
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
-        const color = getPixelColor(pos.x + col - centerCol, pos.y + row - centerRow);
+        const color = getPixelColor(
+            pos.x + (col - centerCol) * step, 
+            pos.y + (row - centerRow) * step
+        );
+        
         ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
         ctx.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         if (row === centerRow && col === centerCol) centerColor = color;

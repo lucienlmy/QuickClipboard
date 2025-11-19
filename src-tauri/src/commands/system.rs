@@ -3,6 +3,12 @@ use clipboard_rs::{Clipboard, ClipboardContext};
 use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
+
+#[tauri::command]
+pub fn set_mouse_position(x: i32, y: i32) -> Result<(), String> {
+    crate::utils::mouse::set_cursor_position(x, y)
+}
+
 // 启动内置截图功能
 #[tauri::command]
 pub fn start_builtin_screenshot(app: tauri::AppHandle) -> Result<(), String> {

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer } from 'react-konva';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import useScreenshotStage from './hooks/useScreenshotStage';
+import useCursorMovement from './hooks/useCursorMovement';
 import BackgroundLayer from './components/BackgroundLayer';
 import SelectionOverlay from './components/SelectionOverlay';
 import Magnifier from './components/Magnifier';
@@ -15,6 +16,8 @@ function App() {
   const [hasSelection, setHasSelection] = useState(false);
   const magnifierUpdateRef = useRef(null);
 
+  const handleStageMouseMove = useCursorMovement(screens, setMousePos, magnifierUpdateRef, stageRegionManager);
+  
   useEffect(() => {
     let unlisten;
     
@@ -51,14 +54,6 @@ function App() {
       }
     };
   }, [reloadFromLastCapture]);
-
-  const handleStageMouseMove = (e) => {
-    const pos = e.target.getStage()?.getPointerPosition();
-    if (pos) {
-      magnifierUpdateRef.current?.(pos);
-      setMousePos(pos);
-    }
-  };
 
   return (
     <div className="w-screen h-screen bg-transparent">
