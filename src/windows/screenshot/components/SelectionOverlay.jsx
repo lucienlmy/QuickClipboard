@@ -3,177 +3,39 @@
 import { useCallback, useEffect } from 'react';
 import { Layer, Rect } from 'react-konva';
 import { cancelScreenshotSession } from '@shared/api/system';
-import SelectionInfoBar from './SelectionInfoBar';
-import SelectionToolbar from './SelectionToolbar';
 import SelectionRect from './SelectionRect';
 import SelectionHandles from './SelectionHandles';
 import AutoSelectionRect from './AutoSelectionRect';
 import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUtils';
-import { useSelection } from '../hooks/useSelection';
-import { useAutoSelection } from '../hooks/useAutoSelection';
-import { useSelectionInteraction } from '../hooks/useSelectionInteraction';
 import { useCursorStyle } from '../hooks/useCursorStyle';
 import { OVERLAY_COLOR, OVERLAY_OPACITY } from '../constants/selectionConstants';
 
-function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManager, onSelectionChange }) {
+function SelectionOverlay({ 
+  stageWidth, 
+  stageHeight, 
+  stageRef, 
+  selection,
+  cornerRadius,
+  hasValidSelection,
+  isDrawing,
+  isMoving,
+  isInteracting,
+  autoSelectionRect,
+  displayAutoSelectionRect,
+  hasAutoSelection,
+  handleMouseDown,
+  handleMouseMove,
+  handleMouseUp,
+  handleRightClick,
+  handleWheel
+}) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
-  // 选区状态管理
-  const {
-    selection,
-    cornerRadius,
-    aspectRatio,
-    hasValidSelection,
-    updateSelection,
-    clearSelection,
-    updateCornerRadius,
-    updateAspectRatio,
-  } = useSelection();
-
-  useEffect(() => {
-    onSelectionChange?.(hasValidSelection);
-  }, [hasValidSelection, onSelectionChange]);
-
-  // 选区交互管理
-  const {
-    isDrawing,
-    isMoving,
-    isResizing,
-    isInteracting,
-    handleMouseDown: interactionMouseDown,
-    handleMouseMove: interactionMouseMove,
-    handleMouseUp: interactionMouseUp,
-    resetInteractionState,
-  } = useSelectionInteraction(selection, updateSelection, cornerRadius, updateCornerRadius, stageRegionManager);
-
-  // 自动选择管理
-  const {
-    autoSelectionRect,
-    displayAutoSelectionRect,
-    hasAutoSelection,
-    clearAutoSelection,
-    forceRefresh: refreshAutoSelection,
-    navigateHierarchy,
-  } = useAutoSelection(isInteracting || hasValidSelection);
 
   // 光标样式管理
   useCursorStyle(stageRef, selection, isInteracting);
 
-  const handleWheel = useCallback(
-    (e) => {
-      if (hasValidSelection || isInteracting) return;
 
-      const delta = e.evt.deltaY;
-      if (delta < 0) {
-        navigateHierarchy(1);
-      } else {
-        navigateHierarchy(-1);
-      }
-    },
-    [hasValidSelection, isInteracting, navigateHierarchy]
-  );
-
-  // 鼠标事件处理
-  const handleMouseDown = useCallback(
-    (e) => {
-      const button = e.evt?.button;
-      if (button !== undefined && button !== 0) return;
-
-      const stage = e.target.getStage();
-      if (!stage) return;
-      const pos = stage.getPointerPosition();
-      if (!pos) return;
-
-      interactionMouseDown(pos, autoSelectionRect);
-    },
-    [interactionMouseDown, autoSelectionRect]
-  );
-
-  const handleMouseMove = useCallback(
-    (e) => {
-      const stage = e.target.getStage();
-      if (!stage) return;
-      const pos = stage.getPointerPosition();
-      if (!pos) return;
-
-      interactionMouseMove(pos, autoSelectionRect);
-      
-      // 如果鼠标移动触发了从自动选择开始绘制，清除自动选择
-      if (isDrawing && !selection) {
-        clearAutoSelection();
-      }
-    },
-    [interactionMouseMove, autoSelectionRect, isDrawing, selection, clearAutoSelection]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    const onSelectFromAuto = (rect) => {
-      updateSelection({
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-      });
-      clearAutoSelection();
-    };
-
-    interactionMouseUp(autoSelectionRect, onSelectFromAuto);
-  }, [interactionMouseUp, autoSelectionRect, updateSelection, clearAutoSelection]);
-
-  // 右键点击处理
-  const handleRightClick = useCallback(
-    async (e) => {
-      e.evt?.preventDefault?.();
-      resetInteractionState();
-
-      if (selection) {
-        clearSelection();
-        refreshAutoSelection();
-        return;
-      }
-
-      try {
-        await cancelScreenshotSession();
-      } catch (err) {
-        console.error('取消截屏会话失败:', err);
-      }
-    },
-    [selection, clearSelection, resetInteractionState, refreshAutoSelection]
-  );
-
-  // 工具栏操作
-  const handleCancelSelection = useCallback(() => {
-    if (!selection) return;
-    clearSelection();
-    refreshAutoSelection();
-  }, [selection, clearSelection, refreshAutoSelection]);
-
-  const handleConfirmSelection = useCallback(async () => {
-    if (!selection) return;
-    try {
-      await exportToClipboard(stageRef, selection, cornerRadius);
-    } catch (err) {
-      console.error('复制选区到剪贴板失败:', err);
-    }
-  }, [selection, stageRef, cornerRadius]);
-
-  const handlePinSelection = useCallback(async () => {
-    if (!selection) return;
-    try {
-      await exportToPin(stageRef, selection, cornerRadius);
-    } catch (err) {
-      console.error('创建贴图失败:', err);
-    }
-  }, [selection, stageRef, cornerRadius]);
-
-  const handleSaveSelection = useCallback(async () => {
-    if (!selection) return;
-    try {
-      await exportToFile(stageRef, selection, cornerRadius);
-    } catch (err) {
-      console.error('保存文件失败:', err);
-    }
-  }, [selection, stageRef, cornerRadius]);
 
   return (
     <Layer>
@@ -206,29 +68,6 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
         <SelectionHandles selection={selection} visible={!isDrawing && !isMoving} />
       )}
 
-      {/* 信息栏 */}
-      <SelectionInfoBar
-        selection={selection}
-        cornerRadius={cornerRadius}
-        aspectRatio={aspectRatio}
-        isMoving={isMoving}
-        stageRegionManager={stageRegionManager}
-        onCornerRadiusChange={updateCornerRadius}
-        onAspectRatioChange={updateAspectRatio}
-      />
-
-      {/* 工具栏 */}
-      <SelectionToolbar
-        selection={selection}
-        isDrawing={isDrawing}
-        isMoving={isMoving}
-        isResizing={isResizing}
-        stageRegionManager={stageRegionManager}
-        onCancel={handleCancelSelection}
-        onConfirm={handleConfirmSelection}
-        onPin={handlePinSelection}
-        onSave={handleSaveSelection}
-      />
     </Layer>
   );
 }

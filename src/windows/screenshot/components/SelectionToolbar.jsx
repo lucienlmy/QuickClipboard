@@ -1,5 +1,3 @@
-import { Group } from 'react-konva';
-import { Html } from 'react-konva-utils';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
 function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageRegionManager, onCancel, onConfirm, onPin, onSave }) {
@@ -95,12 +93,15 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
   const { x, y } = getToolbarPosition();
 
   return (
-    <Group x={x} y={y}>
-      <Html>
-        <div
-          className="flex flex-row-reverse items-center gap-2 px-2 py-[5px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none pointer-events-auto"
-          style={{ transform: 'translateX(-100%)' }}
-        >
+    <div
+      className="flex flex-row-reverse items-center gap-1 px-2 py-[5px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none"
+      style={{ 
+        position: 'absolute', 
+        left: x, 
+        top: y, 
+        transform: 'translateX(-100%)' 
+      }}
+    >
           {tools.map((tool) => (
             <button
               key={tool.id}
@@ -121,9 +122,7 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
               <i className={`${tool.icon} text-sm`}></i>
             </button>
           ))}
-        </div>
-      </Html>
-    </Group>
+    </div>
   );
 }
 

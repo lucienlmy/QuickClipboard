@@ -1,5 +1,3 @@
-import { Group, Rect } from 'react-konva';
-import { Html } from 'react-konva-utils';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
 function SelectionInfoBar({ 
@@ -92,11 +90,19 @@ function SelectionInfoBar({
     onAspectRatioChange(e.target.value);
   };
 
+  const { x, y } = getInfoBarPosition();
+
   return (
-    <Group x={getInfoBarPosition().x} y={getInfoBarPosition().y}>
-        <Html>
-          <div className="flex items-center gap-2 px-2 py-1.5 bg-white/85 dark:bg-gray-800/85 backdrop-blur-sm rounded-md shadow-sm border border-gray-200/50 dark:border-gray-700/50 select-none pointer-events-auto">
-            {/* 尺寸展示 */}
+    <div
+      style={{ 
+        position: 'absolute', 
+        left: x, 
+        top: y, 
+        pointerEvents: 'none' 
+      }}
+    >
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-white/85 dark:bg-gray-800/85 backdrop-blur-sm rounded-md shadow-sm border border-gray-200/50 dark:border-gray-700/50 select-none">
+        {/* 尺寸展示 */}
             <div className="flex items-center px-0.5">
               <span className="font-mono text-xs font-medium text-gray-600 dark:text-gray-300 min-w-[70px] text-center">
                 {Math.round(selection.width)} × {Math.round(selection.height)}
@@ -110,6 +116,7 @@ function SelectionInfoBar({
               <select
                 value={aspectRatio}
                 onChange={handleAspectRatioChange}
+                style={{ pointerEvents: 'auto' }}
                 className="appearance-none pl-2 pr-5 py-0.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700/50 dark:hover:bg-gray-600/50 text-gray-700 dark:text-gray-200 rounded cursor-pointer outline-none transition-colors text-center min-w-[60px]"
                 title="比例"
               >
@@ -131,7 +138,7 @@ function SelectionInfoBar({
               <>
                 <div className="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
                 {/* 圆角设置 */}
-                <label className="group flex items-center gap-0.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700/50 dark:hover:bg-gray-600/50 rounded pl-1.5 pr-0.5 py-0.5 transition-colors cursor-text relative">
+                <label style={{ pointerEvents: 'auto' }} className="group flex items-center gap-0.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700/50 dark:hover:bg-gray-600/50 rounded pl-1.5 pr-0.5 py-0.5 transition-colors cursor-text relative">
                   <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mr-0.5">R</span>
                   <input
                     type="number"
@@ -169,9 +176,8 @@ function SelectionInfoBar({
                 </label>
               </>
             )}
-          </div>
-        </Html>
-    </Group>
+      </div>
+    </div>
   );
 }
 
