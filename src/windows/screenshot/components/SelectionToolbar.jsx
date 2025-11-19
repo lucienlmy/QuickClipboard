@@ -9,12 +9,9 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
   const getToolbarPosition = () => {
     const padding = 8;
     const toolbarHeight = 35;
-    const toolbarWidth = 100;
-    const infoBarWidth = 270;
-    
+
     let x = selection.x + selection.width;
     let y = selection.y + selection.height + padding;
-    let position = 'bottom';
     
     if (stageRegionManager) {
       const centerX = selection.x + selection.width / 2;
@@ -22,46 +19,30 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
       const targetScreen = stageRegionManager.getNearestScreen(centerX, centerY);
       
       if (targetScreen) {
-        const hasBottomSpace = y + toolbarHeight <= targetScreen.y + targetScreen.height;
-        const hasTopSpace = selection.y - toolbarHeight - padding >= targetScreen.y;
+        const screenBottom = targetScreen.y + targetScreen.height;
+        const screenTop = targetScreen.y;
+        const screenRight = targetScreen.x + targetScreen.width;
+        const screenLeft = targetScreen.x;
+
+        const hasBottomSpace = y + toolbarHeight <= screenBottom;
         
         if (!hasBottomSpace) {
+          const yTop = selection.y - toolbarHeight - padding;
+          const hasTopSpace = yTop >= screenTop;
+
           if (hasTopSpace) {
-            position = 'top';
-            y = selection.y - toolbarHeight - padding;
-            
-            const infoBarHeight = 35;
-            const infoBarY = selection.y - infoBarHeight - padding;
-            const infoBarIsOnTop = infoBarY >= targetScreen.y;
-            
-            if (infoBarIsOnTop) {
-              const infoBarLeft = selection.x;
-              const infoBarRight = selection.x + infoBarWidth;
-              const toolbarLeft = x - toolbarWidth;
-              const toolbarRight = x;
-              
-              if (toolbarLeft < infoBarRight && toolbarRight > infoBarLeft) {
-                x = selection.x - toolbarWidth - padding;
-                if (x < targetScreen.x) {
-                  x = Math.max(infoBarRight + padding, selection.x + selection.width);
-                }
-              }
-            }
+            y = yTop;
           } else {
-            position = 'inside';
             x = selection.x + selection.width - padding;
             y = selection.y + selection.height - toolbarHeight - padding;
           }
         }
         
-        if (position === 'bottom' || position === 'top') {
-          if (x > targetScreen.x + targetScreen.width) {
-            x = targetScreen.x + targetScreen.width - padding;
-          }
-          
-          if (x - toolbarWidth < targetScreen.x) {
-            x = targetScreen.x + toolbarWidth + padding;
-          }
+        if (x > screenRight) {
+          x = screenRight - padding;
+        }
+        if (x - 110 < screenLeft) {
+           x = screenLeft + 110;
         }
       }
     } else {
