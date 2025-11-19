@@ -8,8 +8,7 @@ import SelectionToolbar from './SelectionToolbar';
 import SelectionRect from './SelectionRect';
 import SelectionHandles from './SelectionHandles';
 import AutoSelectionRect from './AutoSelectionRect';
-import { exportSelectionToClipboard } from '../utils/exportSelectionToClipboard';
-import { exportSelectionToPin } from '../utils/exportSelectionToPin';
+import { exportToClipboard, exportToPin } from '../utils/exportUtils';
 import { useSelection } from '../hooks/useSelection';
 import { useAutoSelection } from '../hooks/useAutoSelection';
 import { useSelectionInteraction } from '../hooks/useSelectionInteraction';
@@ -152,20 +151,20 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
   const handleConfirmSelection = useCallback(async () => {
     if (!selection) return;
     try {
-      await exportSelectionToClipboard(stageRef, selection);
+      await exportToClipboard(stageRef, selection, cornerRadius);
     } catch (err) {
       console.error('复制选区到剪贴板失败:', err);
     }
-  }, [selection, stageRef]);
+  }, [selection, stageRef, cornerRadius]);
 
   const handlePinSelection = useCallback(async () => {
     if (!selection) return;
     try {
-      await exportSelectionToPin(stageRef, selection);
+      await exportToPin(stageRef, selection, cornerRadius);
     } catch (err) {
       console.error('创建贴图失败:', err);
     }
-  }, [selection, stageRef]);
+  }, [selection, stageRef, cornerRadius]);
 
   return (
     <Layer>
