@@ -2,7 +2,7 @@ import { Group } from 'react-konva';
 import { Html } from 'react-konva-utils';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
-function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageRegionManager, onCancel, onConfirm, onPin }) {
+function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageRegionManager, onCancel, onConfirm, onPin, onSave }) {
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
 
@@ -81,6 +81,13 @@ function SelectionToolbar({ selection, isDrawing, isMoving, isResizing, stageReg
       icon: 'ti ti-pin',
       title: '贴图',
       onClick: onPin,
+      variant: 'default',
+    },
+    {
+      id: 'save',
+      icon: 'ti ti-download',
+      title: '保存',
+      onClick: onSave,
       variant: 'default',
     }
   ];

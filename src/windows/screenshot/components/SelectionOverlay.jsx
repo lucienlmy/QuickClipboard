@@ -8,7 +8,7 @@ import SelectionToolbar from './SelectionToolbar';
 import SelectionRect from './SelectionRect';
 import SelectionHandles from './SelectionHandles';
 import AutoSelectionRect from './AutoSelectionRect';
-import { exportToClipboard, exportToPin } from '../utils/exportUtils';
+import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUtils';
 import { useSelection } from '../hooks/useSelection';
 import { useAutoSelection } from '../hooks/useAutoSelection';
 import { useSelectionInteraction } from '../hooks/useSelectionInteraction';
@@ -166,6 +166,15 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
     }
   }, [selection, stageRef, cornerRadius]);
 
+  const handleSaveSelection = useCallback(async () => {
+    if (!selection) return;
+    try {
+      await exportToFile(stageRef, selection, cornerRadius);
+    } catch (err) {
+      console.error('保存文件失败:', err);
+    }
+  }, [selection, stageRef, cornerRadius]);
+
   return (
     <Layer>
       {/* 遮罩层 */}
@@ -218,6 +227,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
         onCancel={handleCancelSelection}
         onConfirm={handleConfirmSelection}
         onPin={handlePinSelection}
+        onSave={handleSaveSelection}
       />
     </Layer>
   );

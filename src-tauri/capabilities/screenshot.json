@@ -19,6 +19,7 @@
     "fs:allow-temp-read",
     "fs:allow-temp-read-recursive",
     "fs:allow-temp-write",
-    "fs:allow-temp-write-recursive"
+    "fs:allow-temp-write-recursive",
+    "dialog:allow-save"
   ]
 }

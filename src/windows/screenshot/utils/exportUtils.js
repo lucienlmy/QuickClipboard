@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { writeFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+import { save } from '@tauri-apps/plugin-dialog';
 import { cancelScreenshotSession } from '@shared/api/system';
 
 async function captureSelectionToBlob(stageRef, selection, cornerRadius = 0) {
@@ -144,5 +145,34 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0) {
   } catch (error) {
     console.error('创建贴图失败:', error);
     throw error;
+  }
+}
+
+// 导出为文件
+export async function exportToFile(stageRef, selection, cornerRadius = 0) {
+  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius);
+  if (!blob) return;
+
+  const arrayBuffer = await blob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+
+  try {
+    const timestamp = Date.now();
+    const defaultPath = `QC截屏_${timestamp}.png`;
+    
+    const filePath = await save({
+      defaultPath,
+      filters: [{
+        name: 'Image',
+        extensions: ['png']
+      }]
+    });
+
+    if (filePath) {
+      await writeFile(filePath, uint8Array);
+      await cancelScreenshotSession();
+    }
+  } catch (error) {
+    console.error('保存文件失败:', error);
   }
 }
