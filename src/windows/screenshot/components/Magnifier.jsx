@@ -123,10 +123,23 @@ function Magnifier({ screens, mousePos, visible, stageRegionManager, onMousePosU
     centerColorRef.current = centerColor;
     gridImageRef.current.getLayer()?.batchDraw();
 
+    let physicalX = Math.floor(pos.x);
+    let physicalY = Math.floor(pos.y);
+    for (const [, data] of screenImageDataRef.current) {
+      const { bounds, scaleX, scaleY, screen } = data;
+      if (pos.x >= bounds.x1 && pos.x < bounds.x2 && pos.y >= bounds.y1 && pos.y < bounds.y2) {
+        const offsetX = pos.x - screen.x;
+        const offsetY = pos.y - screen.y;
+        physicalX = Math.floor(screen.physicalX + offsetX * scaleX);
+        physicalY = Math.floor(screen.physicalY + offsetY * scaleY);
+        break;
+      }
+    }
+
     colorBgRef.current?.fill(`rgb(${centerColor.r},${centerColor.g},${centerColor.b})`);
     colorTextRef.current?.text(getColorString(centerColor, colorFormat));
     colorTextRef.current?.fill(getTextColor(centerColor));
-    coordTextRef.current?.text(`X: ${Math.floor(pos.x)}  Y: ${Math.floor(pos.y)}`);
+    coordTextRef.current?.text(`X: ${physicalX}  Y: ${physicalY}`);
     groupRef.current.getLayer()?.batchDraw();
   }, [stageRegionManager, drawGridToCanvas, getColorString, colorFormat, getTextColor]);
 

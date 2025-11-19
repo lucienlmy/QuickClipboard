@@ -30,8 +30,14 @@ export default function useScreenshotStage() {
           logicalY,
           logicalWidth,
           logicalHeight,
+          physicalX: m.physical_x,
+          physicalY: m.physical_y,
+          physicalWidth: m.physical_width,
+          physicalHeight: m.physical_height,
+          scaleFactor: m.scale_factor,
         };
       });
+      console.log(meta);
 
       const minX = Math.min(...meta.map((m) => m.logicalX));
       const minY = Math.min(...meta.map((m) => m.logicalY));
@@ -59,7 +65,13 @@ export default function useScreenshotStage() {
                   y: m.logicalY - offsetY,
                   width: m.logicalWidth,
                   height: m.logicalHeight,
+                  physicalX: m.physicalX,
+                  physicalY: m.physicalY,
+                  physicalWidth: m.physicalWidth,
+                  physicalHeight: m.physicalHeight,
+                  scaleFactor: m.scaleFactor,
                 };
+                console.log(screen);
                 resolve(screen);
               };
               img.onerror = (e) => {
