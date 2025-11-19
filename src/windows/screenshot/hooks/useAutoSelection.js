@@ -31,11 +31,12 @@ export function useAutoSelection(isInteracting) {
         return;
       }
 
+      const scale = window.devicePixelRatio || 1;
       setAutoSelectionRect({
-        x: b.x,
-        y: b.y,
-        width: b.width,
-        height: b.height,
+        x: b.x / scale,
+        y: b.y / scale,
+        width: b.width / scale,
+        height: b.height / scale,
       });
     });
 
@@ -95,11 +96,12 @@ export function useAutoSelection(isInteracting) {
     if (hier && Array.isArray(hier.hierarchy) && hier.hierarchy.length > 0) {
       const b = hier.hierarchy[0];
       if (b && b.width > 0 && b.height > 0) {
+        const scale = window.devicePixelRatio || 1;
         setAutoSelectionRect({
-          x: b.x,
-          y: b.y,
-          width: b.width,
-          height: b.height,
+          x: b.x / scale,
+          y: b.y / scale,
+          width: b.width / scale,
+          height: b.height / scale,
         });
       }
     }

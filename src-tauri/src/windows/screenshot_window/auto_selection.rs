@@ -62,15 +62,6 @@ impl AutoSelectionManager {
         }
     }
 
-    fn to_css_bounds(bounds: &ElementBounds, scale_factor: f64) -> ElementBounds {
-        ElementBounds {
-            x: (bounds.x as f64 / scale_factor).round() as i32,
-            y: (bounds.y as f64 / scale_factor).round() as i32,
-            width: (bounds.width as f64 / scale_factor).round() as i32,
-            height: (bounds.height as f64 / scale_factor).round() as i32,
-        }
-    }
-
     fn emit_hierarchy(app_handle: &Arc<Mutex<Option<AppHandle>>>, rects: &[ElementRect]) {
         if rects.is_empty() {
             return;
@@ -79,33 +70,25 @@ impl AutoSelectionManager {
         if let Some(app_guard) = app_handle.try_lock() {
             if let Some(app) = app_guard.as_ref() {
                 if let Some(window) = app.get_webview_window("screenshot") {
-                    let scale_factor = window.scale_factor().unwrap_or(1.0);
                     let (virt_x, virt_y, _vw, _vh) =
                         crate::screen::ScreenUtils::get_virtual_screen_size()
                             .unwrap_or((0, 0, 1920, 1080));
 
-                    let bounds_list: Vec<ElementBounds> = rects
+                    let css_hierarchy: Vec<ElementBounds> = rects
                         .iter()
-                        .map(|r| ElementBounds {
-                            x: r.min_x,
-                            y: r.min_y,
-                            width: r.max_x - r.min_x,
-                            height: r.max_y - r.min_y,
-                        })
-                        .collect();
-
-                    let css_hierarchy: Vec<ElementBounds> = bounds_list
-                        .iter()
-                        .map(|b| {
-                            let logical = Self::to_css_bounds(b, scale_factor);
+                        .map(|r| {
                             ElementBounds {
-                                x: logical.x - virt_x,
-                                y: logical.y - virt_y,
-                                width: logical.width,
-                                height: logical.height,
+                                x: r.min_x - virt_x,
+                                y: r.min_y - virt_y,
+                                width: r.max_x - r.min_x,
+                                height: r.max_y - r.min_y,
                             }
                         })
                         .collect();
+
+                    if css_hierarchy.is_empty() {
+                        return;
+                    }
 
                     let hierarchy = ElementHierarchy {
                         hierarchy: css_hierarchy,
