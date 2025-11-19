@@ -1,6 +1,6 @@
 //自动选择功能 Hook
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   subscribe as subscribeAutoSelection,
   getCurrentHierarchy,
@@ -9,7 +9,8 @@ import { lerpRect } from '../utils/selectionOperations';
 import { AUTO_SELECTION_ANIMATION_DURATION } from '../constants/selectionConstants';
 
 export function useAutoSelection(isInteracting) {
-  const [autoSelectionRect, setAutoSelectionRect] = useState(null);
+  const [hierarchy, setHierarchy] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [animatedAutoSelectionRect, setAnimatedAutoSelectionRect] = useState(null);
   const autoAnimationFrameRef = useRef(null);
   const autoAnimationStartRef = useRef(null);
@@ -21,29 +22,34 @@ export function useAutoSelection(isInteracting) {
       }
 
       if (!hier || !Array.isArray(hier.hierarchy) || hier.hierarchy.length === 0) {
-        setAutoSelectionRect(null);
+        setHierarchy([]);
+        setCurrentIndex(0);
         return;
       }
 
-      const b = hier.hierarchy[0];
-      if (!b || b.width <= 0 || b.height <= 0) {
-        setAutoSelectionRect(null);
-        return;
-      }
-
-      const scale = window.devicePixelRatio || 1;
-      setAutoSelectionRect({
-        x: b.x / scale,
-        y: b.y / scale,
-        width: b.width / scale,
-        height: b.height / scale,
-      });
+      setHierarchy(hier.hierarchy);
+      setCurrentIndex(0);
     });
 
     return () => {
       if (unsub) unsub();
     };
   }, [isInteracting]);
+
+  const autoSelectionRect = useMemo(() => {
+    if (!hierarchy || hierarchy.length === 0) return null;
+    
+    const b = hierarchy[currentIndex];
+    if (!b || b.width <= 0 || b.height <= 0) return null;
+
+    const scale = window.devicePixelRatio || 1;
+    return {
+      x: b.x / scale,
+      y: b.y / scale,
+      width: b.width / scale,
+      height: b.height / scale,
+    };
+  }, [hierarchy, currentIndex]);
 
   useEffect(() => {
     if (autoAnimationFrameRef.current) {
@@ -94,24 +100,31 @@ export function useAutoSelection(isInteracting) {
   const forceRefresh = useCallback(() => {
     const hier = getCurrentHierarchy();
     if (hier && Array.isArray(hier.hierarchy) && hier.hierarchy.length > 0) {
-      const b = hier.hierarchy[0];
-      if (b && b.width > 0 && b.height > 0) {
-        const scale = window.devicePixelRatio || 1;
-        setAutoSelectionRect({
-          x: b.x / scale,
-          y: b.y / scale,
-          width: b.width / scale,
-          height: b.height / scale,
-        });
-      }
+      setHierarchy(hier.hierarchy);
+      setCurrentIndex(0);
     }
   }, []);
+
+  const navigateHierarchy = useCallback((direction) => {
+    if (!hierarchy || hierarchy.length === 0) return;
+    
+    setCurrentIndex((prev) => {
+      const next = prev + direction;
+      if (next < 0) return 0;
+      if (next >= hierarchy.length) return hierarchy.length - 1;
+      return next;
+    });
+  }, [hierarchy]);
 
   return {
     autoSelectionRect,
     displayAutoSelectionRect: displayRect,
     hasAutoSelection,
-    clearAutoSelection: () => setAutoSelectionRect(null),
+    clearAutoSelection: () => {
+      setHierarchy([]);
+      setCurrentIndex(0);
+    },
     forceRefresh,
+    navigateHierarchy,
   };
 }

@@ -54,10 +54,25 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
     hasAutoSelection,
     clearAutoSelection,
     forceRefresh: refreshAutoSelection,
+    navigateHierarchy,
   } = useAutoSelection(isInteracting || hasValidSelection);
 
   // 光标样式管理
   useCursorStyle(stageRef, selection, isInteracting);
+
+  const handleWheel = useCallback(
+    (e) => {
+      if (hasValidSelection || isInteracting) return;
+
+      const delta = e.evt.deltaY;
+      if (delta < 0) {
+        navigateHierarchy(1);
+      } else {
+        navigateHierarchy(-1);
+      }
+    },
+    [hasValidSelection, isInteracting, navigateHierarchy]
+  );
 
   // 鼠标事件处理
   const handleMouseDown = useCallback(
@@ -167,6 +182,7 @@ function SelectionOverlay({ stageWidth, stageHeight, stageRef, stageRegionManage
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onContextMenu={handleRightClick}
+        onWheel={handleWheel}
       />
 
       {/* 自动选择矩形 */}
