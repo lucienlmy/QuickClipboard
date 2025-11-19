@@ -7,10 +7,10 @@ export default function useCursorMovement(screens, setMousePos, magnifierUpdateR
   const animationFrameRef = useRef(null);
   const lastTimeRef = useRef(0);
   const moveStartTimeRef = useRef(0);
-  const moveAccumulatorRef = useRef(0); // 亚像素移动累加器
+  const moveAccumulatorRef = useRef(0); 
   
-  const physicalPositionRef = useRef(null); // 权威物理坐标源
-  const isKeyboardActiveRef = useRef(false); // 键盘操作状态
+  const physicalPositionRef = useRef(null);
+  const isKeyboardActiveRef = useRef(false);
   const ignoreMouseMoveUntilRef = useRef(0);
 
   // 计算逻辑与物理坐标偏移量
@@ -23,29 +23,23 @@ export default function useCursorMovement(screens, setMousePos, magnifierUpdateR
     };
   }, [screens]);
 
-  // 初始化物理坐标引用
-  const initPhysicalPositionIfNeeded = (logicalPos) => {
-    if (physicalPositionRef.current === null && logicalPos) {
-      const scale = window.devicePixelRatio || 1;
-      physicalPositionRef.current = {
-        x: Math.round((logicalPos.x + stageOffset.x) * scale),
-        y: Math.round((logicalPos.y + stageOffset.y) * scale)
-      };
-    }
-  };
-
   // 更新光标位置（基于物理坐标）
-  const updateCursorPosition = (dx, dy) => {
+  const updateCursorPosition = (dx, dy, forceSync = false) => {
     setMousePos(prev => {
       if (!prev) return prev;
       
-      initPhysicalPositionIfNeeded(prev);
+      const scale = window.devicePixelRatio || 1;
+
+      if (physicalPositionRef.current === null || forceSync) {
+        physicalPositionRef.current = {
+          x: Math.round((prev.x + stageOffset.x) * scale),
+          y: Math.round((prev.y + stageOffset.y) * scale)
+        };
+      }
       
       const currentPhys = physicalPositionRef.current;
       let newPhysX = currentPhys.x + dx;
       let newPhysY = currentPhys.y + dy;
-
-      const scale = window.devicePixelRatio || 1;
 
       // 应用边界限制
       if (stageRegionManager) {
@@ -120,7 +114,7 @@ export default function useCursorMovement(screens, setMousePos, magnifierUpdateR
             if (key === 'ArrowLeft') dx = -1;
             if (key === 'ArrowRight') dx = 1;
             
-            updateCursorPosition(dx, dy);
+            updateCursorPosition(dx, dy, true);
             
             // 启动加速循环
             if (!animationFrameRef.current) {
