@@ -52,7 +52,7 @@ rdev = { version = "0.5.3", features = ["unstable_grab"] }
 enigo = "0.6.1"
 tauri-plugin-autostart = "2.5.1"
 active-win-pos-rs = "0.8"
-xcap = "0.7.1"
+xcap = {git="https://github.com/mosheng1/xcap"}
 atree = "0.5.2"
 rtree_rs = "0.1.4"
 
