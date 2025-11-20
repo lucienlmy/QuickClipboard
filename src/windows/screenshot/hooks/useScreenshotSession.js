@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { cancelScreenshotSession } from '@shared/api/system';
 import { useSelection } from './useSelection';
 import { useSelectionInteraction } from './useSelectionInteraction';
 import { useAutoSelection } from './useAutoSelection';
@@ -81,9 +81,9 @@ export function useScreenshotSession(stageRef, stageRegionManager) {
       return;
     }
     try {
-      await getCurrentWebviewWindow().close();
+      await cancelScreenshotSession();
     } catch (err) {
-      console.error('关闭窗口失败:', err);
+      console.error('取消截屏会话失败:', err);
     }
   }, [selection, clearSelection, resetInteractionState, refreshAutoSelection]);
 
