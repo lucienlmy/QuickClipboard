@@ -11,7 +11,7 @@
     "tauri:build": "tauri build"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
+    "@tauri-apps/cli": "^2.9.4",
     "@unocss/reset": "^66.5.4",
     "@vitejs/plugin-react": "^5.1.0",
     "autoprefixer": "^10.4.21",
@@ -30,11 +30,11 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@tabler/icons-webfont": "^3.35.0",
-    "@tauri-apps/api": "^2.6.0",
-    "@tauri-apps/plugin-dialog": "^2.3.2",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tauri-apps/plugin-fs": "^2.4.4",
     "@tauri-apps/plugin-http": "^2.5.2",
-    "@tauri-apps/plugin-opener": "^2.4.0",
+    "@tauri-apps/plugin-opener": "^2.5.0",
     "@tauri-apps/plugin-process": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.1.0",
     "dompurify": "^3.3.0",

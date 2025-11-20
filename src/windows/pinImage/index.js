@@ -65,9 +65,13 @@ import {
 
     async function onToggleThumbnail() {
         const isCurrentlyThumbnail = document.body.classList.contains('thumbnail-mode');
-        await handleThumbnailToggle(!isCurrentlyThumbnail);
+        const newThumbnailState = !isCurrentlyThumbnail;
+
+        states.thumbnail.enabled = newThumbnailState;
+
+        await handleThumbnailToggle(newThumbnailState);
         const settings = loadSettings();
-        settings.thumbnailMode = !isCurrentlyThumbnail;
+        settings.thumbnailMode = newThumbnailState;
         saveSettings(settings);
     }
 

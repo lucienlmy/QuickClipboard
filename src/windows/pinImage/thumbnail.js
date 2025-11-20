@@ -38,12 +38,12 @@ export async function enterThumbnailMode(window, state) {
         }
         
         await invoke('animate_window_resize', {
-            startWidth: currentSize.width,
-            startHeight: currentSize.height,
+            startW: currentSize.width,
+            startH: currentSize.height,
             startX: currentPosition.x,
             startY: currentPosition.y,
-            endWidth: thumbnailPhysicalSize,
-            endHeight: thumbnailPhysicalSize,
+            endW: thumbnailPhysicalSize,
+            endH: thumbnailPhysicalSize,
             endX: newX,
             endY: newY,
             durationMs: 300
@@ -96,12 +96,12 @@ export async function exitThumbnailMode(window, state) {
             const endY = Math.round(centerY - endHeight / 2);
             
             await invoke('animate_window_resize', {
-                startWidth: currentSize.width,
-                startHeight: currentSize.height,
+                startW: currentSize.width,
+                startH: currentSize.height,
                 startX: currentPosition.x,
                 startY: currentPosition.y,
-                endWidth: endWidth,
-                endHeight: endHeight,
+                endW: endWidth,
+                endH: endHeight,
                 endX: endX,
                 endY: endY,
                 durationMs: 300
