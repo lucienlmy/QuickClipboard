@@ -38,7 +38,7 @@ function SelectionOverlay({
 
 
   return (
-    <Layer>
+    <Layer id="screenshot-overlay-layer">
       {/* 遮罩层 */}
       <Rect
         x={0}

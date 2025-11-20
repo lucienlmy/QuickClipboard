@@ -1,0 +1,99 @@
+import { useState, useRef, useCallback } from 'react';
+import { createPenTool } from '../tools/penTool';
+
+export default function useScreenshotEditing() {
+  const [shapes, setShapes] = useState([]);
+  const [history, setHistory] = useState([[]]);
+  const [historyStep, setHistoryStep] = useState(0);
+  const [activeToolId, setActiveToolId] = useState(null);
+  const [currentShape, setCurrentShape] = useState(null);
+  
+  const isDrawingRef = useRef(false);
+  
+  const tools = useRef({
+    pen: createPenTool(),
+  });
+
+  const [toolStyle, setToolStyle] = useState({
+    stroke: '#ff0000',
+    strokeWidth: 4,
+  });
+
+  const pushToHistory = useCallback((newShapes) => {
+    const newHistory = history.slice(0, historyStep + 1);
+    newHistory.push(newShapes);
+    setHistory(newHistory);
+    setHistoryStep(newHistory.length - 1);
+  }, [history, historyStep]);
+
+  const undo = useCallback(() => {
+    if (historyStep > 0) {
+      const newStep = historyStep - 1;
+      setHistoryStep(newStep);
+      setShapes(history[newStep]);
+    }
+  }, [history, historyStep]);
+
+  const redo = useCallback(() => {
+    if (historyStep < history.length - 1) {
+      const newStep = historyStep + 1;
+      setHistoryStep(newStep);
+      setShapes(history[newStep]);
+    }
+  }, [history, historyStep]);
+
+  const handleMouseDown = useCallback((e, relativePos) => {
+    if (!activeToolId) return false;
+    
+    const tool = tools.current[activeToolId];
+    if (!tool) return false;
+
+    isDrawingRef.current = true;
+    
+    const newShape = tool.createShape(relativePos, toolStyle);
+    setCurrentShape(newShape);
+    
+    return true;
+  }, [activeToolId, toolStyle]);
+
+  const handleMouseMove = useCallback((e, relativePos) => {
+    if (!activeToolId || !isDrawingRef.current || !currentShape) return false;
+
+    const tool = tools.current[activeToolId];
+    if (!tool) return false;
+
+    const updatedShape = tool.updateShape(currentShape, relativePos);
+    setCurrentShape(updatedShape);
+    
+    return true;
+  }, [activeToolId, currentShape]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!activeToolId || !isDrawingRef.current) return false;
+
+    if (currentShape) {
+      const newShapes = [...shapes, currentShape];
+      setShapes(newShapes);
+      pushToHistory(newShapes);
+      setCurrentShape(null);
+    }
+    
+    isDrawingRef.current = false;
+    return true;
+  }, [activeToolId, currentShape, shapes, pushToHistory]);
+
+  return {
+    shapes: currentShape ? [...shapes, currentShape] : shapes,
+    activeToolId,
+    setActiveToolId,
+    undo,
+    redo,
+    canUndo: historyStep > 0,
+    canRedo: historyStep < history.length - 1,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    toolStyle,
+    setToolStyle
+  };
+}

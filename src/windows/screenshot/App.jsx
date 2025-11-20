@@ -9,6 +9,8 @@ import SelectionOverlay from './components/SelectionOverlay';
 import Magnifier from './components/Magnifier';
 import SelectionInfoBar from './components/SelectionInfoBar';
 import SelectionToolbar from './components/SelectionToolbar';
+import EditingLayer from './components/EditingLayer';
+import useScreenshotEditing from './hooks/useScreenshotEditing';
 import { useScreenshotSession } from './hooks/useScreenshotSession';
 import { ensureAutoSelectionStarted } from './utils/autoSelectionManager';
 
@@ -20,6 +22,39 @@ function App() {
 
   const handleCursorMove = useCursorMovement(screens, setMousePos, magnifierUpdateRef, stageRegionManager);
   const session = useScreenshotSession(stageRef, stageRegionManager);
+  const editing = useScreenshotEditing();
+
+  const handleMouseDown = (e) => {
+    const stage = e.target.getStage();
+    const pos = stage.getPointerPosition();
+    
+    if (editing.activeToolId) {
+      editing.handleMouseDown(e, pos);
+    } else {
+      session.handleMouseDown(e);
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    const stage = e.target.getStage();
+    const pos = stage.getPointerPosition();
+
+    if (editing.activeToolId) {
+      editing.handleMouseMove(e, pos);
+      handleCursorMove(e);
+    } else {
+      session.handleMouseMove(e);
+      handleCursorMove(e);
+    }
+  };
+
+  const handleMouseUp = (e) => {
+    if (editing.activeToolId) {
+      editing.handleMouseUp(e);
+    } else {
+      session.handleMouseUp(e);
+    }
+  };
 
   useEffect(() => {
     let unlisten;
@@ -65,17 +100,15 @@ function App() {
         width={stageSize.width} 
         height={stageSize.height} 
         pixelRatio={window.devicePixelRatio || 1}
-        onMouseDown={session.handleMouseDown}
-        onMouseMove={(e) => {
-          session.handleMouseMove(e);
-          handleCursorMove(e);
-        }}
-        onMouseUp={session.handleMouseUp}
-        onMouseLeave={session.handleMouseUp}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         onContextMenu={session.handleRightClick}
         onWheel={session.handleWheel}
       >
         <BackgroundLayer screens={screens} />
+        <EditingLayer shapes={editing.shapes} listening={!!editing.activeToolId} />
         <SelectionOverlay 
           stageWidth={stageSize.width}
           stageHeight={stageSize.height}
@@ -89,12 +122,13 @@ function App() {
           autoSelectionRect={session.autoSelectionRect}
           displayAutoSelectionRect={session.displayAutoSelectionRect}
           hasAutoSelection={session.hasAutoSelection}
+          listening={!editing.activeToolId}
         />
-        <Layer listening={false}>
+        <Layer id="screenshot-ui-layer" listening={false}>
           <Magnifier
             screens={screens}
             mousePos={mousePos}
-            visible={!session.hasValidSelection && !session.isInteracting}
+            visible={!session.hasValidSelection && !session.isInteracting && !editing.activeToolId}
             stageRegionManager={stageRegionManager}
             onMousePosUpdate={(updateFn) => { magnifierUpdateRef.current = updateFn; }}
           />
@@ -121,6 +155,12 @@ function App() {
         onConfirm={session.handleConfirmSelection}
         onPin={session.handlePinSelection}
         onSave={session.handleSaveSelection}
+        activeToolId={editing.activeToolId}
+        onToolChange={editing.setActiveToolId}
+        undo={editing.undo}
+        redo={editing.redo}
+        canUndo={editing.canUndo}
+        canRedo={editing.canRedo}
       />
     </div>
   );

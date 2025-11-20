@@ -20,18 +20,32 @@ async function captureSelectionToBlob(stageRef, selection, cornerRadius = 0) {
   const safeWidth = Math.max(1, x2 - x1);
   const safeHeight = Math.max(1, y2 - y1);
 
-  const bgLayer = stage.findOne('#screenshot-bg-layer');
-  const exportNode = bgLayer && typeof bgLayer.toDataURL === 'function' ? bgLayer : stage;
+  const overlayLayer = stage.findOne('#screenshot-overlay-layer');
+  const uiLayer = stage.findOne('#screenshot-ui-layer');
+
+  const overlayVisible = overlayLayer?.visible();
+  const uiVisible = uiLayer?.visible();
+  
+  if (overlayLayer) overlayLayer.visible(false);
+  if (uiLayer) uiLayer.visible(false);
+
+  const exportNode = stage;
 
   const stagePixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
 
-  const dataURL = exportNode.toDataURL({
-    x: safeX,
-    y: safeY,
-    width: safeWidth,
-    height: safeHeight,
-    pixelRatio: stagePixelRatio,
-  });
+  let dataURL;
+  try {
+    dataURL = exportNode.toDataURL({
+      x: safeX,
+      y: safeY,
+      width: safeWidth,
+      height: safeHeight,
+      pixelRatio: stagePixelRatio,
+    });
+  } finally {
+    if (overlayLayer && overlayVisible !== undefined) overlayLayer.visible(overlayVisible);
+    if (uiLayer && uiVisible !== undefined) uiLayer.visible(uiVisible);
+  }
 
   let blob;
 
