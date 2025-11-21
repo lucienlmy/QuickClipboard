@@ -15,6 +15,8 @@ const EditingLayer = ({ shapes, listening }) => {
               tension={shape.tension}
               lineCap={shape.lineCap}
               lineJoin={shape.lineJoin}
+              dash={shape.dash}
+              opacity={shape.opacity}
               globalCompositeOperation={shape.globalCompositeOperation}
             />
           );

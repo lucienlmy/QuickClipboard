@@ -13,6 +13,7 @@ import EditingLayer from './components/EditingLayer';
 import useScreenshotEditing from './hooks/useScreenshotEditing';
 import { useScreenshotSession } from './hooks/useScreenshotSession';
 import { ensureAutoSelectionStarted } from './utils/autoSelectionManager';
+import ToolParameterPanel from './components/ToolParameterPanel';
 
 function App() {
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
@@ -29,6 +30,10 @@ function App() {
     const pos = stage.getPointerPosition();
     
     if (editing.activeToolId) {
+      const button = e.evt?.button;
+      if (button !== undefined && button !== 0) {
+        return;
+      }
       editing.handleMouseDown(e, pos);
     } else {
       session.handleMouseDown(e);
@@ -40,6 +45,10 @@ function App() {
     const pos = stage.getPointerPosition();
 
     if (editing.activeToolId) {
+      const button = e.evt?.button;
+      if (button !== undefined && button !== 0) {
+        return;
+      }
       editing.handleMouseMove(e, pos);
       handleCursorMove(e);
     } else {
@@ -55,6 +64,13 @@ function App() {
       session.handleMouseUp(e);
     }
   };
+
+  const handleContextMenu = useCallback((e) => {
+    if (editing.activeToolId) {
+      editing.setActiveToolId(null);
+    }
+    session.handleRightClick(e);
+  }, [editing, session]);
 
   useEffect(() => {
     let unlisten;
@@ -104,7 +120,7 @@ function App() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onContextMenu={session.handleRightClick}
+        onContextMenu={handleContextMenu}
         onWheel={session.handleWheel}
       >
         <BackgroundLayer screens={screens} />
@@ -161,6 +177,15 @@ function App() {
         redo={editing.redo}
         canUndo={editing.canUndo}
         canRedo={editing.canRedo}
+      />
+
+      <ToolParameterPanel
+        selection={session.selection}
+        activeTool={editing.activeTool}
+        parameters={editing.toolParameters}
+        values={editing.toolStyle}
+        stageRegionManager={stageRegionManager}
+        onParameterChange={editing.handleToolParameterChange}
       />
     </div>
   );

@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPenTool } from '../tools/penTool';
+import { recordColorHistory } from '../utils/colorHistory';
 
 export default function useScreenshotEditing() {
   const [shapes, setShapes] = useState([]);
@@ -14,10 +15,45 @@ export default function useScreenshotEditing() {
     pen: createPenTool(),
   });
 
-  const [toolStyle, setToolStyle] = useState({
-    stroke: '#ff0000',
-    strokeWidth: 4,
-  });
+  const getInitialToolStyles = () => {
+    return Object.entries(tools.current).reduce((acc, [toolId, tool]) => {
+      acc[toolId] = tool?.getDefaultStyle ? tool.getDefaultStyle() : {};
+      return acc;
+    }, {});
+  };
+
+  const [toolStyles, setToolStyles] = useState(getInitialToolStyles);
+
+  const activeTool = activeToolId ? tools.current[activeToolId] : null;
+  const activeToolStyle = activeToolId ? toolStyles[activeToolId] || {} : {};
+
+  useEffect(() => {
+    if (!activeToolId) return;
+    setToolStyles(prev => {
+      if (prev[activeToolId]) {
+        return prev;
+      }
+      const tool = tools.current[activeToolId];
+      return {
+        ...prev,
+        [activeToolId]: tool?.getDefaultStyle ? tool.getDefaultStyle() : {},
+      };
+    });
+  }, [activeToolId]);
+
+  const handleToolParameterChange = useCallback((paramId, value) => {
+    if (!activeToolId) return;
+    setToolStyles(prev => {
+      const currentStyle = prev[activeToolId] || {};
+      return {
+        ...prev,
+        [activeToolId]: {
+          ...currentStyle,
+          [paramId]: value,
+        },
+      };
+    });
+  }, [activeToolId]);
 
   const pushToHistory = useCallback((newShapes) => {
     const newHistory = history.slice(0, historyStep + 1);
@@ -50,11 +86,11 @@ export default function useScreenshotEditing() {
 
     isDrawingRef.current = true;
     
-    const newShape = tool.createShape(relativePos, toolStyle);
+    const newShape = tool.createShape(relativePos, activeToolStyle);
     setCurrentShape(newShape);
     
     return true;
-  }, [activeToolId, toolStyle]);
+  }, [activeToolId, activeToolStyle]);
 
   const handleMouseMove = useCallback((e, relativePos) => {
     if (!activeToolId || !isDrawingRef.current || !currentShape) return false;
@@ -75,6 +111,9 @@ export default function useScreenshotEditing() {
       const newShapes = [...shapes, currentShape];
       setShapes(newShapes);
       pushToHistory(newShapes);
+      if (currentShape.stroke) {
+        recordColorHistory(currentShape.stroke);
+      }
       setCurrentShape(null);
     }
     
@@ -86,6 +125,10 @@ export default function useScreenshotEditing() {
     shapes: currentShape ? [...shapes, currentShape] : shapes,
     activeToolId,
     setActiveToolId,
+    activeTool,
+    toolParameters: activeTool?.parameters || [],
+    toolStyle: activeToolStyle,
+    handleToolParameterChange,
     undo,
     redo,
     canUndo: historyStep > 0,
@@ -93,7 +136,5 @@ export default function useScreenshotEditing() {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    toolStyle,
-    setToolStyle
   };
 }
