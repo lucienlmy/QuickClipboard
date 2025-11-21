@@ -97,11 +97,13 @@ export function useScreenshotSession(stageRef, stageRegionManager) {
     }
   }, [hasValidSelection, isInteracting, navigateHierarchy]);
 
-  const handleCancelSelection = useCallback(() => {
-    if (!selection) return;
-    clearSelection();
-    refreshAutoSelection();
-  }, [selection, clearSelection, refreshAutoSelection]);
+  const handleCancelSelection = useCallback(async () => {
+    try {
+      await cancelScreenshotSession();
+    } catch (err) {
+      console.error('取消截屏会话失败:', err);
+    }
+  }, []);
 
   const handleConfirmSelection = useCallback(async () => {
     if (!selection) return;

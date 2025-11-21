@@ -37,7 +37,6 @@ export default function useScreenshotStage() {
           scaleFactor: m.scale_factor,
         };
       });
-      console.log(meta);
 
       const minX = Math.min(...meta.map((m) => m.logicalX));
       const minY = Math.min(...meta.map((m) => m.logicalY));
@@ -71,7 +70,6 @@ export default function useScreenshotStage() {
                   physicalHeight: m.physicalHeight,
                   scaleFactor: m.scaleFactor,
                 };
-                console.log(screen);
                 resolve(screen);
               };
               img.onerror = (e) => {

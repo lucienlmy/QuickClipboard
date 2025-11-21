@@ -70,7 +70,6 @@ export default function useScreenshotEditing() {
   const [selectionBox, setSelectionBox] = useState(null);
   const isDrawingRef = useRef(false);
   const isSelectingRef = useRef(false);
-  const justFinishedSelectingRef = useRef(false);
 
   const tools = useRef({
     pen: createPenTool(),
@@ -285,7 +284,6 @@ export default function useScreenshotEditing() {
     if (activeToolId === 'select') {
       if (isSelectingRef.current && selectionBox) {
         isSelectingRef.current = false;
-        justFinishedSelectingRef.current = true;
         
         const box = {
           x: selectionBox.width >= 0 ? selectionBox.x : selectionBox.x + selectionBox.width,
@@ -307,10 +305,6 @@ export default function useScreenshotEditing() {
         }
         
         setSelectionBox(null);
-        
-        setTimeout(() => {
-          justFinishedSelectingRef.current = false;
-        }, 100);
       }
       return true;
     }
@@ -344,9 +338,6 @@ export default function useScreenshotEditing() {
 
   const toggleSelectShape = useCallback((index, isMultiSelect) => {
     if (index === null) {
-      if (justFinishedSelectingRef.current) {
-        return;
-      }
       setSelectedShapeIndices([]);
       return;
     }

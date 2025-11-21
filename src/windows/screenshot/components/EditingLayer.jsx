@@ -6,6 +6,7 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
   const transformerRef = useRef(null);
   const shapeRefs = useRef([]);
   const layerRef = useRef(null);
+  const mouseDownPosRef = useRef(null);
 
   useEffect(() => {
     if (transformerRef.current && selectedShapeIndices.length > 0) {
@@ -23,12 +24,23 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
     }
   }, [selectedShapeIndices, shapes]);
 
+  const handleLayerMouseDown = (e) => {
+    if (isSelectMode && e.target.name() === 'editingLayerBackground') {
+      const pos = e.target.getStage().getPointerPosition();
+      mouseDownPosRef.current = pos;
+    }
+  };
+
   const handleLayerClick = (e) => {
-    if (isSelectMode) {
-      const isBackground = e.target.name() === 'editingLayerBackground';
-      if (isBackground) {
+    if (isSelectMode && e.target.name() === 'editingLayerBackground') {
+      const pos = e.target.getStage().getPointerPosition();
+      const downPos = mouseDownPosRef.current;
+      
+      if (downPos && Math.abs(pos.x - downPos.x) < 5 && Math.abs(pos.y - downPos.y) < 5) {
         onSelectShape?.(null, false);
       }
+      
+      mouseDownPosRef.current = null;
     }
   };
 
@@ -38,7 +50,7 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
       id="screenshot-editing-layer" 
       listening={listening}
     >
-      {/* 透明背景捕获的事件 */}
+      {/* 透明背景用于捕获空白区域的事件 */}
       {isSelectMode && (
         <Rect
           name="editingLayerBackground"
@@ -48,6 +60,7 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
           height={999999}
           fill="transparent"
           listening={true}
+          onMouseDown={handleLayerMouseDown}
           onClick={handleLayerClick}
           onTap={handleLayerClick}
         />
