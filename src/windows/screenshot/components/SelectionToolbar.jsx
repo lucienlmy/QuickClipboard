@@ -77,6 +77,7 @@ function SelectionToolbar({
       aria-label={tool.title}
       className={[
         'flex items-center justify-center w-6 h-6 rounded-md border text-gray-600 dark:text-gray-200',
+        'active:scale-95 hover:scale-110',
         tool.active
           ? 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
           : tool.variant === 'primary'
@@ -84,10 +85,10 @@ function SelectionToolbar({
             : tool.disabled
               ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
               : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700',
-        'transition-colors duration-150',
+        'transition-all duration-200 ease-in-out',
       ].join(' ')}
     >
-      <i className={`${tool.icon} text-sm`}></i>
+      <i className={`${tool.icon} text-lg`}></i>
     </button>
   );
 

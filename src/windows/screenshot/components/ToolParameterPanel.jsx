@@ -56,6 +56,7 @@ export default function ToolParameterPanel({
   onAction,
 }) {
   const panelRef = useRef(null);
+  const contentRef = useRef(null);
   const [panelSize, setPanelSize] = useState(DEFAULT_PANEL_SIZE);
   const [position, setPosition] = useState({ x: -9999, y: -9999 });
   const [lockedPosition, setLockedPosition] = useState(null);
@@ -69,14 +70,37 @@ export default function ToolParameterPanel({
   }, [activeTool]);
 
   useLayoutEffect(() => {
-    if (!panelRef.current) return;
-    const rect = panelRef.current.getBoundingClientRect();
+    if (!contentRef.current) return;
+    
+    const container = contentRef.current;
+    
+    container.style.transition = 'none';
+    container.style.height = 'auto';
+    
+    const rect = container.getBoundingClientRect();
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
-    if (Math.abs(width - panelSize.width) > 2 || Math.abs(height - panelSize.height) > 2) {
+
+    if (panelSize.height > 0 && Math.abs(height - panelSize.height) > 2) {
+      container.style.height = `${panelSize.height}px`;
+      void container.offsetHeight;
+      container.style.transition = 'height 200ms cubic-bezier(0.4, 0, 0.2, 1)';
+      container.style.height = `${height}px`;
+      const timer = setTimeout(() => {
+        if (contentRef.current) {
+          contentRef.current.style.transition = 'none';
+          contentRef.current.style.height = 'auto';
+        }
+      }, 200);
       setPanelSize({ width, height });
+      return () => clearTimeout(timer);
+    } else {
+      container.style.height = 'auto';
+      if (Math.abs(width - panelSize.width) > 2 || Math.abs(height - panelSize.height) > 2) {
+        setPanelSize({ width, height });
+      }
     }
-  }, [effectiveParameters, values, activeTool?.id, panelSize.width, panelSize.height]);
+  }, [effectiveParameters, values, activeTool?.id]);
 
   useEffect(() => {
     if (!selection || !activeTool || !panelSize) return;
@@ -237,7 +261,7 @@ export default function ToolParameterPanel({
       className="absolute z-20 select-none"
       style={{ left: position.x, top: position.y }}
     >
-      <div className="w-[220px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 flex flex-col gap-3">
+      <div ref={contentRef} className="w-[220px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 flex flex-col gap-3 overflow-hidden">
         <div
           className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide cursor-grab active:cursor-grabbing rounded-lg px-1"
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
