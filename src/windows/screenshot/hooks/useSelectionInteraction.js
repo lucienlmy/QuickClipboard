@@ -168,7 +168,7 @@ export function useSelectionInteraction(
         let newSelection = calculateMovedSelection(selection, pos, moveOffset);
         
         if (stageRegionManager) {
-          newSelection = stageRegionManager.constrainRect(newSelection);
+          newSelection = stageRegionManager.constrainRect(newSelection, 'move');
         }
         
         updateSelection(newSelection);

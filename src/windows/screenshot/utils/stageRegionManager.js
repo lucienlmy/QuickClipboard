@@ -104,7 +104,7 @@ export class StageRegionManager {
   }
 
   // 限制矩形在屏幕范围内，相邻屏幕边界允许跨越
-  constrainRect(rect) {
+  constrainRect(rect, behavior = 'resize') {
     if (!rect || !this.screens || this.screens.length === 0) {
       return rect;
     }
@@ -117,55 +117,88 @@ export class StageRegionManager {
     const isInValidScreen = this.isPointInBounds(centerX, centerY);
     let targetScreen = this.getNearestScreen(centerX, centerY);
 
-    if (!targetScreen && this.screens.length > 0) {
-      targetScreen = this.screens[0];
-    }
-
-    if (!targetScreen) {
-      return rect;
-    }
-
-    if (isInValidScreen) {
+    if (targetScreen && isInValidScreen) {
       const hasLeft = this.hasAdjacentScreen(targetScreen, 'left');
       const hasRight = this.hasAdjacentScreen(targetScreen, 'right');
       const hasTop = this.hasAdjacentScreen(targetScreen, 'top');
       const hasBottom = this.hasAdjacentScreen(targetScreen, 'bottom');
 
+
+      const isEdgeValid = (checkX, checkY) => this.isPointInBounds(checkX, checkY);
+
       if (!hasRight && x + width > targetScreen.x + targetScreen.width) {
-        x = targetScreen.x + targetScreen.width - width;
+        if (!isEdgeValid(x + width, y) && !isEdgeValid(x + width, y + height)) {
+             if (behavior === 'move') {
+              x = targetScreen.x + targetScreen.width - width;
+            } else {
+              width = targetScreen.x + targetScreen.width - x;
+            }
+        }
       }
+
       if (!hasBottom && y + height > targetScreen.y + targetScreen.height) {
-        y = targetScreen.y + targetScreen.height - height;
+        if (!isEdgeValid(x, y + height) && !isEdgeValid(x + width, y + height)) {
+            if (behavior === 'move') {
+              y = targetScreen.y + targetScreen.height - height;
+            } else {
+              height = targetScreen.y + targetScreen.height - y;
+            }
+        }
       }
+
       if (!hasLeft && x < targetScreen.x) {
-        x = targetScreen.x;
+         if (!isEdgeValid(x, y) && !isEdgeValid(x, y + height)) {
+            if (behavior === 'move') {
+              x = targetScreen.x;
+            } else {
+              const diff = targetScreen.x - x;
+              x = targetScreen.x;
+              width -= diff;
+            }
+         }
       }
+
       if (!hasTop && y < targetScreen.y) {
-        y = targetScreen.y;
-      }
-    } else {
-      if (x + width > targetScreen.x + targetScreen.width) {
-        x = targetScreen.x + targetScreen.width - width;
-      }
-      if (y + height > targetScreen.y + targetScreen.height) {
-        y = targetScreen.y + targetScreen.height - height;
-      }
-      if (x < targetScreen.x) {
-        x = targetScreen.x;
-      }
-      if (y < targetScreen.y) {
-        y = targetScreen.y;
+        if (!isEdgeValid(x, y) && !isEdgeValid(x + width, y)) {
+            if (behavior === 'move') {
+              y = targetScreen.y;
+            } else {
+              const diff = targetScreen.y - y;
+              y = targetScreen.y;
+              height -= diff;
+            }
+        }
       }
     }
 
-    if (width > targetScreen.width) {
-      width = targetScreen.width;
-      x = targetScreen.x;
+    if (this.totalBounds) {
+      const bounds = this.totalBounds;
+      
+      if (behavior === 'move') {
+        if (x < bounds.x) x = bounds.x;
+        if (y < bounds.y) y = bounds.y;
+        if (x + width > bounds.x + bounds.width) x = bounds.x + bounds.width - width;
+        if (y + height > bounds.y + bounds.height) y = bounds.y + bounds.height - height;
+      } else {
+        if (x < bounds.x) {
+          width -= (bounds.x - x);
+          x = bounds.x;
+        }
+        if (y < bounds.y) {
+          height -= (bounds.y - y);
+          y = bounds.y;
+        }
+        if (x + width > bounds.x + bounds.width) {
+          width = bounds.x + bounds.width - x;
+        }
+        if (y + height > bounds.y + bounds.height) {
+          height = bounds.y + bounds.height - y;
+        }
+      }
     }
-    if (height > targetScreen.height) {
-      height = targetScreen.height;
-      y = targetScreen.y;
-    }
+
+    width = Math.max(0, width);
+    height = Math.max(0, height);
 
     return { x, y, width, height };
   }

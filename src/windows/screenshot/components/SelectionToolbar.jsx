@@ -11,54 +11,51 @@ function SelectionToolbar({
   const getToolbarPosition = () => {
     const padding = 8;
     const toolbarHeight = 35;
+    const toolbarWidth = 340; 
 
     let x = selection.x + selection.width;
     let y = selection.y + selection.height + padding;
 
-    if (stageRegionManager) {
-      const centerX = selection.x + selection.width / 2;
-      const centerY = selection.y + selection.height / 2;
-      const targetScreen = stageRegionManager.getNearestScreen(centerX, centerY);
+    const targetScreen = stageRegionManager 
+      ? stageRegionManager.getNearestScreen(selection.x + selection.width, selection.y + selection.height)
+      : null;
 
-      if (targetScreen) {
-        const screenBottom = targetScreen.y + targetScreen.height;
-        const screenTop = targetScreen.y;
-        const screenRight = targetScreen.x + targetScreen.width;
-        const screenLeft = targetScreen.x;
+    const bounds = targetScreen || {
+      x: 0,
+      y: 0,
+      width: window.innerWidth || 1920,
+      height: window.innerHeight || 1080,
+    };
 
-        const hasBottomSpace = y + toolbarHeight <= screenBottom;
+    const screenRight = bounds.x + bounds.width;
+    const screenBottom = bounds.y + bounds.height;
+    const screenLeft = bounds.x;
+    const screenTop = bounds.y;
 
-        if (!hasBottomSpace) {
-          const yTop = selection.y - toolbarHeight - padding;
-          const hasTopSpace = yTop >= screenTop;
-
-          if (hasTopSpace) {
-            y = yTop;
-          } else {
-            x = selection.x + selection.width - padding;
-            y = selection.y + selection.height - toolbarHeight - padding;
-          }
-        }
-
-        if (x > screenRight) {
-          x = screenRight - padding;
-        }
-        if (x - 110 < screenLeft) {
-          x = screenLeft + 110;
-        }
-      }
-    } else {
-      const estimatedWindowHeight = window.innerHeight || 1080;
-      if (y + toolbarHeight > estimatedWindowHeight - 10) {
-        const hasTopSpace = selection.y - toolbarHeight - padding >= 10;
-        if (hasTopSpace) {
-          y = selection.y - toolbarHeight - padding;
-        } else {
-          x = selection.x + selection.width - padding;
-          y = selection.y + selection.height - toolbarHeight - padding;
+    if (y + toolbarHeight > screenBottom) {
+      const yTop = selection.y - toolbarHeight - padding;
+      
+      if (yTop >= screenTop) {
+        y = yTop;
+      } else {
+        y = selection.y + selection.height - toolbarHeight - padding;
+        
+        if (y + toolbarHeight > screenBottom) {
+          y = screenBottom - toolbarHeight - padding;
         }
       }
     }
+
+    if (x > screenRight) {
+      x = screenRight - padding;
+    }
+
+    if (x - toolbarWidth < screenLeft) {
+      x = screenLeft + toolbarWidth + padding;
+    }
+
+    if (y < screenTop) y = screenTop + padding;
+    if (y + toolbarHeight > screenBottom) y = screenBottom - toolbarHeight - padding;
 
     return { x, y };
   };
