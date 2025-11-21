@@ -1,7 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
-function SelectionToolbar({ 
-  selection, isDrawing, isMoving, isResizing, stageRegionManager, 
+function SelectionToolbar({
+  selection, isDrawing, isMoving, isResizing, stageRegionManager,
   onCancel, onConfirm, onPin, onSave,
   activeToolId, onToolChange, undo, redo, canUndo, canRedo
 }) {
@@ -14,12 +14,12 @@ function SelectionToolbar({
 
     let x = selection.x + selection.width;
     let y = selection.y + selection.height + padding;
-    
+
     if (stageRegionManager) {
       const centerX = selection.x + selection.width / 2;
       const centerY = selection.y + selection.height / 2;
       const targetScreen = stageRegionManager.getNearestScreen(centerX, centerY);
-      
+
       if (targetScreen) {
         const screenBottom = targetScreen.y + targetScreen.height;
         const screenTop = targetScreen.y;
@@ -27,7 +27,7 @@ function SelectionToolbar({
         const screenLeft = targetScreen.x;
 
         const hasBottomSpace = y + toolbarHeight <= screenBottom;
-        
+
         if (!hasBottomSpace) {
           const yTop = selection.y - toolbarHeight - padding;
           const hasTopSpace = yTop >= screenTop;
@@ -39,12 +39,12 @@ function SelectionToolbar({
             y = selection.y + selection.height - toolbarHeight - padding;
           }
         }
-        
+
         if (x > screenRight) {
           x = screenRight - padding;
         }
         if (x - 110 < screenLeft) {
-           x = screenLeft + 110;
+          x = screenLeft + 110;
         }
       }
     } else {
@@ -59,7 +59,7 @@ function SelectionToolbar({
         }
       }
     }
-    
+
     return { x, y };
   };
 
@@ -77,13 +77,13 @@ function SelectionToolbar({
       aria-label={tool.title}
       className={[
         'flex items-center justify-center w-6 h-6 rounded-md border text-gray-600 dark:text-gray-200',
-        tool.active 
+        tool.active
           ? 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
           : tool.variant === 'primary'
-          ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white shadow-sm'
-          : tool.disabled
-          ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
-          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700',
+            ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white shadow-sm'
+            : tool.disabled
+              ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+              : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700',
         'transition-colors duration-150',
       ].join(' ')}
     >
@@ -128,28 +128,28 @@ function SelectionToolbar({
   ];
 
   const drawingTools = [
+     {
+      id: 'shape',
+      icon: 'ti ti-triangle-square-circle',
+      title: '形状',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'shape' ? null : 'shape'),
+      active: activeToolId === 'shape',
+      variant: 'default'
+    },
+    {
+      id: 'pen',
+      icon: 'ti ti-pencil',
+      title: '画笔',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'pen' ? null : 'pen'),
+      active: activeToolId === 'pen',
+      variant: 'default'
+    },
     {
       id: 'select',
       icon: 'ti ti-pointer',
       title: '选择',
       onClick: () => onToolChange && onToolChange(activeToolId === 'select' ? null : 'select'),
       active: activeToolId === 'select',
-      variant: 'default'
-    },
-    { 
-      id: 'pen', 
-      icon: 'ti ti-pencil', 
-      title: '画笔', 
-      onClick: () => onToolChange && onToolChange(activeToolId === 'pen' ? null : 'pen'), 
-      active: activeToolId === 'pen',
-      variant: 'default' 
-    },
-    {
-      id: 'shape',
-      icon: 'ti ti-triangle-square-circle',
-      title: '形状',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'shape' ? null : 'shape'),
-      active: activeToolId === 'shape',
       variant: 'default'
     },
   ];
@@ -159,11 +159,11 @@ function SelectionToolbar({
   return (
     <div
       className="flex flex-row-reverse items-center gap-1 px-2 py-[5px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none"
-      style={{ 
-        position: 'absolute', 
-        left: x, 
-        top: y, 
-        transform: 'translateX(-100%)' 
+      style={{
+        position: 'absolute',
+        left: x,
+        top: y,
+        transform: 'translateX(-100%)'
       }}
     >
       {actionTools.map(renderButton)}
