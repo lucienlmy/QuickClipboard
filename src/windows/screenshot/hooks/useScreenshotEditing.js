@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPenTool } from '../tools/penTool';
+import { createShapeTool } from '../tools/shapeTool';
 import { recordColorHistory } from '../utils/colorHistory';
 
 export default function useScreenshotEditing() {
@@ -13,6 +14,7 @@ export default function useScreenshotEditing() {
   
   const tools = useRef({
     pen: createPenTool(),
+    shape: createShapeTool(),
   });
 
   const getInitialToolStyles = () => {
@@ -108,11 +110,22 @@ export default function useScreenshotEditing() {
     if (!activeToolId || !isDrawingRef.current) return false;
 
     if (currentShape) {
-      const newShapes = [...shapes, currentShape];
+      const finalizedShape = (() => {
+        if (currentShape.tool === 'shape') {
+          const { _meta, ...rest } = currentShape;
+          return rest;
+        }
+        return currentShape;
+      })();
+
+      const newShapes = [...shapes, finalizedShape];
       setShapes(newShapes);
       pushToHistory(newShapes);
-      if (currentShape.stroke) {
-        recordColorHistory(currentShape.stroke);
+      if (finalizedShape.stroke) {
+        recordColorHistory(finalizedShape.stroke);
+      }
+      if (finalizedShape.fill) {
+        recordColorHistory(finalizedShape.fill);
       }
       setCurrentShape(null);
     }

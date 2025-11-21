@@ -9,6 +9,8 @@ import {
 
 export default function ColorControl({ param, value, onChange }) {
   const [history, setHistory] = useState(() => readColorHistory());
+  const showPresets = param.showPresets !== false;
+  const showHistory = param.showHistory !== false;
 
   useEffect(() => {
     const handleHistoryUpdate = (event) => {
@@ -50,25 +52,27 @@ export default function ColorControl({ param, value, onChange }) {
           </span>
         </div>
       </label>
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-gray-400">
-          <span>预设</span>
-          <span className="text-gray-300 dark:text-gray-600">点击应用</span>
+      {showPresets && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-gray-400">
+            <span>预设</span>
+            <span className="text-gray-300 dark:text-gray-600">点击应用</span>
+          </div>
+          <div className="grid grid-cols-8 gap-1">
+            {COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="h-5 rounded-full border border-white/70 shadow-sm hover:scale-105 transition-transform"
+                style={{ background: preset }}
+                onClick={() => handleColorChange(preset)}
+                aria-label={`选择颜色 ${preset}`}
+              />
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-8 gap-1">
-          {COLOR_PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              className="h-5 rounded-full border border-white/70 shadow-sm hover:scale-105 transition-transform"
-              style={{ background: preset }}
-              onClick={() => handleColorChange(preset)}
-              aria-label={`选择颜色 ${preset}`}
-            />
-          ))}
-        </div>
-      </div>
-      {history.length > 0 && (
+      )}
+      {showHistory && history.length > 0 && (
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-gray-400">
             <span>历史</span>

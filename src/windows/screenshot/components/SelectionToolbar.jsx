@@ -136,6 +136,14 @@ function SelectionToolbar({
       active: activeToolId === 'pen',
       variant: 'default' 
     },
+    {
+      id: 'shape',
+      icon: 'ti ti-triangle-square-circle',
+      title: '形状',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'shape' ? null : 'shape'),
+      active: activeToolId === 'shape',
+      variant: 'default'
+    },
   ];
 
   const { x, y } = getToolbarPosition();

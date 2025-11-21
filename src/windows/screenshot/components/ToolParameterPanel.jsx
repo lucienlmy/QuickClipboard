@@ -220,7 +220,7 @@ export default function ToolParameterPanel({
       className="absolute z-20 select-none"
       style={{ left: position.x, top: position.y }}
     >
-      <div className="min-w-[220px] max-w-[320px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 flex flex-col gap-3">
+      <div className="w-[220px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 flex flex-col gap-3">
         <div
           className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide cursor-grab active:cursor-grabbing rounded-lg px-1"
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
