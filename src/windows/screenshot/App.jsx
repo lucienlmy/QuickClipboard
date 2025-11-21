@@ -127,10 +127,11 @@ function App() {
         <EditingLayer 
           shapes={editing.shapes} 
           listening={!!editing.activeToolId} 
-          selectedShapeIndex={editing.selectedShapeIndex}
-          onSelectShape={editing.selectShape}
+          selectedShapeIndices={editing.selectedShapeIndices}
+          onSelectShape={editing.toggleSelectShape}
           onShapeTransform={editing.updateSelectedShape}
           isSelectMode={editing.activeToolId === 'select'}
+          selectionBox={editing.selectionBox}
         />
         <SelectionOverlay 
           stageWidth={stageSize.width}
@@ -200,7 +201,7 @@ function App() {
         onParameterChange={editing.handleToolParameterChange}
         onAction={(action) => {
           if (action === 'delete') {
-            editing.deleteSelectedShape();
+            editing.deleteSelectedShapes();
           }
         }}
       />

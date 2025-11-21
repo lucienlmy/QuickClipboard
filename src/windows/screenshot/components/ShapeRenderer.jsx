@@ -26,18 +26,20 @@ const createCommonProps = (index, isSelected, isSelectMode, onSelectShape, shape
   onClick: (e) => {
     if (isSelectMode) {
       e.cancelBubble = true;
-      onSelectShape?.(index);
+      const isMultiSelect = e.evt?.ctrlKey || e.evt?.metaKey;
+      onSelectShape?.(index, isMultiSelect);
     }
   },
   onTap: (e) => {
     if (isSelectMode) {
       e.cancelBubble = true;
-      onSelectShape?.(index);
+      const isMultiSelect = e.evt?.ctrlKey || e.evt?.metaKey;
+      onSelectShape?.(index, isMultiSelect);
     }
   },
   onDragStart: () => {
     if (isSelectMode && !isSelected) {
-      onSelectShape?.(index);
+      onSelectShape?.(index, false);
     }
   },
 });

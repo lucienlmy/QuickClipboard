@@ -4,16 +4,74 @@ import { createShapeTool } from '../tools/shapeTool';
 import { createSelectTool } from '../tools/selectTool';
 import { recordColorHistory } from '../utils/colorHistory';
 
+// 检查形状是否在框选范围内
+const checkShapeInBox = (shape, box) => {
+  if (shape.tool === 'pen') {
+    const offsetX = shape.offsetX || 0;
+    const offsetY = shape.offsetY || 0;
+    for (let i = 0; i < shape.points.length; i += 2) {
+      const x = shape.points[i] + offsetX;
+      const y = shape.points[i + 1] + offsetY;
+      if (x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  if (shape.tool === 'shape') {
+    let shapeBox;
+    
+    if (shape.shapeType === 'circle' || shape.shapeType === 'diamond' || 
+        (typeof shape.sides === 'number' && shape.sides >= 3)) {
+      const cx = shape.centerX ?? (shape.x + shape.width / 2);
+      const cy = shape.centerY ?? (shape.y + shape.height / 2);
+      const radius = shape.radius ?? Math.max(Math.abs(shape.width), Math.abs(shape.height)) / 2;
+      shapeBox = {
+        x: cx - radius,
+        y: cy - radius,
+        width: radius * 2,
+        height: radius * 2,
+      };
+    } else if (shape.shapeType === 'arrow' && shape.points) {
+      const xs = [shape.points[0], shape.points[2]];
+      const ys = [shape.points[1], shape.points[3]];
+      shapeBox = {
+        x: Math.min(...xs),
+        y: Math.min(...ys),
+        width: Math.max(...xs) - Math.min(...xs),
+        height: Math.max(...ys) - Math.min(...ys),
+      };
+    } else {
+      shapeBox = {
+        x: shape.x,
+        y: shape.y,
+        width: Math.abs(shape.width),
+        height: Math.abs(shape.height),
+      };
+    }
+    
+    return !(shapeBox.x + shapeBox.width < box.x || 
+             shapeBox.x > box.x + box.width ||
+             shapeBox.y + shapeBox.height < box.y ||
+             shapeBox.y > box.y + box.height);
+  }
+  
+  return false;
+};
+
 export default function useScreenshotEditing() {
   const [shapes, setShapes] = useState([]);
   const [history, setHistory] = useState([[]]);
   const [historyStep, setHistoryStep] = useState(0);
   const [activeToolId, setActiveToolId] = useState(null);
   const [currentShape, setCurrentShape] = useState(null);
-  const [selectedShapeIndex, setSelectedShapeIndex] = useState(null);
-  
+  const [selectedShapeIndices, setSelectedShapeIndices] = useState([]);
+  const [selectionBox, setSelectionBox] = useState(null);
   const isDrawingRef = useRef(false);
-  
+  const isSelectingRef = useRef(false);
+  const justFinishedSelectingRef = useRef(false);
+
   const tools = useRef({
     pen: createPenTool(),
     shape: createShapeTool(),
@@ -31,22 +89,13 @@ export default function useScreenshotEditing() {
 
   // 选择模式下显示选中节点的工具参数
   const getActiveToolInfo = useCallback(() => {
-    if (activeToolId === 'select' && selectedShapeIndex !== null && shapes[selectedShapeIndex]) {
-      const selectedShape = shapes[selectedShapeIndex];
-      const shapeTool = selectedShape.tool;
-      if (shapeTool && tools.current[shapeTool]) {
-        const baseTool = tools.current[shapeTool];
-        
-        // 过滤掉不可修改的类型参数
-        const typeParamIds = ['shapeType', 'lineStyle', 'mode'];
-        const editableParams = (baseTool.parameters || []).filter(
-          param => !typeParamIds.includes(param.id)
-        );
-        
+    if (activeToolId === 'select' && selectedShapeIndices.length > 0) {
+      // 多选时只显示删除按钮
+      if (selectedShapeIndices.length > 1) {
         const deleteParam = {
           id: 'delete',
           type: 'button',
-          label: '删除选中',
+          label: `删除选中 (${selectedShapeIndices.length})`,
           icon: 'ti ti-trash',
           variant: 'danger',
           action: 'delete',
@@ -54,11 +103,44 @@ export default function useScreenshotEditing() {
         
         return {
           tool: {
-            ...baseTool,
-            parameters: [...editableParams, deleteParam],
+            id: 'select',
+            name: '多选',
+            parameters: [deleteParam],
           },
-          style: selectedShape,
+          style: {},
         };
+      }
+      
+      // 单选时显示对应工具的参数
+      const selectedShape = shapes[selectedShapeIndices[0]];
+      if (selectedShape) {
+        const shapeTool = selectedShape.tool;
+        if (shapeTool && tools.current[shapeTool]) {
+          const baseTool = tools.current[shapeTool];
+          
+          // 过滤掉不可修改的类型参数
+          const typeParamIds = ['shapeType', 'lineStyle', 'mode'];
+          const editableParams = (baseTool.parameters || []).filter(
+            param => !typeParamIds.includes(param.id)
+          );
+          
+          const deleteParam = {
+            id: 'delete',
+            type: 'button',
+            label: '删除选中',
+            icon: 'ti ti-trash',
+            variant: 'danger',
+            action: 'delete',
+          };
+          
+          return {
+            tool: {
+              ...baseTool,
+              parameters: [...editableParams, deleteParam],
+            },
+            style: selectedShape,
+          };
+        }
       }
     }
     
@@ -70,7 +152,7 @@ export default function useScreenshotEditing() {
     }
     
     return { tool: null, style: {} };
-  }, [activeToolId, selectedShapeIndex, shapes, toolStyles]);
+  }, [activeToolId, selectedShapeIndices, shapes, toolStyles]);
 
   const { tool: activeTool, style: activeToolStyle } = getActiveToolInfo();
 
@@ -91,9 +173,9 @@ export default function useScreenshotEditing() {
   const handleToolParameterChange = useCallback((paramId, value) => {
     if (!activeToolId) return;
     
-    if (activeToolId === 'select' && selectedShapeIndex !== null) {
+    if (activeToolId === 'select' && selectedShapeIndices.length === 1) {
       const newShapes = shapes.map((shape, i) => 
-        i === selectedShapeIndex ? { ...shape, [paramId]: value } : shape
+        i === selectedShapeIndices[0] ? { ...shape, [paramId]: value } : shape
       );
       setShapes(newShapes);
       const newHistory = history.slice(0, historyStep + 1);
@@ -114,7 +196,7 @@ export default function useScreenshotEditing() {
         },
       };
     });
-  }, [activeToolId, selectedShapeIndex, shapes, history, historyStep]);
+  }, [activeToolId, selectedShapeIndices, shapes, history, historyStep]);
 
   const pushToHistory = useCallback((newShapes) => {
     const newHistory = history.slice(0, historyStep + 1);
@@ -143,7 +225,18 @@ export default function useScreenshotEditing() {
     if (!activeToolId) return false;
     
     if (activeToolId === 'select') {
-      return false;
+      const isBackground = e.target.name && e.target.name() === 'editingLayerBackground';
+      
+      if (isBackground) {
+        isSelectingRef.current = true;
+        setSelectionBox({
+          x: relativePos.x,
+          y: relativePos.y,
+          width: 0,
+          height: 0,
+        });
+      }
+      return true;
     }
     
     const tool = tools.current[activeToolId];
@@ -158,7 +251,24 @@ export default function useScreenshotEditing() {
   }, [activeToolId, activeToolStyle]);
 
   const handleMouseMove = useCallback((e, relativePos) => {
-    if (!activeToolId || activeToolId === 'select' || !isDrawingRef.current || !currentShape) return false;
+    if (!activeToolId) return false;
+    
+    if (activeToolId === 'select' && isSelectingRef.current && selectionBox) {
+      const startX = selectionBox.x;
+      const startY = selectionBox.y;
+      const width = relativePos.x - startX;
+      const height = relativePos.y - startY;
+      
+      setSelectionBox({
+        x: startX,
+        y: startY,
+        width,
+        height,
+      });
+      return true;
+    }
+    
+    if (activeToolId === 'select' || !isDrawingRef.current || !currentShape) return false;
 
     const tool = tools.current[activeToolId];
     if (!tool) return false;
@@ -167,10 +277,45 @@ export default function useScreenshotEditing() {
     setCurrentShape(updatedShape);
     
     return true;
-  }, [activeToolId, currentShape]);
+  }, [activeToolId, currentShape, selectionBox]);
 
-  const handleMouseUp = useCallback(() => {
-    if (!activeToolId || activeToolId === 'select' || !isDrawingRef.current) return false;
+  const handleMouseUp = useCallback((e) => {
+    if (!activeToolId) return false;
+    
+    if (activeToolId === 'select') {
+      if (isSelectingRef.current && selectionBox) {
+        isSelectingRef.current = false;
+        justFinishedSelectingRef.current = true;
+        
+        const box = {
+          x: selectionBox.width >= 0 ? selectionBox.x : selectionBox.x + selectionBox.width,
+          y: selectionBox.height >= 0 ? selectionBox.y : selectionBox.y + selectionBox.height,
+          width: Math.abs(selectionBox.width),
+          height: Math.abs(selectionBox.height),
+        };
+        
+        if (box.width > 5 && box.height > 5) {
+          const selectedIndices = shapes.reduce((acc, shape, index) => {
+            const isInBox = checkShapeInBox(shape, box);
+            if (isInBox) {
+              acc.push(index);
+            }
+            return acc;
+          }, []);
+          
+          setSelectedShapeIndices(selectedIndices);
+        }
+        
+        setSelectionBox(null);
+        
+        setTimeout(() => {
+          justFinishedSelectingRef.current = false;
+        }, 100);
+      }
+      return true;
+    }
+    
+    if (activeToolId === 'select' || !isDrawingRef.current) return false;
 
     if (currentShape) {
       const finalizedShape = (() => {
@@ -195,32 +340,49 @@ export default function useScreenshotEditing() {
     
     isDrawingRef.current = false;
     return true;
-  }, [activeToolId, currentShape, shapes, pushToHistory]);
+  }, [activeToolId, currentShape, shapes, pushToHistory, selectionBox]);
 
-  const selectShape = useCallback((index) => {
-    setSelectedShapeIndex(index);
+  const toggleSelectShape = useCallback((index, isMultiSelect) => {
+    if (index === null) {
+      if (justFinishedSelectingRef.current) {
+        return;
+      }
+      setSelectedShapeIndices([]);
+      return;
+    }
+    
+    if (isMultiSelect) {
+      setSelectedShapeIndices(prev => {
+        if (prev.includes(index)) {
+          return prev.filter(i => i !== index);
+        }
+        return [...prev, index];
+      });
+    } else {
+      setSelectedShapeIndices([index]);
+    }
   }, []);
 
-  const deleteSelectedShape = useCallback(() => {
-    if (selectedShapeIndex === null) return;
-    const newShapes = shapes.filter((_, i) => i !== selectedShapeIndex);
+  const deleteSelectedShapes = useCallback(() => {
+    if (selectedShapeIndices.length === 0) return;
+    const newShapes = shapes.filter((_, i) => !selectedShapeIndices.includes(i));
     setShapes(newShapes);
     pushToHistory(newShapes);
-    setSelectedShapeIndex(null);
-  }, [selectedShapeIndex, shapes, pushToHistory]);
+    setSelectedShapeIndices([]);
+  }, [selectedShapeIndices, shapes, pushToHistory]);
 
   const updateSelectedShape = useCallback((updatedAttrs) => {
-    if (selectedShapeIndex === null) return;
+    if (selectedShapeIndices.length !== 1) return;
     const newShapes = shapes.map((shape, i) => 
-      i === selectedShapeIndex ? { ...shape, ...updatedAttrs } : shape
+      i === selectedShapeIndices[0] ? { ...shape, ...updatedAttrs } : shape
     );
     setShapes(newShapes);
     pushToHistory(newShapes);
-  }, [selectedShapeIndex, shapes, pushToHistory]);
+  }, [selectedShapeIndices, shapes, pushToHistory]);
 
   useEffect(() => {
     if (activeToolId !== 'select') {
-      setSelectedShapeIndex(null);
+      setSelectedShapeIndices([]);
     }
   }, [activeToolId]);
 
@@ -239,9 +401,10 @@ export default function useScreenshotEditing() {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    selectedShapeIndex,
-    selectShape,
-    deleteSelectedShape,
+    selectedShapeIndices,
+    toggleSelectShape,
+    deleteSelectedShapes,
     updateSelectedShape,
+    selectionBox,
   };
 }
