@@ -1,5 +1,5 @@
 import React from 'react';
-import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon } from 'react-konva';
+import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Group } from 'react-konva';
 
 const applyOpacity = (color, opacity = 1) => {
   if (!color) return undefined;
@@ -56,6 +56,75 @@ export const ShapeRenderer = ({
   onShapeTransform 
 }) => {
   const commonProps = createCommonProps(index, isSelected, isSelectMode, onSelectShape, shapeListening);
+
+  // 曲线箭头
+  if (shape.tool === 'curveArrow') {
+    return (
+      <Group
+        ref={shapeRef}
+        x={shape.x || 0}
+        y={shape.y || 0}
+        {...commonProps}
+        onDragEnd={(e) => {
+          if (isSelectMode && onShapeTransform) {
+            if (e.target === e.currentTarget) {
+              onShapeTransform({ x: e.target.x(), y: e.target.y() });
+            }
+          }
+        }}
+      >
+        <Arrow
+          points={shape.points}
+          stroke={shape.stroke}
+          fill={shape.stroke}
+          strokeWidth={shape.strokeWidth}
+          tension={0.4}
+          opacity={shape.opacity}
+          dash={shape.dash}
+          lineCap={shape.lineCap}
+          lineJoin={shape.lineJoin}
+          pointerLength={(shape.strokeWidth || 12) * 2.5}
+          pointerWidth={(shape.strokeWidth || 12) * 2.5}
+          hitStrokeWidth={20}
+        />
+        {isSelected && isSelectMode && (
+          <>
+            {[0, 2, 4].map((offset, i) => (
+              <Circle
+                key={i}
+                x={shape.points[offset]}
+                y={shape.points[offset + 1]}
+                radius={5}
+                fill="#fff"
+                stroke="#1677ff"
+                strokeWidth={1}
+                draggable
+                onDragStart={(e) => {
+                  e.cancelBubble = true;
+                }}
+                onDragMove={(e) => {
+                  e.cancelBubble = true;
+                  const node = e.target;
+                  const newPoints = [...shape.points];
+                  newPoints[offset] = node.x();
+                  newPoints[offset + 1] = node.y();
+                  onShapeTransform({ points: newPoints });
+                }}
+                onDragEnd={(e) => {
+                  e.cancelBubble = true;
+                  const node = e.target;
+                  const newPoints = [...shape.points];
+                  newPoints[offset] = node.x();
+                  newPoints[offset + 1] = node.y();
+                  onShapeTransform({ points: newPoints });
+                }}
+              />
+            ))}
+          </>
+        )}
+      </Group>
+    );
+  }
 
   // 画笔工具
   if (shape.tool === 'pen') {

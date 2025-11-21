@@ -137,6 +137,14 @@ function SelectionToolbar({
       variant: 'default'
     },
     {
+      id: 'curveArrow',
+      icon: 'ti ti-arrow-ramp-right',
+      title: '箭头',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'curveArrow' ? null : 'curveArrow'),
+      active: activeToolId === 'curveArrow',
+      variant: 'default'
+    },
+    {
       id: 'pen',
       icon: 'ti ti-pencil',
       title: '画笔',

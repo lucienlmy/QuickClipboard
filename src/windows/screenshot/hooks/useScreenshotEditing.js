@@ -2,13 +2,14 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPenTool } from '../tools/penTool';
 import { createShapeTool } from '../tools/shapeTool';
 import { createSelectTool } from '../tools/selectTool';
+import { createCurveArrowTool } from '../tools/curveArrowTool';
 import { recordColorHistory } from '../utils/colorHistory';
 
 // 检查形状是否在框选范围内
 const checkShapeInBox = (shape, box) => {
-  if (shape.tool === 'pen') {
-    const offsetX = shape.offsetX || 0;
-    const offsetY = shape.offsetY || 0;
+  if (shape.tool === 'pen' || shape.tool === 'curveArrow') {
+    const offsetX = shape.x || shape.offsetX || 0;
+    const offsetY = shape.y || shape.offsetY || 0;
     for (let i = 0; i < shape.points.length; i += 2) {
       const x = shape.points[i] + offsetX;
       const y = shape.points[i + 1] + offsetY;
@@ -74,6 +75,7 @@ export default function useScreenshotEditing() {
   const tools = useRef({
     pen: createPenTool(),
     shape: createShapeTool(),
+    curveArrow: createCurveArrowTool(),
     select: createSelectTool(),
   });
 
