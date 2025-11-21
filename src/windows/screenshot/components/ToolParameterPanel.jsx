@@ -3,6 +3,8 @@ import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import SliderControl from './controls/SliderControl';
 import ColorControl from './controls/ColorControl';
 import SegmentedControl from './controls/SegmentedControl';
+import MultiToggleControl from './controls/MultiToggleControl';
+import SelectControl from './controls/SelectControl';
 
 const DEFAULT_PANEL_SIZE = { width: 240, height: 160 };
 
@@ -24,6 +26,10 @@ function renderControl(param, value, onChange, onAction) {
       return <SliderControl param={param} value={value} onChange={onChange} />;
     case 'segmented':
       return <SegmentedControl param={param} value={value} onChange={onChange} />;
+    case 'multiToggle':
+      return <MultiToggleControl param={param} value={value} onChange={onChange} />;
+    case 'select':
+      return <SelectControl param={param} value={value} onChange={onChange} />;
     case 'button':
       return (
         <button
@@ -39,6 +45,21 @@ function renderControl(param, value, onChange, onAction) {
           {param.icon && <i className={`${param.icon} mr-2`}></i>}
           {param.label}
         </button>
+      );
+    case 'textarea':
+      return (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+            {param.label}
+          </label>
+          <textarea
+            value={value || ''}
+            onChange={(e) => onChange?.(e.target.value)}
+            placeholder={param.placeholder}
+            rows={param.rows || 3}
+            className="w-full px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          />
+        </div>
       );
     case 'color':
     default:

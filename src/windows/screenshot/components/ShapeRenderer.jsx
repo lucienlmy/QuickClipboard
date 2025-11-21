@@ -1,5 +1,5 @@
 import React from 'react';
-import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Group } from 'react-konva';
+import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Group, Text } from 'react-konva';
 
 const applyOpacity = (color, opacity = 1) => {
   if (!color) return undefined;
@@ -53,7 +53,9 @@ export const ShapeRenderer = ({
   isSelectMode, 
   shapeListening,
   onSelectShape, 
-  onShapeTransform 
+  onShapeTransform,
+  onTextEdit,
+  isEditing
 }) => {
   const commonProps = createCommonProps(index, isSelected, isSelectMode, onSelectShape, shapeListening);
 
@@ -152,6 +154,73 @@ export const ShapeRenderer = ({
             onShapeTransform({
               offsetX: node.x(),
               offsetY: node.y(),
+            });
+          }
+        }}
+      />
+    );
+  }
+
+  // 文本工具
+  if (shape.tool === 'text') {
+    const fontStyleArray = Array.isArray(shape.fontStyle) ? shape.fontStyle : [];
+    let fontStyleString = 'normal';
+    if (fontStyleArray.length > 0) {
+      const hasBold = fontStyleArray.includes('bold');
+      const hasItalic = fontStyleArray.includes('italic');
+      if (hasBold && hasItalic) {
+        fontStyleString = 'bold italic';
+      } else if (hasItalic) {
+        fontStyleString = 'italic';
+      } else if (hasBold) {
+        fontStyleString = 'bold';
+      }
+    }
+    
+    const needsSkew = fontStyleArray.includes('italic');
+    
+    return (
+      <Text
+        ref={shapeRef}
+        x={shape.x}
+        y={shape.y}
+        text={shape.text || '双击编辑文本'}
+        fontSize={shape.fontSize || 24}
+        fontFamily={shape.fontFamily || 'Arial, Microsoft YaHei, sans-serif'}
+        fontStyle={fontStyleString}
+        fill={shape.fill || '#ff4d4f'}
+        align={shape.align || 'left'}
+        width={shape.width || 200}
+        lineHeight={shape.lineHeight || 1.2}
+        skewX={needsSkew ? -0.14 : 0}
+        opacity={isEditing ? 0 : (shape.opacity || 1)}
+        stroke={shape.stroke || ''}
+        strokeWidth={shape.strokeWidth || 0}
+        {...commonProps}
+        onDblClick={(e) => {
+          if (isSelectMode && onTextEdit) {
+            e.cancelBubble = true;
+            onTextEdit(index);
+          }
+        }}
+        onDragEnd={(e) => {
+          if (isSelectMode && onShapeTransform) {
+            const node = e.target;
+            onShapeTransform({ x: node.x(), y: node.y() });
+          }
+        }}
+        onTransformEnd={(e) => {
+          if (isSelectMode && onShapeTransform) {
+            const node = e.target;
+            const scaleX = node.scaleX();
+            const scaleY = node.scaleY();
+            node.scaleX(1);
+            node.scaleY(1);
+            onShapeTransform({
+              x: node.x(),
+              y: node.y(),
+              width: Math.max(5, node.width() * scaleX),
+              fontSize: Math.max(12, (shape.fontSize || 24) * scaleY),
             });
           }
         }}

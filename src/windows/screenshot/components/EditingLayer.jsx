@@ -1,8 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { Layer, Transformer, Rect } from 'react-konva';
 import { ShapeRenderer } from './ShapeRenderer';
+import TextEditor from './TextEditor';
 
-const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, isSelectMode, selectionBox }) => {
+const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose }) => {
   const transformerRef = useRef(null);
   const shapeRefs = useRef([]);
   const layerRef = useRef(null);
@@ -76,9 +77,11 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
           shapeListening={listening && isSelectMode}
           onSelectShape={onSelectShape}
           onShapeTransform={onShapeTransform}
+          onTextEdit={onTextEdit}
+          isEditing={editingTextIndex === i}
         />
       ))}
-      {isSelectMode && selectedShapeIndices.length > 0 && (
+      {isSelectMode && selectedShapeIndices.length > 0 && editingTextIndex === null && (
         <Transformer
           ref={transformerRef}
           boundBoxFunc={(oldBox, newBox) => {
@@ -100,6 +103,13 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
           dash={[4, 4]}
           fill="rgba(22, 119, 255, 0.1)"
           listening={false}
+        />
+      )}
+      {editingTextIndex !== null && shapes[editingTextIndex] && (
+        <TextEditor
+          shape={shapes[editingTextIndex]}
+          onTextChange={(text) => onTextChange(text, editingTextIndex)}
+          onClose={onTextEditClose}
         />
       )}
     </Layer>

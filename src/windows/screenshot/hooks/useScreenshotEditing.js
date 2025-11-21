@@ -3,6 +3,7 @@ import { createPenTool } from '../tools/penTool';
 import { createShapeTool } from '../tools/shapeTool';
 import { createSelectTool } from '../tools/selectTool';
 import { createCurveArrowTool } from '../tools/curveArrowTool';
+import { createTextTool } from '../tools/textTool';
 import { recordColorHistory } from '../utils/colorHistory';
 
 // 检查形状是否在框选范围内
@@ -18,6 +19,19 @@ const checkShapeInBox = (shape, box) => {
       }
     }
     return false;
+  }
+  
+  if (shape.tool === 'text') {
+    const shapeBox = {
+      x: shape.x,
+      y: shape.y,
+      width: shape.width || 200,
+      height: shape.fontSize * 1.5 || 36,
+    };
+    return !(shapeBox.x + shapeBox.width < box.x || 
+             shapeBox.x > box.x + box.width ||
+             shapeBox.y + shapeBox.height < box.y ||
+             shapeBox.y > box.y + box.height);
   }
   
   if (shape.tool === 'shape') {
@@ -69,6 +83,7 @@ export default function useScreenshotEditing() {
   const [currentShape, setCurrentShape] = useState(null);
   const [selectedShapeIndices, setSelectedShapeIndices] = useState([]);
   const [selectionBox, setSelectionBox] = useState(null);
+  const [editingTextIndex, setEditingTextIndex] = useState(null);
   const isDrawingRef = useRef(false);
   const isSelectingRef = useRef(false);
 
@@ -76,6 +91,7 @@ export default function useScreenshotEditing() {
     pen: createPenTool(),
     shape: createShapeTool(),
     curveArrow: createCurveArrowTool(),
+    text: createTextTool(),
     select: createSelectTool(),
   });
 
@@ -225,6 +241,10 @@ export default function useScreenshotEditing() {
   const handleMouseDown = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
     
+    if (editingTextIndex !== null) {
+      return true;
+    }
+    
     if (activeToolId === 'select') {
       const isBackground = e.target.name && e.target.name() === 'editingLayerBackground';
       
@@ -249,7 +269,7 @@ export default function useScreenshotEditing() {
     setCurrentShape(newShape);
     
     return true;
-  }, [activeToolId, activeToolStyle]);
+  }, [activeToolId, activeToolStyle, editingTextIndex]);
 
   const handleMouseMove = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
@@ -319,6 +339,10 @@ export default function useScreenshotEditing() {
           const { _meta, ...rest } = currentShape;
           return rest;
         }
+        if (currentShape.tool === 'text') {
+          const { _isNew, ...rest } = currentShape;
+          return rest;
+        }
         return currentShape;
       })();
 
@@ -331,6 +355,11 @@ export default function useScreenshotEditing() {
       if (finalizedShape.fill) {
         recordColorHistory(finalizedShape.fill);
       }
+      
+      if (currentShape.tool === 'text' && currentShape._isNew) {
+        setEditingTextIndex(newShapes.length - 1);
+      }
+      
       setCurrentShape(null);
     }
     
@@ -379,6 +408,23 @@ export default function useScreenshotEditing() {
     }
   }, [activeToolId]);
 
+  const updateTextContent = useCallback((index, text) => {
+    if (index === null || index < 0 || index >= shapes.length) return;
+    const newShapes = shapes.map((shape, i) => 
+      i === index ? { ...shape, text } : shape
+    );
+    setShapes(newShapes);
+    pushToHistory(newShapes);
+  }, [shapes, pushToHistory]);
+
+  const startEditingText = useCallback((index) => {
+    setEditingTextIndex(index);
+  }, []);
+
+  const stopEditingText = useCallback(() => {
+    setEditingTextIndex(null);
+  }, []);
+
   return {
     shapes: currentShape ? [...shapes, currentShape] : shapes,
     activeToolId,
@@ -399,5 +445,9 @@ export default function useScreenshotEditing() {
     deleteSelectedShapes,
     updateSelectedShape,
     selectionBox,
+    editingTextIndex,
+    updateTextContent,
+    startEditingText,
+    stopEditingText,
   };
 }

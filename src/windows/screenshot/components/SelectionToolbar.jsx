@@ -151,6 +151,14 @@ function SelectionToolbar({
       variant: 'default'
     },
     {
+      id: 'text',
+      icon: 'ti ti-typography',
+      title: '文本',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'text' ? null : 'text'),
+      active: activeToolId === 'text',
+      variant: 'default'
+    },
+    {
       id: 'select',
       icon: 'ti ti-pointer',
       title: '选择',

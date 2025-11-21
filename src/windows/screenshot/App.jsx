@@ -132,6 +132,10 @@ function App() {
           onShapeTransform={editing.updateSelectedShape}
           isSelectMode={editing.activeToolId === 'select'}
           selectionBox={editing.selectionBox}
+          onTextEdit={editing.startEditingText}
+          editingTextIndex={editing.editingTextIndex}
+          onTextChange={(text, index) => editing.updateTextContent(index, text)}
+          onTextEditClose={editing.stopEditingText}
         />
         <SelectionOverlay 
           stageWidth={stageSize.width}
