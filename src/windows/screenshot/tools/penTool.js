@@ -94,6 +94,8 @@ export const createPenTool = () => {
         dash: resolved.dash,
         globalCompositeOperation: resolved.globalCompositeOperation,
         mode: resolved.mode,
+        offsetX: 0,
+        offsetY: 0,
       };
       if (resolved.mode === 'straight') {
         return {

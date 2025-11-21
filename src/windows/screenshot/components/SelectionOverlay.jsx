@@ -23,6 +23,7 @@ function SelectionOverlay({
   autoSelectionRect,
   displayAutoSelectionRect,
   hasAutoSelection,
+  listening = true,
   handleMouseDown,
   handleMouseMove,
   handleMouseUp,
@@ -38,7 +39,7 @@ function SelectionOverlay({
 
 
   return (
-    <Layer id="screenshot-overlay-layer">
+    <Layer id="screenshot-overlay-layer" listening={listening}>
       {/* 遮罩层 */}
       <Rect
         x={0}
@@ -47,12 +48,13 @@ function SelectionOverlay({
         height={stageHeight}
         fill={OVERLAY_COLOR}
         opacity={OVERLAY_OPACITY}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onContextMenu={handleRightClick}
-        onWheel={handleWheel}
+        listening={listening}
+        onMouseDown={listening ? handleMouseDown : undefined}
+        onMouseMove={listening ? handleMouseMove : undefined}
+        onMouseUp={listening ? handleMouseUp : undefined}
+        onMouseLeave={listening ? handleMouseUp : undefined}
+        onContextMenu={listening ? handleRightClick : undefined}
+        onWheel={listening ? handleWheel : undefined}
       />
 
       {/* 自动选择矩形 */}

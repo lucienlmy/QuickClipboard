@@ -18,12 +18,28 @@ const getFallbackBounds = () => ({
   bottom: window.innerHeight || 1080,
 });
 
-function renderControl(param, value, onChange) {
+function renderControl(param, value, onChange, onAction) {
   switch (param.type) {
     case 'slider':
       return <SliderControl param={param} value={value} onChange={onChange} />;
     case 'segmented':
       return <SegmentedControl param={param} value={value} onChange={onChange} />;
+    case 'button':
+      return (
+        <button
+          type="button"
+          onClick={() => onAction?.(param.action)}
+          className={[
+            'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+            param.variant === 'danger'
+              ? 'bg-red-500 hover:bg-red-600 text-white'
+              : 'bg-blue-500 hover:bg-blue-600 text-white',
+          ].join(' ')}
+        >
+          {param.icon && <i className={`${param.icon} mr-2`}></i>}
+          {param.label}
+        </button>
+      );
     case 'color':
     default:
       return <ColorControl param={param} value={value} onChange={onChange} />;
@@ -37,6 +53,7 @@ export default function ToolParameterPanel({
   values,
   stageRegionManager,
   onParameterChange,
+  onAction,
 }) {
   const panelRef = useRef(null);
   const [panelSize, setPanelSize] = useState(DEFAULT_PANEL_SIZE);
@@ -209,7 +226,7 @@ export default function ToolParameterPanel({
 
     return (
       <div key={param.id} className="flex flex-col gap-1">
-        {renderControl(param, controlValue, (val) => onParameterChange?.(param.id, val))}
+        {renderControl(param, controlValue, (val) => onParameterChange?.(param.id, val), onAction)}
       </div>
     );
   });

@@ -128,6 +128,14 @@ function SelectionToolbar({
   ];
 
   const drawingTools = [
+    {
+      id: 'select',
+      icon: 'ti ti-pointer',
+      title: '选择',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'select' ? null : 'select'),
+      active: activeToolId === 'select',
+      variant: 'default'
+    },
     { 
       id: 'pen', 
       icon: 'ti ti-pencil', 

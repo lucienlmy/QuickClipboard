@@ -28,7 +28,7 @@ const SHAPE_OPTIONS = [
   { value: 'ellipse', label: '椭圆', icon: 'ti ti-oval' },
   { value: 'circle', label: '正圆', icon: 'ti ti-circle' },
   { value: 'triangle', label: '三角形', icon: 'ti ti-triangle' },
-  { value: 'diamond', label: '菱形', icon: 'ti ti-diamond' },
+  { value: 'diamond', label: '菱形', icon: 'ti ti-diamonds' },
   { value: 'pentagon', label: '五边形', icon: 'ti ti-pentagon' },
   { value: 'arrow', label: '箭头', icon: 'ti ti-arrow-up-right' },
 ];
@@ -194,6 +194,7 @@ export const createShapeTool = () => {
           centerX: diamond.centerX,
           centerY: diamond.centerY,
           points: diamond.points,
+          rotation: shape.rotation ?? 0,
         };
       }
 

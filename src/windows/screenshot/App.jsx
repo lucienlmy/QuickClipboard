@@ -124,7 +124,14 @@ function App() {
         onWheel={session.handleWheel}
       >
         <BackgroundLayer screens={screens} />
-        <EditingLayer shapes={editing.shapes} listening={!!editing.activeToolId} />
+        <EditingLayer 
+          shapes={editing.shapes} 
+          listening={!!editing.activeToolId} 
+          selectedShapeIndex={editing.selectedShapeIndex}
+          onSelectShape={editing.selectShape}
+          onShapeTransform={editing.updateSelectedShape}
+          isSelectMode={editing.activeToolId === 'select'}
+        />
         <SelectionOverlay 
           stageWidth={stageSize.width}
           stageHeight={stageSize.height}
@@ -139,6 +146,11 @@ function App() {
           displayAutoSelectionRect={session.displayAutoSelectionRect}
           hasAutoSelection={session.hasAutoSelection}
           listening={!editing.activeToolId}
+          handleMouseDown={session.handleMouseDown}
+          handleMouseMove={session.handleMouseMove}
+          handleMouseUp={session.handleMouseUp}
+          handleRightClick={session.handleRightClick}
+          handleWheel={session.handleWheel}
         />
         <Layer id="screenshot-ui-layer" listening={false}>
           <Magnifier
@@ -186,6 +198,11 @@ function App() {
         values={editing.toolStyle}
         stageRegionManager={stageRegionManager}
         onParameterChange={editing.handleToolParameterChange}
+        onAction={(action) => {
+          if (action === 'delete') {
+            editing.deleteSelectedShape();
+          }
+        }}
       />
     </div>
   );
