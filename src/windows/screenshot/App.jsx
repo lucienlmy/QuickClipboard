@@ -12,8 +12,10 @@ import SelectionToolbar from './components/SelectionToolbar';
 import EditingLayer from './components/EditingLayer';
 import useScreenshotEditing from './hooks/useScreenshotEditing';
 import { useScreenshotSession } from './hooks/useScreenshotSession';
+import useLongScreenshot from './hooks/useLongScreenshot';
 import { ensureAutoSelectionStarted } from './utils/autoSelectionManager';
 import ToolParameterPanel from './components/ToolParameterPanel';
+import LongScreenshotPanel from './components/LongScreenshotPanel';
 
 function App() {
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
@@ -24,8 +26,12 @@ function App() {
   const handleCursorMove = useCursorMovement(screens, setMousePos, magnifierUpdateRef, stageRegionManager);
   const session = useScreenshotSession(stageRef, stageRegionManager);
   const editing = useScreenshotEditing(screens, stageRef);
+  const longScreenshot = useLongScreenshot(session.selection);
 
   const handleMouseDown = (e) => {
+    // 长截屏模式下禁用选区交互
+    if (longScreenshot.isActive) return;
+    
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
     
@@ -44,6 +50,12 @@ function App() {
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
 
+    // 长截屏模式下只更新光标，不处理选区交互
+    if (longScreenshot.isActive) {
+      handleCursorMove(e);
+      return;
+    }
+
     if (editing.activeToolId) {
       const button = e.evt?.button;
       if (button !== undefined && button !== 0) {
@@ -58,6 +70,9 @@ function App() {
   };
 
   const handleMouseUp = (e) => {
+    // 长截屏模式下禁用选区交互
+    if (longScreenshot.isActive) return;
+    
     if (editing.activeToolId) {
       editing.handleMouseUp(e);
     } else {
@@ -66,11 +81,16 @@ function App() {
   };
 
   const handleContextMenu = useCallback((e) => {
+    // 长截屏模式下禁用右键取消
+    if (longScreenshot.isActive) {
+      e.evt?.preventDefault();
+      return;
+    }
     if (editing.activeToolId) {
       editing.setActiveToolId(null);
     }
     session.handleRightClick(e);
-  }, [editing, session]);
+  }, [editing, session, longScreenshot.isActive]);
 
   useEffect(() => {
     let unlisten;
@@ -123,8 +143,8 @@ function App() {
         onContextMenu={handleContextMenu}
         onWheel={session.handleWheel}
       >
-        <BackgroundLayer screens={screens} />
-        <EditingLayer 
+        {!longScreenshot.isActive && <BackgroundLayer screens={screens} />}
+        {!longScreenshot.isActive && <EditingLayer 
           shapes={editing.shapes} 
           listening={!!editing.activeToolId} 
           selectedShapeIndices={editing.selectedShapeIndices}
@@ -139,7 +159,7 @@ function App() {
           watermarkConfig={editing.watermarkConfig}
           selection={session.selection}
           stageSize={stageSize}
-        />
+        />}
         <SelectionOverlay 
           stageWidth={stageSize.width}
           stageHeight={stageSize.height}
@@ -153,14 +173,15 @@ function App() {
           autoSelectionRect={session.autoSelectionRect}
           displayAutoSelectionRect={session.displayAutoSelectionRect}
           hasAutoSelection={session.hasAutoSelection}
-          listening={!editing.activeToolId}
+          listening={!editing.activeToolId && !longScreenshot.isActive}
           handleMouseDown={session.handleMouseDown}
           handleMouseMove={session.handleMouseMove}
           handleMouseUp={session.handleMouseUp}
-          handleRightClick={session.handleRightClick}
+          handleRightClick={longScreenshot.isActive ? undefined : session.handleRightClick}
           handleWheel={session.handleWheel}
           activeToolId={editing.activeToolId}
           toolStyle={editing.toolStyle}
+          longScreenshotMode={longScreenshot.isActive}
         />
         <Layer id="screenshot-ui-layer" listening={false}>
           <Magnifier
@@ -173,15 +194,17 @@ function App() {
         </Layer>
       </Stage>
 
-      <SelectionInfoBar
-        selection={session.selection}
-        cornerRadius={session.cornerRadius}
-        aspectRatio={session.aspectRatio}
-        isMoving={session.isMoving}
-        stageRegionManager={stageRegionManager}
-        onCornerRadiusChange={session.updateCornerRadius}
-        onAspectRatioChange={session.updateAspectRatio}
-      />
+      {!longScreenshot.isActive && (
+        <SelectionInfoBar
+          selection={session.selection}
+          cornerRadius={session.cornerRadius}
+          aspectRatio={session.aspectRatio}
+          isMoving={session.isMoving}
+          stageRegionManager={stageRegionManager}
+          onCornerRadiusChange={session.updateCornerRadius}
+          onAspectRatioChange={session.updateAspectRatio}
+        />
+      )}
 
       <SelectionToolbar
         selection={session.selection}
@@ -201,23 +224,42 @@ function App() {
         canRedo={editing.canRedo}
         clearCanvas={editing.clearCanvas}
         canClearCanvas={editing.canClearCanvas}
+        longScreenshotMode={longScreenshot.isActive}
+        isLongScreenshotCapturing={longScreenshot.isCapturing}
+        hasLongScreenshotPreview={!!longScreenshot.preview}
+        onLongScreenshotEnter={longScreenshot.enter}
+        onLongScreenshotStart={longScreenshot.start}
+        onLongScreenshotStop={longScreenshot.stop}
+        onLongScreenshotSave={longScreenshot.save}
+        onLongScreenshotCancel={longScreenshot.cancel}
       />
 
-      <ToolParameterPanel
-        selection={session.selection}
-        activeTool={editing.activeTool}
-        parameters={editing.toolParameters}
-        values={editing.toolStyle}
-        isSelectMode={editing.isSelectMode}
-        stageRegionManager={stageRegionManager}
-        onParameterChange={editing.handleToolParameterChange}
-        onTogglePersistence={editing.handleTogglePersistence}
-        onAction={(action) => {
-          if (action === 'delete') {
-            editing.deleteSelectedShapes();
-          }
-        }}
-      />
+      {!longScreenshot.isActive && (
+        <ToolParameterPanel
+          selection={session.selection}
+          activeTool={editing.activeTool}
+          parameters={editing.toolParameters}
+          values={editing.toolStyle}
+          isSelectMode={editing.isSelectMode}
+          stageRegionManager={stageRegionManager}
+          onParameterChange={editing.handleToolParameterChange}
+          onTogglePersistence={editing.handleTogglePersistence}
+          onAction={(action) => {
+            if (action === 'delete') {
+              editing.deleteSelectedShapes();
+            }
+          }}
+        />
+      )}
+
+      {longScreenshot.isActive && (
+        <LongScreenshotPanel
+          selection={session.selection}
+          stageRegionManager={stageRegionManager}
+          isCapturing={longScreenshot.isCapturing}
+          previewImage={longScreenshot.preview}
+        />
+      )}
     </div>
   );
 }

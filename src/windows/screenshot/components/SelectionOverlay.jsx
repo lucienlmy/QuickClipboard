@@ -30,7 +30,8 @@ function SelectionOverlay({
   handleRightClick,
   handleWheel,
   activeToolId = null,
-  toolStyle = {}
+  toolStyle = {},
+  longScreenshotMode = false
 }) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
@@ -67,8 +68,8 @@ function SelectionOverlay({
       {/* 选区矩形 */}
       {hasValidSelection && <SelectionRect selection={selection} cornerRadius={cornerRadius} />}
 
-      {/* 选区控制手柄 */}
-      {hasValidSelection && (
+      {/* 选区控制手柄 - 长截屏模式下隐藏 */}
+      {hasValidSelection && !longScreenshotMode && (
         <SelectionHandles selection={selection} visible={!isDrawing && !isMoving} />
       )}
 

@@ -112,6 +112,8 @@ pub fn run() {
                 commands::capture_all_screenshots,
                 commands::get_last_screenshot_captures,
                 commands::cancel_screenshot_session,
+                commands::enable_long_screenshot_passthrough,
+                commands::disable_long_screenshot_passthrough,
                 windows::screenshot_window::auto_selection::start_auto_selection,
                 windows::screenshot_window::auto_selection::stop_auto_selection,
                 windows::screenshot_window::auto_selection::is_auto_selection_active,

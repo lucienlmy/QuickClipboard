@@ -30,3 +30,27 @@ pub fn cancel_screenshot_session(app: tauri::AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+// 启用长截屏模式的鼠标穿透控制
+#[tauri::command]
+pub fn enable_long_screenshot_passthrough(
+    app: tauri::AppHandle,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("screenshot") {
+        crate::windows::screenshot_window::long_screenshot::enable_passthrough(window, x, y, width, height);
+        Ok(())
+    } else {
+        Err("Screenshot window not found".to_string())
+    }
+}
+
+// 禁用长截屏模式的鼠标穿透控制
+#[tauri::command]
+pub fn disable_long_screenshot_passthrough() -> Result<(), String> {
+    crate::windows::screenshot_window::long_screenshot::disable_passthrough();
+    Ok(())
+}

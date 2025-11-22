@@ -4,7 +4,16 @@ function SelectionToolbar({
   selection, isDrawing, isMoving, isResizing, stageRegionManager,
   onCancel, onConfirm, onPin, onSave,
   activeToolId, onToolChange, undo, redo, canUndo, canRedo,
-  clearCanvas, canClearCanvas
+  clearCanvas, canClearCanvas,
+  // 长截屏相关
+  longScreenshotMode,
+  isLongScreenshotCapturing,
+  hasLongScreenshotPreview,
+  onLongScreenshotEnter,
+  onLongScreenshotStart,
+  onLongScreenshotStop,
+  onLongScreenshotSave,
+  onLongScreenshotCancel,
 }) {
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
@@ -90,6 +99,33 @@ function SelectionToolbar({
     </button>
   );
 
+  // 长截屏模式的按钮
+  const longScreenshotTools = [
+    {
+      id: 'longScreenshot-confirm',
+      icon: 'ti ti-check',
+      title: '完成长截屏',
+      onClick: onLongScreenshotSave,
+      variant: 'primary',
+      disabled: !hasLongScreenshotPreview,
+    },
+    {
+      id: 'longScreenshot-cancel',
+      icon: 'ti ti-x',
+      title: '取消',
+      onClick: onLongScreenshotCancel,
+      variant: 'ghost',
+    },
+    {
+      id: 'longScreenshot-toggle',
+      icon: isLongScreenshotCapturing ? 'ti ti-player-stop' : 'ti ti-player-play',
+      title: isLongScreenshotCapturing ? '停止捕获' : '开始捕获',
+      onClick: isLongScreenshotCapturing ? onLongScreenshotStop : onLongScreenshotStart,
+      variant: isLongScreenshotCapturing ? 'default' : 'primary',
+    },
+  ];
+
+  // 普通模式的按钮
   const actionTools = [
     {
       id: 'confirm',
@@ -128,6 +164,13 @@ function SelectionToolbar({
   ];
 
   const drawingTools = [
+    {
+      id: 'longScreenshot',
+      icon: 'ti ti-capture',
+      title: '长截屏',
+      onClick: onLongScreenshotEnter,
+      variant: 'default'
+    },
      {
       id: 'shape',
       icon: 'ti ti-triangle-square-circle',
@@ -206,11 +249,21 @@ function SelectionToolbar({
         transform: 'translateX(-100%)'
       }}
     >
-      {actionTools.map(renderButton)}
-      <Divider />
-      {historyTools.map(renderButton)}
-      <Divider />
-      {drawingTools.map(renderButton)}
+      {longScreenshotMode ? (
+        // 长截屏模式：只显示长截屏相关按钮
+        <>
+          {longScreenshotTools.map(renderButton)}
+        </>
+      ) : (
+        // 普通模式：显示完整工具栏
+        <>
+          {actionTools.map(renderButton)}
+          <Divider />
+          {historyTools.map(renderButton)}
+          <Divider />
+          {drawingTools.map(renderButton)}
+        </>
+      )}
     </div>
   );
 }

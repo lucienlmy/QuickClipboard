@@ -2,7 +2,7 @@
 
 const NUMBER_DEFAULT_STYLE = {
   currentNumber: 1,
-  numberType: 'decimal', // decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, cjk
+  numberType: 'decimal',
   style: 'circle',
   size: 32,
   backgroundColor: '#ff4d4f',
