@@ -179,12 +179,15 @@ export default function ToolParameterPanel({
       x = clamp(x, within.left + 4, within.right - panelSize.width - 4);
       y = clamp(y, within.top + 4, within.bottom - panelSize.height - 4);
     } else {
-      const constrained = stageRegionManager.constrainRect({
-        x,
-        y,
-        width: panelSize.width,
-        height: panelSize.height,
-      });
+      const constrained = stageRegionManager.constrainRect(
+        {
+          x,
+          y,
+          width: panelSize.width,
+          height: panelSize.height,
+        },
+        'move'
+      );
       x = constrained.x;
       y = constrained.y;
     }
@@ -203,12 +206,15 @@ export default function ToolParameterPanel({
     let nextY = event.clientY - offset.y;
 
     if (stageRegionManager) {
-      const constrained = stageRegionManager.constrainRect({
-        x: nextX,
-        y: nextY,
-        width: panelSize.width,
-        height: panelSize.height,
-      });
+      const constrained = stageRegionManager.constrainRect(
+        {
+          x: nextX,
+          y: nextY,
+          width: panelSize.width,
+          height: panelSize.height,
+        },
+        'move'
+      );
       nextX = constrained.x;
       nextY = constrained.y;
     } else {
