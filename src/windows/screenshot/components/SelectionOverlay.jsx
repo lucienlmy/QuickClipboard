@@ -28,13 +28,15 @@ function SelectionOverlay({
   handleMouseMove,
   handleMouseUp,
   handleRightClick,
-  handleWheel
+  handleWheel,
+  activeToolId = null,
+  toolStyle = {}
 }) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
 
   // 光标样式管理
-  useCursorStyle(stageRef, selection, isInteracting);
+  useCursorStyle(stageRef, selection, isInteracting, activeToolId, toolStyle);
 
 
 

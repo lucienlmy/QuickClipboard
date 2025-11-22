@@ -159,6 +159,8 @@ function App() {
           handleMouseUp={session.handleMouseUp}
           handleRightClick={session.handleRightClick}
           handleWheel={session.handleWheel}
+          activeToolId={editing.activeToolId}
+          toolStyle={editing.toolStyle}
         />
         <Layer id="screenshot-ui-layer" listening={false}>
           <Magnifier

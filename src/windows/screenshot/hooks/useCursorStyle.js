@@ -4,11 +4,14 @@ import { useEffect } from 'react';
 import { checkHandleHit, isRadiusHandle } from '../utils/handleDetection';
 import { isPointInsideSelection } from '../utils/selectionOperations';
 import { CURSOR_MAP } from '../constants/selectionConstants';
+import { getCachedToolCursor } from '../utils/cursorGenerator';
 
 export function useCursorStyle(
   stageRef,
   selection,
-  isInteracting
+  isInteracting,
+  activeToolId = null,
+  toolStyle = {}
 ) {
   useEffect(() => {
     if (!stageRef?.current) return;
@@ -22,6 +25,14 @@ export function useCursorStyle(
 
       if (isInteracting) return;
 
+      // 编辑模式：使用工具专属光标
+      if (activeToolId && activeToolId !== 'select') {
+        const toolCursor = getCachedToolCursor(activeToolId, toolStyle);
+        container.style.cursor = toolCursor;
+        return;
+      }
+
+      // 选择模式或无工具：使用选区光标
       if (selection && selection.width > 0 && selection.height > 0) {
         const handleType = checkHandleHit(pos, selection);
         
@@ -45,5 +56,5 @@ export function useCursorStyle(
     return () => {
       container.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [stageRef, selection, isInteracting]);
+  }, [stageRef, selection, isInteracting, activeToolId, toolStyle]);
 }

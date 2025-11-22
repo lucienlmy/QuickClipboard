@@ -151,10 +151,12 @@ export const createTextTool = () => {
 
     createShape: (pos, style) => {
       const textStyle = { ...TEXT_DEFAULT_STYLE, ...style };
+      const offsetY = textStyle.fontSize * 0.5;
+      
       return {
         tool: 'text',
         x: pos.x,
-        y: pos.y,
+        y: pos.y - offsetY,
         text: textStyle.text,
         fontSize: textStyle.fontSize,
         fill: textStyle.fill,
