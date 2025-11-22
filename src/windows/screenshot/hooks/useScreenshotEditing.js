@@ -296,6 +296,18 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     }
   }, [history, historyStep]);
 
+  const clearCanvas = useCallback(() => {
+    setShapes([]);
+    setSelectedShapeIndices([]);
+    setCurrentShape(null);
+    setSelectionBox(null);
+    setEditingTextIndex(null);
+    const newHistory = history.slice(0, historyStep + 1);
+    newHistory.push([]);
+    setHistory(newHistory);
+    setHistoryStep(newHistory.length - 1);
+  }, [history, historyStep]);
+
   const handleMouseDown = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
     
@@ -522,8 +534,10 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     handleTogglePersistence,
     undo,
     redo,
+    clearCanvas,
     canUndo: historyStep > 0,
     canRedo: historyStep < history.length - 1,
+    canClearCanvas: shapes.length > 0,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,

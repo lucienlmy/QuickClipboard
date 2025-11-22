@@ -197,6 +197,8 @@ function App() {
         redo={editing.redo}
         canUndo={editing.canUndo}
         canRedo={editing.canRedo}
+        clearCanvas={editing.clearCanvas}
+        canClearCanvas={editing.canClearCanvas}
       />
 
       <ToolParameterPanel

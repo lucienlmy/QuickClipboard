@@ -3,7 +3,8 @@ import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 function SelectionToolbar({
   selection, isDrawing, isMoving, isResizing, stageRegionManager,
   onCancel, onConfirm, onPin, onSave,
-  activeToolId, onToolChange, undo, redo, canUndo, canRedo
+  activeToolId, onToolChange, undo, redo, canUndo, canRedo,
+  clearCanvas, canClearCanvas
 }) {
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
@@ -121,6 +122,7 @@ function SelectionToolbar({
   ];
 
   const historyTools = [
+    { id: 'clear', icon: 'ti ti-trash', title: '清空画布', onClick: clearCanvas, disabled: !canClearCanvas, variant: 'default' },
     { id: 'redo', icon: 'ti ti-arrow-forward-up', title: '重做', onClick: redo, disabled: !canRedo, variant: 'default' },
     { id: 'undo', icon: 'ti ti-arrow-back-up', title: '撤销', onClick: undo, disabled: !canUndo, variant: 'default' },
   ];
