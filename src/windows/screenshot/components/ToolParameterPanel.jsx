@@ -260,21 +260,29 @@ export default function ToolParameterPanel({
     return null;
   }
 
-  const panelControls = effectiveParameters.map((param) => {
-    const value = values?.[param.id];
-    const fallback = param.type === 'slider'
-      ? param.min ?? 0
-      : param.type === 'segmented'
-        ? param.options?.[0]?.value
-        : '#ffffff';
-    const controlValue = value ?? fallback;
+  const panelControls = effectiveParameters
+    .filter((param) => {
+      if (param.visible === undefined) return true;
+      if (typeof param.visible === 'function') {
+        return param.visible(values || {});
+      }
+      return param.visible;
+    })
+    .map((param) => {
+      const value = values?.[param.id];
+      const fallback = param.type === 'slider'
+        ? param.min ?? 0
+        : param.type === 'segmented'
+          ? param.options?.[0]?.value
+          : '#ffffff';
+      const controlValue = value ?? fallback;
 
-    return (
-      <div key={param.id} className="flex flex-col gap-1">
-        {renderControl(param, controlValue, (val) => onParameterChange?.(param.id, val), onAction)}
-      </div>
-    );
-  });
+      return (
+        <div key={param.id} className="flex flex-col gap-1">
+          {renderControl(param, controlValue, (val) => onParameterChange?.(param.id, val), onAction)}
+        </div>
+      );
+    });
 
   return (
     <div

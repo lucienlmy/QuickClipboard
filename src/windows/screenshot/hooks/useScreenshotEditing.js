@@ -4,7 +4,9 @@ import { createShapeTool } from '../tools/shapeTool';
 import { createSelectTool } from '../tools/selectTool';
 import { createCurveArrowTool } from '../tools/curveArrowTool';
 import { createTextTool } from '../tools/textTool';
+import { createMosaicTool } from '../tools/mosaicTool';
 import { recordColorHistory } from '../utils/colorHistory';
+import { processMosaicShape } from '../utils/imageProcessor';
 
 // 检查形状是否在框选范围内
 const checkShapeInBox = (shape, box) => {
@@ -19,6 +21,34 @@ const checkShapeInBox = (shape, box) => {
       }
     }
     return false;
+  }
+  
+  // 马赛克工具
+  if (shape.tool === 'mosaic') {
+    if (shape.drawMode === 'brush') {
+      const offsetX = shape.offsetX || 0;
+      const offsetY = shape.offsetY || 0;
+      for (let i = 0; i < shape.points.length; i += 2) {
+        const x = shape.points[i] + offsetX;
+        const y = shape.points[i + 1] + offsetY;
+        if (x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (shape.drawMode === 'region') {
+      const shapeBox = {
+        x: shape.x,
+        y: shape.y,
+        width: Math.abs(shape.width),
+        height: Math.abs(shape.height),
+      };
+      return !(shapeBox.x + shapeBox.width < box.x || 
+               shapeBox.x > box.x + box.width ||
+               shapeBox.y + shapeBox.height < box.y ||
+               shapeBox.y > box.y + box.height);
+    }
   }
   
   if (shape.tool === 'text') {
@@ -75,7 +105,7 @@ const checkShapeInBox = (shape, box) => {
   return false;
 };
 
-export default function useScreenshotEditing() {
+export default function useScreenshotEditing(screens = [], stageRef = null) {
   const [shapes, setShapes] = useState([]);
   const [history, setHistory] = useState([[]]);
   const [historyStep, setHistoryStep] = useState(0);
@@ -92,6 +122,7 @@ export default function useScreenshotEditing() {
     shape: createShapeTool(),
     curveArrow: createCurveArrowTool(),
     text: createTextTool(),
+    mosaic: createMosaicTool(),
     select: createSelectTool(),
   });
 
@@ -135,12 +166,6 @@ export default function useScreenshotEditing() {
         if (shapeTool && tools.current[shapeTool]) {
           const baseTool = tools.current[shapeTool];
           
-          // 过滤掉不可修改的类型参数
-          const typeParamIds = ['shapeType', 'lineStyle', 'mode'];
-          const editableParams = (baseTool.parameters || []).filter(
-            param => !typeParamIds.includes(param.id)
-          );
-          
           const deleteParam = {
             id: 'delete',
             type: 'button',
@@ -149,6 +174,23 @@ export default function useScreenshotEditing() {
             variant: 'danger',
             action: 'delete',
           };
+          
+          if (shapeTool === 'mosaic' && selectedShape.processedImage) {
+            return {
+              tool: {
+                id: 'mosaic',
+                name: '马赛克',
+                parameters: [deleteParam],
+              },
+              style: {},
+            };
+          }
+          
+          // 过滤掉不可修改的类型参数
+          const typeParamIds = ['shapeType', 'lineStyle', 'mode'];
+          const editableParams = (baseTool.parameters || []).filter(
+            param => !typeParamIds.includes(param.id)
+          );
           
           return {
             tool: {
@@ -300,7 +342,7 @@ export default function useScreenshotEditing() {
     return true;
   }, [activeToolId, currentShape, selectionBox]);
 
-  const handleMouseUp = useCallback((e) => {
+  const handleMouseUp = useCallback(async (e) => {
     if (!activeToolId) return false;
     
     if (activeToolId === 'select') {
@@ -334,7 +376,7 @@ export default function useScreenshotEditing() {
     if (activeToolId === 'select' || !isDrawingRef.current) return false;
 
     if (currentShape) {
-      const finalizedShape = (() => {
+      let finalizedShape = (() => {
         if (currentShape.tool === 'shape') {
           const { _meta, ...rest } = currentShape;
           return rest;
@@ -345,6 +387,22 @@ export default function useScreenshotEditing() {
         }
         return currentShape;
       })();
+
+      // 如果是马赛克工具，处理图像
+      if (finalizedShape.tool === 'mosaic') {
+        try {
+          setCurrentShape(null);
+          
+          await new Promise(resolve => setTimeout(resolve, 0));
+          
+          const processed = await processMosaicShape(finalizedShape, stageRef, screens, shapes);
+          if (processed) {
+            finalizedShape = processed;
+          }
+        } catch (error) {
+          console.error('马赛克处理失败:', error);
+        }
+      }
 
       const newShapes = [...shapes, finalizedShape];
       setShapes(newShapes);
@@ -365,7 +423,7 @@ export default function useScreenshotEditing() {
     
     isDrawingRef.current = false;
     return true;
-  }, [activeToolId, currentShape, shapes, pushToHistory, selectionBox]);
+  }, [activeToolId, currentShape, shapes, pushToHistory, selectionBox, screens, stageRef]);
 
   const toggleSelectShape = useCallback((index, isMultiSelect) => {
     if (index === null) {

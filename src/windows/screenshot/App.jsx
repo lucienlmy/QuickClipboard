@@ -23,7 +23,7 @@ function App() {
 
   const handleCursorMove = useCursorMovement(screens, setMousePos, magnifierUpdateRef, stageRegionManager);
   const session = useScreenshotSession(stageRef, stageRegionManager);
-  const editing = useScreenshotEditing();
+  const editing = useScreenshotEditing(screens, stageRef);
 
   const handleMouseDown = (e) => {
     const stage = e.target.getStage();

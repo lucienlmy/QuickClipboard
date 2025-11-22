@@ -143,11 +143,11 @@ function SelectionToolbar({
       variant: 'default'
     },
     {
-      id: 'pen',
-      icon: 'ti ti-pencil',
-      title: '画笔',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'pen' ? null : 'pen'),
-      active: activeToolId === 'pen',
+      id: 'mosaic',
+      icon: 'ti ti-blur',
+      title: '马赛克',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'mosaic' ? null : 'mosaic'),
+      active: activeToolId === 'mosaic',
       variant: 'default'
     },
     {
@@ -156,6 +156,14 @@ function SelectionToolbar({
       title: '文本',
       onClick: () => onToolChange && onToolChange(activeToolId === 'text' ? null : 'text'),
       active: activeToolId === 'text',
+      variant: 'default'
+    },
+    {
+      id: 'pen',
+      icon: 'ti ti-pencil',
+      title: '画笔',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'pen' ? null : 'pen'),
+      active: activeToolId === 'pen',
       variant: 'default'
     },
     {

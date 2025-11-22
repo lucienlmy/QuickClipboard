@@ -11,6 +11,17 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
 
   useEffect(() => {
     if (transformerRef.current && selectedShapeIndices.length > 0) {
+      const hasMosaicShape = selectedShapeIndices.some(index => {
+        const shape = shapes[index];
+        return shape?.tool === 'mosaic' && shape?.processedImage;
+      });
+      
+      if (hasMosaicShape) {
+        transformerRef.current.nodes([]);
+        transformerRef.current.getLayer()?.batchDraw();
+        return;
+      }
+      
       const selectedNodes = selectedShapeIndices
         .map(index => shapeRefs.current[index])
         .filter(node => node);
@@ -66,21 +77,36 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
           onTap={handleLayerClick}
         />
       )}
-      {shapes.map((shape, i) => (
-        <ShapeRenderer
-          key={i}
-          shape={shape}
-          index={i}
-          shapeRef={(node) => { shapeRefs.current[i] = node; }}
-          isSelected={selectedShapeIndices.includes(i)}
-          isSelectMode={isSelectMode}
-          shapeListening={listening && isSelectMode}
-          onSelectShape={onSelectShape}
-          onShapeTransform={onShapeTransform}
-          onTextEdit={onTextEdit}
-          isEditing={editingTextIndex === i}
-        />
-      ))}
+      {/* 按层级顺序渲染：背景模式马赛克在最底层 */}
+      {shapes
+        .map((shape, i) => ({ shape, originalIndex: i }))
+        .sort((a, b) => {
+          // 只有背景模式马赛克放在最底层
+          const aIsBackgroundMosaic = a.shape.tool === 'mosaic' && a.shape.processedImage && a.shape.coverageMode === 'background';
+          const bIsBackgroundMosaic = b.shape.tool === 'mosaic' && b.shape.processedImage && b.shape.coverageMode === 'background';
+          
+          if (aIsBackgroundMosaic && !bIsBackgroundMosaic) return -1;
+          if (!aIsBackgroundMosaic && bIsBackgroundMosaic) return 1;
+          
+          // 其他所有形状（包括全局马赛克）保持原有时间顺序
+          return a.originalIndex - b.originalIndex;
+        })
+        .map(({ shape, originalIndex }) => (
+          <ShapeRenderer
+            key={originalIndex}
+            shape={shape}
+            index={originalIndex}
+            shapeRef={(node) => { shapeRefs.current[originalIndex] = node; }}
+            isSelected={selectedShapeIndices.includes(originalIndex)}
+            isSelectMode={isSelectMode}
+            shapeListening={listening && isSelectMode}
+            onSelectShape={onSelectShape}
+            onShapeTransform={onShapeTransform}
+            onTextEdit={onTextEdit}
+            isEditing={editingTextIndex === originalIndex}
+          />
+        ))
+      }
       {isSelectMode && selectedShapeIndices.length > 0 && editingTextIndex === null && (
         <Transformer
           ref={transformerRef}

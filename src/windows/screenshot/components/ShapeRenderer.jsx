@@ -1,5 +1,5 @@
 import React from 'react';
-import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Group, Text } from 'react-konva';
+import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Group, Text, Image as KonvaImage } from 'react-konva';
 
 const applyOpacity = (color, opacity = 1) => {
   if (!color) return undefined;
@@ -226,6 +226,99 @@ export const ShapeRenderer = ({
         }}
       />
     );
+  }
+
+  // 马赛克工具
+  if (shape.tool === 'mosaic') {
+    if (shape.processedImage) {
+      return (
+        <KonvaImage
+          ref={shapeRef}
+          image={shape.processedImage}
+          x={shape.processedX}
+          y={shape.processedY}
+          width={shape.processedWidth}
+          height={shape.processedHeight}
+          opacity={shape.opacity}
+          {...commonProps}
+          draggable={false}
+          onClick={(e) => {
+            if (isSelectMode) {
+              e.cancelBubble = true;
+              const isMultiSelect = e.evt?.ctrlKey || e.evt?.metaKey;
+              onSelectShape?.(index, isMultiSelect);
+            }
+          }}
+          onTap={(e) => {
+            if (isSelectMode) {
+              e.cancelBubble = true;
+              const isMultiSelect = e.evt?.ctrlKey || e.evt?.metaKey;
+              onSelectShape?.(index, isMultiSelect);
+            }
+          }}
+        />
+      );
+    }
+
+    const offsetX = shape.offsetX ?? 0;
+    const offsetY = shape.offsetY ?? 0;
+
+    // 画笔模式
+    if (shape.drawMode === 'brush') {
+      const visualStyle = shape.renderMode === 'mosaic' 
+        ? {
+            stroke: 'rgba(0, 0, 0, 0.6)',
+            fill: 'rgba(0, 0, 0, 0.6)',
+          }
+        : {
+            stroke: 'rgba(100, 100, 100, 0.5)',
+            fill: 'rgba(100, 100, 100, 0.5)',
+          };
+
+      return (
+        <Line
+          ref={shapeRef}
+          x={offsetX}
+          y={offsetY}
+          points={shape.points}
+          stroke={visualStyle.stroke}
+          strokeWidth={shape.brushSize || 20}
+          tension={0.5}
+          lineCap="round"
+          lineJoin="round"
+          opacity={shape.opacity}
+          listening={false}
+        />
+      );
+    }
+
+    // 区域模式
+    if (shape.drawMode === 'region') {
+      const visualStyle = shape.renderMode === 'mosaic'
+        ? {
+            fill: 'rgba(0, 0, 0, 0.6)',
+            stroke: 'rgba(0, 0, 0, 0.8)',
+          }
+        : {
+            fill: 'rgba(100, 100, 100, 0.5)',
+            stroke: 'rgba(100, 100, 100, 0.7)',
+          };
+
+      return (
+        <Rect
+          ref={shapeRef}
+          x={shape.x}
+          y={shape.y}
+          width={shape.width}
+          height={shape.height}
+          fill={visualStyle.fill}
+          stroke={visualStyle.stroke}
+          strokeWidth={2}
+          opacity={shape.opacity}
+          listening={false}
+        />
+      );
+    }
   }
 
   // 形状工具
