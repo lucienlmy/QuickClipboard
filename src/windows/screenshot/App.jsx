@@ -136,6 +136,9 @@ function App() {
           editingTextIndex={editing.editingTextIndex}
           onTextChange={(text, index) => editing.updateTextContent(index, text)}
           onTextEditClose={editing.stopEditingText}
+          watermarkConfig={editing.watermarkConfig}
+          selection={session.selection}
+          stageSize={stageSize}
         />
         <SelectionOverlay 
           stageWidth={stageSize.width}

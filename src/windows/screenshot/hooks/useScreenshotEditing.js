@@ -5,6 +5,7 @@ import { createSelectTool } from '../tools/selectTool';
 import { createCurveArrowTool } from '../tools/curveArrowTool';
 import { createTextTool } from '../tools/textTool';
 import { createMosaicTool } from '../tools/mosaicTool';
+import { createWatermarkTool } from '../tools/watermarkTool';
 import { recordColorHistory } from '../utils/colorHistory';
 import { processMosaicShape } from '../utils/imageProcessor';
 
@@ -123,6 +124,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     curveArrow: createCurveArrowTool(),
     text: createTextTool(),
     mosaic: createMosaicTool(),
+    watermark: createWatermarkTool(),
     select: createSelectTool(),
   });
 
@@ -137,6 +139,13 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
 
   // 选择模式下显示选中节点的工具参数
   const getActiveToolInfo = useCallback(() => {
+    if (activeToolId === 'watermark') {
+      return {
+        tool: tools.current.watermark,
+        style: toolStyles.watermark || tools.current.watermark.getDefaultStyle(),
+      };
+    }
+    
     if (activeToolId === 'select' && selectedShapeIndices.length > 0) {
       // 多选时只显示删除按钮
       if (selectedShapeIndices.length > 1) {
@@ -232,6 +241,17 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
   const handleToolParameterChange = useCallback((paramId, value) => {
     if (!activeToolId) return;
     
+    if (activeToolId === 'watermark') {
+      setToolStyles(prev => ({
+        ...prev,
+        watermark: {
+          ...(prev.watermark || {}),
+          [paramId]: value,
+        },
+      }));
+      return;
+    }
+    
     if (activeToolId === 'select' && selectedShapeIndices.length === 1) {
       const newShapes = shapes.map((shape, i) => 
         i === selectedShapeIndices[0] ? { ...shape, [paramId]: value } : shape
@@ -285,6 +305,10 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     
     if (editingTextIndex !== null) {
       return true;
+    }
+    
+    if (activeToolId === 'watermark') {
+      return false;
     }
     
     if (activeToolId === 'select') {
@@ -507,5 +531,6 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     updateTextContent,
     startEditingText,
     stopEditingText,
+    watermarkConfig: toolStyles.watermark,
   };
 }

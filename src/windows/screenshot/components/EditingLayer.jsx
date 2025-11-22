@@ -2,8 +2,9 @@ import React, { useRef, useEffect } from 'react';
 import { Layer, Transformer, Rect } from 'react-konva';
 import { ShapeRenderer } from './ShapeRenderer';
 import TextEditor from './TextEditor';
+import WatermarkRenderer from './WatermarkRenderer';
 
-const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose }) => {
+const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose, watermarkConfig, selection, stageSize }) => {
   const transformerRef = useRef(null);
   const shapeRefs = useRef([]);
   const layerRef = useRef(null);
@@ -35,6 +36,12 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
       transformerRef.current.getLayer()?.batchDraw();
     }
   }, [selectedShapeIndices, shapes]);
+
+  useEffect(() => {
+    if (layerRef.current) {
+      layerRef.current.batchDraw();
+    }
+  }, [watermarkConfig?.enabled]);
 
   const handleLayerMouseDown = (e) => {
     if (isSelectMode && e.target.name() === 'editingLayerBackground') {
@@ -131,6 +138,12 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
           listening={false}
         />
       )}
+      {/* 水印渲染在最上层 */}
+      <WatermarkRenderer 
+        watermarkConfig={watermarkConfig} 
+        selection={selection} 
+        stageSize={stageSize}
+      />
       {editingTextIndex !== null && shapes[editingTextIndex] && (
         <TextEditor
           shape={shapes[editingTextIndex]}
