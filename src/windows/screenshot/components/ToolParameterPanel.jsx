@@ -5,6 +5,7 @@ import ColorControl from './controls/ColorControl';
 import SegmentedControl from './controls/SegmentedControl';
 import MultiToggleControl from './controls/MultiToggleControl';
 import SelectControl from './controls/SelectControl';
+import { isToolPersistenceEnabled } from '../utils/toolParameterPersistence';
 
 const DEFAULT_PANEL_SIZE = { width: 240, height: 160 };
 
@@ -72,9 +73,11 @@ export default function ToolParameterPanel({
   activeTool,
   parameters,
   values,
+  isSelectMode,
   stageRegionManager,
   onParameterChange,
   onAction,
+  onTogglePersistence,
 }) {
   const panelRef = useRef(null);
   const contentRef = useRef(null);
@@ -83,12 +86,28 @@ export default function ToolParameterPanel({
   const [lockedPosition, setLockedPosition] = useState(null);
   const dragStateRef = useRef({ isDragging: false, offset: { x: 0, y: 0 } });
   const [isDragging, setIsDragging] = useState(false);
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
 
   const effectiveParameters = useMemo(() => parameters?.filter(Boolean) || [], [parameters]);
   const defaultStyle = useMemo(() => {
     if (!activeTool?.getDefaultStyle) return {};
     return activeTool.getDefaultStyle();
   }, [activeTool]);
+
+  // 监听工具变化，更新持久化状态
+  useEffect(() => {
+    if (activeTool?.id) {
+      setPersistenceEnabled(isToolPersistenceEnabled(activeTool.id));
+    }
+  }, [activeTool?.id]);
+
+  // 处理持久化开关切换
+  const handleTogglePersistence = useCallback(() => {
+    if (!activeTool?.id) return;
+    const newEnabled = !persistenceEnabled;
+    setPersistenceEnabled(newEnabled);
+    onTogglePersistence?.(activeTool.id, newEnabled);
+  }, [activeTool?.id, persistenceEnabled, onTogglePersistence]);
 
   useLayoutEffect(() => {
     if (!contentRef.current) return;
@@ -311,6 +330,44 @@ export default function ToolParameterPanel({
             拖拽
           </span>
         </div>
+
+        {/* 持久化开关 - 不在选择模式下显示 */}
+        {!isSelectMode && activeTool.id !== 'select' && (
+          <div 
+            className="flex items-center justify-between px-2 py-1.5 -mx-1 -mt-1 mb-0.5 rounded-lg bg-gray-50/80 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-100/80 dark:hover:bg-gray-800/80 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleTogglePersistence();
+            }}
+            title={persistenceEnabled ? '点击关闭：关闭后使用默认参数，修改不保存' : '点击开启：开启后记住当前参数，下次使用'}
+          >
+            <div className="flex items-center gap-1.5">
+              <i className={`ti ${persistenceEnabled ? 'ti-pin-filled' : 'ti-pin'} text-xs ${persistenceEnabled ? 'text-blue-500' : 'text-gray-400'}`}></i>
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                {persistenceEnabled ? '已记住参数' : '已使用默认'}
+              </span>
+            </div>
+            <button
+              type="button"
+              className={[
+                'relative inline-flex h-4 w-7 items-center rounded-full transition-colors',
+                persistenceEnabled 
+                  ? 'bg-blue-500' 
+                  : 'bg-gray-300 dark:bg-gray-600'
+              ].join(' ')}
+              role="switch"
+              aria-checked={persistenceEnabled}
+            >
+              <span
+                className={[
+                  'inline-block h-3 w-3 transform rounded-full bg-white transition-transform',
+                  persistenceEnabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                ].join(' ')}
+              />
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3">
           {panelControls}
         </div>

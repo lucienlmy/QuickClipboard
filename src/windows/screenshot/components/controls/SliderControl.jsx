@@ -4,7 +4,7 @@ import IncrementDecrementButtons from './IncrementDecrementButtons';
 export default function SliderControl({ param, value, onChange }) {
   const display = param.formatter ? param.formatter(value) : `${value}${param.unit || ''}`;
   const sliderMin = param.min ?? 0;
-  const sliderMax = Math.max(param.max ?? value ?? sliderMin, value ?? sliderMin, sliderMin + 1);
+  const sliderMax = param.max ?? Math.max(value ?? sliderMin, sliderMin + 1);
   const sliderValue = Math.min(Math.max(value ?? sliderMin, sliderMin), sliderMax);
 
   const applyValue = useCallback((nextValue) => {

@@ -8,6 +8,7 @@ import { createMosaicTool } from '../tools/mosaicTool';
 import { createWatermarkTool } from '../tools/watermarkTool';
 import { recordColorHistory } from '../utils/colorHistory';
 import { processMosaicShape } from '../utils/imageProcessor';
+import { createPersistenceManager } from '../utils/toolParameterPersistence';
 
 // 检查形状是否在框选范围内
 const checkShapeInBox = (shape, box) => {
@@ -128,11 +129,12 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     select: createSelectTool(),
   });
 
+  // 创建持久化管理器
+  const persistenceManager = useRef(createPersistenceManager(tools.current));
+
   const getInitialToolStyles = () => {
-    return Object.entries(tools.current).reduce((acc, [toolId, tool]) => {
-      acc[toolId] = tool?.getDefaultStyle ? tool.getDefaultStyle() : {};
-      return acc;
-    }, {});
+    // 使用持久化管理器加载初始样式
+    return persistenceManager.current.loadInitialToolStyles();
   };
 
   const [toolStyles, setToolStyles] = useState(getInitialToolStyles);
@@ -165,6 +167,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
             parameters: [deleteParam],
           },
           style: {},
+          isSelectMode: true,
         };
       }
       
@@ -192,6 +195,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
                 parameters: [deleteParam],
               },
               style: {},
+              isSelectMode: true,
             };
           }
           
@@ -207,6 +211,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
               parameters: [...editableParams, deleteParam],
             },
             style: selectedShape,
+            isSelectMode: true,
           };
         }
       }
@@ -222,7 +227,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     return { tool: null, style: {} };
   }, [activeToolId, selectedShapeIndices, shapes, toolStyles]);
 
-  const { tool: activeTool, style: activeToolStyle } = getActiveToolInfo();
+  const { tool: activeTool, style: activeToolStyle, isSelectMode } = getActiveToolInfo();
 
   useEffect(() => {
     if (!activeToolId) return;
@@ -242,13 +247,10 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     if (!activeToolId) return;
     
     if (activeToolId === 'watermark') {
-      setToolStyles(prev => ({
-        ...prev,
-        watermark: {
-          ...(prev.watermark || {}),
-          [paramId]: value,
-        },
-      }));
+      setToolStyles(prev => {
+        // 使用持久化管理器更新参数（自动保存）
+        return persistenceManager.current.updateParameter('watermark', paramId, value, prev);
+      });
       return;
     }
     
@@ -266,14 +268,8 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     }
     
     setToolStyles(prev => {
-      const currentStyle = prev[activeToolId] || {};
-      return {
-        ...prev,
-        [activeToolId]: {
-          ...currentStyle,
-          [paramId]: value,
-        },
-      };
+      // 使用持久化管理器更新参数（自动保存）
+      return persistenceManager.current.updateParameter(activeToolId, paramId, value, prev);
     });
   }, [activeToolId, selectedShapeIndices, shapes, history, historyStep]);
 
@@ -507,6 +503,13 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     setEditingTextIndex(null);
   }, []);
 
+  // 处理持久化开关切换
+  const handleTogglePersistence = useCallback((toolId, enabled) => {
+    setToolStyles(prev => {
+      return persistenceManager.current.togglePersistence(toolId, enabled, prev);
+    });
+  }, []);
+
   return {
     shapes: currentShape ? [...shapes, currentShape] : shapes,
     activeToolId,
@@ -514,7 +517,9 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     activeTool,
     toolParameters: activeTool?.parameters || [],
     toolStyle: activeToolStyle,
+    isSelectMode: isSelectMode || false,
     handleToolParameterChange,
+    handleTogglePersistence,
     undo,
     redo,
     canUndo: historyStep > 0,

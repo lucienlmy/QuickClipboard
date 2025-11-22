@@ -204,8 +204,10 @@ function App() {
         activeTool={editing.activeTool}
         parameters={editing.toolParameters}
         values={editing.toolStyle}
+        isSelectMode={editing.isSelectMode}
         stageRegionManager={stageRegionManager}
         onParameterChange={editing.handleToolParameterChange}
+        onTogglePersistence={editing.handleTogglePersistence}
         onAction={(action) => {
           if (action === 'delete') {
             editing.deleteSelectedShapes();
