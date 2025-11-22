@@ -6,6 +6,7 @@ import { createCurveArrowTool } from '../tools/curveArrowTool';
 import { createTextTool } from '../tools/textTool';
 import { createMosaicTool } from '../tools/mosaicTool';
 import { createWatermarkTool } from '../tools/watermarkTool';
+import { createNumberTool } from '../tools/numberTool';
 import { recordColorHistory } from '../utils/colorHistory';
 import { processMosaicShape } from '../utils/imageProcessor';
 import { createPersistenceManager } from '../utils/toolParameterPersistence';
@@ -58,7 +59,20 @@ const checkShapeInBox = (shape, box) => {
       x: shape.x,
       y: shape.y,
       width: shape.width || 200,
-      height: shape.fontSize * 1.5 || 36,
+      height: (shape.fontSize || 24) * (shape.lineHeight || 1.2),
+    };
+    return !(shapeBox.x + shapeBox.width < box.x || 
+             shapeBox.x > box.x + box.width ||
+             shapeBox.y + shapeBox.height < box.y ||
+             shapeBox.y > box.y + box.height);
+  }
+  
+  if (shape.tool === 'number') {
+    const shapeBox = {
+      x: shape.x,
+      y: shape.y,
+      width: shape.size || 32,
+      height: shape.size || 32,
     };
     return !(shapeBox.x + shapeBox.width < box.x || 
              shapeBox.x > box.x + box.width ||
@@ -123,6 +137,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     pen: createPenTool(),
     shape: createShapeTool(),
     curveArrow: createCurveArrowTool(),
+    number: createNumberTool(),
     text: createTextTool(),
     mosaic: createMosaicTool(),
     watermark: createWatermarkTool(),
@@ -448,6 +463,15 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
       
       if (currentShape.tool === 'text' && currentShape._isNew) {
         setEditingTextIndex(newShapes.length - 1);
+      }
+      
+      const currentTool = tools.current[activeToolId];
+      if (currentTool?.afterCreate && toolStyles[activeToolId]) {
+        const updatedStyle = currentTool.afterCreate(toolStyles[activeToolId]);
+        setToolStyles(prev => ({
+          ...prev,
+          [activeToolId]: updatedStyle,
+        }));
       }
       
       setCurrentShape(null);

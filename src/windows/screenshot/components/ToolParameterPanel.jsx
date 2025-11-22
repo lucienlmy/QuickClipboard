@@ -5,6 +5,7 @@ import ColorControl from './controls/ColorControl';
 import SegmentedControl from './controls/SegmentedControl';
 import MultiToggleControl from './controls/MultiToggleControl';
 import SelectControl from './controls/SelectControl';
+import NumberInputControl from './controls/NumberInputControl';
 import { isToolPersistenceEnabled } from '../utils/toolParameterPersistence';
 
 const DEFAULT_PANEL_SIZE = { width: 240, height: 160 };
@@ -21,10 +22,12 @@ const getFallbackBounds = () => ({
   bottom: window.innerHeight || 1080,
 });
 
-function renderControl(param, value, onChange, onAction) {
+function renderControl(param, value, onChange, onAction, isFirstColor = false) {
   switch (param.type) {
     case 'slider':
       return <SliderControl param={param} value={value} onChange={onChange} />;
+    case 'number':
+      return <NumberInputControl param={param} value={value} onChange={onChange} />;
     case 'segmented':
       return <SegmentedControl param={param} value={value} onChange={onChange} />;
     case 'multiToggle':
@@ -64,7 +67,7 @@ function renderControl(param, value, onChange, onAction) {
       );
     case 'color':
     default:
-      return <ColorControl param={param} value={value} onChange={onChange} />;
+      return <ColorControl param={param} value={value} onChange={onChange} defaultExpanded={isFirstColor} />;
   }
 }
 
@@ -281,6 +284,19 @@ export default function ToolParameterPanel({
     setLockedPosition(position);
   }, [position]);
 
+  // 找出第一个颜色参数
+  const firstColorParamId = useMemo(() => {
+    const visibleParams = effectiveParameters.filter((param) => {
+      if (param.visible === undefined) return true;
+      if (typeof param.visible === 'function') {
+        return param.visible(values || {});
+      }
+      return param.visible;
+    });
+    const firstColorParam = visibleParams.find(p => p.type === 'color');
+    return firstColorParam?.id;
+  }, [effectiveParameters, values]);
+
   if (!selection || !activeTool || effectiveParameters.length === 0) {
     return null;
   }
@@ -301,10 +317,11 @@ export default function ToolParameterPanel({
           ? param.options?.[0]?.value
           : '#ffffff';
       const controlValue = value ?? fallback;
+      const isFirstColor = param.type === 'color' && param.id === firstColorParamId;
 
       return (
         <div key={param.id} className="flex flex-col gap-1">
-          {renderControl(param, controlValue, (val) => onParameterChange?.(param.id, val), onAction)}
+          {renderControl(param, controlValue, (val) => onParameterChange?.(param.id, val), onAction, isFirstColor)}
         </div>
       );
     });

@@ -54,8 +54,6 @@ const SHAPE_PARAMETERS = [
     type: 'color',
     label: '填充色',
     icon: 'ti ti-color-swatch',
-    showPresets: false,
-    showHistory: false,
   },
   {
     id: 'strokeWidth',

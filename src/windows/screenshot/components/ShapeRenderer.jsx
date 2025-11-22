@@ -1,5 +1,6 @@
 import React from 'react';
 import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Group, Text, Image as KonvaImage } from 'react-konva';
+import NumberMarker from './shapes/NumberMarker';
 
 const applyOpacity = (color, opacity = 1) => {
   if (!color) return undefined;
@@ -155,6 +156,26 @@ export const ShapeRenderer = ({
               offsetX: node.x(),
               offsetY: node.y(),
             });
+          }
+        }}
+      />
+    );
+  }
+
+  // 序号标注工具
+  if (shape.tool === 'number') {
+    return (
+      <NumberMarker
+        shape={shape}
+        isSelected={isSelected && isSelectMode}
+        onClick={() => {
+          if (isSelectMode) {
+            onSelectShape?.(index, false);
+          }
+        }}
+        onTransform={(updatedShape) => {
+          if (isSelectMode && onShapeTransform) {
+            onShapeTransform(updatedShape);
           }
         }}
       />

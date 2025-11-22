@@ -118,6 +118,9 @@ export function getToolCursor(toolId, toolStyle = {}) {
     case 'text':
       return 'text';
     
+    case 'number':
+      return 'crosshair';
+    
     case 'shape':
     case 'curveArrow':
     case 'watermark':

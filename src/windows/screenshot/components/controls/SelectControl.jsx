@@ -9,9 +9,11 @@ const SelectControl = ({ param, value, onChange }) => {
   const currentValue = value || param.defaultValue || '';
   const currentOption = param.options?.find(opt => opt.value === currentValue);
   
-  const filteredOptions = param.options?.filter(option =>
-    option.label.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredOptions = param.searchable !== false
+    ? param.options?.filter(option =>
+        option.label.toLowerCase().includes(searchTerm.toLowerCase())
+      ) || []
+    : param.options || [];
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -23,11 +25,13 @@ const SelectControl = ({ param, value, onChange }) => {
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      setTimeout(() => searchInputRef.current?.focus(), 50);
+      if (param.searchable !== false) {
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
     }
 
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, param.searchable]);
 
   const handleSelect = (optionValue) => {
     onChange?.(optionValue);
@@ -60,16 +64,18 @@ const SelectControl = ({ param, value, onChange }) => {
 
         {isOpen && (
           <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-64 flex flex-col">
-            <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="搜索字体..."
-                className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
-              />
-            </div>
+            {param.searchable !== false && (
+              <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={param.searchPlaceholder || "搜索..."}
+                  className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+            )}
             
             <div className="overflow-y-auto flex-1">
               {filteredOptions.length > 0 ? (

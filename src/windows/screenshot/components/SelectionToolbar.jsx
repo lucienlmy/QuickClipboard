@@ -145,6 +145,14 @@ function SelectionToolbar({
       variant: 'default'
     },
     {
+      id: 'number',
+      icon: 'ti ti-circle-number-1',
+      title: '序号',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'number' ? null : 'number'),
+      active: activeToolId === 'number',
+      variant: 'default'
+    },
+    {
       id: 'watermark',
       icon: 'ti ti-droplet-half-2',
       title: '水印',
