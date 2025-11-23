@@ -4,17 +4,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
+use std::collections::{hash_map::DefaultHasher, VecDeque};
 use tauri::{Emitter, WebviewWindow};
 use xcap::Monitor;
 use image::RgbaImage;
 
 use super::image_stitcher::ImageStitcher;
 
-// 对比区域高度、
-const COMPARE_HEIGHT: u32 = 40;
 // 垂直填充
 const VERTICAL_PADDING: u32 = 30;
+const FAILED_ATTEMPTS_HISTORY_SIZE: usize = 20; 
+const FULL_SCAN_TRIGGER: u32 = 3; 
+const FRAME_SIMILARITY_THRESHOLD: f64 = 8.0; 
 
 #[derive(Debug, Clone, Copy)]
 struct SelectionRect {
@@ -213,6 +214,8 @@ fn capture_loop() {
     let mut last_extended_rgba: Option<RgbaImage> = None;
     let mut last_content_height: u32 = 0;
     let mut last_frame_hash: u64 = 0;
+    let mut stitch_failure_count: u32 = 0;
+    let mut failed_attempts: VecDeque<u64> = VecDeque::with_capacity(FAILED_ATTEMPTS_HISTORY_SIZE);
     
     while CAPTURING_ACTIVE.load(Ordering::Relaxed) {
         if let Some(selection) = *SCREENSHOT_SELECTION.lock() {
@@ -226,7 +229,7 @@ fn capture_loop() {
             let content_height = (selection.height - border_offset * 2.0).max(0.0) as u32;
             
             if content_width <= 0.0 || content_height == 0 {
-                thread::sleep(Duration::from_millis(33));
+                thread::sleep(Duration::from_millis(66));
                 continue;
             }
             
@@ -246,9 +249,24 @@ fn capture_loop() {
                 // 计算当前帧哈希
                 let current_hash = compute_image_hash(&img);
                 
-                // 检测重复帧
                 if frame_count > 0 && current_hash == last_frame_hash {
-                    thread::sleep(Duration::from_millis(16));
+                    thread::sleep(Duration::from_millis(33));
+                    continue;
+                }
+                
+                if frame_count > 0 {
+                    if let Some(ref last_img) = last_extended_rgba {
+                        let similarity = ImageStitcher::compare_full_frame_similarity(last_img, &img);
+                        
+                        if similarity < FRAME_SIMILARITY_THRESHOLD {
+                            thread::sleep(Duration::from_millis(33));
+                            continue;
+                        }
+                    }
+                }
+                
+                if failed_attempts.contains(&current_hash) {
+                    thread::sleep(Duration::from_millis(33));
                     continue;
                 }
                 
@@ -274,21 +292,56 @@ fn capture_loop() {
                     frame_count += 1;
                     update_preview(frame_count);
                 } else if let Some(last_rgba) = &last_extended_rgba {
-                    // 后续帧：使用扩展区域进行匹配
-                    if let Some(stitch_result) = ImageStitcher::should_stitch_frame_ex(
+                    let quick_match = ImageStitcher::should_stitch_frame_ex(
                         last_rgba,
                         &img,
                         actual_top_padding,
                         last_content_height,
                         actual_top_padding,
                         content_height,
-                    ) {
+                    );
+                    
+                    let stitch_result = if quick_match.is_some() {
+                        quick_match
+                    } else if stitch_failure_count >= FULL_SCAN_TRIGGER {
+                        let stitched = STITCHED_IMAGE.lock();
+                        let stitched_width = *STITCHED_WIDTH.lock();
+                        let stitched_height = *STITCHED_HEIGHT.lock();
+                        
+                        if let Some(ref stitched_data) = *stitched {
+                            if let Some(full_result) = ImageStitcher::full_scan_stitch(
+                                stitched_data,
+                                stitched_width,
+                                stitched_height,
+                                &img,
+                                actual_top_padding,
+                                content_height,
+                            ) {
+                                use super::image_stitcher::StitchResult;
+                                Some(StitchResult {
+                                    new_content_y: full_result.new_content_y,
+                                    new_content_height: full_result.new_content_height,
+                                })
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    
+                    if let Some(result) = stitch_result {
+                        stitch_failure_count = 0;
+                        failed_attempts.clear(); 
+                        
                         // 提取新内容
                         let new_data = ImageStitcher::extract_region(
                             &img_bgra,
                             img_width,
-                            stitch_result.new_content_y,
-                            stitch_result.new_content_height,
+                            result.new_content_y,
+                            result.new_content_height,
                         );
                         
                         // 追加到拼接图像
@@ -296,7 +349,7 @@ fn capture_loop() {
                             stitched.extend_from_slice(&new_data);
                         }
                         
-                        let new_height = *STITCHED_HEIGHT.lock() + stitch_result.new_content_height;
+                        let new_height = *STITCHED_HEIGHT.lock() + result.new_content_height;
                         *STITCHED_HEIGHT.lock() = new_height;
                         
                         last_extended_rgba = Some(img);
@@ -304,6 +357,16 @@ fn capture_loop() {
                         last_frame_hash = current_hash;
                         frame_count += 1;
                         update_preview(frame_count);
+                    } else {
+                        stitch_failure_count += 1;
+                        
+                        if !failed_attempts.contains(&current_hash) {
+                            failed_attempts.push_back(current_hash);
+                            if failed_attempts.len() > FAILED_ATTEMPTS_HISTORY_SIZE {
+                                failed_attempts.pop_front();
+                            }
+                        }
+                        
                     }
                 }
             }

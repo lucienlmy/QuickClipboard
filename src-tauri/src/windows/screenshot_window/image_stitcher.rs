@@ -12,6 +12,12 @@ pub struct StitchResult {
     pub new_content_height: u32,
 }
 
+pub struct FullScanResult {
+    pub match_position: u32, // 在拼接历史中匹配的位置
+    pub new_content_y: u32,   // 当前帧中新内容的起始位置
+    pub new_content_height: u32, // 新内容的高度
+}
+
 pub struct ImageStitcher;
 
 impl ImageStitcher {
@@ -166,6 +172,43 @@ impl ImageStitcher {
         }
     }
     
+    pub fn compare_full_frame_similarity(
+        frame1: &RgbaImage,
+        frame2: &RgbaImage,
+    ) -> f64 {
+        if frame1.width() != frame2.width() || frame1.height() != frame2.height() {
+            return 255.0;
+        }
+        
+        let mut total_diff = 0.0;
+        let mut count = 0;
+        
+        let width = frame1.width();
+        let height = frame1.height();
+        
+        let step = 16;
+        
+        for y in (0..height).step_by(step) {
+            for x in (0..width).step_by(step) {
+                let p1 = frame1.get_pixel(x, y);
+                let p2 = frame2.get_pixel(x, y);
+                
+                // 计算 RGB 差异
+                for i in 0..3 {
+                    let diff = (p1[i] as i32 - p2[i] as i32).abs();
+                    total_diff += diff as f64;
+                }
+                count += 3;
+            }
+        }
+        
+        if count > 0 {
+            total_diff / count as f64
+        } else {
+            255.0
+        }
+    }
+    
     /// 提取区域
     pub fn extract_region(bgra_data: &[u8], width: u32, start_y: u32, height: u32) -> Vec<u8> {
         let start_offset = (start_y * width * 4) as usize;
@@ -187,5 +230,132 @@ impl ImageStitcher {
             rgba.push(chunk[3]); // A
         }
         RgbaImage::from_raw(width, height, rgba).unwrap()
+    }
+    
+    pub fn full_scan_stitch(
+        stitched_bgra: &[u8],
+        stitched_width: u32,
+        stitched_height: u32,
+        current_frame: &RgbaImage,
+        current_top_padding: u32,
+        current_content_height: u32,
+    ) -> Option<FullScanResult> {
+        if stitched_width != current_frame.width() {
+            return None;
+        }
+        
+        let width = stitched_width;
+        let current_content_start = current_top_padding;
+        let current_content_end = current_top_padding + current_content_height;
+        
+        let compare_height = 30.min(current_content_height / 3);
+        let current_compare_start = current_content_start;
+        
+        let mut best_match: Option<(u32, f64)> = None;
+        
+        let step = 8;
+        for search_y in (0..stitched_height).step_by(step) {
+            let available = stitched_height.saturating_sub(search_y);
+            if available < compare_height {
+                break;
+            }
+            
+            let actual_compare = compare_height.min(available);
+            let score = Self::compare_bgra_rgba_similarity(
+                stitched_bgra,
+                width,
+                search_y,
+                current_frame,
+                current_compare_start,
+                actual_compare,
+            );
+            
+            if let Some((_, best_score)) = best_match {
+                if score < best_score {
+                    best_match = Some((search_y, score));
+                }
+            } else {
+                best_match = Some((search_y, score));
+            }
+        }
+        
+        if let Some((match_y, score)) = best_match {
+            if score > 40.0 {
+                return None;
+            }
+            
+            let new_start_in_current = current_compare_start + compare_height;
+            
+            if new_start_in_current >= current_content_end {
+                return None;
+            }
+            
+            let new_height = current_content_end - new_start_in_current;
+            
+            if new_height < 5 {
+                return None;
+            }
+            
+            Some(FullScanResult {
+                match_position: match_y,
+                new_content_y: new_start_in_current,
+                new_content_height: new_height,
+            })
+        } else {
+            None
+        }
+    }
+    
+    fn compare_bgra_rgba_similarity(
+        bgra_data: &[u8],
+        width: u32,
+        bgra_y_start: u32,
+        rgba_img: &RgbaImage,
+        rgba_y_start: u32,
+        height: u32,
+    ) -> f64 {
+        let mut total_diff = 0.0;
+        let mut count = 0;
+        
+        let step = 12;
+        
+        for row in (0..height).step_by(step) {
+            let bgra_y = bgra_y_start + row;
+            let rgba_y = rgba_y_start + row;
+            
+            if bgra_y >= bgra_data.len() as u32 / (width * 4) || rgba_y >= rgba_img.height() {
+                break;
+            }
+            
+            for col in (0..width).step_by(step) {
+                if col >= width {
+                    break;
+                }
+                
+                let bgra_offset = ((bgra_y * width + col) * 4) as usize;
+                if bgra_offset + 3 >= bgra_data.len() {
+                    break;
+                }
+                let b1 = bgra_data[bgra_offset];
+                let g1 = bgra_data[bgra_offset + 1];
+                let r1 = bgra_data[bgra_offset + 2];
+                
+                let p2 = rgba_img.get_pixel(col, rgba_y);
+                let r2 = p2[0];
+                let g2 = p2[1];
+                let b2 = p2[2];
+                
+                total_diff += (r1 as i32 - r2 as i32).abs() as f64;
+                total_diff += (g1 as i32 - g2 as i32).abs() as f64;
+                total_diff += (b1 as i32 - b2 as i32).abs() as f64;
+                count += 3;
+            }
+        }
+        
+        if count > 0 {
+            total_diff / count as f64
+        } else {
+            255.0
+        }
     }
 }

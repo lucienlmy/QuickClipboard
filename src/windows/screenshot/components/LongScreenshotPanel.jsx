@@ -11,6 +11,7 @@ export default function LongScreenshotPanel({
 }) {
   const panelRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const scrollAnchorRef = useRef(null);
   const [position, setPosition] = useState({ x: -9999, y: -9999 });
   const [panelHeight, setPanelHeight] = useState(0);
 
@@ -23,11 +24,8 @@ export default function LongScreenshotPanel({
 
   // 自动滚动到底部显示最新内容
   useEffect(() => {
-    if (previewImage && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({
-        top: scrollContainerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
+    if (previewImage && scrollAnchorRef.current) {
+      scrollAnchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [previewImage, capturedCount]);
 
@@ -124,22 +122,26 @@ export default function LongScreenshotPanel({
           className="flex-1 p-3 max-h-[450px] overflow-y-auto scroll-smooth"
         >
           {previewImage ? (
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden relative">
-              <img
-                src={previewImage}
-                alt="长截屏预览"
-                className="w-full h-auto block"
-              />
-              {/* 保存中覆盖层 */}
-              {isSaving && (
-                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-3"></div>
-                    <span className="text-white text-sm font-medium">正在保存...</span>
+            <>
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden relative">
+                <img
+                  src={previewImage}
+                  alt="长截屏预览"
+                  className="w-full h-auto block"
+                />
+                {/* 保存中覆盖层 */}
+                {isSaving && (
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-3"></div>
+                      <span className="text-white text-sm font-medium">正在保存...</span>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+              {/* 滚动锚点 */}
+              <div ref={scrollAnchorRef} className="h-0" />
+            </>
           ) : (
             <div className="flex items-center justify-center h-full min-h-[100px] bg-gray-100 dark:bg-gray-800 rounded-lg">
               <div className="text-center text-gray-400 dark:text-gray-500">
