@@ -18,10 +18,11 @@ function SelectionToolbar({
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
 
+  const toolbarWidth = 340;
+  const toolbarHeight = 35;
+
   const getToolbarPosition = () => {
-    const padding = 8;
-    const toolbarHeight = 35;
-    const toolbarWidth = 340; 
+    const padding = 8; 
 
     let x = selection.x + selection.width;
     let y = selection.y + selection.height + padding;
@@ -168,7 +169,16 @@ function SelectionToolbar({
       id: 'longScreenshot',
       icon: 'ti ti-viewport-tall',
       title: '长截屏',
-      onClick: onLongScreenshotEnter,
+      onClick: () => {
+        const pos = getToolbarPosition();
+        const toolbarPosition = {
+          x: pos.x - toolbarWidth,
+          y: pos.y,
+          width: toolbarWidth,
+          height: toolbarHeight,
+        };
+        onLongScreenshotEnter(toolbarPosition);
+      },
       variant: 'default'
     },
      {

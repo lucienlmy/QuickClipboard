@@ -25,11 +25,20 @@ struct SelectionRect {
 }
 
 #[derive(Debug, Clone, Copy)]
+struct ToolbarRect {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
 struct ScaleFactor(f64);
 
 static LONG_SCREENSHOT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURING_ACTIVE: AtomicBool = AtomicBool::new(false);
 static SCREENSHOT_SELECTION: Lazy<Mutex<Option<SelectionRect>>> = Lazy::new(|| Mutex::new(None));
+static SCREENSHOT_TOOLBAR: Lazy<Mutex<Option<ToolbarRect>>> = Lazy::new(|| Mutex::new(None));
 static SCREENSHOT_WINDOW: Lazy<Mutex<Option<WebviewWindow>>> = Lazy::new(|| Mutex::new(None));
 static SCALE_FACTOR: Lazy<Mutex<ScaleFactor>> = Lazy::new(|| Mutex::new(ScaleFactor(1.0)));
 static STITCHED_IMAGE: Lazy<Mutex<Option<Vec<u8>>>> = Lazy::new(|| Mutex::new(None));
@@ -37,7 +46,17 @@ static STITCHED_WIDTH: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
 static STITCHED_HEIGHT: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
 
 // 启用长截屏模式的鼠标穿透控制
-pub fn enable_passthrough(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64) {
+pub fn enable_passthrough(
+    window: WebviewWindow, 
+    x: f64, 
+    y: f64, 
+    width: f64, 
+    height: f64,
+    toolbar_x: f64,
+    toolbar_y: f64,
+    toolbar_width: f64,
+    toolbar_height: f64,
+) {
     // 获取窗口的缩放因子
     let scale_factor = window.scale_factor().unwrap_or(1.0);
     *SCALE_FACTOR.lock() = ScaleFactor(scale_factor);
@@ -48,12 +67,23 @@ pub fn enable_passthrough(window: WebviewWindow, x: f64, y: f64, width: f64, hei
     let physical_width = width * scale_factor;
     let physical_height = height * scale_factor;
     
+    let physical_toolbar_x = toolbar_x * scale_factor;
+    let physical_toolbar_y = toolbar_y * scale_factor;
+    let physical_toolbar_width = toolbar_width * scale_factor;
+    let physical_toolbar_height = toolbar_height * scale_factor;
+    
     *SCREENSHOT_WINDOW.lock() = Some(window.clone());
     *SCREENSHOT_SELECTION.lock() = Some(SelectionRect { 
         x: physical_x, 
         y: physical_y, 
         width: physical_width, 
         height: physical_height 
+    });
+    *SCREENSHOT_TOOLBAR.lock() = Some(ToolbarRect {
+        x: physical_toolbar_x,
+        y: physical_toolbar_y,
+        width: physical_toolbar_width,
+        height: physical_toolbar_height,
     });
     LONG_SCREENSHOT_ACTIVE.store(true, Ordering::Relaxed);
     
@@ -73,6 +103,7 @@ pub fn disable_passthrough() {
     stop_capturing();
     LONG_SCREENSHOT_ACTIVE.store(false, Ordering::Relaxed);
     *SCREENSHOT_SELECTION.lock() = None;
+    *SCREENSHOT_TOOLBAR.lock() = None;
     
     // 禁用穿透
     if let Some(window) = SCREENSHOT_WINDOW.lock().as_ref() {
@@ -156,7 +187,19 @@ fn monitor_mouse_position() {
                     y as f64 >= selection.y &&
                     y as f64 <= selection.y + selection.height;
                 
-                let _ = window.set_ignore_cursor_events(is_in_selection);
+                // 判断鼠标是否在工具栏内
+                let is_in_toolbar = if let Some(toolbar) = *SCREENSHOT_TOOLBAR.lock() {
+                    x as f64 >= toolbar.x &&
+                    x as f64 <= toolbar.x + toolbar.width &&
+                    y as f64 >= toolbar.y &&
+                    y as f64 <= toolbar.y + toolbar.height
+                } else {
+                    false
+                };
+                
+                // 只有在选区内且不在工具栏内时才穿透
+                let should_passthrough = is_in_selection && !is_in_toolbar;
+                let _ = window.set_ignore_cursor_events(should_passthrough);
             }
         }
         

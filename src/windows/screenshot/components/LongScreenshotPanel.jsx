@@ -5,6 +5,7 @@ export default function LongScreenshotPanel({
   selection,
   stageRegionManager,
   isCapturing,
+  isSaving,
   previewImage,
   capturedCount = 0,
 }) {
@@ -96,7 +97,12 @@ export default function LongScreenshotPanel({
         {/* 状态栏 */}
         <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 text-xs">
-            {isCapturing ? (
+            {isSaving ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
+                <span className="text-gray-600 dark:text-gray-300">正在保存中...</span>
+              </>
+            ) : isCapturing ? (
               <>
                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
                 <span className="text-gray-600 dark:text-gray-300">正在捕获... ({capturedCount} 帧)</span>
@@ -118,12 +124,21 @@ export default function LongScreenshotPanel({
           className="flex-1 p-3 max-h-[450px] overflow-y-auto scroll-smooth"
         >
           {previewImage ? (
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden relative">
               <img
                 src={previewImage}
                 alt="长截屏预览"
                 className="w-full h-auto block"
               />
+              {/* 保存中覆盖层 */}
+              {isSaving && (
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-3"></div>
+                    <span className="text-white text-sm font-medium">正在保存...</span>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-center h-full min-h-[100px] bg-gray-100 dark:bg-gray-800 rounded-lg">

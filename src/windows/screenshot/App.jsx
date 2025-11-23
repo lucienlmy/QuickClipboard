@@ -257,6 +257,7 @@ function App() {
           selection={session.selection}
           stageRegionManager={stageRegionManager}
           isCapturing={longScreenshot.isCapturing}
+          isSaving={longScreenshot.isSaving}
           previewImage={longScreenshot.preview}
           capturedCount={longScreenshot.capturedCount}
         />

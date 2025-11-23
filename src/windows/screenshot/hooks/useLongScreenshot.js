@@ -9,21 +9,26 @@ export default function useLongScreenshot(selection) {
   const [isCapturing, setIsCapturing] = useState(false);
   const [preview, setPreview] = useState(null);
   const [capturedCount, setCapturedCount] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   // 进入长截屏模式
-  const enter = useCallback(async () => {
+  const enter = useCallback(async (toolbarPosition) => {
     setIsActive(true);
     setIsCapturing(false);
     setPreview(null);
     
     // 启用后端鼠标穿透控制
-    if (selection) {
+    if (selection && toolbarPosition) {
       try {
         await invoke('enable_long_screenshot_passthrough', {
           x: selection.x,
           y: selection.y,
           width: selection.width,
           height: selection.height,
+          toolbarX: toolbarPosition.x,
+          toolbarY: toolbarPosition.y,
+          toolbarWidth: toolbarPosition.width,
+          toolbarHeight: toolbarPosition.height,
         });
       } catch (err) {
         console.error('启用鼠标穿透失败:', err);
@@ -73,26 +78,32 @@ export default function useLongScreenshot(selection) {
         return;
       }
     
+      // 如果正在捕获，先停止
+      if (isCapturing) {
+        await invoke('stop_long_screenshot_capture');
+        setIsCapturing(false);
+      }
+    
+      // 显示保存中状态
+      setIsSaving(true);
+      
+      // 保存文件
+      await invoke('save_long_screenshot', { path: filePath });
+      
+      // 保存后关闭界面
+      setIsSaving(false);
       setIsActive(false);
       setPreview(null);
       setCapturedCount(0);
       
       await invoke('disable_long_screenshot_passthrough');
       await cancelScreenshotSession();
-      
-      invoke('save_long_screenshot', { path: filePath })
-        .then(() => {
-          console.log('长截图保存成功:', filePath);
-        })
-        .catch((err) => {
-          console.error('保存失败:', err);
-          alert(`保存失败: ${err}`);
-        });
     } catch (err) {
       console.error('保存失败:', err);
       alert(`保存失败: ${err}`);
+      setIsSaving(false);
     }
-  }, [capturedCount]);
+  }, [capturedCount, isCapturing]);
 
   // 取消长截屏
   const cancel = useCallback(async () => {
@@ -137,6 +148,7 @@ export default function useLongScreenshot(selection) {
   return {
     isActive,
     isCapturing,
+    isSaving,
     preview,
     capturedCount,
     enter,

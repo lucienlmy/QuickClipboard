@@ -39,9 +39,16 @@ pub fn enable_long_screenshot_passthrough(
     y: f64,
     width: f64,
     height: f64,
+    toolbar_x: f64,
+    toolbar_y: f64,
+    toolbar_width: f64,
+    toolbar_height: f64,
 ) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("screenshot") {
-        crate::windows::screenshot_window::long_screenshot::enable_passthrough(window, x, y, width, height);
+        crate::windows::screenshot_window::long_screenshot::enable_passthrough(
+            window, x, y, width, height,
+            toolbar_x, toolbar_y, toolbar_width, toolbar_height
+        );
         Ok(())
     } else {
         Err("Screenshot window not found".to_string())
@@ -70,6 +77,10 @@ pub fn stop_long_screenshot_capture() -> Result<(), String> {
 
 // 保存长截屏
 #[tauri::command]
-pub fn save_long_screenshot(path: String) -> Result<(), String> {
-    crate::windows::screenshot_window::long_screenshot::save_long_screenshot(path)
+pub async fn save_long_screenshot(path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        crate::windows::screenshot_window::long_screenshot::save_long_screenshot(path)
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
 }
