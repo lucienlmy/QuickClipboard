@@ -21,7 +21,7 @@ function SelectionToolbar({
   const toolbarWidth = 340;
   const toolbarHeight = 35;
 
-  const getToolbarPosition = () => {
+  const getToolbarPosition = (isLongScreenshot = longScreenshotMode) => {
     const padding = 8; 
 
     let x = selection.x + selection.width;
@@ -49,7 +49,13 @@ function SelectionToolbar({
       if (yTop >= screenTop) {
         y = yTop;
       } else {
-        y = selection.y + selection.height - toolbarHeight - padding;
+        // 长截图模式：优先内右上角
+        if (isLongScreenshot) {
+          y = selection.y + padding;
+        } else {
+          // 普通模式：内右下角
+          y = selection.y + selection.height - toolbarHeight - padding;
+        }
         
         if (y + toolbarHeight > screenBottom) {
           y = screenBottom - toolbarHeight - padding;
@@ -170,7 +176,7 @@ function SelectionToolbar({
       icon: 'ti ti-viewport-tall',
       title: '长截屏',
       onClick: () => {
-        const pos = getToolbarPosition();
+        const pos = getToolbarPosition(true); // 使用长截图模式的位置计算
         const toolbarPosition = {
           x: pos.x - toolbarWidth,
           y: pos.y,
