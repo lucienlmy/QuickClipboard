@@ -258,6 +258,7 @@ function App() {
           stageRegionManager={stageRegionManager}
           isCapturing={longScreenshot.isCapturing}
           previewImage={longScreenshot.preview}
+          capturedCount={longScreenshot.capturedCount}
         />
       )}
     </div>

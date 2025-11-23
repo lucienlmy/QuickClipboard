@@ -6,8 +6,10 @@ export default function LongScreenshotPanel({
   stageRegionManager,
   isCapturing,
   previewImage,
+  capturedCount = 0,
 }) {
   const panelRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const [position, setPosition] = useState({ x: -9999, y: -9999 });
   const [panelHeight, setPanelHeight] = useState(0);
 
@@ -17,6 +19,16 @@ export default function LongScreenshotPanel({
     const rect = panelRef.current.getBoundingClientRect();
     setPanelHeight(rect.height);
   }, [previewImage]);
+
+  // 自动滚动到底部显示最新内容
+  useEffect(() => {
+    if (previewImage && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [previewImage, capturedCount]);
 
   useEffect(() => {
     if (!selection || panelHeight === 0) return;
@@ -81,8 +93,30 @@ export default function LongScreenshotPanel({
           </span>
         </div>
 
+        {/* 状态栏 */}
+        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 text-xs">
+            {isCapturing ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                <span className="text-gray-600 dark:text-gray-300">正在捕获... ({capturedCount} 帧)</span>
+              </>
+            ) : (
+              <>
+                <i className="ti ti-check text-green-500"></i>
+                <span className="text-gray-500 dark:text-gray-400">
+                  {capturedCount > 0 ? `已完成 ${capturedCount} 帧` : '等待开始'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* 预览区域 */}
-        <div className="flex-1 p-3 max-h-[500px] overflow-y-auto">
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 p-3 max-h-[450px] overflow-y-auto scroll-smooth"
+        >
           {previewImage ? (
             <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
               <img
@@ -92,12 +126,10 @@ export default function LongScreenshotPanel({
               />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-32 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <div className="flex items-center justify-center h-full min-h-[100px] bg-gray-100 dark:bg-gray-800 rounded-lg">
               <div className="text-center text-gray-400 dark:text-gray-500">
-                <i className="ti ti-photo text-3xl mb-2 block"></i>
-                <span className="text-xs">
-                  {isCapturing ? '正在捕获...' : '点击开始捕获'}
-                </span>
+                <i className="ti ti-photo text-4xl mb-2 block"></i>
+                <span className="text-xs">暂无预览</span>
               </div>
             </div>
           )}

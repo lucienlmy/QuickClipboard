@@ -54,3 +54,22 @@ pub fn disable_long_screenshot_passthrough() -> Result<(), String> {
     crate::windows::screenshot_window::long_screenshot::disable_passthrough();
     Ok(())
 }
+
+// 开始长截屏捕获
+#[tauri::command]
+pub fn start_long_screenshot_capture() -> Result<(), String> {
+    crate::windows::screenshot_window::long_screenshot::start_capturing()
+}
+
+// 停止长截屏捕获
+#[tauri::command]
+pub fn stop_long_screenshot_capture() -> Result<(), String> {
+    crate::windows::screenshot_window::long_screenshot::stop_capturing();
+    Ok(())
+}
+
+// 保存长截屏
+#[tauri::command]
+pub fn save_long_screenshot(path: String) -> Result<(), String> {
+    crate::windows::screenshot_window::long_screenshot::save_long_screenshot(path)
+}

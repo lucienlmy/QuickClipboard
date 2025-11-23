@@ -166,7 +166,7 @@ function SelectionToolbar({
   const drawingTools = [
     {
       id: 'longScreenshot',
-      icon: 'ti ti-capture',
+      icon: 'ti ti-viewport-tall',
       title: '长截屏',
       onClick: onLongScreenshotEnter,
       variant: 'default'
