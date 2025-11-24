@@ -269,7 +269,7 @@ function ClipboardItem({
           </div>
 
           {/* 内容区 */}
-          <div className={`flex-1 min-w-0 w-full ${isFileType ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+          <div className={`flex-1 min-w-0 w-full ${settings.rowHeight === 'auto' ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
             {renderContent()}
           </div>
         </>}
