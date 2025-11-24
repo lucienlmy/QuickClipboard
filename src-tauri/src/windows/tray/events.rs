@@ -84,11 +84,8 @@ fn toggle_hotkeys(_app: &AppHandle) {
 }
 
 fn toggle_clipboard_monitor(app: &AppHandle) {
-    let mut settings = crate::get_settings();
-    settings.clipboard_monitor = !settings.clipboard_monitor;
-    
-    if let Err(e) = crate::commands::settings::save_settings(settings, app.clone()) {
-        eprintln!("保存剪贴板监听设置失败: {}", e);
+    if let Err(e) = crate::commands::settings::toggle_clipboard_monitor(app) {
+        eprintln!("切换剪贴板监听状态失败: {}", e);
     }
 }
 

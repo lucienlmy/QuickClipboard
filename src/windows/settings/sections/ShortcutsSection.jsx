@@ -139,6 +139,10 @@ function ShortcutsSection({
         <SettingItem label={t('settings.shortcuts.screenshot')} description={t('settings.shortcuts.screenshotDesc')}>
           <ShortcutInput value={settings.screenshotShortcut} onChange={value => handleShortcutChange('screenshotShortcut', value)} onReset={() => handleShortcutChange('screenshotShortcut', 'Ctrl+Shift+A')} hasError={hasErrorStatus('screenshotShortcut', 'screenshot')} errorMessage={getErrorMessage('screenshotShortcut', 'screenshot')} />
         </SettingItem>
+
+        <SettingItem label={t('settings.shortcuts.toggleClipboardMonitor')} description={t('settings.shortcuts.toggleClipboardMonitorDesc')}>
+          <ShortcutInput value={settings.toggleClipboardMonitorShortcut} onChange={value => handleShortcutChange('toggleClipboardMonitorShortcut', value)} onReset={() => handleShortcutChange('toggleClipboardMonitorShortcut', 'Ctrl+Shift+Z')} hasError={hasErrorStatus('toggleClipboardMonitorShortcut', 'toggle_clipboard_monitor')} errorMessage={getErrorMessage('toggleClipboardMonitorShortcut', 'toggle_clipboard_monitor')} />
+        </SettingItem>
       </SettingsSection>
 
       <SettingsSection title={t('settings.shortcuts.numberTitle')} description={t('settings.shortcuts.numberDesc')}>

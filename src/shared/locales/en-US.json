@@ -170,6 +170,8 @@
       "quickpasteWindowDesc": "Quickly preview and paste clipboard content",
       "screenshot": "Screenshot",
       "screenshotDesc": "Take a screenshot",
+      "toggleClipboardMonitor": "Toggle Clipboard Monitor",
+      "toggleClipboardMonitorDesc": "Quickly enable or disable clipboard monitoring",
       "numberShortcutsTitle": "Number Shortcuts",
       "numberShortcutsDesc": "Quickly operate clipboard items with number keys",
       "enableNumberShortcuts": "Enable Number Shortcuts",

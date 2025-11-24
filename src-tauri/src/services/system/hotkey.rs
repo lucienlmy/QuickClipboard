@@ -151,6 +151,17 @@ pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
     })
 }
 
+pub fn register_toggle_clipboard_monitor_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("toggle_clipboard_monitor", shortcut_str, |app| {
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = crate::commands::settings::toggle_clipboard_monitor(&app_clone) {
+                eprintln!("切换剪贴板监听状态失败: {}", e);
+            }
+        });
+    })
+}
+
 pub fn register_number_shortcuts(modifier: &str) -> Result<(), String> {
     let app = get_app()?;
     
@@ -302,6 +313,12 @@ pub fn reload_from_settings() -> Result<(), String> {
         if settings.screenshot_enabled && !settings.screenshot_shortcut.is_empty() {
             if let Err(e) = register_screenshot_hotkey(&settings.screenshot_shortcut) {
                 eprintln!("注册截图快捷键失败: {}", e);
+            }
+        }
+        
+        if !settings.toggle_clipboard_monitor_shortcut.is_empty() {
+            if let Err(e) = register_toggle_clipboard_monitor_hotkey(&settings.toggle_clipboard_monitor_shortcut) {
+                eprintln!("注册切换剪贴板监听快捷键失败: {}", e);
             }
         }
         

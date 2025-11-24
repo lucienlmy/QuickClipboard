@@ -220,6 +220,14 @@ fn update_tray_monitor_label(enabled: bool) {
     }
 }
 
+// 切换剪贴板监听状态
+pub fn toggle_clipboard_monitor(app: &tauri::AppHandle) -> Result<(), String> {
+    let mut settings = get_settings();
+    settings.clipboard_monitor = !settings.clipboard_monitor;
+    
+    save_settings(settings, app.clone())
+}
+
 // 保存窗口位置
 #[tauri::command]
 pub fn save_window_position(x: i32, y: i32) -> Result<(), String> {
