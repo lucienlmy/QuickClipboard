@@ -403,6 +403,10 @@ fn handle_click_outside() {
             return;
         }
 
+        if state.is_pinned {
+            return;
+        }
+
         if window.is_visible().unwrap_or(false) && is_mouse_outside_window(window) {
             let _ = crate::check_snap(window);
             crate::hide_main_window(window);

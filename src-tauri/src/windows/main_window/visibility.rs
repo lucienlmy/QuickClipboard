@@ -22,10 +22,6 @@ pub fn show_main_window(window: &WebviewWindow) {
 
 // 隐藏主窗口
 pub fn hide_main_window(window: &WebviewWindow) {
-    if super::state::is_pinned() {
-        return;
-    }
-
     if crate::is_context_menu_visible() {
         return;
     }

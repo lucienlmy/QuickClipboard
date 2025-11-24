@@ -73,10 +73,6 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     if !state.is_snapped || state.is_hidden {
         return Ok(());
     }
-
-    if state.is_pinned {
-        return Ok(());
-    }
     
     if crate::is_context_menu_visible() {
         return Ok(());
