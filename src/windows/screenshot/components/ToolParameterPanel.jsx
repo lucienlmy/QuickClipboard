@@ -61,7 +61,11 @@ function renderControl(param, value, onChange, onAction, isFirstColor = false) {
             onChange={(e) => onChange?.(e.target.value)}
             placeholder={param.placeholder}
             rows={param.rows || 3}
-            className="w-full px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            readOnly={param.readOnly}
+            className={[
+              'w-full px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg resize-none placeholder:text-gray-400 dark:placeholder:text-gray-500',
+              param.readOnly ? 'cursor-default' : 'focus:outline-none focus:ring-2 focus:ring-blue-500'
+            ].join(' ')}
           />
         </div>
       );

@@ -84,3 +84,74 @@ pub async fn save_long_screenshot(path: String) -> Result<(), String> {
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?
 }
+
+// OCR识别结果结构
+#[derive(Debug, serde::Serialize)]
+pub struct OcrWord {
+    pub text: String,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct OcrLine {
+    pub text: String,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub words: Vec<OcrWord>,
+    pub word_gaps: Vec<f32>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct OcrResult {
+    pub text: String,
+    pub lines: Vec<OcrLine>,
+}
+
+// OCR识别图片字节数组
+#[tauri::command]
+pub async fn recognize_image_ocr(image_data: Vec<u8>) -> Result<OcrResult, String> {
+    tokio::task::spawn_blocking(move || {
+        use qcocr::recognize_from_bytes;
+        
+        // 调用OCR识别
+        let result = recognize_from_bytes(&image_data, None)
+            .map_err(|e| format!("OCR识别失败: {}", e))?;
+        
+        // 转换为返回结果
+        let lines = result.lines.iter().map(|line| {
+            // 转换单词
+            let words = line.words.iter().map(|word| OcrWord {
+                text: word.text.clone(),
+                x: word.bounds.x,
+                y: word.bounds.y,
+                width: word.bounds.width,
+                height: word.bounds.height,
+            }).collect();
+            
+            // 计算单词间距
+            let word_gaps = line.compute_word_gaps();
+            
+            OcrLine {
+                text: line.text.clone(),
+                x: line.bounds.x,
+                y: line.bounds.y,
+                width: line.bounds.width,
+                height: line.bounds.height,
+                words,
+                word_gaps,
+            }
+        }).collect();
+        
+        Ok(OcrResult {
+            text: result.text,
+            lines,
+        })
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
+}

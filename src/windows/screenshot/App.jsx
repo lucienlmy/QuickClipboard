@@ -16,12 +16,15 @@ import useLongScreenshot from './hooks/useLongScreenshot';
 import { ensureAutoSelectionStarted } from './utils/autoSelectionManager';
 import ToolParameterPanel from './components/ToolParameterPanel';
 import LongScreenshotPanel from './components/LongScreenshotPanel';
+import OcrOverlay from './components/OcrOverlay';
+import { recognizeSelectionOcr } from './utils/ocrUtils';
 
 function App() {
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
   const stageRef = useRef(null);
   const [mousePos, setMousePos] = useState(null);
   const magnifierUpdateRef = useRef(null);
+  const [ocrResult, setOcrResult] = useState(null);
 
   const handleCursorMove = useCursorMovement(screens, setMousePos, magnifierUpdateRef, stageRegionManager);
   const session = useScreenshotSession(stageRef, stageRegionManager);
@@ -91,6 +94,28 @@ function App() {
     }
     session.handleRightClick(e);
   }, [editing, session, longScreenshot.isActive]);
+
+  // OCR激活时自动识别
+  useEffect(() => {
+    if (editing.activeToolId !== 'ocr' || !session.selection) {
+      if (ocrResult) setOcrResult(null);
+      return;
+    }
+    if (ocrResult) return;
+    const performOcr = async () => {
+      try {
+        const result = await recognizeSelectionOcr(stageRef, session.selection);
+        setOcrResult(result);
+        editing.handleToolParameterChange('recognizedText', result.text);
+      } catch (error) {
+        console.error('OCR识别失败:', error);
+        alert(`OCR识别失败: ${error.message}`);
+        editing.setActiveToolId(null);
+      }
+    };
+
+    performOcr();
+  }, [editing.activeToolId, session.selection, ocrResult, editing]);
 
   useEffect(() => {
     let unlisten;
@@ -244,9 +269,29 @@ function App() {
           stageRegionManager={stageRegionManager}
           onParameterChange={editing.handleToolParameterChange}
           onTogglePersistence={editing.handleTogglePersistence}
-          onAction={(action) => {
+          onAction={async (action) => {
             if (action === 'delete') {
               editing.deleteSelectedShapes();
+            } else if (action === 'copyAll') {
+              const text = editing.toolStyle?.recognizedText || '';
+              if (text) {
+                try {
+                  const { copyTextToClipboard } = await import('@shared/api/system');
+                  await copyTextToClipboard(text);
+                } catch (error) {
+                  console.error('复制失败:', error);
+                }
+              }
+            } else if (action === 'copySelected') {
+              const selectedText = window.getSelection().toString();
+              if (selectedText) {
+                try {
+                  const { copyTextToClipboard } = await import('@shared/api/system');
+                  await copyTextToClipboard(selectedText);
+                } catch (error) {
+                  console.error('复制失败:', error);
+                }
+              }
             }
           }}
         />
@@ -260,6 +305,13 @@ function App() {
           isSaving={longScreenshot.isSaving}
           previewImage={longScreenshot.preview}
           capturedCount={longScreenshot.capturedCount}
+        />
+      )}
+
+      {ocrResult && (
+        <OcrOverlay
+          result={ocrResult}
+          selection={session.selection}
         />
       )}
     </div>

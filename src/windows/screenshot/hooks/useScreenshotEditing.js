@@ -7,6 +7,7 @@ import { createTextTool } from '../tools/textTool';
 import { createMosaicTool } from '../tools/mosaicTool';
 import { createWatermarkTool } from '../tools/watermarkTool';
 import { createNumberTool } from '../tools/numberTool';
+import { createOcrTool } from '../tools/ocrTool';
 import { recordColorHistory } from '../utils/colorHistory';
 import { processMosaicShape } from '../utils/imageProcessor';
 import { createPersistenceManager } from '../utils/toolParameterPersistence';
@@ -142,6 +143,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     mosaic: createMosaicTool(),
     watermark: createWatermarkTool(),
     select: createSelectTool(),
+    ocr: createOcrTool(),
   });
 
   // 创建持久化管理器

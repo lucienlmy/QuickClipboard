@@ -161,16 +161,7 @@ function SelectionToolbar({
       title: '保存',
       onClick: onSave,
       variant: 'default',
-    }
-  ];
-
-  const historyTools = [
-    { id: 'clear', icon: 'ti ti-trash', title: '清空画布', onClick: clearCanvas, disabled: !canClearCanvas, variant: 'default' },
-    { id: 'redo', icon: 'ti ti-arrow-forward-up', title: '重做', onClick: redo, disabled: !canRedo, variant: 'default' },
-    { id: 'undo', icon: 'ti ti-arrow-back-up', title: '撤销', onClick: undo, disabled: !canUndo, variant: 'default' },
-  ];
-
-  const drawingTools = [
+    },
     {
       id: 'longScreenshot',
       icon: 'ti ti-viewport-tall',
@@ -185,6 +176,23 @@ function SelectionToolbar({
         };
         onLongScreenshotEnter(toolbarPosition);
       },
+      variant: 'default'
+    }
+  ];
+
+  const historyTools = [
+    { id: 'clear', icon: 'ti ti-trash', title: '清空画布', onClick: clearCanvas, disabled: !canClearCanvas, variant: 'default' },
+    { id: 'redo', icon: 'ti ti-arrow-forward-up', title: '重做', onClick: redo, disabled: !canRedo, variant: 'default' },
+    { id: 'undo', icon: 'ti ti-arrow-back-up', title: '撤销', onClick: undo, disabled: !canUndo, variant: 'default' },
+  ];
+
+  const drawingTools = [
+    {
+      id: 'ocr',
+      icon: 'ti ti-text-scan-2',
+      title: 'OCR识别',
+      onClick: () => onToolChange && onToolChange(activeToolId === 'ocr' ? null : 'ocr'),
+      active: activeToolId === 'ocr',
       variant: 'default'
     },
      {

@@ -46,14 +46,26 @@ function getStorageKey(toolId) {
 }
 
 //保存工具参数到本地存储
-export function saveToolParameters(toolId, parameters) {
+export function saveToolParameters(toolId, parameters, toolDefinition = null) {
   if (!isToolPersistenceEnabled(toolId)) {
     return;
   }
   
   try {
+    // 如果提供了工具定义，过滤掉 persist: false 的参数
+    let parametersToSave = parameters;
+    if (toolDefinition?.parameters) {
+      parametersToSave = {};
+      for (const [key, value] of Object.entries(parameters)) {
+        const paramDef = toolDefinition.parameters.find(p => p.id === key);
+        if (!paramDef || paramDef.persist !== false) {
+          parametersToSave[key] = value;
+        }
+      }
+    }
+    
     const key = getStorageKey(toolId);
-    localStorage.setItem(key, JSON.stringify(parameters));
+    localStorage.setItem(key, JSON.stringify(parametersToSave));
   } catch (error) {
     console.error(`Failed to save parameters for tool ${toolId}:`, error);
   }
@@ -123,7 +135,8 @@ export function createPersistenceManager(tools) {
       };
       
       // 实时保存到本地存储
-      saveToolParameters(toolId, updatedStyle);
+      const tool = tools[toolId];
+      saveToolParameters(toolId, updatedStyle, tool);
       
       return {
         ...currentStyles,

@@ -83,11 +83,14 @@ const SelectControl = ({ param, value, onChange }) => {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => handleSelect(option.value)}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                      option.value === currentValue
+                    onClick={() => !option.disabled && handleSelect(option.value)}
+                    disabled={option.disabled}
+                    className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                      option.disabled
+                        ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                        : option.value === currentValue
                         ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
-                        : 'text-gray-900 dark:text-gray-100'
+                        : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                     style={{ fontFamily: param.preview ? option.value : undefined }}
                   >

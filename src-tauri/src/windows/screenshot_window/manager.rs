@@ -12,7 +12,7 @@ fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
         .decorations(false)
         .transparent(true)
         .shadow(false)
-        .always_on_top(true)
+        .always_on_top(false)
         .skip_taskbar(true)
         .visible(false)
         .resizable(false)
