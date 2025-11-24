@@ -568,6 +568,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     handleMouseMove,
     handleMouseUp,
     selectedShapeIndices,
+    setSelectedShapeIndices,
     toggleSelectShape,
     deleteSelectedShapes,
     updateSelectedShape,

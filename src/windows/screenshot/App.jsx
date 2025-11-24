@@ -18,6 +18,8 @@ import ToolParameterPanel from './components/ToolParameterPanel';
 import LongScreenshotPanel from './components/LongScreenshotPanel';
 import OcrOverlay from './components/OcrOverlay';
 import { recognizeSelectionOcr } from './utils/ocrUtils';
+import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
+import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 
 function App() {
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
@@ -30,6 +32,33 @@ function App() {
   const session = useScreenshotSession(stageRef, stageRegionManager);
   const editing = useScreenshotEditing(screens, stageRef);
   const longScreenshot = useLongScreenshot(session.selection);
+
+  // 快捷键管理
+  useKeyboardShortcuts({
+    activeToolId: editing.activeToolId,
+    setActiveToolId: editing.setActiveToolId,
+    onUndo: editing.undo,
+    onRedo: editing.redo,
+    onDelete: editing.deleteSelectedShapes,
+    onClearCanvas: editing.clearCanvas,
+    onCancel: session.handleCancelSelection,
+    onSave: session.handleSaveSelection,
+    onConfirm: session.handleConfirmSelection,
+    onPin: session.handlePinSelection,
+    onSelectAll: () => {
+      if (editing.shapes.length > 0) {
+        const allIndices = editing.shapes.map((_, index) => index);
+        editing.setSelectedShapeIndices?.(allIndices);
+      }
+    },
+    canUndo: editing.canUndo,
+    canRedo: editing.canRedo,
+    canDelete: editing.selectedShapeIndices?.length > 0,
+    canClearCanvas: editing.canClearCanvas,
+    longScreenshotMode: longScreenshot.isActive,
+    hasValidSelection: session.hasValidSelection,
+    editingTextIndex: editing.editingTextIndex,
+  });
 
   const handleMouseDown = (e) => {
     // 长截屏模式下禁用选区交互
@@ -314,6 +343,12 @@ function App() {
           selection={session.selection}
         />
       )}
+
+      {/* 快捷键帮助 */}
+      <KeyboardShortcutsHelp 
+        mousePos={mousePos}
+        stageRegionManager={stageRegionManager}
+      />
     </div>
   );
 }
