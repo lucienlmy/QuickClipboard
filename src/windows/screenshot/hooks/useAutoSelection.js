@@ -14,6 +14,7 @@ export function useAutoSelection(isInteracting) {
   const [animatedAutoSelectionRect, setAnimatedAutoSelectionRect] = useState(null);
   const autoAnimationFrameRef = useRef(null);
   const autoAnimationStartRef = useRef(null);
+  const prevHierarchyRef = useRef([]);
 
   useEffect(() => {
     const unsub = subscribeAutoSelection((hier) => {
@@ -22,13 +23,26 @@ export function useAutoSelection(isInteracting) {
       }
 
       if (!hier || !Array.isArray(hier.hierarchy) || hier.hierarchy.length === 0) {
-        setHierarchy([]);
-        setCurrentIndex(0);
+        if (prevHierarchyRef.current.length > 0) {
+          setHierarchy([]);
+          setCurrentIndex(0);
+          prevHierarchyRef.current = [];
+        }
         return;
       }
 
-      setHierarchy(hier.hierarchy);
-      setCurrentIndex(0);
+      const isSame = prevHierarchyRef.current.length === hier.hierarchy.length &&
+        prevHierarchyRef.current.every((rect, i) => {
+          const newRect = hier.hierarchy[i];
+          return rect.x === newRect.x && rect.y === newRect.y &&
+                 rect.width === newRect.width && rect.height === newRect.height;
+        });
+
+      if (!isSame) {
+        setHierarchy(hier.hierarchy);
+        setCurrentIndex(0);
+        prevHierarchyRef.current = hier.hierarchy;
+      }
     });
 
     return () => {

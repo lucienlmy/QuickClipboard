@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSnapshot } from 'valtio';
 import { Group, Rect, Text, Image } from 'react-konva';
+import { mouseStore } from '../store/mouseStore';
 
 const GRID_ROWS = 7;
 const GRID_COLS = 11;
@@ -11,7 +13,8 @@ const PADDING = 8;
 const MAGNIFIER_WIDTH = GRID_WIDTH + PADDING * 2;
 const COLOR_BAR_WIDTH = MAGNIFIER_WIDTH - PADDING * 2;
 
-function Magnifier({ screens, mousePos, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate }) {
+function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate }) {
+  const { position: mousePos } = useSnapshot(mouseStore);
   const [colorFormat, setColorFormat] = useState('hex');
   const screenImageDataRef = useRef(new Map());
   const screenCacheRef = useRef({ screens: null, data: new Map() });

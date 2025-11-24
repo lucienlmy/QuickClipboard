@@ -27,13 +27,14 @@ import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 function App() {
   useSettingsSync();
   const settings = useSnapshot(settingsStore);
+  console.log(settings)
+
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
   const stageRef = useRef(null);
-  const [mousePos, setMousePos] = useState(null);
   const magnifierUpdateRef = useRef(null);
   const [ocrResult, setOcrResult] = useState(null);
 
-  const handleCursorMove = useCursorMovement(screens, setMousePos, magnifierUpdateRef, stageRegionManager);
+  const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager);
   const session = useScreenshotSession(stageRef, stageRegionManager);
   const editing = useScreenshotEditing(screens, stageRef);
   const longScreenshot = useLongScreenshot(session.selection);
@@ -164,7 +165,7 @@ function App() {
           const stage = stageRef.current;
           const pos = stage.getPointerPosition();
           if (pos) {
-            setMousePos(pos);
+            initializePosition(pos);
             setTimeout(() => magnifierUpdateRef.current?.(pos), 50);
           }
         }
@@ -245,7 +246,6 @@ function App() {
         <Layer id="screenshot-ui-layer" listening={false}>
           <Magnifier
             screens={screens}
-            mousePos={mousePos}
             visible={settings.screenshotMagnifierEnabled && !session.hasValidSelection && !session.isInteracting && !editing.activeToolId}
             stageRegionManager={stageRegionManager}
             colorIncludeFormat={settings.screenshotColorIncludeFormat}
@@ -353,7 +353,6 @@ function App() {
       {/* 快捷键帮助 */}
       {settings.screenshotHintsEnabled && (
         <KeyboardShortcutsHelp
-          mousePos={mousePos}
           stageRegionManager={stageRegionManager}
           longScreenshotMode={longScreenshot.isActive}
         />

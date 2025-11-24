@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSnapshot } from 'valtio';
 import { KEYBOARD_SHORTCUTS, TOOL_ORDER, getToolShortcuts } from '../constants/keyboardShortcuts';
+import { mouseStore } from '../store/mouseStore';
 
-//快捷键帮助浮层组件
-export default function KeyboardShortcutsHelp({ mousePos, stageRegionManager, longScreenshotMode }) {
+export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode }) {
+  const { position: mousePos } = useSnapshot(mouseStore);
   const [visible, setVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 

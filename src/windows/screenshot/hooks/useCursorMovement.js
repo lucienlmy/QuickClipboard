@@ -1,8 +1,8 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { updateMousePosition } from '../store/mouseStore';
 
-// 处理键盘方向键移动光标逻辑
-export default function useCursorMovement(screens, setMousePos, magnifierUpdateRef, stageRegionManager) {
+export default function useCursorMovement(screens, magnifierUpdateRef, stageRegionManager) {
   const pressedKeysRef = useRef(new Set());
   const animationFrameRef = useRef(null);
   const lastTimeRef = useRef(0);
@@ -23,10 +23,12 @@ export default function useCursorMovement(screens, setMousePos, magnifierUpdateR
     };
   }, [screens]);
 
+  const currentPosRef = useRef(null);
+
   // 更新光标位置（基于物理坐标）
   const updateCursorPosition = (dx, dy, forceSync = false) => {
-    setMousePos(prev => {
-      if (!prev) return prev;
+    const prev = currentPosRef.current;
+    if (!prev) return;
       
       const scale = window.devicePixelRatio || 1;
 
@@ -69,10 +71,23 @@ export default function useCursorMovement(screens, setMousePos, magnifierUpdateR
       const newLy = newPhysY / scale - stageOffset.y;
       const newPos = { x: newLx, y: newLy };
       
+      currentPosRef.current = newPos;
+      updateMousePosition(newPos);
       magnifierUpdateRef.current?.(newPos);
-      return newPos;
-    });
   };
+
+  // 初始化当前位置
+  const initializePosition = useCallback((pos) => {
+    if (!pos) return;
+    
+    const scale = window.devicePixelRatio || 1;
+    physicalPositionRef.current = {
+      x: Math.round((pos.x + stageOffset.x) * scale),
+      y: Math.round((pos.y + stageOffset.y) * scale)
+    };
+    currentPosRef.current = pos;
+    updateMousePosition(pos);
+  }, [stageOffset]);
 
   // 代理鼠标移动事件
   const handleMouseMove = useCallback((e) => {
@@ -92,9 +107,10 @@ export default function useCursorMovement(screens, setMousePos, magnifierUpdateR
       y: Math.round((pos.y + stageOffset.y) * scale)
     };
 
+    currentPosRef.current = pos;
+    updateMousePosition(pos);
     magnifierUpdateRef.current?.(pos);
-    setMousePos(pos);
-  }, [stageOffset, setMousePos, magnifierUpdateRef]);
+  }, [stageOffset, magnifierUpdateRef]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -194,5 +210,5 @@ export default function useCursorMovement(screens, setMousePos, magnifierUpdateR
     };
   }, [stageOffset]); 
 
-  return handleMouseMove;
+  return { handleMouseMove, initializePosition };
 }
