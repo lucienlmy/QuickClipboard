@@ -456,11 +456,26 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
       const newShapes = [...shapes, finalizedShape];
       setShapes(newShapes);
       pushToHistory(newShapes);
+      
+      // 记录颜色历史 - 画笔/箭头/形状工具
       if (finalizedShape.stroke) {
         recordColorHistory(finalizedShape.stroke);
       }
+      // 记录颜色历史 - 文本/形状填充
       if (finalizedShape.fill) {
         recordColorHistory(finalizedShape.fill);
+      }
+      // 记录颜色历史 - 序号工具
+      if (finalizedShape.tool === 'number') {
+        if (finalizedShape.backgroundColor) {
+          recordColorHistory(finalizedShape.backgroundColor);
+        }
+        if (finalizedShape.textColor) {
+          recordColorHistory(finalizedShape.textColor);
+        }
+        if (finalizedShape.borderColor) {
+          recordColorHistory(finalizedShape.borderColor);
+        }
       }
       
       if (currentShape.tool === 'text' && currentShape._isNew) {
