@@ -11,7 +11,7 @@ const PADDING = 8;
 const MAGNIFIER_WIDTH = GRID_WIDTH + PADDING * 2;
 const COLOR_BAR_WIDTH = MAGNIFIER_WIDTH - PADDING * 2;
 
-function Magnifier({ screens, mousePos, visible, stageRegionManager, onMousePosUpdate }) {
+function Magnifier({ screens, mousePos, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate }) {
   const [colorFormat, setColorFormat] = useState('hex');
   const screenImageDataRef = useRef(new Map());
   const screenCacheRef = useRef({ screens: null, data: new Map() });
@@ -102,11 +102,15 @@ function Magnifier({ screens, mousePos, visible, stageRegionManager, onMousePosU
     return centerColor;
   }, [getPixelColor]);
 
-  const getColorString = useCallback((color, format) => {
+  const getColorString = useCallback((color, format, includeFormat = true) => {
     const { r = 0, g = 0, b = 0 } = color;
-    return format === 'hex' 
-      ? `#${[r, g, b].map(v => v.toString(16).padStart(2, '0').toUpperCase()).join('')}`
-      : `RGB(${r},${g},${b})`;
+    if (format === 'hex') {
+      const hex = [r, g, b].map(v => v.toString(16).padStart(2, '0').toUpperCase()).join('');
+      return includeFormat ? `#${hex}` : hex;
+    } else {
+      const rgb = `${r},${g},${b}`;
+      return includeFormat ? `RGB(${rgb})` : rgb;
+    }
   }, []);
 
   const getTextColor = useCallback(({ r = 0, g = 0, b = 0 }) => 
@@ -143,7 +147,7 @@ function Magnifier({ screens, mousePos, visible, stageRegionManager, onMousePosU
     }
 
     colorBgRef.current?.fill(`rgb(${centerColor.r},${centerColor.g},${centerColor.b})`);
-    colorTextRef.current?.text(getColorString(centerColor, colorFormat));
+    colorTextRef.current?.text(getColorString(centerColor, colorFormat, true));
     colorTextRef.current?.fill(getTextColor(centerColor));
     coordTextRef.current?.text(`X: ${physicalX}  Y: ${physicalY}`);
     groupRef.current.getLayer()?.batchDraw();
@@ -158,18 +162,18 @@ function Magnifier({ screens, mousePos, visible, stageRegionManager, onMousePosU
         setColorFormat(p => {
           const newFormat = p === 'hex' ? 'rgb' : 'hex';
           if (colorTextRef.current) {
-            colorTextRef.current.text(getColorString(centerColorRef.current, newFormat));
+            colorTextRef.current.text(getColorString(centerColorRef.current, newFormat, true));
             colorTextRef.current.getLayer()?.batchDraw();
           }
           return newFormat;
         });
       } else if (e.key === 'c' || e.key === 'C') {
-        navigator.clipboard.writeText(getColorString(centerColorRef.current, colorFormat));
+        navigator.clipboard.writeText(getColorString(centerColorRef.current, colorFormat, colorIncludeFormat));
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [visible, colorFormat, getColorString]);
+  }, [visible, colorFormat, colorIncludeFormat, getColorString]);
 
 
   if (!visible || !mousePos) return null;

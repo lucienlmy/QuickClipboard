@@ -8,7 +8,11 @@ import 'uno.css';
 
 // 初始化
 import '@shared/i18n';
+import { initStores } from '@shared/store';
 
 // 组件
 import App from './App';
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+initStores().then(() => {
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+});

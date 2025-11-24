@@ -74,15 +74,15 @@ export const defaultSettings = {
   quickpasteScrollSoundPath: 'sounds/roll.mp3',
   
   // 截屏设置
-  screenshot_enabled: true,
-  screenshot_shortcut: 'Ctrl+Shift+A',
-  screenshot_quality: 85,
-  screenshot_auto_save: false,
-  screenshot_show_hints: true,
-  screenshot_element_detection: 'all',
-  screenshot_magnifier_enabled: true,
-  screenshot_hints_enabled: true,
-  screenshot_color_include_format: true,
+  screenshotEnabled: true,
+  screenshotShortcut: 'Ctrl+Shift+A',
+  screenshotQuality: 85,
+  screenshotAutoSave: false,
+  screenshotShowHints: true,
+  screenshotElementDetection: 'all',
+  screenshotMagnifierEnabled: true,
+  screenshotHintsEnabled: true,
+  screenshotColorIncludeFormat: true,
   
   // AI 配置
   aiTranslationEnabled: false,

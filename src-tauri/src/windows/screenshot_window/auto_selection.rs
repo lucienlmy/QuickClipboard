@@ -196,16 +196,21 @@ impl AutoSelectionManager {
 
             let cursor = crate::mouse::get_cursor_position();
 
-            if current_mode == DetectionMode::Window {
-                thread::sleep(Duration::from_millis(20));
-                continue;
-            }
-
-            let rects = match ui_index.query_chain_at_point(cursor.0, cursor.1) {
-                Ok(list) => list,
-                Err(_) => {
-                    thread::sleep(Duration::from_millis(10));
-                    continue;
+            let rects = if current_mode == DetectionMode::Window {
+                match ui_index.query_window_at_point(cursor.0, cursor.1) {
+                    Ok(list) => list,
+                    Err(_) => {
+                        thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                }
+            } else {
+                match ui_index.query_chain_at_point(cursor.0, cursor.1) {
+                    Ok(list) => list,
+                    Err(_) => {
+                        thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
                 }
             };
 

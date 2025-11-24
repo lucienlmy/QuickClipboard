@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSnapshot } from 'valtio';
 
 import { Stage, Layer } from 'react-konva';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { settingsStore } from '@shared/store/settingsStore';
+import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import useScreenshotStage from './hooks/useScreenshotStage';
 import useCursorMovement from './hooks/useCursorMovement';
 import BackgroundLayer from './components/BackgroundLayer';
@@ -22,6 +25,8 @@ import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 
 function App() {
+  useSettingsSync();
+  const settings = useSnapshot(settingsStore);
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
   const stageRef = useRef(null);
   const [mousePos, setMousePos] = useState(null);
@@ -63,10 +68,10 @@ function App() {
   const handleMouseDown = (e) => {
     // 长截屏模式下禁用选区交互
     if (longScreenshot.isActive) return;
-    
+
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    
+
     if (editing.activeToolId) {
       const button = e.evt?.button;
       if (button !== undefined && button !== 0) {
@@ -104,7 +109,7 @@ function App() {
   const handleMouseUp = (e) => {
     // 长截屏模式下禁用选区交互
     if (longScreenshot.isActive) return;
-    
+
     if (editing.activeToolId) {
       editing.handleMouseUp(e);
     } else {
@@ -185,10 +190,10 @@ function App() {
 
   return (
     <div className="w-screen h-screen bg-transparent relative">
-      <Stage 
-        ref={stageRef} 
-        width={stageSize.width} 
-        height={stageSize.height} 
+      <Stage
+        ref={stageRef}
+        width={stageSize.width}
+        height={stageSize.height}
         pixelRatio={window.devicePixelRatio || 1}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -198,9 +203,9 @@ function App() {
         onWheel={session.handleWheel}
       >
         {!longScreenshot.isActive && <BackgroundLayer screens={screens} />}
-        {!longScreenshot.isActive && <EditingLayer 
-          shapes={editing.shapes} 
-          listening={!!editing.activeToolId} 
+        {!longScreenshot.isActive && <EditingLayer
+          shapes={editing.shapes}
+          listening={!!editing.activeToolId}
           selectedShapeIndices={editing.selectedShapeIndices}
           onSelectShape={editing.toggleSelectShape}
           onShapeTransform={editing.updateSelectedShape}
@@ -214,7 +219,7 @@ function App() {
           selection={session.selection}
           stageSize={stageSize}
         />}
-        <SelectionOverlay 
+        <SelectionOverlay
           stageWidth={stageSize.width}
           stageHeight={stageSize.height}
           stageRef={stageRef}
@@ -241,8 +246,9 @@ function App() {
           <Magnifier
             screens={screens}
             mousePos={mousePos}
-            visible={!session.hasValidSelection && !session.isInteracting && !editing.activeToolId}
+            visible={settings.screenshotMagnifierEnabled && !session.hasValidSelection && !session.isInteracting && !editing.activeToolId}
             stageRegionManager={stageRegionManager}
+            colorIncludeFormat={settings.screenshotColorIncludeFormat}
             onMousePosUpdate={(updateFn) => { magnifierUpdateRef.current = updateFn; }}
           />
         </Layer>
@@ -345,11 +351,13 @@ function App() {
       )}
 
       {/* 快捷键帮助 */}
-      <KeyboardShortcutsHelp 
-        mousePos={mousePos}
-        stageRegionManager={stageRegionManager}
-        longScreenshotMode={longScreenshot.isActive}
-      />
+      {settings.screenshotHintsEnabled && (
+        <KeyboardShortcutsHelp
+          mousePos={mousePos}
+          stageRegionManager={stageRegionManager}
+          longScreenshotMode={longScreenshot.isActive}
+        />
+      )}
     </div>
   );
 }

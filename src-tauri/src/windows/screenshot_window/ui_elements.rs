@@ -237,6 +237,36 @@ impl UiElementIndex {
             .map(|(elem, tok)| (elem.clone(), best_level, bounds, *tok))
     }
 
+    pub fn query_window_at_point(
+        &self,
+        mx: i32,
+        my: i32,
+    ) -> Result<Vec<ElementRect>, String> {
+        let matches = self.spatial_index.search(Rect::new_point([mx, my]));
+        
+        for hit in matches {
+            let level = &hit.data;
+            if level.element_level == 1 {
+                if let Some(win_rect) = self.window_bounds.get(level) {
+                    let outer_rect = ElementRect::from(*win_rect);
+                    
+                    // 计算内缩矩形（去除窗口阴影）
+                    const SHADOW_MARGIN: i32 = 10;
+                    let inner_rect = ElementRect {
+                        min_x: outer_rect.min_x + SHADOW_MARGIN,
+                        min_y: outer_rect.min_y,
+                        max_x: outer_rect.max_x - SHADOW_MARGIN,
+                        max_y: outer_rect.max_y - SHADOW_MARGIN,
+                    };
+                    
+                    return Ok(vec![inner_rect, outer_rect]);
+                }
+            }
+        }
+        
+        Ok(Vec::new())
+    }
+
     pub fn query_chain_at_point(
         &mut self,
         mx: i32,
