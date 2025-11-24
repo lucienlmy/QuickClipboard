@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { KEYBOARD_SHORTCUTS, TOOL_ORDER, getToolShortcuts } from '../constants/keyboardShortcuts';
 
 //快捷键帮助浮层组件
-export default function KeyboardShortcutsHelp({ mousePos, stageRegionManager }) {
+export default function KeyboardShortcutsHelp({ mousePos, stageRegionManager, longScreenshotMode }) {
   const [visible, setVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -34,45 +34,50 @@ export default function KeyboardShortcutsHelp({ mousePos, stageRegionManager }) 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [visible]);
 
-  // 计算帮助面板应该显示在哪个屏幕的底部中心
+  // 计算帮助面板应该显示在哪个屏幕的中心
   const panelPosition = useMemo(() => {
     if (!mousePos || !stageRegionManager) {
-      return { left: '50%', bottom: '0' };
+      return { left: '50%', top: '50%' };
     }
 
     // 获取鼠标所在屏幕
     const targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
     
     if (!targetScreen) {
-      return { left: '50%', bottom: '0' };
+      return { left: '50%', top: '50%' };
     }
 
     const centerX = targetScreen.x + targetScreen.width / 2;
-    const bottom = targetScreen.y + targetScreen.height;
+    const centerY = targetScreen.y + targetScreen.height / 2;
+    
+    const hintLeft = targetScreen.x + 16;
+    const hintBottom = targetScreen.y + targetScreen.height - 16;
 
     return {
-      left: `${centerX}px`,
-      bottom: `calc(100% - ${bottom}px)`,
+      centerX,
+      centerY,
+      hintLeft,
+      hintBottom,
     };
   }, [mousePos, stageRegionManager]);
 
   const hintPosition = useMemo(() => {
     if (!mousePos || !stageRegionManager) {
-      return { bottom: '16px', right: '16px' };
+      return { bottom: '16px', left: '16px' };
     }
 
     const targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
     
     if (!targetScreen) {
-      return { bottom: '16px', right: '16px' };
+      return { bottom: '16px', left: '16px' };
     }
 
     const bottom = targetScreen.y + targetScreen.height - 16;
-    const right = targetScreen.x + targetScreen.width - 16;
+    const left = targetScreen.x + 16;
 
     return {
       bottom: `calc(100% - ${bottom}px)`,
-      right: `calc(100% - ${right}px)`,
+      left: `${left}px`,
     };
   }, [mousePos, stageRegionManager]);
 
@@ -82,12 +87,37 @@ export default function KeyboardShortcutsHelp({ mousePos, stageRegionManager }) 
   };
 
   if (!visible) {
+    if (longScreenshotMode) {
+      return null;
+    }
+    
     return (
       <div 
-        className="fixed text-gray-600 dark:text-gray-400 text-xs pointer-events-none select-none"
+        className="fixed bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-lg shadow-lg border border-white/20 dark:border-gray-700/30 px-3 py-2 pointer-events-auto select-none transition-opacity duration-200 hover:opacity-0"
         style={hintPosition}
       >
-        按 <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded font-mono">?</kbd> 查看快捷键
+        <div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-white/50 dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/50 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">↑↓←→</kbd>
+            <span>方向键移动光标</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-white/50 dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/50 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Shift</kbd>
+            <span>切换颜色格式</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-white/50 dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/50 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">C</kbd>
+            <span>复制颜色</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-white/50 dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/50 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">1~9</kbd>
+            <span>数字1~9切换工具</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-white/50 dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/50 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Shift+?</kbd>
+            <span>显示快捷键帮助</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -98,10 +128,12 @@ export default function KeyboardShortcutsHelp({ mousePos, stageRegionManager }) 
       onClick={handleClose}
     >
       <div 
-        className="absolute bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-t-xl shadow-xl border border-gray-200 dark:border-gray-700 border-b-0 max-w-2xl w-full max-h-[80vh] overflow-auto transition-transform duration-300 ease-out"
+        className="absolute bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-2xl w-full max-h-[80vh] overflow-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
         style={{
-          ...panelPosition,
-          transform: `translateX(-50%) translateY(${isAnimating ? '0' : '100%'})`,
+          left: isAnimating ? `${panelPosition.centerX || '50%'}px` : `${panelPosition.hintLeft || 16}px`,
+          top: isAnimating ? `${panelPosition.centerY || '50%'}px` : `${panelPosition.hintBottom || 16}px`,
+          transform: `translate(-50%, -50%) scale(${isAnimating ? 1 : 0.1})`,
+          opacity: isAnimating ? 1 : 0,
         }}
         onClick={(e) => e.stopPropagation()}
       >

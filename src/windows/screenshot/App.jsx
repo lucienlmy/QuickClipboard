@@ -348,6 +348,7 @@ function App() {
       <KeyboardShortcutsHelp 
         mousePos={mousePos}
         stageRegionManager={stageRegionManager}
+        longScreenshotMode={longScreenshot.isActive}
       />
     </div>
   );
