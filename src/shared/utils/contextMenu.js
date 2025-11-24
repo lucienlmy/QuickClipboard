@@ -5,7 +5,7 @@ import i18n from '@shared/i18n'
 import { extractAllLinks, normalizeUrl } from './linkUtils'
 import { getPrimaryType } from './contentType'
 import { settingsStore } from '@shared/store/settingsStore'
-import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore'
+import { toast, toastStore, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore'
 import {
   addClipboardToFavorites,
   pinImageToScreen,
@@ -14,6 +14,7 @@ import {
   deleteFavorite,
   saveImageFromPath,
   copyTextToClipboard,
+  recognizeImageOcr,
   moveClipboardItem
 } from '@shared/api'
 import { getToolState } from '@shared/services/toolActions'
@@ -162,7 +163,8 @@ function createContentTypeMenuItems(contentType) {
   if (contentType.includes('image')) {
     return [
       createMenuItem('pin-image', i18n.t('contextMenu.pinToScreen'), { icon: 'ti ti-window-maximize' }),
-      createMenuItem('save-image', i18n.t('contextMenu.saveImage'), { icon: 'ti ti-download' })
+      createMenuItem('save-image', i18n.t('contextMenu.saveImage'), { icon: 'ti ti-download' }),
+      createMenuItem('extract-text', i18n.t('contextMenu.extractText'), { icon: 'ti ti-text-scan-2' })
     ]
   }
 
@@ -291,6 +293,24 @@ async function handleContentTypeActions(result, item, index) {
     'save-image': async () => {
       await saveImageFromPath(filePath)
       toast.success(i18n.t('contextMenu.imageSaved'), TOAST_CONFIG)
+    },
+    'extract-text': async () => {
+      const loadingToastId = toast.info(i18n.t('contextMenu.extractingText'), { duration: 0, ...TOAST_CONFIG })
+      try {
+        const result = await recognizeImageOcr(filePath)
+        toastStore.removeToast(loadingToastId)
+        
+        if (result.text && result.text.trim()) {
+          await copyTextToClipboard(result.text)
+          toast.success(i18n.t('contextMenu.textExtracted'), TOAST_CONFIG)
+        } else {
+          toast.error(i18n.t('contextMenu.extractTextFailed'), TOAST_CONFIG)
+        }
+      } catch (error) {
+        console.error('OCR识别失败:', error)
+        toastStore.removeToast(loadingToastId)
+        toast.error(i18n.t('contextMenu.extractTextFailed'), TOAST_CONFIG)
+      }
     },
     'open-file': async () => {
       try {

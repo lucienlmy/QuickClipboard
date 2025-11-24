@@ -51,6 +51,11 @@ export async function copyTextToClipboard(text) {
   return await invoke('copy_text_to_clipboard', { text })
 }
 
+// OCR识别图片文件
+export async function recognizeImageOcr(filePath, language = null) {
+  return await invoke('recognize_file_ocr', { filePath, language })
+}
+
 // 检查系统 Win+V 快捷键是否已禁用
 export async function checkWinVHotkeyDisabled() {
   return await invoke('check_win_v_hotkey_disabled')

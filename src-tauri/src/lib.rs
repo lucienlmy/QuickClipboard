@@ -118,6 +118,7 @@ pub fn run() {
                 commands::stop_long_screenshot_capture,
                 commands::save_long_screenshot,
                 commands::recognize_image_ocr,
+                commands::recognize_file_ocr,
                 windows::screenshot_window::auto_selection::start_auto_selection,
                 windows::screenshot_window::auto_selection::stop_auto_selection,
                 windows::screenshot_window::auto_selection::is_auto_selection_active,
