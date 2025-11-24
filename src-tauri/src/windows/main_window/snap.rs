@@ -179,6 +179,9 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     set_hidden(false);
     
     super::state::set_window_state(super::state::WindowState::Visible);
+    let _ = window.set_always_on_top(false);
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    let _ = window.set_always_on_top(true);
     
     crate::input_monitor::enable_mouse_monitoring();
     crate::input_monitor::enable_navigation_keys();
@@ -288,6 +291,7 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
     
     // 显示窗口
     let _ = window.show();
+    let _ = window.set_always_on_top(true);
     
     super::state::set_window_state(super::state::WindowState::Hidden);
     
