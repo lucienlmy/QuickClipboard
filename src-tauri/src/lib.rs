@@ -151,6 +151,7 @@ pub fn run() {
                 windows::pin_image_window::get_pin_image_data,
                 windows::pin_image_window::animate_window_resize,
                 windows::pin_image_window::close_pin_image_window_by_self,
+                windows::pin_image_window::save_pin_image_as,
             ])
         .setup(|app| {
                 #[cfg(desktop)]

@@ -1,15 +1,10 @@
-/**
- * 右键菜单模块
- * 处理贴图窗口的右键菜单
- */
+// 右键菜单模块
 
 import { invoke } from '@tauri-apps/api/core';
 import { showContextMenuFromEvent, createMenuItem, createSeparator } from '../../plugins/context_menu/index.js';
 import { getCurrentTheme, saveSettings, loadSettings } from './settings.js';
 
-/**
- * 创建并显示右键菜单
- */
+// 创建并显示右键菜单
 export async function createContextMenu(window, states, onThumbnailToggle) {
     document.addEventListener('contextmenu', async (e) => {
         e.preventDefault();
@@ -95,9 +90,30 @@ export async function createContextMenu(window, states, onThumbnailToggle) {
     });
 }
 
-/**
- * 处理菜单操作
- */
+// 复制图片到剪贴板
+async function copyImageToClipboard(img) {
+    if (!img || !img.src) {
+        console.error('图片元素无效');
+        return;
+    }
+
+    try {
+        const response = await fetch(img.src);
+        const blob = await response.blob();
+
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                [blob.type]: blob
+            })
+        ]);
+
+        console.log('图片已复制到剪贴板');
+    } catch (error) {
+        console.error('复制图片失败:', error);
+    }
+}
+
+//处理菜单操作
 async function handleMenuAction(action, window, states, onThumbnailToggle, img) {
     switch (action) {
         case 'toggle-top':
@@ -183,7 +199,7 @@ async function handleMenuAction(action, window, states, onThumbnailToggle, img) 
             break;
 
         case 'copy':
-            await invoke('copy_pin_image_to_clipboard');
+            await copyImageToClipboard(img);
             break;
 
         case 'save-as':

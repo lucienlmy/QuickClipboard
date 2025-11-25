@@ -126,7 +126,7 @@ impl ImageStitcher {
         }
     }
     
-    /// 比较两个区域的相似度
+    // 比较两个区域的相似度
     fn compare_region_similarity(
         img1: &RgbaImage,
         img2: &RgbaImage,
@@ -209,7 +209,7 @@ impl ImageStitcher {
         }
     }
     
-    /// 提取区域
+    // 提取区域
     pub fn extract_region(bgra_data: &[u8], width: u32, start_y: u32, height: u32) -> Vec<u8> {
         let start_offset = (start_y * width * 4) as usize;
         let length = (width * height * 4) as usize;

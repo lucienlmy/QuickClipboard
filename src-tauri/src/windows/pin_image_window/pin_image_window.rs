@@ -172,16 +172,48 @@ pub fn get_pin_image_data(window: WebviewWindow) -> Result<serde_json::Value, St
     Err("未找到图片数据".to_string())
 }
 
-// 复制贴图到剪贴板
-#[tauri::command]
-pub fn copy_pin_image_to_clipboard(window: WebviewWindow) -> Result<(), String> {
-    Err("未找到图片数据".to_string())
-}
 
 // 图片另存为
 #[tauri::command]
 pub async fn save_pin_image_as(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    Err("未找到图片数据".to_string())
+    use std::path::Path;
+    use tauri_plugin_dialog::DialogExt;
+    
+    let file_path = if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
+        let map = data_map.lock().unwrap();
+        if let Some(data) = map.get(window.label()) {
+            data.file_path.clone()
+        } else {
+            return Err("未找到图片数据".to_string());
+        }
+    } else {
+        return Err("未找到图片数据".to_string());
+    };
+    
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err("图片文件不存在".to_string());
+    }
+    
+    let filename = format!("QC_{}.png", 
+        path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("image")
+    );
+    
+    let save_path = app.dialog().file()
+        .set_file_name(&filename)
+        .add_filter("PNG 图片", &["png"])
+        .add_filter("JPEG 图片", &["jpg", "jpeg"])
+        .add_filter("所有文件", &["*"])
+        .blocking_save_file()
+        .ok_or("用户取消保存")?;
+    
+    let dest = save_path.as_path().ok_or("无效的文件路径")?;
+    std::fs::copy(&file_path, dest)
+        .map_err(|e| format!("保存失败: {}", e))?;
+    
+    Ok(())
 }
 
 // 关闭贴图窗口
