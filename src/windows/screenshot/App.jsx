@@ -27,7 +27,6 @@ import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 function App() {
   useSettingsSync();
   const settings = useSnapshot(settingsStore);
-  console.log(settings)
 
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
   const stageRef = useRef(null);

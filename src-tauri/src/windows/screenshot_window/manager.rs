@@ -1,6 +1,7 @@
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Size,LogicalSize,Position,LogicalPosition,};
 
 fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
+    let is_dev = cfg!(debug_assertions);
     WebviewWindowBuilder::new(
         app,
         "screenshot",
@@ -12,7 +13,7 @@ fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
         .decorations(false)
         .transparent(true)
         .shadow(false)
-        .always_on_top(true)
+        .always_on_top(!is_dev)
         .skip_taskbar(true)
         .visible(false)
         .resizable(false)
