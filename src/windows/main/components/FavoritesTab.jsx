@@ -2,6 +2,7 @@ import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from 're
 import { useSnapshot } from 'valtio';
 import { favoritesStore, refreshFavorites } from '@shared/store';
 import { navigationStore } from '@shared/store/navigationStore';
+import { groupsStore } from '@shared/store/groupsStore';
 import { openBlankEditor } from '@shared/api/textEditor';
 import FavoritesList from './FavoritesList';
 import FloatingToolbar from './FloatingToolbar';
@@ -41,7 +42,8 @@ const FavoritesTab = forwardRef(({
   // 处理添加收藏
   const handleAddFavorite = async () => {
     try {
-      await openBlankEditor();
+      const currentGroup = groupsStore.currentGroup === '全部' ? null : groupsStore.currentGroup;
+      await openBlankEditor(currentGroup);
     } catch (error) {
       console.error('打开文本编辑器失败：', error);
     }

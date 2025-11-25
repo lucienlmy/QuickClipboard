@@ -99,8 +99,9 @@ pub async fn open_text_editor_window(
     item_id: String,
     item_type: String,
     item_index: Option<i32>,
+    group_name: Option<String>,
 ) -> Result<(), String> {
-    crate::windows::text_editor_window::open_text_editor_window(&app, &item_id, &item_type, item_index)
+    crate::windows::text_editor_window::open_text_editor_window(&app, &item_id, &item_type, item_index, group_name)
 }
 
 // 剪贴板更新事件

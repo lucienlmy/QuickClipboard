@@ -4,12 +4,15 @@ import { useSnapshot } from 'valtio';
 import { settingsStore, initSettings } from '@shared/store/settingsStore';
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
-import { getClipboardItemById, getFavoriteItemById, updateClipboardItem, updateFavorite, addFavorite, getGroups } from '@shared/api';
+import { getClipboardItemById, getFavoriteItemById, updateClipboardItem, updateFavorite, addFavorite } from '@shared/api';
+import { groupsStore, loadGroups } from '@shared/store/groupsStore';
+import { generateTitleFromContent } from '@shared/utils/titleUtils';
 import TitleBar from './components/TitleBar';
 import EditorToolbar from './components/EditorToolbar';
 import TextEditor from './components/TextEditor';
 import StatusBar from './components/StatusBar';
 import ToastContainer from '@shared/components/common/ToastContainer';
+
 function App() {
   const {
     t
@@ -30,7 +33,7 @@ function App() {
   const [charCount, setCharCount] = useState(0);
   const [lineCount, setLineCount] = useState(1);
   const [wordWrap, setWordWrap] = useState(true);
-  const [groups, setGroups] = useState([]);
+  const groupsSnap = useSnapshot(groupsStore);
   const [selectedGroup, setSelectedGroup] = useState('全部');
   useSettingsSync();
   useEffect(() => {
@@ -48,13 +51,7 @@ function App() {
 
   // 加载分组列表
   useEffect(() => {
-    const loadGroupList = async () => {
-      try {
-        const groupList = await getGroups();
-        setGroups(groupList);
-      } catch (error) {}
-    };
-    loadGroupList();
+    loadGroups();
   }, []);
   useEffect(() => {
     const loadData = async () => {
@@ -64,12 +61,14 @@ function App() {
         const id = params.get('id');
         const type = params.get('type');
         const index = params.get('index');
+        const group = params.get('group');
         if (!id || !type) {
           return;
         }
 
         // 新建收藏项
         if (id === '-1' && type === 'favorite') {
+          const initialGroup = group || '全部';
           setEditorData({
             id: null,
             type: 'favorite',
@@ -79,6 +78,7 @@ function App() {
           setOriginalTitle('');
           setContent('');
           setOriginalContent('');
+          setSelectedGroup(initialGroup);
           return;
         }
 
@@ -131,9 +131,9 @@ function App() {
         if (editorData.id) {
           await updateFavorite(editorData.id, title, content, selectedGroup);
         } else {
-          await addFavorite(title || t('textEditor.clipboardItem', {
-            number: 1
-          }), content, selectedGroup);
+          // 如果标题为空，从内容生成标题
+          const finalTitle = title.trim() || generateTitleFromContent(content);
+          await addFavorite(finalTitle, content, selectedGroup);
         }
       }
       setOriginalContent(content);
@@ -169,7 +169,7 @@ function App() {
   return <div className={containerClasses}>
       <TitleBar title={title} hasChanges={hasChanges} />
 
-      <EditorToolbar onReset={handleReset} title={title} onTitleChange={setTitle} wordWrap={wordWrap} onWordWrapChange={() => setWordWrap(!wordWrap)} showTitle={editorData?.type === 'favorite'} groups={groups} selectedGroup={selectedGroup} onGroupChange={setSelectedGroup} showGroupSelector={editorData?.type === 'favorite'} />
+      <EditorToolbar onReset={handleReset} title={title} onTitleChange={setTitle} wordWrap={wordWrap} onWordWrapChange={() => setWordWrap(!wordWrap)} showTitle={editorData?.type === 'favorite'} groups={groupsSnap.groups} selectedGroup={selectedGroup} onGroupChange={setSelectedGroup} showGroupSelector={editorData?.type === 'favorite'} />
 
       <TextEditor content={content} onContentChange={setContent} onStatsChange={({ chars, lines }) => {
         setCharCount(chars);

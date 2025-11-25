@@ -6,6 +6,7 @@ pub fn create_text_editor_window(
     item_id: &str,
     item_type: &str,
     item_index: Option<i32>,
+    group_name: Option<String>,
 ) -> Result<String, String> {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -16,6 +17,9 @@ pub fn create_text_editor_window(
     let mut url = format!("windows/textEditor/index.html?id={}&type={}", item_id, item_type);
     if let Some(index) = item_index {
         url = format!("{}&index={}", url, index);
+    }
+    if let Some(group) = group_name {
+        url = format!("{}&group={}", url, group);
     }
     
     let _editor_window = tauri::WebviewWindowBuilder::new(
