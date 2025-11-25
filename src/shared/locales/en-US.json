@@ -172,6 +172,8 @@
       "screenshotDesc": "Take a screenshot",
       "toggleClipboardMonitor": "Toggle Clipboard Monitor",
       "toggleClipboardMonitorDesc": "Quickly enable or disable clipboard monitoring",
+      "togglePasteWithFormat": "Toggle Paste With Format",
+      "togglePasteWithFormatDesc": "Quickly toggle whether to preserve formatting when pasting",
       "numberShortcutsTitle": "Number Shortcuts",
       "numberShortcutsDesc": "Quickly operate clipboard items with number keys",
       "enableNumberShortcuts": "Enable Number Shortcuts",

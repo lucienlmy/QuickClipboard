@@ -46,6 +46,7 @@ export const defaultSettings = {
   nextGroupShortcut: 'Ctrl+ArrowDown',
   togglePinShortcut: 'Ctrl+P',
   toggleClipboardMonitorShortcut: 'Ctrl+Shift+Z',
+  togglePasteWithFormatShortcut: 'Ctrl+Shift+X',
   
   // 剪贴板设置
   clipboardMonitor: true,

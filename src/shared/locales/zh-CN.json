@@ -172,6 +172,8 @@
       "screenshotDesc": "触发截屏功能",
       "toggleClipboardMonitor": "切换剪贴板监听",
       "toggleClipboardMonitorDesc": "快速启用或禁用剪贴板监听功能",
+      "togglePasteWithFormat": "开/关格式粘贴",
+      "togglePasteWithFormatDesc": "快速切换粘贴时是否保留格式",
       "numberShortcutsTitle": "数字快捷键",
       "numberShortcutsDesc": "使用数字键快速操作剪贴板项目",
       "enableNumberShortcuts": "启用数字快捷键",

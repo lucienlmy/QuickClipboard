@@ -110,6 +110,7 @@ pub struct AppSettings {
     pub next_group_shortcut: String,
     pub toggle_pin_shortcut: String,
     pub toggle_clipboard_monitor_shortcut: String,
+    pub toggle_paste_with_format_shortcut: String,
 
     // 数据存储设置
     #[serde(alias = "custom_storage_path")]
@@ -211,6 +212,7 @@ impl Default for AppSettings {
             next_group_shortcut: "Ctrl+ArrowDown".to_string(),
             toggle_pin_shortcut: "Ctrl+P".to_string(),
             toggle_clipboard_monitor_shortcut: "Ctrl+Shift+Z".to_string(),
+            toggle_paste_with_format_shortcut: "Ctrl+Shift+X".to_string(),
 
             custom_storage_path: None,
             use_custom_storage: false,

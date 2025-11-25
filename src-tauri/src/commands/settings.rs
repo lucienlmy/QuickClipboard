@@ -228,6 +228,19 @@ pub fn toggle_clipboard_monitor(app: &tauri::AppHandle) -> Result<(), String> {
     save_settings(settings, app.clone())
 }
 
+// 切换格式粘贴状态
+pub fn toggle_paste_with_format(app: &tauri::AppHandle) -> Result<(), String> {
+    let mut settings = get_settings();
+    settings.paste_with_format = !settings.paste_with_format;
+    
+    use tauri::Emitter;
+    let _ = app.emit("settings-changed", serde_json::json!({
+        "pasteWithFormat": settings.paste_with_format
+    }));
+    
+    save_settings(settings, app.clone())
+}
+
 // 保存窗口位置
 #[tauri::command]
 pub fn save_window_position(x: i32, y: i32) -> Result<(), String> {

@@ -162,6 +162,17 @@ pub fn register_toggle_clipboard_monitor_hotkey(shortcut_str: &str) -> Result<()
     })
 }
 
+pub fn register_toggle_paste_with_format_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("toggle_paste_with_format", shortcut_str, |app| {
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = crate::commands::settings::toggle_paste_with_format(&app_clone) {
+                eprintln!("切换格式粘贴状态失败: {}", e);
+            }
+        });
+    })
+}
+
 pub fn register_number_shortcuts(modifier: &str) -> Result<(), String> {
     let app = get_app()?;
     
@@ -319,6 +330,12 @@ pub fn reload_from_settings() -> Result<(), String> {
         if !settings.toggle_clipboard_monitor_shortcut.is_empty() {
             if let Err(e) = register_toggle_clipboard_monitor_hotkey(&settings.toggle_clipboard_monitor_shortcut) {
                 eprintln!("注册切换剪贴板监听快捷键失败: {}", e);
+            }
+        }
+        
+        if !settings.toggle_paste_with_format_shortcut.is_empty() {
+            if let Err(e) = register_toggle_paste_with_format_hotkey(&settings.toggle_paste_with_format_shortcut) {
+                eprintln!("注册切换格式粘贴快捷键失败: {}", e);
             }
         }
         
