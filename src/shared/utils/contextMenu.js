@@ -28,9 +28,9 @@ const TOAST_CONFIG = {
 // 获取搜索引擎列表
 function getSearchEngines() {
   return [
-    { id: 'google', name: 'Google', favicon: 'https://www.google.com/favicon.ico', url: 'https://www.google.com/search?q=' },
     { id: 'bing', name: 'Bing', favicon: 'https://www.bing.com/favicon.ico', url: 'https://www.bing.com/search?q=' },
-    { id: 'baidu', name: '百度', favicon: 'https://www.baidu.com/favicon.ico', url: 'https://www.baidu.com/s?wd=' }
+    { id: 'baidu', name: '百度', favicon: 'https://www.baidu.com/favicon.ico', url: 'https://www.baidu.com/s?wd=' },
+    { id: 'google', name: 'Google', favicon: 'https://www.google.com/favicon.ico', url: 'https://www.google.com/search?q=' }
   ]
 }
 
@@ -38,7 +38,7 @@ function getSearchEngines() {
 function getCurrentSearchEngine() {
   const engines = getSearchEngines()
   const savedEngineId = localStorage.getItem('current-search-engine')
-  return engines.find(e => e.id === savedEngineId) || engines[0]
+  return engines.find(e => e.id === savedEngineId) || engines.find(e => e.id === 'bing') || engines[0]
 }
 
 // 设置当前搜索引擎
