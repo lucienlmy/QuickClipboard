@@ -1,15 +1,9 @@
 use crate::services::database::{
-    query_clipboard_items, 
-    get_clipboard_count, 
-    move_clipboard_item_by_index, 
-    limit_clipboard_history, 
-    get_clipboard_item_by_id,
-    delete_clipboard_item as db_delete_clipboard_item,
     clear_clipboard_history as db_clear_clipboard_history,
-    update_clipboard_item as db_update_clipboard_item,
-    QueryParams, 
-    PaginatedResult, 
-    ClipboardItem
+    delete_clipboard_item as db_delete_clipboard_item, get_clipboard_count,
+    get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_by_index,
+    query_clipboard_items, update_clipboard_item as db_update_clipboard_item, ClipboardItem,
+    PaginatedResult, QueryParams,
 };
 
 // 分页查询剪贴板历史
@@ -26,22 +20,32 @@ pub fn get_clipboard_history(
         search,
         content_type,
     };
-    
+
     query_clipboard_items(params)
 }
 
 // 另存图片
 #[tauri::command]
-pub async fn save_image_from_path(file_path: String, app: tauri::AppHandle) -> Result<String, String> {
+pub async fn save_image_from_path(
+    file_path: String,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
     use std::path::Path;
     use tauri_plugin_dialog::DialogExt;
 
     let path = Path::new(&file_path);
-    if !path.exists() { return Err("图片文件不存在".to_string()); }
+    if !path.exists() {
+        return Err("图片文件不存在".to_string());
+    }
 
-    let filename = format!("QC_{}.png", path.file_stem().and_then(|s| s.to_str()).unwrap_or("image"));
+    let filename = format!(
+        "QC_{}.png",
+        path.file_stem().and_then(|s| s.to_str()).unwrap_or("image")
+    );
 
-    let save_path = app.dialog().file()
+    let save_path = app
+        .dialog()
+        .file()
         .set_file_name(filename)
         .blocking_save_file()
         .ok_or("用户取消保存")?;
@@ -70,7 +74,6 @@ pub fn apply_history_limit(limit: u64) -> Result<(), String> {
     limit_clipboard_history(limit)
 }
 
-
 // 粘贴参数
 #[derive(Debug, serde::Deserialize)]
 pub struct PasteParams {
@@ -87,33 +90,31 @@ pub struct PasteParams {
 pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), String> {
     use crate::services::database::get_favorite_by_id;
     use crate::services::paste::paste_handler::{
-        paste_clipboard_item_with_update, 
-        paste_favorite_item_with_update,
-        paste_clipboard_item_with_format,
-        paste_favorite_item_with_format
+        paste_clipboard_item_with_format, paste_clipboard_item_with_update,
+        paste_favorite_item_with_format, paste_favorite_item_with_update,
     };
     use crate::services::paste::PasteFormat;
-    
+
     let paste_format = params.format.as_ref().and_then(|f| match f.as_str() {
         "plain" => Some(PasteFormat::PlainText),
         "formatted" => Some(PasteFormat::WithFormat),
         _ => None,
     });
-    
+
     // 根据参数类型处理粘贴
     if let Some(clipboard_id) = params.clipboard_id {
         let item = get_clipboard_item_by_id(clipboard_id)?
             .ok_or_else(|| format!("剪贴板项不存在: {}", clipboard_id))?;
-        
+
         if paste_format.is_some() {
             paste_clipboard_item_with_format(&item, paste_format)?;
         } else {
-        paste_clipboard_item_with_update(&item)?;
+            paste_clipboard_item_with_update(&item)?;
         }
     } else if let Some(favorite_id) = params.favorite_id {
         let favorite = get_favorite_by_id(&favorite_id)?
             .ok_or_else(|| format!("收藏项不存在: {}", favorite_id))?;
-        
+
         // 将收藏项转换为剪贴板项格式
         let item = ClipboardItem {
             id: 0,
@@ -125,19 +126,21 @@ pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), S
             created_at: favorite.created_at,
             updated_at: favorite.updated_at,
         };
-        
+
         if paste_format.is_some() {
             paste_favorite_item_with_format(&item, &favorite_id, paste_format)?;
         } else {
-        paste_favorite_item_with_update(&item, &favorite_id)?;
+            paste_favorite_item_with_update(&item, &favorite_id)?;
         }
     } else {
         return Err("必须 clipboard_id 或 favorite_id".to_string());
     };
-    
-    if let Some(window) = crate::get_main_window(&app) {
-        crate::hide_main_window(&window);
+    if !crate::get_window_state().is_pinned {
+        if let Some(window) = crate::get_main_window(&app) {
+            crate::hide_main_window(&window);
+        }
     }
+
     Ok(())
 }
 
@@ -155,8 +158,7 @@ pub fn clear_clipboard_history() -> Result<(), String> {
 // 根据 ID 获取单个剪贴板项
 #[tauri::command]
 pub fn get_clipboard_item_by_id_cmd(id: i64) -> Result<ClipboardItem, String> {
-    get_clipboard_item_by_id(id)?
-        .ok_or_else(|| format!("剪贴板项不存在: {}", id))
+    get_clipboard_item_by_id(id)?.ok_or_else(|| format!("剪贴板项不存在: {}", id))
 }
 
 // 更新剪贴板项内容
@@ -164,4 +166,3 @@ pub fn get_clipboard_item_by_id_cmd(id: i64) -> Result<ClipboardItem, String> {
 pub fn update_clipboard_item_cmd(id: i64, content: String) -> Result<(), String> {
     db_update_clipboard_item(id, content)
 }
-

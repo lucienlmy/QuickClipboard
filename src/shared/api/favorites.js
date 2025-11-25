@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import i18n from '@shared/i18n'
+import { restoreLastFocus } from '@shared/api/window'
 
 // 分页查询收藏列表
 export async function getFavoritesHistory(params = {}) {
@@ -51,6 +51,7 @@ export async function moveFavoriteItem(groupName, fromIndex, toIndex) {
 // 粘贴收藏内容
 export async function pasteFavorite(id, format = null) {
   try {
+    await restoreLastFocus()
     const params = { favorite_id: id }
     if (format) {
       params.format = format

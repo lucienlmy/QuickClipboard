@@ -57,6 +57,11 @@ pub fn focus_clipboard_window(window: WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn save_current_focus(app: AppHandle) -> Result<(), String> {
+    crate::services::system::save_current_focus(app)
+}
+
+#[tauri::command]
 pub fn restore_last_focus() -> Result<(), String> {
     crate::services::system::restore_last_focus()
 }

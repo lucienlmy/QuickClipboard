@@ -50,6 +50,7 @@ pub fn run() {
                 commands::center_main_window,
                 commands::get_data_directory,
                 commands::focus_clipboard_window,
+                commands::save_current_focus,
                 commands::restore_last_focus,
                 commands::hide_main_window_if_auto_shown,
                 commands::set_window_pinned,

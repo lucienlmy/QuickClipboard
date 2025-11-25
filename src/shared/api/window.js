@@ -15,6 +15,11 @@ export async function focusClipboardWindow() {
   return await invoke('focus_clipboard_window')
 }
 
+// 仅保存当前焦点（不切换焦点）
+export async function saveCurrentFocus() {
+  return await invoke('save_current_focus')
+}
+
 // 恢复上次焦点窗口
 export async function restoreLastFocus() {
   return await invoke('restore_last_focus')

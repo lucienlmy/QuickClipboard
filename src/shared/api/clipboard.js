@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-
+import { restoreLastFocus } from '@shared/api/window'
 // 获取剪贴板历史列表
 export async function getClipboardHistory(params = {}) {
   try {
@@ -35,6 +35,7 @@ export async function getClipboardTotalCount() {
 // 粘贴剪贴板项
 export async function pasteClipboardItem(clipboardId, format = null) {
   try {
+    await restoreLastFocus()
     const params = { clipboard_id: clipboardId }
     if (format) {
       params.format = format
