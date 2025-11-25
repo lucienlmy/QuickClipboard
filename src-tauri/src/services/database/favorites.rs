@@ -10,11 +10,11 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
         let mut count_params: Vec<Box<dyn rusqlite::ToSql>> = vec![];
         let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = vec![];
 
-        if let Some(group_name) = params.group_name {
+        if let Some(ref group_name) = params.group_name {
             if group_name != "全部" {
                 where_clauses.push("group_name = ?");
                 count_params.push(Box::new(group_name.clone()));
-                query_params.push(Box::new(group_name));
+                query_params.push(Box::new(group_name.clone()));
             }
         }
 
@@ -49,11 +49,27 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
         let total_count_sql = format!("SELECT COUNT(*) FROM favorites {}", where_sql);
         let total_count: i64 = conn.query_row(&total_count_sql, rusqlite::params_from_iter(count_params), |row| row.get(0))?;
 
-        let query_sql = format!(
-            "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at 
-             FROM favorites {} ORDER BY item_order, updated_at DESC LIMIT ? OFFSET ?",
-            where_sql
-        );
+        let is_all_groups = params.group_name.is_none() || 
+                           params.group_name.as_ref().map(|g| g == "全部").unwrap_or(false);
+        
+        let query_sql = if is_all_groups {
+            // 查询全部分组时，按分组顺序排列
+            format!(
+                "SELECT f.id, f.title, f.content, f.html_content, f.content_type, f.image_id, f.group_name, f.item_order, f.created_at, f.updated_at 
+                 FROM favorites f 
+                 LEFT JOIN groups g ON f.group_name = g.name 
+                 {} 
+                 ORDER BY COALESCE(g.order_index, 999999), f.item_order, f.updated_at DESC 
+                 LIMIT ? OFFSET ?",
+                where_sql
+            )
+        } else {
+            format!(
+                "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at 
+                 FROM favorites {} ORDER BY item_order, updated_at DESC LIMIT ? OFFSET ?",
+                where_sql
+            )
+        };
 
         query_params.push(Box::new(params.limit));
         query_params.push(Box::new(params.offset));
