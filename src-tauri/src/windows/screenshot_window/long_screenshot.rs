@@ -48,32 +48,21 @@ static STITCHED_HEIGHT: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
 
 // 启用长截屏模式的鼠标穿透控制
 pub fn enable_passthrough(
-    window: WebviewWindow, 
-    x: f64, 
-    y: f64, 
-    width: f64, 
-    height: f64,
-    toolbar_x: f64,
-    toolbar_y: f64,
-    toolbar_width: f64,
-    toolbar_height: f64,
+    window: WebviewWindow,
+    physical_x: f64,
+    physical_y: f64,
+    physical_width: f64,
+    physical_height: f64,
+    physical_toolbar_x: f64,
+    physical_toolbar_y: f64,
+    physical_toolbar_width: f64,
+    physical_toolbar_height: f64,
+    selection_scale_factor: f64,
 ) {
-    // 获取窗口的缩放因子
-    let scale_factor = window.scale_factor().unwrap_or(1.0);
-    *SCALE_FACTOR.lock() = ScaleFactor(scale_factor);
-    
-    // 将前端传递的逻辑像素转换为物理像素
-    let physical_x = x * scale_factor;
-    let physical_y = y * scale_factor;
-    let physical_width = width * scale_factor;
-    let physical_height = height * scale_factor;
-    
-    let physical_toolbar_x = toolbar_x * scale_factor;
-    let physical_toolbar_y = toolbar_y * scale_factor;
-    let physical_toolbar_width = toolbar_width * scale_factor;
-    let physical_toolbar_height = toolbar_height * scale_factor;
+    *SCALE_FACTOR.lock() = ScaleFactor(selection_scale_factor);
     
     *SCREENSHOT_WINDOW.lock() = Some(window.clone());
+    
     *SCREENSHOT_SELECTION.lock() = Some(SelectionRect { 
         x: physical_x, 
         y: physical_y, 
@@ -219,8 +208,8 @@ fn capture_loop() {
     
     while CAPTURING_ACTIVE.load(Ordering::Relaxed) {
         if let Some(selection) = *SCREENSHOT_SELECTION.lock() {
-            let scale_factor = SCALE_FACTOR.lock().0;
-            let border_offset = (3.0 * scale_factor).round();
+            let selection_scale = SCALE_FACTOR.lock().0;
+            let border_offset = (3.0 * selection_scale).round();
             
             // 去除边框后的实际内容区域
             let content_x = selection.x + border_offset;

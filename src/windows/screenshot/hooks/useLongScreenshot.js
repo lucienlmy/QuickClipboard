@@ -4,7 +4,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { save as saveFileDialog } from '@tauri-apps/plugin-dialog';
 import { cancelScreenshotSession } from '@shared/api/system';
 //长截屏模式管理 Hook
-export default function useLongScreenshot(selection) {
+export default function useLongScreenshot(selection, screens, stageRegionManager) {
   const [isActive, setIsActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -18,23 +18,42 @@ export default function useLongScreenshot(selection) {
     setPreview(null);
     
     // 启用后端鼠标穿透控制
-    if (selection && toolbarPosition) {
+    if (selection && toolbarPosition && screens && screens.length > 0) {
       try {
+        const scale = window.devicePixelRatio || 1;
+        const stageOffsetX = screens[0].physicalX / scale - screens[0].x;
+        const stageOffsetY = screens[0].physicalY / scale - screens[0].y;
+        
+        const centerX = selection.x + selection.width / 2;
+        const centerY = selection.y + selection.height / 2;
+        const selectionScaleFactor = stageRegionManager?.getNearestScreen(centerX, centerY)?.scaleFactor || 1.0;
+        
+        const physicalX = (selection.x + stageOffsetX) * scale;
+        const physicalY = (selection.y + stageOffsetY) * scale;
+        const physicalWidth = selection.width * scale;
+        const physicalHeight = selection.height * scale;
+        
+        const physicalToolbarX = (toolbarPosition.x + stageOffsetX) * scale;
+        const physicalToolbarY = (toolbarPosition.y + stageOffsetY) * scale;
+        const physicalToolbarWidth = toolbarPosition.width * scale;
+        const physicalToolbarHeight = toolbarPosition.height * scale;
+        
         await invoke('enable_long_screenshot_passthrough', {
-          x: selection.x,
-          y: selection.y,
-          width: selection.width,
-          height: selection.height,
-          toolbarX: toolbarPosition.x,
-          toolbarY: toolbarPosition.y,
-          toolbarWidth: toolbarPosition.width,
-          toolbarHeight: toolbarPosition.height,
+          physicalX,
+          physicalY,
+          physicalWidth,
+          physicalHeight,
+          physicalToolbarX,
+          physicalToolbarY,
+          physicalToolbarWidth,
+          physicalToolbarHeight,
+          selectionScaleFactor,
         });
       } catch (err) {
         console.error('启用鼠标穿透失败:', err);
       }
     }
-  }, [selection]);
+  }, [selection, screens, stageRegionManager]);
 
   // 开始捕获
   const start = useCallback(async () => {

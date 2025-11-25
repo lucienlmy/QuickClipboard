@@ -37,7 +37,7 @@ function App() {
   const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager);
   const session = useScreenshotSession(stageRef, stageRegionManager);
   const editing = useScreenshotEditing(screens, stageRef);
-  const longScreenshot = useLongScreenshot(session.selection);
+  const longScreenshot = useLongScreenshot(session.selection, screens, stageRegionManager);
 
   // 快捷键管理
   useKeyboardShortcuts({
