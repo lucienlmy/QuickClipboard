@@ -94,10 +94,10 @@ fn check_mouse_near_edge(
     let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let (win_x, win_y, win_width, win_height) = crate::get_window_bounds(window)?;
     
-    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
-    let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
-        .map(|(_, my, _, mh)| my + mh)
-        .unwrap_or(vy + vh);
+    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
+        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+    let monitor_right = monitor_x + monitor_w;
+    let monitor_bottom = monitor_y + monitor_h;
     
     let settings = crate::get_settings();
     let base_trigger = if settings.edge_hide_offset >= 10 {
@@ -112,23 +112,23 @@ fn check_mouse_near_edge(
         && cursor_y >= win_y
         && cursor_y <= win_y + win_height as i32;
     
-    // 检查鼠标是否接近对应边缘（使用虚拟桌面）
+    // 检查鼠标是否接近对应边缘（使用当前显示器边界）
     const CONTENT_INSET: i32 = 5;
     let trigger_distance = base_trigger + CONTENT_INSET;
     
     let is_near = match state.snap_edge {
         super::state::SnapEdge::Left => {
-            cursor_x <= vx + trigger_distance
+            cursor_x <= monitor_x + trigger_distance
                 && cursor_y >= win_y
                 && cursor_y <= win_y + win_height as i32
         }
         super::state::SnapEdge::Right => {
-            cursor_x >= vx + vw - trigger_distance
+            cursor_x >= monitor_right - trigger_distance
                 && cursor_y >= win_y
                 && cursor_y <= win_y + win_height as i32
         }
         super::state::SnapEdge::Top => {
-            cursor_y <= vy + trigger_distance
+            cursor_y <= monitor_y + trigger_distance
                 && cursor_x >= win_x
                 && cursor_x <= win_x + win_width as i32
         }

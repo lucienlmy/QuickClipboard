@@ -14,17 +14,16 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     
     let (x, y, w, h) = crate::utils::positioning::get_window_bounds(window)?;
     
-    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
-    let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
-        .map(|(_, my, _, mh)| my + mh)
-        .unwrap_or(vy + vh);
+    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
+        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+    let monitor_right = monitor_x + monitor_w;
+    let monitor_bottom = monitor_y + monitor_h;
     
-    // 检查窗口是否在边缘附近
-    let edge = if (x - vx).abs() <= SNAP_THRESHOLD {
+    let edge = if (x - monitor_x).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Left)
-    } else if ((vx + vw) - (x + w as i32)).abs() <= SNAP_THRESHOLD {
+    } else if (monitor_right - (x + w as i32)).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Right)
-    } else if (y - vy).abs() <= SNAP_THRESHOLD {
+    } else if (y - monitor_y).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Top)
     } else if (monitor_bottom - (y + h as i32)).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Bottom)
@@ -48,15 +47,16 @@ pub fn snap_to_edge(window: &WebviewWindow, edge: SnapEdge) -> Result<(), String
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     
-    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
-    let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
-        .map(|(_, my, _, mh)| my + mh)
-        .unwrap_or(vy + vh);
+    // 使用当前显示器边界
+    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
+        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+    let monitor_right = monitor_x + monitor_w;
+    let monitor_bottom = monitor_y + monitor_h;
     
     let (new_x, new_y) = match edge {
-        SnapEdge::Left => (vx - FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Right => (vx + vw - size.width as i32 + FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Top => (x, vy - FRONTEND_CONTENT_INSET),
+        SnapEdge::Left => (monitor_x - FRONTEND_CONTENT_INSET, y),
+        SnapEdge::Right => (monitor_right - size.width as i32 + FRONTEND_CONTENT_INSET, y),
+        SnapEdge::Top => (x, monitor_y - FRONTEND_CONTENT_INSET),
         SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + FRONTEND_CONTENT_INSET),
         SnapEdge::None => return Ok(()),
     };
@@ -81,10 +81,11 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     
-    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
-    let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
-        .map(|(_, my, _, mh)| my + mh)
-        .unwrap_or(vy + vh);
+    // 使用当前显示器边界
+    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
+        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+    let monitor_right = monitor_x + monitor_w;
+    let monitor_bottom = monitor_y + monitor_h;
     
     let settings = crate::get_settings();
     
@@ -95,13 +96,13 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     };
     let (hide_x, hide_y) = match state.snap_edge {
         SnapEdge::Left => {
-            (vx - size.width as i32 + hide_offset, y)
+            (monitor_x - size.width as i32 + hide_offset, y)
         }
         SnapEdge::Right => {
-            (vx + vw - hide_offset, y)
+            (monitor_right - hide_offset, y)
         }
         SnapEdge::Top => {
-            (x, vy - size.height as i32 + hide_offset)
+            (x, monitor_y - size.height as i32 + hide_offset)
         }
         SnapEdge::Bottom => {
             (x, monitor_bottom - hide_offset)
@@ -139,15 +140,16 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     
-    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
-    let monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
-        .map(|(_, my, _, mh)| my + mh)
-        .unwrap_or(vy + vh);
+    // 使用当前显示器边界
+    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
+        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+    let monitor_right = monitor_x + monitor_w;
+    let monitor_bottom = monitor_y + monitor_h;
     
     let (show_x, show_y) = match state.snap_edge {
-        SnapEdge::Left => (vx - FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Right => (vx + vw - size.width as i32 + FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Top => (x, vy - FRONTEND_CONTENT_INSET),
+        SnapEdge::Left => (monitor_x - FRONTEND_CONTENT_INSET, y),
+        SnapEdge::Right => (monitor_right - size.width as i32 + FRONTEND_CONTENT_INSET, y),
+        SnapEdge::Top => (x, monitor_y - FRONTEND_CONTENT_INSET),
         SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + FRONTEND_CONTENT_INSET),
         SnapEdge::None => return Ok(()),
     };
@@ -261,17 +263,16 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
         None => return Ok(()),
     };
     
-    // 根据保存的位置推断贴边的边缘
-    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size()?;
-    let _monitor_bottom = crate::utils::screen::ScreenUtils::get_monitor_bounds(window)
-        .map(|(_, my, _, mh)| my + mh)
-        .unwrap_or(vy + vh);
+    // 根据保存的位置推断贴边的边缘（使用当前显示器边界）
+    let (monitor_x, monitor_y, monitor_w, _) = 
+        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+    let monitor_right = monitor_x + monitor_w;
     
-    let snapped_edge = if x <= vx {
+    let snapped_edge = if x <= monitor_x {
         SnapEdge::Left
-    } else if x >= vx + vw - 100 {
+    } else if x >= monitor_right - 100 {
         SnapEdge::Right
-    } else if y <= vy {
+    } else if y <= monitor_y {
         SnapEdge::Top
     } else {
         SnapEdge::Bottom

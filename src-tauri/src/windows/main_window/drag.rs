@@ -47,26 +47,29 @@ mod platform {
     ) -> LRESULT {
         if msg == WM_WINDOWPOSCHANGING && IS_DRAGGING_ACTIVE.load(Ordering::Relaxed) && lparam.0 != 0 {
             let wp = &mut *(lparam.0 as *mut WINDOWPOS);
-            let (vx, vy, vright) = (
+            let (vx, vright) = (
                 BOUND_LEFT.load(Ordering::Relaxed),
-                BOUND_TOP.load(Ordering::Relaxed),
                 BOUND_RIGHT.load(Ordering::Relaxed),
             );
             
             wp.x = wp.x.clamp(vx, vright);
-            wp.y = wp.y.max(vy);
             
             if let (Some(monitors), Some(size)) = (MONITORS.try_lock(), WINDOW_SIZE.try_lock()) {
-                let (cx, cy) = (wp.x + wp.cx / 2, wp.y + wp.cy / 2);
+                let cx = wp.x + wp.cx / 2;
+                let mut top = BOUND_TOP.load(Ordering::Relaxed);
                 let mut bottom = BOUND_BOTTOM.load(Ordering::Relaxed);
                 
                 for &(mx, my, mw, mh) in monitors.iter() {
-                    if cx >= mx && cx < mx + mw && cy >= my && cy < my + mh {
+                    if cx >= mx && cx < mx + mw {
+                        top = my;
                         bottom = my + mh - size.1;
                         break;
                     }
                 }
-                wp.y = wp.y.min(bottom);
+                wp.y = wp.y.clamp(top, bottom);
+            } else {
+                let vy = BOUND_TOP.load(Ordering::Relaxed);
+                wp.y = wp.y.max(vy);
             }
         }
 
