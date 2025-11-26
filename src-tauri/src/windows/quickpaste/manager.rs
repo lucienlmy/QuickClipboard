@@ -43,6 +43,7 @@ pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
     if !crate::get_settings().quickpaste_enabled {
         return Ok(());
     }
+    let _ = crate::services::system::save_current_focus(app.clone());
     
     let window = get_or_create_window(app)?;
     position_at_cursor(&window)?;
