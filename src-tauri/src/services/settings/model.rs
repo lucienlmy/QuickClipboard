@@ -62,6 +62,8 @@ pub struct AppSettings {
     // 鼠标设置
     pub mouse_middle_button_enabled: bool,
     pub mouse_middle_button_modifier: String,
+    pub mouse_middle_button_trigger: String,
+    pub mouse_middle_button_long_press_ms: u32,
 
     // 动画设置
     pub clipboard_animation_enabled: bool,
@@ -174,6 +176,8 @@ impl Default for AppSettings {
 
             mouse_middle_button_enabled: false,
             mouse_middle_button_modifier: "None".to_string(),
+            mouse_middle_button_trigger: "short_press".to_string(),
+            mouse_middle_button_long_press_ms: 300,
 
             clipboard_animation_enabled: true,
 

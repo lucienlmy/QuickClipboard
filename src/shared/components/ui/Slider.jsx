@@ -38,7 +38,7 @@ function Slider({
     }
   };
   
-  return <div className={`flex items-center gap-3 ${className}`}>
+  return <div className={`flex items-center justify-end gap-2 ${className}`}>
       <input 
         type="range" 
         min={min} 
@@ -49,10 +49,10 @@ function Slider({
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
-        className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 
+        className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 
       />
-      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-20 text-right">
-        {displayValue} {unit}
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+        {displayValue}{unit}
       </span>
     </div>;
 }

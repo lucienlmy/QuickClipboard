@@ -102,6 +102,8 @@ export const defaultSettings = {
   // 鼠标设置
   mouseMiddleButtonEnabled: false,
   mouseMiddleButtonModifier: 'None',
+  mouseMiddleButtonTrigger: 'short_press',
+  mouseMiddleButtonLongPressMs: 300,
   
   // 应用过滤
   appFilterEnabled: false,

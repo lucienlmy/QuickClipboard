@@ -14,6 +14,11 @@ static MONITORING_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(Non
 static NAVIGATION_KEYS_ENABLED: AtomicBool = AtomicBool::new(false);
 static MOUSE_MONITORING_ENABLED: AtomicBool = AtomicBool::new(false);
 
+// 中键按下时间记录
+static MIDDLE_BUTTON_PRESS_TIME: Mutex<Option<Instant>> = Mutex::new(None);
+// 长按是否已触发标记
+static LONG_PRESS_TRIGGERED: AtomicBool = AtomicBool::new(false);
+
 #[derive(Default)]
 struct KeyboardState {
     ctrl: bool,
@@ -301,9 +306,25 @@ fn match_key(key: Key, key_str: &str) -> bool {
 fn handle_mouse_button_press(button: rdev::Button) {
     let settings = crate::get_settings();
     
+    // 处理中键按下
     if button == rdev::Button::Middle && settings.mouse_middle_button_enabled {
-        handle_middle_button_press();
-        return;
+        if settings.mouse_middle_button_modifier == "None" {
+            *MIDDLE_BUTTON_PRESS_TIME.lock() = Some(Instant::now());
+            LONG_PRESS_TRIGGERED.store(false, Ordering::SeqCst);
+            
+            if settings.mouse_middle_button_trigger == "long_press" {
+                let threshold_ms = settings.mouse_middle_button_long_press_ms;
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(threshold_ms as u64));
+                    
+                    if MIDDLE_BUTTON_PRESS_TIME.lock().is_some() {
+                        LONG_PRESS_TRIGGERED.store(true, Ordering::SeqCst);
+                        handle_middle_button_action();
+                    }
+                });
+            }
+            return;
+        }
     }
     
     let mouse_monitoring_enabled = MOUSE_MONITORING_ENABLED.load(Ordering::Relaxed);
@@ -318,7 +339,27 @@ fn handle_mouse_button_press(button: rdev::Button) {
     }
 }
 
-fn handle_mouse_button_release(_button: rdev::Button) {
+fn handle_mouse_button_release(button: rdev::Button) {
+    let settings = crate::get_settings();
+    
+    if button == rdev::Button::Middle && settings.mouse_middle_button_enabled {
+        if settings.mouse_middle_button_modifier != "None" {
+            handle_middle_button_action();
+            return;
+        }
+        
+        let press_time = MIDDLE_BUTTON_PRESS_TIME.lock().take();
+        
+        if settings.mouse_middle_button_trigger == "short_press" {
+            if let Some(start) = press_time {
+                let duration = start.elapsed();
+                let threshold = Duration::from_millis(settings.mouse_middle_button_long_press_ms as u64);
+                if duration < threshold {
+                    handle_middle_button_action();
+                }
+            }
+        }
+    }
 }
 
 fn handle_mouse_move(x: f64, y: f64) {
@@ -345,7 +386,7 @@ fn handle_mouse_wheel(_delta_x: i64, delta_y: i64) -> bool {
     false 
 }
 
-fn handle_middle_button_press() {
+fn handle_middle_button_action() {
     if let Some(window) = MAIN_WINDOW.get() {
         let settings = crate::get_settings();
         

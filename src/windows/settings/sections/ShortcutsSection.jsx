@@ -3,10 +3,12 @@ import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
+import Slider from '@shared/components/ui/Slider';
 import ShortcutInput from '../components/ShortcutInput';
 import { useShortcutStatuses } from '@shared/hooks/useShortcutStatuses';
 import { useShortcutDuplicateCheck } from '@shared/hooks/useShortcutDuplicateCheck';
 import { promptDisableWinVHotkeyIfNeeded, promptEnableWinVHotkey } from '@shared/api/system';
+
 function ShortcutsSection({
   settings,
   onSettingChange
@@ -99,6 +101,13 @@ function ShortcutsSection({
     value: 'Alt+Shift',
     label: 'Alt + Shift + ' + t('settings.shortcuts.middleButton')
   }];
+  const mouseTriggerOptions = [{
+    value: 'short_press',
+    label: t('settings.shortcuts.mouseMiddleTriggerShortPress')
+  }, {
+    value: 'long_press',
+    label: t('settings.shortcuts.mouseMiddleTriggerLongPress')
+  }];
   return <>
       <SettingsSection title={t('settings.shortcuts.globalTitle')} description={t('settings.shortcuts.globalDesc')}>
         <SettingItem label={t('settings.shortcuts.toggleWindow')} description={t('settings.shortcuts.toggleWindowDesc')}>
@@ -167,6 +176,18 @@ function ShortcutsSection({
         <SettingItem label={t('settings.shortcuts.mouseMiddleModifier')} description={t('settings.shortcuts.mouseMiddleModifierDesc')}>
           <Select value={settings.mouseMiddleButtonModifier} onChange={value => onSettingChange('mouseMiddleButtonModifier', value)} options={mouseModifierOptions} className="w-56" />
         </SettingItem>
+
+        {settings.mouseMiddleButtonModifier === 'None' && (
+          <SettingItem label={t('settings.shortcuts.mouseMiddleTrigger')} description={t('settings.shortcuts.mouseMiddleTriggerDesc')}>
+            <Select value={settings.mouseMiddleButtonTrigger} onChange={value => onSettingChange('mouseMiddleButtonTrigger', value)} options={mouseTriggerOptions} className="w-56" />
+          </SettingItem>
+        )}
+
+        {settings.mouseMiddleButtonModifier === 'None' && (
+          <SettingItem label={t('settings.shortcuts.mouseMiddleLongPressThreshold')} description={t('settings.shortcuts.mouseMiddleLongPressThresholdDesc')}>
+            <Slider value={settings.mouseMiddleButtonLongPressMs} onChange={value => onSettingChange('mouseMiddleButtonLongPressMs', value)} min={100} max={1000} step={50} unit="ms" />
+          </SettingItem>
+        )}
       </SettingsSection>
 
       <SettingsSection title={t('settings.shortcuts.windowTitle')} description={t('settings.shortcuts.windowDesc')}>
