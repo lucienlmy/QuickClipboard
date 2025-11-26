@@ -88,10 +88,21 @@ export async function clearClipboardHistory() {
   }
 }
 
-// 移动剪贴板项
+// 移动剪贴板项（按索引）
 export async function moveClipboardItem(fromIndex, toIndex) {
   try {
     await invoke('move_clipboard_item', { fromIndex, toIndex })
+    return true
+  } catch (error) {
+    console.error('移动剪贴板项失败:', error)
+    throw error
+  }
+}
+
+// 移动剪贴板项（按 ID，用于搜索/筛选时）
+export async function moveClipboardItemById(fromId, toId) {
+  try {
+    await invoke('move_clipboard_item_by_id', { fromId, toId })
     return true
   } catch (error) {
     console.error('移动剪贴板项失败:', error)

@@ -64,6 +64,7 @@ pub fn run() {
                 commands::get_clipboard_item_by_id_cmd,
                 commands::update_clipboard_item_cmd,
                 commands::move_clipboard_item,
+                commands::move_clipboard_item_by_id,
                 commands::apply_history_limit,
                 commands::paste_content,
                 commands::delete_clipboard_item,

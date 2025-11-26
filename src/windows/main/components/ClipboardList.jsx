@@ -7,7 +7,7 @@ import { useNavigation } from '@shared/hooks/useNavigation';
 import { clipboardStore, loadClipboardRange, pasteClipboardItem } from '@shared/store/clipboardStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
-import { moveClipboardItem } from '@shared/api';
+import { moveClipboardItem, moveClipboardItemById } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
 import ClipboardItem from './ClipboardItem';
 const ClipboardList = forwardRef(({
@@ -43,10 +43,22 @@ const ClipboardList = forwardRef(({
       };
     });
   }, [itemsArray]);
+  const isFiltered = !!(clipSnap.filter || (clipSnap.contentType && clipSnap.contentType !== 'all'));
+  
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
     try {
-      await moveClipboardItem(oldIndex, newIndex);
+      if (isFiltered) {
+        // 搜索/筛选时按 ID 移动
+        const fromItem = itemsWithId[oldIndex];
+        const toItem = itemsWithId[newIndex];
+        if (fromItem?.id && toItem?.id) {
+          await moveClipboardItemById(fromItem.id, toItem.id);
+        }
+      } else {
+        // 正常情况按索引移动
+        await moveClipboardItem(oldIndex, newIndex);
+      }
     } catch (error) {
       console.error('移动剪贴板项失败:', error);
     } finally {

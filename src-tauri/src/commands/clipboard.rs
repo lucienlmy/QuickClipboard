@@ -2,6 +2,7 @@ use crate::services::database::{
     clear_clipboard_history as db_clear_clipboard_history,
     delete_clipboard_item as db_delete_clipboard_item, get_clipboard_count,
     get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_by_index,
+    move_clipboard_item_by_id as db_move_clipboard_item_by_id,
     query_clipboard_items, update_clipboard_item as db_update_clipboard_item, ClipboardItem,
     PaginatedResult, QueryParams,
 };
@@ -62,10 +63,16 @@ pub fn get_clipboard_total_count() -> Result<i64, String> {
     get_clipboard_count()
 }
 
-// 移动剪贴板项（拖拽排序）
+// 移动剪贴板项（拖拽排序，按索引）
 #[tauri::command]
 pub fn move_clipboard_item(from_index: i64, to_index: i64) -> Result<(), String> {
     move_clipboard_item_by_index(from_index, to_index)
+}
+
+// 移动剪贴板项（拖拽排序，按 ID，用于搜索/筛选时）
+#[tauri::command]
+pub fn move_clipboard_item_by_id(from_id: i64, to_id: i64) -> Result<(), String> {
+    db_move_clipboard_item_by_id(from_id, to_id)
 }
 
 // 应用历史记录数量限制

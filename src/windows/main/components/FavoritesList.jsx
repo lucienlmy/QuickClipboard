@@ -44,6 +44,9 @@ const FavoritesList = forwardRef(({
       };
     });
   }, [itemsArray]);
+  
+  const canDrag = groupsSnap.currentGroup !== '全部' && !favSnap.filter && favSnap.contentType === 'all';
+  
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
     try {
@@ -189,7 +192,7 @@ const FavoritesList = forwardRef(({
               animationDelay: `${animationDelay}ms`,
               animationFillMode: 'backwards'
             }}>
-                    <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} />
+                    <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} />
                   </div>
                 </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{

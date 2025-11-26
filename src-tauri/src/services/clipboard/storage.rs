@@ -26,14 +26,20 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
             }
         }
         
+        let min_order: i64 = conn
+            .query_row("SELECT COALESCE(MIN(item_order), 0) FROM clipboard", [], |row| row.get(0))
+            .unwrap_or(0);
+        let new_order = min_order - 1;
+        
         conn.execute(
             "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 content.content,
                 content.html_content,
                 content.content_type,
                 content.image_id,
+                new_order,
                 now,
                 now
             ],
