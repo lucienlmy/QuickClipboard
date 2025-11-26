@@ -178,13 +178,19 @@ function FavoriteItem({
   const isSmallHeight = settings.rowHeight === 'small';
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter}>
-    {/* 浮动的序号和分组 */}
-    <div className={`absolute top-1 right-2 flex flex-col items-end ${isSmallHeight ? 'gap-0' : 'gap-0.5'} pointer-events-none z-20`}>
-      <span className={numberBadgeClasses}>
-        {index + 1}
-      </span>
+    {/* 顶部操作区域：操作按钮、分组、序号 */}
+    <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
+      {/* 编辑按钮 */}
+      {isTextOrRichText && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
+        <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+      </button>}
+      {/* 删除按钮 */}
+      <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
+        <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
+      </button>
+      {/* 分组标签 */}
       {showGroupBadge && <span
-        className={groupBadgeClasses(groupColor)}
+        className={`${groupBadgeClasses(groupColor)} pointer-events-none`}
         style={groupColor ? {
           backgroundColor: groupColor,
           backgroundImage: `linear-gradient(135deg, ${groupColor}dd, ${groupColor})`
@@ -193,23 +199,10 @@ function FavoriteItem({
       >
         {item.group_name.length > 6 ? item.group_name.substring(0, 6) + '...' : item.group_name}
       </span>}
-    </div>
-
-    {/* 操作按钮区域 */}
-    <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto z-20">
-      {/* 编辑按钮 */}
-      {isTextOrRichText && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-        <i className="ti ti-edit" style={{
-          fontSize: 12
-        }}></i>
-      </button>}
-
-      {/* 删除按钮 */}
-      <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
-        <i className="ti ti-trash" style={{
-          fontSize: 12
-        }}></i>
-      </button>
+      {/* 序号 */}
+      <span className={`${numberBadgeClasses} pointer-events-none`}>
+        {index + 1}
+      </span>
     </div>
 
     {isSmallHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">

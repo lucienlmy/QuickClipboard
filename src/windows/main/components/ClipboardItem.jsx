@@ -210,40 +210,28 @@ function ClipboardItem({
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border hover:translate-y-[-3px] ${getHeightClass()}`}>
-      {/* 悬浮序号和快捷键提示 */}
-      <div className="absolute top-1 right-2 flex flex-col items-end gap-0 pointer-events-none  z-20">
-        {/* 序号 */}
-        <span className={numberBadgeClasses}>
-          {index + 1}
-        </span>
-        {/* 快捷键 */}
-        {getShortcut() && <span className={shortcutClasses}>
-            {getShortcut()}
-          </span>}
-      </div>
-
-      {/* 操作按钮区域 */}
-      <div className="absolute top-1 right-10 flex items-center gap-1 pointer-events-auto z-20">
+      {/* 顶部操作区域：操作按钮、快捷键、序号 */}
+      <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
         {/* 收藏按钮 */}
         <button className={actionButtonClasses} onClick={handleFavoriteClick} title={t('contextMenu.addToFavorites')}>
-          <i className="ti ti-star" style={{
-          fontSize: 12
-        }}></i>
+          <i className="ti ti-star" style={{ fontSize: 12 }}></i>
         </button>
-
         {/* 编辑按钮 */}
         {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-            <i className="ti ti-edit" style={{
-          fontSize: 12
-        }}></i>
+            <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
           </button>}
-
         {/* 删除按钮 */}
         <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
-          <i className="ti ti-trash" style={{
-          fontSize: 12
-        }}></i>
+          <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
         </button>
+        {/* 快捷键 */}
+        {getShortcut() && <span className={`${shortcutClasses} pointer-events-none`}>
+            {getShortcut()}
+          </span>}
+        {/* 序号 */}
+        <span className={`${numberBadgeClasses} pointer-events-none`}>
+          {index + 1}
+        </span>
       </div>
 
       {isSmallHeight ?
