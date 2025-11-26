@@ -314,8 +314,8 @@
   background-color: var(--border-primary) !important;
 }
 
-.theme-dark .groups-panel button:not(.bg-blue-500),
-.dark .groups-panel button:not(.bg-blue-500),
+.theme-dark .groups-panel button:not(.bg-blue-500):not(.shadow-sm),
+.dark .groups-panel button:not(.bg-blue-500):not(.shadow-sm),
 .theme-dark .row-height-menu button:not(.bg-blue-500),
 .dark .row-height-menu button:not(.bg-blue-500),
 .theme-dark .group-modal button:not(.bg-blue-500):not(.bg-red-500),
@@ -323,13 +323,24 @@
   background-color: transparent !important;
 }
 
-.theme-dark .groups-panel button:not(.bg-blue-500):hover,
-.dark .groups-panel button:not(.bg-blue-500):hover,
+.theme-dark .groups-panel button:not(.bg-blue-500):not(.shadow-sm):hover,
+.dark .groups-panel button:not(.bg-blue-500):not(.shadow-sm):hover,
 .theme-dark .row-height-menu button:not(.bg-blue-500):hover,
 .dark .row-height-menu button:not(.bg-blue-500):hover,
 .theme-dark .group-modal button:not(.bg-blue-500):not(.bg-red-500):hover,
 .dark .group-modal button:not(.bg-blue-500):not(.bg-red-500):hover {
   background-color: var(--border-primary) !important;
+}
+
+.theme-dark .groups-panel button.shadow-sm,
+.dark .groups-panel button.shadow-sm {
+  background-color: #555 !important;
+  color: #e0e0e0 !important;
+}
+
+.theme-dark .groups-panel button.shadow-sm:hover,
+.dark .groups-panel button.shadow-sm:hover {
+  background-color: #666 !important;
 }
 
 /* =================== 卡片 =================== */

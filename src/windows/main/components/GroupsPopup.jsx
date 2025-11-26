@@ -212,14 +212,14 @@ const GroupsPopup = forwardRef(({
                 </div>
               </div>
 
-              {/* 操作按钮（全部分组不显示） - 悬停在右侧显示 */}
+              {/* 操作按钮*/}
               {group.name !== '全部' && <div className={`absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${isActive ? 'opacity-100' : ''}`}>
-                <button onClick={e => handleEditGroup(e, group)} className={`p-0.5 rounded transition-all shadow-sm ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-500'}`} title={t('groups.edit')}>
+                <button onClick={e => handleEditGroup(e, group)} className={`p-0.5 rounded transition-all shadow-sm ${isActive ? 'bg-white dark:bg-gray-200 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-300' : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-500'}`} title={t('groups.edit')}>
                   <i className="ti ti-edit" style={{
                     fontSize: 10
                   }}></i>
                 </button>
-                <button onClick={e => handleDeleteGroup(e, group.name)} className={`p-0.5 rounded transition-all shadow-sm ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50'}`} title={t('groups.delete')}>
+                <button onClick={e => handleDeleteGroup(e, group.name)} className={`p-0.5 rounded transition-all shadow-sm ${isActive ? 'bg-white dark:bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-200' : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50'}`} title={t('groups.delete')}>
                   <i className="ti ti-trash" style={{
                     fontSize: 10
                   }}></i>
