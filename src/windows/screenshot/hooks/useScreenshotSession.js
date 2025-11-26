@@ -117,11 +117,12 @@ export function useScreenshotSession(stageRef, stageRegionManager) {
   const handlePinSelection = useCallback(async () => {
     if (!selection) return;
     try {
-      await exportToPin(stageRef, selection, cornerRadius);
+      const screens = stageRegionManager?.getScreens?.() || [];
+      await exportToPin(stageRef, selection, cornerRadius, screens);
     } catch (err) {
       console.error('创建贴图失败:', err);
     }
-  }, [selection, stageRef, cornerRadius]);
+  }, [selection, stageRef, cornerRadius, stageRegionManager]);
 
   const handleSaveSelection = useCallback(async () => {
     if (!selection) return;

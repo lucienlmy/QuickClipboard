@@ -84,8 +84,8 @@ body.thumbnail-mode .image-clip{
 /* 裁剪容器 */
 .image-clip {
     position: absolute;
-    top: 4.5px;
-    left: 4.5px;
+    top: 2.5px;
+    left: 3px;
     overflow: hidden;
     box-shadow: none;
     transition: box-shadow 0.2s ease;

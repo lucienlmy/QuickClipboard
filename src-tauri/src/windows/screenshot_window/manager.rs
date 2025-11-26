@@ -1,4 +1,4 @@
-use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Size,LogicalSize,Position,LogicalPosition,};
+use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Size,LogicalSize,Position,PhysicalPosition,};
 
 fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     let is_dev = cfg!(debug_assertions);
@@ -37,7 +37,7 @@ fn resize_window_to_virtual_screen(window: &WebviewWindow) {
         crate::screen::ScreenUtils::get_virtual_screen_size().unwrap_or((0, 0, 1920, 1080));
 
     let _ = window.set_size(Size::Logical(LogicalSize::new(width as f64, height as f64)));
-    let _ = window.set_position(Position::Logical(LogicalPosition::new(x as f64, y as f64)));
+    let _ = window.set_position(Position::Physical(PhysicalPosition::new(x, y)));
 }
 
 pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {

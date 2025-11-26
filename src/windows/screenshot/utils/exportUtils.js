@@ -125,7 +125,7 @@ export async function exportToClipboard(stageRef, selection, cornerRadius = 0) {
 }
 
 // 导出为贴图
-export async function exportToPin(stageRef, selection, cornerRadius = 0) {
+export async function exportToPin(stageRef, selection, cornerRadius = 0, screens = []) {
   const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius);
   if (!blob) return;
 
@@ -142,17 +142,26 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0) {
     const tempFilePath = `${tempDirPath}${tempFileName}`;
     
     const { x, y, width, height } = selection;
-    const screenX = Math.round(x);
-    const screenY = Math.round(y);
-    const screenWidth = Math.round(width);
-    const screenHeight = Math.round(height);
+    const windowScale = window.devicePixelRatio || 1;
+    
+    let minPhysicalX = 0;
+    let minPhysicalY = 0;
+    if (screens.length > 0) {
+      minPhysicalX = Math.min(...screens.map(s => s.physicalX));
+      minPhysicalY = Math.min(...screens.map(s => s.physicalY));
+    }
+    
+    const physicalX = Math.round(x * windowScale + minPhysicalX);
+    const physicalY = Math.round(y * windowScale + minPhysicalY);
+    const logicalWidth = Math.round(width);
+    const logicalHeight = Math.round(height);
     
     await invoke('pin_image_from_file', {
       filePath: tempFilePath,
-      x: screenX,
-      y: screenY,
-      width: screenWidth,
-      height: screenHeight
+      x: physicalX,
+      y: physicalY,
+      width: logicalWidth,
+      height: logicalHeight
     });
 
     await cancelScreenshotSession();

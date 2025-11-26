@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use once_cell::sync::OnceCell;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, WebviewWindow, WebviewWindowBuilder, LogicalPosition, LogicalSize, Size,async_runtime::spawn,PhysicalPosition, PhysicalSize, Position, };
+use tauri::{AppHandle, WebviewWindow, WebviewWindowBuilder, Size, LogicalSize, PhysicalPosition, PhysicalSize};
 
 static PIN_IMAGE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -147,7 +147,7 @@ async fn create_pin_image_window(
     
     window.set_size(Size::Logical(LogicalSize::new(window_width, window_height)))
         .map_err(|e| format!("设置窗口尺寸失败: {}", e))?;
-    window.set_position(LogicalPosition::new(window_x, window_y))
+    window.set_position(PhysicalPosition::new(window_x as i32, window_y as i32))
         .map_err(|e| format!("设置窗口位置失败: {}", e))?;
     
     // window.set_focusable(false)
