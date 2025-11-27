@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteClipboardItem } from '@shared/store/clipboardStore';
 import { pasteFavorite } from '@shared/store/favoritesStore';
@@ -176,7 +177,32 @@ function FavoriteItem({
     ${color ? 'text-white border-white/20 shadow-sm' : 'text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 bg-gray-100/80 dark:bg-gray-700/80'}
   `.trim().replace(/\s+/g, ' ');
   const isSmallHeight = settings.rowHeight === 'small';
+
+  // 自适应行高禁用内容滚轮滚动
+  const contentRef = useRef(null);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (settings.rowHeight === 'auto' && el) {
+      const handleWheel = (e) => {
+        e.preventDefault();
+        let parent = el.parentElement;
+        while (parent) {
+          const style = getComputedStyle(parent);
+          const isScrollable = parent.scrollHeight > parent.clientHeight &&
+            style.overflowY !== 'hidden' && style.overflowY !== 'visible';
+          if (isScrollable) {
+            parent.scrollTop += e.deltaY;
+            break;
+          }
+          parent = parent.parentElement;
+        }
+      };
+      el.addEventListener('wheel', handleWheel, { passive: false });
+      return () => el.removeEventListener('wheel', handleWheel);
+    }
+  }, [settings.rowHeight]);
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
+
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter}>
     {/* 顶部操作区域：操作按钮、分组、序号 */}
     <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
@@ -225,7 +251,7 @@ function FavoriteItem({
       </div>}
 
       {/* 内容区域 */}
-      <div className={`flex-1 min-w-0 w-full ${settings.rowHeight === 'auto' ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+      <div ref={contentRef} className={`flex-1 min-w-0 w-full ${settings.rowHeight === 'auto' ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
         {renderContent()}
       </div>
     </>}
