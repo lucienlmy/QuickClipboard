@@ -48,25 +48,34 @@ export function useItemCommon(item) {
     if (!timestamp) return '';
     const date = new Date(timestamp * 1000);
     const now = new Date();
-    const diff = now - date;
+    
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const recordDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    const timeFormat = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
     let timeStr = '';
 
     // 今天
-    if (diff < 86400000) {
-      timeStr = `今天 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    if (recordDate.getTime() === today.getTime()) {
+      timeStr = `今天 ${timeFormat}`;
     }
     // 昨天
-    else if (diff < 172800000) {
-      timeStr = `昨天 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    else if (recordDate.getTime() === yesterday.getTime()) {
+      timeStr = `昨天 ${timeFormat}`;
     }
-    // 周几
-    else if (diff < 604800000) {
+    // 一周内
+    else if (recordDate >= oneWeekAgo) {
       const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-      timeStr = `${days[date.getDay()]} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      timeStr = `${days[date.getDay()]} ${timeFormat}`;
     }
-    // 日期
+    // 更早的日期
     else {
-      timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      timeStr = `${date.getMonth() + 1}/${date.getDate()} ${timeFormat}`;
     }
 
     // 如果是文件类型，添加文件数量
