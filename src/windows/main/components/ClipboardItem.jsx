@@ -6,10 +6,11 @@ import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
 import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
-import { addClipboardToFavorites } from '@shared/api';
+import { addClipboardToFavorites, togglePinClipboardItem } from '@shared/api';
+import { refreshClipboardHistory } from '@shared/store/clipboardStore';
 import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
-import { moveClipboardItem } from '@shared/api';
+import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
 
 function ClipboardItem({
@@ -65,9 +66,9 @@ function ClipboardItem({
         });
         // 粘贴后置顶
         const oneTimeEnabled = getToolState('one-time-paste-button');
-        if (settings.pasteToTop && !oneTimeEnabled && typeof index === 'number' && index > 0) {
+        if (settings.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {
           try {
-            await moveClipboardItem(index, 0);
+            await moveClipboardItemToTop(item.id);
           } finally {
             clipboardStore.items = new Map();
           }
@@ -94,6 +95,21 @@ function ClipboardItem({
     e.preventDefault();
     e.stopPropagation();
     await showClipboardItemContextMenu(e, item, index);
+  };
+
+  // 处理置顶按钮点击
+  const handlePinClick = async e => {
+    e.stopPropagation();
+    try {
+      const isPinned = await togglePinClipboardItem(item.id);
+      toast.success(isPinned ? t('contextMenu.pinned') : t('contextMenu.unpinned'), {
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      });
+      await refreshClipboardHistory();
+    } catch (error) {
+      console.error('置顶失败:', error);
+    }
   };
 
   // 处理收藏按钮点击
@@ -248,6 +264,10 @@ function ClipboardItem({
         {/* 删除按钮 */}
         <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
           <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
+        </button>
+        {/* 置顶按钮 */}
+        <button className={`${actionButtonClasses} ${item.is_pinned ? '!opacity-100 !text-blue-500 dark:!text-blue-400' : ''}`} onClick={handlePinClick} title={item.is_pinned ? t('contextMenu.unpin') : t('contextMenu.pin')}>
+          <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
         </button>
         {/* 快捷键 */}
         {getShortcut() && <span className={`${shortcutClasses} pointer-events-none`}>

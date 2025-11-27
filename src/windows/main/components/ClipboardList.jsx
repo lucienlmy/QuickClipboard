@@ -7,7 +7,7 @@ import { useNavigation } from '@shared/hooks/useNavigation';
 import { clipboardStore, loadClipboardRange, pasteClipboardItem } from '@shared/store/clipboardStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
-import { moveClipboardItem, moveClipboardItemById } from '@shared/api';
+import { moveClipboardItemToTop, moveClipboardItemById } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
 import ClipboardItem from './ClipboardItem';
 const ClipboardList = forwardRef(({
@@ -43,21 +43,19 @@ const ClipboardList = forwardRef(({
       };
     });
   }, [itemsArray]);
-  const isFiltered = !!(clipSnap.filter || (clipSnap.contentType && clipSnap.contentType !== 'all'));
   
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
+    const fromItem = itemsWithId[oldIndex];
+    const toItem = itemsWithId[newIndex];
+    
+    if (fromItem?.is_pinned !== toItem?.is_pinned) {
+      return;
+    }
+    
     try {
-      if (isFiltered) {
-        // 搜索/筛选时按 ID 移动
-        const fromItem = itemsWithId[oldIndex];
-        const toItem = itemsWithId[newIndex];
-        if (fromItem?.id && toItem?.id) {
-          await moveClipboardItemById(fromItem.id, toItem.id);
-        }
-      } else {
-        // 正常情况按索引移动
-        await moveClipboardItem(oldIndex, newIndex);
+      if (fromItem?.id && toItem?.id) {
+        await moveClipboardItemById(fromItem.id, toItem.id);
       }
     } catch (error) {
       console.error('移动剪贴板项失败:', error);
@@ -99,9 +97,9 @@ const ClipboardList = forwardRef(({
         await pasteClipboardItem(item.id);
         // 粘贴后置顶
         const oneTimeEnabled = getToolState('one-time-paste-button');
-        if (settings.pasteToTop && !oneTimeEnabled && typeof index === 'number' && index > 0) {
+        if (settings.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {
           try {
-            await moveClipboardItem(index, 0);
+            await moveClipboardItemToTop(item.id);
           } finally {
             clipboardStore.items = new Map();
           }

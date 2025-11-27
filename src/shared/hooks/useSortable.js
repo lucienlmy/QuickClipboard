@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 
 // 可排序列表上下文 Hook
 export function useSortableList({ items, onDragEnd }) {
@@ -29,6 +29,25 @@ export function useSortableList({ items, onDragEnd }) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
+
+  // 获取项目
+  const getItem = useCallback((id) => {
+    return items.find((item) => item.id === id || item._sortId === id)
+  }, [items])
+
+  const customCollisionDetection = useCallback((args) => {
+    const collisions = closestCenter(args)
+    if (!collisions.length) return collisions
+    
+    const activeItem = getItem(args.active.id)
+    if (!activeItem) return collisions
+    
+    return collisions.filter(collision => {
+      const overItem = getItem(collision.id)
+      if (!overItem) return true
+      return activeItem.is_pinned === overItem.is_pinned
+    })
+  }, [getItem])
 
   const handleDragStart = (event) => {
     setActiveId(event.active.id)
@@ -73,7 +92,7 @@ export function useSortableList({ items, onDragEnd }) {
     activeItem,
     strategy: verticalListSortingStrategy,
     modifiers: [restrictToVerticalAxis],
-    collisionDetection: closestCenter,
+    collisionDetection: customCollisionDetection,
   }
 }
 

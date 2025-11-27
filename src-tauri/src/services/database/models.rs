@@ -11,6 +11,7 @@ pub struct ClipboardItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_id: Option<String>,
     pub item_order: i64,
+    pub is_pinned: bool,
     pub created_at: i64,  
     pub updated_at: i64, 
 }

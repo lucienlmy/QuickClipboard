@@ -4,7 +4,7 @@ use chrono::Local;
 use crate::services::{get_data_directory, get_settings, update_settings};
 use crate::services::settings::storage::SettingsStorage;
 use crate::services::database::{init_database};
-use crate::services::database::connection::close_database;
+use crate::services::database::connection::{close_database, migrate_clipboard_order, with_connection};
 
 fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
     if !dst.exists() {
@@ -209,7 +209,6 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             }
 
             if imported_db.exists() {
-                use crate::services::database::connection::with_connection;
                 with_connection(|conn| {
                     let import_path = imported_db.to_str().ok_or(rusqlite::Error::InvalidPath("bad path".into()))?;
                     conn.execute("ATTACH DATABASE ?1 AS importdb", [import_path])?;
@@ -233,6 +232,9 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
                     );
 
                     let _ = conn.execute("DETACH DATABASE importdb", []);
+                    
+                    migrate_clipboard_order(conn);
+                    
                     Ok(())
                 })?;
             }

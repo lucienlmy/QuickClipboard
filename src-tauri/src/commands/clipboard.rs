@@ -1,9 +1,10 @@
 use crate::services::database::{
     clear_clipboard_history as db_clear_clipboard_history,
     delete_clipboard_item as db_delete_clipboard_item, get_clipboard_count,
-    get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_by_index,
+    get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_to_top,
     move_clipboard_item_by_id as db_move_clipboard_item_by_id,
-    query_clipboard_items, update_clipboard_item as db_update_clipboard_item, ClipboardItem,
+    query_clipboard_items, update_clipboard_item as db_update_clipboard_item,
+    toggle_pin_clipboard_item as db_toggle_pin, ClipboardItem,
     PaginatedResult, QueryParams,
 };
 
@@ -63,10 +64,10 @@ pub fn get_clipboard_total_count() -> Result<i64, String> {
     get_clipboard_count()
 }
 
-// 移动剪贴板项（拖拽排序，按索引）
+// 移动剪贴板项到顶部（粘贴后置顶使用）
 #[tauri::command]
-pub fn move_clipboard_item(from_index: i64, to_index: i64) -> Result<(), String> {
-    move_clipboard_item_by_index(from_index, to_index)
+pub fn move_clipboard_item(id: i64) -> Result<(), String> {
+    move_clipboard_item_to_top(id)
 }
 
 // 移动剪贴板项（拖拽排序，按 ID，用于搜索/筛选时）
@@ -130,6 +131,7 @@ pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), S
             content_type: favorite.content_type,
             image_id: favorite.image_id,
             item_order: favorite.item_order,
+            is_pinned: false,
             created_at: favorite.created_at,
             updated_at: favorite.updated_at,
         };
@@ -172,4 +174,10 @@ pub fn get_clipboard_item_by_id_cmd(id: i64) -> Result<ClipboardItem, String> {
 #[tauri::command]
 pub fn update_clipboard_item_cmd(id: i64, content: String) -> Result<(), String> {
     db_update_clipboard_item(id, content)
+}
+
+// 切换剪贴板项置顶状态
+#[tauri::command]
+pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
+    db_toggle_pin(id)
 }

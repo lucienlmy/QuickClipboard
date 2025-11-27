@@ -15,7 +15,7 @@ import {
   saveImageFromPath,
   copyTextToClipboard,
   recognizeImageOcr,
-  moveClipboardItem
+  moveClipboardItemToTop
 } from '@shared/api'
 import { getToolState } from '@shared/services/toolActions'
 import { clipboardStore } from '@shared/store/clipboardStore'
@@ -244,9 +244,9 @@ async function handlePasteActions(result, item, isClipboard = true, index = unde
   // 粘贴后置顶
   if (isClipboard) {
     const oneTimeEnabled = getToolState('one-time-paste-button')
-    if (settingsStore.pasteToTop && !oneTimeEnabled && typeof index === 'number' && index > 0) {
+    if (settingsStore.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {
       try {
-        await moveClipboardItem(index, 0)
+        await moveClipboardItemToTop(item.id)
       } finally {
         clipboardStore.items = new Map()
       }

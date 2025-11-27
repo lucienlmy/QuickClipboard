@@ -89,10 +89,10 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         }
         
         let query_sql = format!(
-            "SELECT id, content, html_content, content_type, image_id, item_order, created_at, updated_at 
+            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, created_at, updated_at 
              FROM clipboard 
              {} 
-             ORDER BY item_order ASC, updated_at DESC 
+             ORDER BY is_pinned DESC, item_order DESC, updated_at DESC 
              LIMIT ? OFFSET ?",
             where_clause
         );
@@ -136,8 +136,9 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
                     content_type,
                     image_id: row.get(4)?,
                     item_order: row.get(5)?,
-                    created_at: row.get(6)?,
-                    updated_at: row.get(7)?,
+                    is_pinned: row.get::<_, i64>(6)? != 0,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
                 })
             }
         )?
@@ -158,7 +159,7 @@ pub fn get_clipboard_count() -> Result<i64, String> {
 pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {
         conn.query_row(
-            "SELECT id, content, html_content, content_type, image_id, item_order, created_at, updated_at 
+            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, created_at, updated_at 
              FROM clipboard WHERE id = ?",
             params![id],
             |row| {
@@ -169,8 +170,9 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
                     content_type: row.get(3)?,
                     image_id: row.get(4)?,
                     item_order: row.get(5)?,
-                    created_at: row.get(6)?,
-                    updated_at: row.get(7)?,
+                    is_pinned: row.get::<_, i64>(6)? != 0,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
                 })
             }
         )
@@ -186,7 +188,7 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
     }
     
     let images_to_delete: Vec<String> = with_connection(|conn| {
-        let sql_ids = "SELECT image_id FROM clipboard WHERE id NOT IN (SELECT id FROM clipboard ORDER BY item_order, updated_at DESC LIMIT ?1) AND image_id IS NOT NULL AND image_id <> ''";
+        let sql_ids = "SELECT image_id FROM clipboard WHERE id NOT IN (SELECT id FROM clipboard ORDER BY is_pinned DESC, item_order DESC, updated_at DESC LIMIT ?1) AND image_id IS NOT NULL AND image_id <> ''";
         let mut stmt = conn.prepare(sql_ids)?;
         let ids_iter = stmt.query_map(params![max_count], |row| row.get::<_, String>(0))?;
         let mut set: HashSet<String> = HashSet::new();
@@ -201,7 +203,7 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
 
         conn.execute(
             "DELETE FROM clipboard WHERE id NOT IN (
-                SELECT id FROM clipboard ORDER BY item_order, updated_at DESC LIMIT ?1
+                SELECT id FROM clipboard ORDER BY is_pinned DESC, item_order DESC, updated_at DESC LIMIT ?1
             )",
             params![max_count],
         )?;
@@ -288,40 +290,54 @@ fn reorder_items(conn: &rusqlite::Connection, from_idx: usize, to_idx: usize, it
 
     if from_idx < to_idx {
         for i in (from_idx + 1)..=to_idx {
-            tx.execute("UPDATE clipboard SET item_order = item_order - 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE clipboard SET item_order = item_order + 1 WHERE id = ?1", params![items[i].0])?;
         }
     } else {
         for i in to_idx..from_idx {
-            tx.execute("UPDATE clipboard SET item_order = item_order + 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE clipboard SET item_order = item_order - 1 WHERE id = ?1", params![items[i].0])?;
         }
     }
     tx.execute("UPDATE clipboard SET item_order = ?1, updated_at = ?2 WHERE id = ?3", params![target_order, now, moved_id])?;
     tx.commit()
 }
 
-// 移动剪贴板项（按索引）
-pub fn move_clipboard_item_by_index(from_index: i64, to_index: i64) -> Result<(), String> {
-    if from_index == to_index { return Ok(()); }
-
+// 移动剪贴板项到顶部（非置顶区的顶部）
+pub fn move_clipboard_item_to_top(id: i64) -> Result<(), String> {
     with_connection(|conn| {
-        let items: Vec<(i64, i64)> = conn.prepare("SELECT id, item_order FROM clipboard ORDER BY item_order ASC, updated_at DESC")?
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let len = items.len() as i64;
-        if from_index < 0 || from_index >= len || to_index < 0 || to_index >= len {
-            return Err(rusqlite::Error::InvalidParameterName("索引超出范围".into()));
-        }
-        reorder_items(conn, from_index as usize, to_index as usize, &items)
+        let now = chrono::Local::now().timestamp();
+        let max_order: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(item_order), 0) FROM clipboard WHERE is_pinned = 0",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        conn.execute(
+            "UPDATE clipboard SET item_order = ?1, updated_at = ?2 WHERE id = ?3 AND is_pinned = 0",
+            params![max_order + 1, now, id],
+        )?;
+        Ok(())
     })
 }
 
-// 移动剪贴板项（按 ID，用于搜索/筛选时）
+// 移动剪贴板项
 pub fn move_clipboard_item_by_id(from_id: i64, to_id: i64) -> Result<(), String> {
     if from_id == to_id { return Ok(()); }
 
     with_connection(|conn| {
-        let items: Vec<(i64, i64)> = conn.prepare("SELECT id, item_order FROM clipboard ORDER BY item_order ASC, updated_at DESC")?
+        let from_pinned: i64 = conn.query_row(
+            "SELECT is_pinned FROM clipboard WHERE id = ?",
+            params![from_id], |row| row.get(0)
+        )?;
+        let to_pinned: i64 = conn.query_row(
+            "SELECT is_pinned FROM clipboard WHERE id = ?",
+            params![to_id], |row| row.get(0)
+        )?;
+        
+        if from_pinned != to_pinned {
+            return Ok(());
+        }
+        
+        let items: Vec<(i64, i64)> = conn.prepare("SELECT id, item_order FROM clipboard ORDER BY is_pinned DESC, item_order DESC, updated_at DESC")?
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -345,5 +361,26 @@ pub fn update_clipboard_item(id: i64, content: String) -> Result<(), String> {
     }).map_err(|e| if e.contains("QueryReturnedNoRows") {
         format!("剪贴板项不存在: {}", id)
     } else { e })
+}
+
+// 切换剪贴板项的置顶状态（取消置顶时移到非置顶区第一位）
+pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
+    with_connection(|conn| {
+        let current_pinned: i64 = conn.query_row(
+            "SELECT is_pinned FROM clipboard WHERE id = ?", params![id], |row| row.get(0)
+        )?;
+        
+        let now = chrono::Local::now().timestamp();
+        if current_pinned == 0 {
+            conn.execute("UPDATE clipboard SET is_pinned = 1, updated_at = ?1 WHERE id = ?2", params![now, id])?;
+            Ok(true)
+        } else {
+            let max_order: i64 = conn.query_row(
+                "SELECT COALESCE(MAX(item_order), 0) FROM clipboard WHERE is_pinned = 0", [], |row| row.get(0)
+            ).unwrap_or(0);
+            conn.execute("UPDATE clipboard SET is_pinned = 0, item_order = ?1, updated_at = ?2 WHERE id = ?3", params![max_order + 1, now, id])?;
+            Ok(false)
+        }
+    })
 }
 

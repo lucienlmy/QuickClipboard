@@ -88,13 +88,13 @@ export async function clearClipboardHistory() {
   }
 }
 
-// 移动剪贴板项（按索引）
-export async function moveClipboardItem(fromIndex, toIndex) {
+// 移动剪贴板项到顶部
+export async function moveClipboardItemToTop(id) {
   try {
-    await invoke('move_clipboard_item', { fromIndex, toIndex })
+    await invoke('move_clipboard_item', { id })
     return true
   } catch (error) {
-    console.error('移动剪贴板项失败:', error)
+    console.error('移动剪贴板项到顶部失败:', error)
     throw error
   }
 }
@@ -195,4 +195,9 @@ export async function saveImageFromPath(filePath) {
   return await invoke('save_image_from_path', { filePath })
 }
 
-
+// 切换剪贴板项置顶状态
+export async function togglePinClipboardItem(id) {
+  const isPinned = await invoke('toggle_pin_clipboard_item', { id })
+  await invoke('emit_clipboard_updated')
+  return isPinned
+}
