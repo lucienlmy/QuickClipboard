@@ -287,14 +287,14 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
         };
         
         let id = Uuid::new_v4().to_string();
+        let now = chrono::Local::now().timestamp();
         
-        let max_order: i64 = conn.query_row(
-            "SELECT COALESCE(MAX(item_order), -1) FROM favorites WHERE group_name = ?",
+        let min_order: i64 = conn.query_row(
+            "SELECT COALESCE(MIN(item_order), 0) FROM favorites WHERE group_name = ?",
             params![&group_name],
             |row| row.get(0)
         ).unwrap_or(0);
-        
-        let now = chrono::Local::now().timestamp();
+        let new_order = min_order - 1;
         
         conn.execute(
             "INSERT INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at) 
@@ -307,7 +307,7 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
                 &content_type,
                 &image_id,
                 &group_name,
-                max_order + 1,
+                new_order,
                 now,
                 now,
             ],
@@ -321,7 +321,7 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
             content_type,
             image_id,
             group_name,
-            item_order: max_order + 1,
+            item_order: new_order,
             created_at: now,
             updated_at: now,
         })
@@ -343,17 +343,17 @@ pub fn move_favorite_to_group(id: String, group_name: String) -> Result<(), Stri
             return Ok(());
         }
         
-        let max_order: i64 = conn.query_row(
-            "SELECT COALESCE(MAX(item_order), -1) FROM favorites WHERE group_name = ?",
-            params![&group_name],
-            |row| row.get(0)
-        ).unwrap_or(0);
-        
         let now = chrono::Local::now().timestamp();
+        
+        let min_order: i64 = conn.query_row(
+            "SELECT COALESCE(MIN(item_order), 0) FROM favorites WHERE group_name = ?",
+            params![&group_name], |row| row.get(0)
+        ).unwrap_or(0);
+        let new_order = min_order - 1;
         
         conn.execute(
             "UPDATE favorites SET group_name = ?1, item_order = ?2, updated_at = ?3 WHERE id = ?4",
-            params![&group_name, max_order + 1, now, &id],
+            params![&group_name, new_order, now, &id],
         )?;
         
         let mut stmt = conn.prepare(
@@ -411,21 +411,22 @@ pub fn add_favorite(title: String, content: String, group_name: Option<String>) 
     let (id, now) = (Uuid::new_v4().to_string(), chrono::Local::now().timestamp());
     
     with_connection(|conn| {
-        let max_order: i64 = conn.query_row(
-            "SELECT COALESCE(MAX(item_order), -1) FROM favorites WHERE group_name = ?",
+        let min_order: i64 = conn.query_row(
+            "SELECT COALESCE(MIN(item_order), 0) FROM favorites WHERE group_name = ?",
             params![&group_name], |row| row.get(0)
         ).unwrap_or(0);
+        let new_order = min_order - 1;
         
         conn.execute(
             "INSERT INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at) 
              VALUES (?1, ?2, ?3, NULL, 'text', NULL, ?4, ?5, ?6, ?7)",
-            params![&id, &title, &content, &group_name, max_order + 1, now, now],
+            params![&id, &title, &content, &group_name, new_order, now, now],
         )?;
         
         Ok(FavoriteItem {
             id: id.clone(), title, content, html_content: None,
             content_type: "text".to_string(), image_id: None, group_name,
-            item_order: max_order + 1, created_at: now, updated_at: now,
+            item_order: new_order, created_at: now, updated_at: now,
         })
     })
 }
@@ -443,14 +444,15 @@ pub fn update_favorite(id: String, title: String, content: String, group_name: O
         let now = chrono::Local::now().timestamp();
         
         if old_group_name != group_name {
-            let max_order: i64 = conn.query_row(
-                "SELECT COALESCE(MAX(item_order), -1) FROM favorites WHERE group_name = ?",
+            let min_order: i64 = conn.query_row(
+                "SELECT COALESCE(MIN(item_order), 0) FROM favorites WHERE group_name = ?",
                 params![&group_name], |row| row.get(0)
             ).unwrap_or(0);
+            let new_order = min_order - 1;
             
             conn.execute(
                 "UPDATE favorites SET title = ?1, content = ?2, group_name = ?3, item_order = ?4, updated_at = ?5 WHERE id = ?6",
-                params![&title, &content, &group_name, max_order + 1, now, &id],
+                params![&title, &content, &group_name, new_order, now, &id],
             )?;
             
             let item_ids: Vec<String> = conn.prepare(
