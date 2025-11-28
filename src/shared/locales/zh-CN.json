@@ -502,7 +502,19 @@
       "resetSettingsSuccess": "已恢复默认配置",
       "resetSettingsFailed": "恢复默认配置失败: {{message}}",
       "resetAllSuccess": "已重置所有数据",
-      "resetAllFailed": "重置所有数据失败: {{message}}"
+      "resetAllFailed": "重置所有数据失败: {{message}}",
+      "migrationConflictTitle": "目标位置已有数据",
+      "migrationConflictDesc": "检测到目标位置已存在 QuickClipboard 数据，请选择如何处理：",
+      "targetHasDatabase": "数据库",
+      "targetHasImages": "图片",
+      "imagesCount": "张",
+      "migrationSourceOnly": "使用当前数据（覆盖目标）",
+      "migrationSourceOnlyDesc": "将当前数据迁移到目标位置，目标位置的现有数据将被覆盖",
+      "migrationTargetOnly": "使用目标数据（保留目标）",
+      "migrationTargetOnlyDesc": "直接使用目标位置的现有数据，当前数据将被丢弃",
+      "migrationMerge": "合并数据",
+      "migrationMergeDesc": "将当前数据与目标数据合并，保留双方的内容",
+      "alreadyDefault": "当前已在默认存储位置"
     },
     "about": {
       "title": "关于",

@@ -110,6 +110,8 @@ pub fn run() {
                 commands::save_window_size,
                 commands::save_quickpaste_window_size,
                 commands::dm_get_current_storage_path,
+                commands::dm_get_default_storage_path,
+                commands::dm_check_target_has_data,
                 commands::dm_change_storage_path,
                 commands::dm_reset_storage_path_to_default,
                 commands::dm_export_data_zip,

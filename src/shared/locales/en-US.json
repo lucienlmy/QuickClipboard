@@ -500,7 +500,19 @@
       "resetSettingsSuccess": "Settings restored to defaults",
       "resetSettingsFailed": "Restore default settings failed: {{message}}",
       "resetAllSuccess": "All data has been reset",
-      "resetAllFailed": "Reset all data failed: {{message}}"
+      "resetAllFailed": "Reset all data failed: {{message}}",
+      "migrationConflictTitle": "Data Exists at Target",
+      "migrationConflictDesc": "QuickClipboard data already exists at the target location. Please choose how to proceed:",
+      "targetHasDatabase": "Database",
+      "targetHasImages": "Images",
+      "imagesCount": "files",
+      "migrationSourceOnly": "Use Current Data (Overwrite Target)",
+      "migrationSourceOnlyDesc": "Migrate current data to target location, existing data at target will be overwritten",
+      "migrationTargetOnly": "Use Target Data (Keep Target)",
+      "migrationTargetOnlyDesc": "Use existing data at target location, current data will be discarded",
+      "migrationMerge": "Merge Data",
+      "migrationMergeDesc": "Merge current data with target data, keeping content from both",
+      "alreadyDefault": "Already at default storage location"
     },
     "about": {
       "title": "About",

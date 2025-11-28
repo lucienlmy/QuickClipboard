@@ -7,7 +7,7 @@ import SettingItem from '../components/SettingItem';
 import Button from '@shared/components/ui/Button';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
-import { getCurrentStoragePath, changeStoragePath, resetStoragePathToDefault, exportDataZip, importDataZip, resetAllData } from '@shared/api/dataManagement';
+import { getCurrentStoragePath, getDefaultStoragePath, changeStoragePath, resetStoragePathToDefault, exportDataZip, importDataZip, resetAllData, checkTargetHasData } from '@shared/api/dataManagement';
 import { showError, showMessage, showConfirm } from '@shared/utils/dialog';
 import { reloadAllWindows } from '@shared/api/window';
 import { resetSettingsToDefault } from '@shared/api/settings';
@@ -22,6 +22,14 @@ function DataManagementSection() {
   const [portable, setPortable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [busyText, setBusyText] = useState('');
+  const [migrationDialog, setMigrationDialog] = useState(null); // { type: 'change' | 'reset', targetPath?: string, targetInfo?: object }
+
+  const formatSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   useEffect(() => {
     (async () => {
       try {
@@ -36,6 +44,7 @@ function DataManagementSection() {
       } catch (_) {}
     })();
   }, []);
+
   const handleExportData = async () => {
     try {
       const ts = new Date();
@@ -61,6 +70,7 @@ function DataManagementSection() {
       setBusyText('');
     }
   };
+
   const handleImportData = async () => {
     try {
       const file = await open({ multiple: false, filters: [{ name: 'Zip', extensions: ['zip'] }] });
@@ -79,6 +89,7 @@ function DataManagementSection() {
       setBusyText('');
     }
   };
+
   const handleOpenStorageFolder = async () => {
     try {
       if (storagePath && typeof storagePath === 'string') {
@@ -86,13 +97,23 @@ function DataManagementSection() {
       }
     } catch (e) {}
   };
+
   const handleChangeStorageLocation = async () => {
     try {
       const dir = await open({ directory: true, multiple: false });
       if (!dir) return;
+
+      // 检测目标位置是否有数据
+      const targetInfo = await checkTargetHasData(dir);
+
+      if (targetInfo.has_data) {
+        setMigrationDialog({ type: 'change', targetPath: dir, targetInfo });
+        return;
+      }
+
       setBusyText(t('settings.dataManagement.overlayMigrating'));
       setBusy(true);
-      await changeStoragePath(dir);
+      await changeStoragePath(dir, 'source_only');
       const latest = await getCurrentStoragePath();
       setStoragePath(latest);
       await showMessage(t('settings.dataManagement.updateSuccess'));
@@ -105,11 +126,60 @@ function DataManagementSection() {
       setBusyText('');
     }
   };
-  const handleResetStorageLocation = async () => {
+
+  const handleMigrationModeSelect = async (mode) => {
+    const dialog = migrationDialog;
+    setMigrationDialog(null);
+
+    if (!dialog) return;
+
     try {
       setBusyText(t('settings.dataManagement.overlayMigrating'));
       setBusy(true);
-      await resetStoragePathToDefault();
+
+      if (dialog.type === 'change') {
+        await changeStoragePath(dialog.targetPath, mode);
+      } else if (dialog.type === 'reset') {
+        await resetStoragePathToDefault(mode);
+      }
+
+      const latest = await getCurrentStoragePath();
+      setStoragePath(latest);
+      await showMessage(dialog.type === 'change'
+        ? t('settings.dataManagement.updateSuccess')
+        : t('settings.dataManagement.resetSuccess'));
+      try { await reloadAllWindows(); } catch (_) {}
+    } catch (e) {
+      const errorKey = dialog.type === 'change'
+        ? 'settings.dataManagement.changeFailed'
+        : 'settings.dataManagement.resetFailed';
+      await showError(t(errorKey, { message: e?.message || e }));
+    } finally {
+      setBusy(false);
+      setBusyText('');
+    }
+  };
+
+  const handleResetStorageLocation = async () => {
+    try {
+      const defaultPath = await getDefaultStoragePath();
+      const currentPath = await getCurrentStoragePath();
+
+      if (currentPath === defaultPath) {
+        await showMessage(t('settings.dataManagement.alreadyDefault'));
+        return;
+      }
+
+      const targetInfo = await checkTargetHasData(defaultPath);
+
+      if (targetInfo.has_data) {
+        setMigrationDialog({ type: 'reset', targetPath: defaultPath, targetInfo });
+        return;
+      }
+
+      setBusyText(t('settings.dataManagement.overlayMigrating'));
+      setBusy(true);
+      await resetStoragePathToDefault('source_only');
       const latest = await getCurrentStoragePath();
       setStoragePath(latest);
       await showMessage(t('settings.dataManagement.resetSuccess'));
@@ -122,6 +192,7 @@ function DataManagementSection() {
       setBusyText('');
     }
   };
+
   const handleClearHistory = async () => {
     const ok = await showConfirm(t('settings.dataManagement.clearConfirm'));
     if (!ok) return;
@@ -138,6 +209,7 @@ function DataManagementSection() {
       setBusyText('');
     }
   };
+
   const handleResetSettings = async () => {
     const ok = await showConfirm(t('settings.dataManagement.resetConfirm'));
     if (!ok) return;
@@ -155,6 +227,7 @@ function DataManagementSection() {
       setBusyText('');
     }
   };
+
   const handleResetAllData = async () => {
     const ok = await showConfirm(t('settings.dataManagement.resetAllConfirm'));
     if (!ok) return;
@@ -174,7 +247,9 @@ function DataManagementSection() {
       setBusyText('');
     }
   };
-  return <>
+
+  return (
+    <>
       {/* 数据导出 */}
       <SettingsSection title={t('settings.dataManagement.exportTitle')} description={t('settings.dataManagement.exportDesc')}>
         <SettingItem label={t('settings.dataManagement.exportAllData')} description={t('settings.dataManagement.exportAllDataDesc')}>
@@ -271,7 +346,106 @@ function DataManagementSection() {
         </div>,
         document.body
       )}
+
+      {/* 迁移模式选择对话框 */}
+      {migrationDialog && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <i className="ti ti-alert-triangle text-amber-600 dark:text-amber-400 text-xl"></i>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('settings.dataManagement.migrationConflictTitle')}
+                </h3>
+              </div>
+            </div>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {t('settings.dataManagement.migrationConflictDesc')}
+            </p>
+            
+            {migrationDialog.targetInfo && (
+              <div className="bg-gray-100 dark:bg-gray-700/50 rounded-lg p-3 mb-4 text-sm">
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <i className="ti ti-database"></i>
+                  <span>{t('settings.dataManagement.targetHasDatabase')}: {migrationDialog.targetInfo.has_database ? t('common.confirm') : '-'}</span>
+                  {migrationDialog.targetInfo.has_database && (
+                    <span className="text-gray-500">({formatSize(migrationDialog.targetInfo.database_size)})</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 mt-1">
+                  <i className="ti ti-photo"></i>
+                  <span>{t('settings.dataManagement.targetHasImages')}: {migrationDialog.targetInfo.images_count} {t('settings.dataManagement.imagesCount')}</span>
+                  {migrationDialog.targetInfo.images_count > 0 && (
+                    <span className="text-gray-500">({formatSize(migrationDialog.targetInfo.images_size)})</span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleMigrationModeSelect('source_only')}
+                className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+              >
+                <i className="ti ti-replace text-blue-500 mt-0.5"></i>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {t('settings.dataManagement.migrationSourceOnly')}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t('settings.dataManagement.migrationSourceOnlyDesc')}
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleMigrationModeSelect('target_only')}
+                className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+              >
+                <i className="ti ti-file-check text-green-500 mt-0.5"></i>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {t('settings.dataManagement.migrationTargetOnly')}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t('settings.dataManagement.migrationTargetOnlyDesc')}
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleMigrationModeSelect('merge')}
+                className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+              >
+                <i className="ti ti-git-merge text-purple-500 mt-0.5"></i>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {t('settings.dataManagement.migrationMerge')}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t('settings.dataManagement.migrationMergeDesc')}
+                  </div>
+                </div>
+              </button>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+              <button
+                onClick={() => setMigrationDialog(null)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
+  );
 }
 
 export default DataManagementSection;
