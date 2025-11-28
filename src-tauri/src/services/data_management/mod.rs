@@ -74,27 +74,63 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn backup_db_in(dir: &Path) -> Result<Option<PathBuf>, String> {
+fn backup_full_zip(dir: &Path) -> Result<Option<PathBuf>, String> {
     let db = dir.join("quickclipboard.db");
-    if !db.exists() { return Ok(None); }
+    let images_dir = dir.join("clipboard_images");
+    if !db.exists() && !images_dir.exists() { return Ok(None); }
+    
     let backups = dir.join("backups");
     fs::create_dir_all(&backups).map_err(|e| e.to_string())?;
     let ts_str = Local::now().format("%Y%m%d-%H%M%S").to_string();
-    let rand = fastrand::u32(..);
-    let name = format!("quickclipboard-{}-{:010}.db", ts_str, rand);
-    let target = backups.join(name);
-    fs::copy(&db, &target).map_err(|e| e.to_string())?;
-    enforce_retention(&backups, 10)?;
+    let name = format!("quickclipboard-backup-{}.zip", ts_str);
+    let target = backups.join(&name);
+    
+    let file = fs::File::create(&target).map_err(|e| e.to_string())?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    
+    if db.exists() {
+        let mut f = fs::File::open(&db).map_err(|e| e.to_string())?;
+        zip.start_file("quickclipboard.db", options).map_err(|e| e.to_string())?;
+        std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+    }
+    
+    if images_dir.exists() {
+        for entry in fs::read_dir(&images_dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(fname) = path.file_name().and_then(|s| s.to_str()) {
+                    let zip_path = format!("clipboard_images/{}", fname);
+                    let mut f = fs::File::open(&path).map_err(|e| e.to_string())?;
+                    zip.start_file(&zip_path, options).map_err(|e| e.to_string())?;
+                    std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+    }
+    
+    if let Ok(settings_path) = SettingsStorage::get_settings_path() {
+        if settings_path.exists() {
+            if let Ok(mut f) = fs::File::open(&settings_path) {
+                let _ = zip.start_file("settings.json", options);
+                let _ = std::io::copy(&mut f, &mut zip);
+            }
+        }
+    }
+    
+    zip.finish().map_err(|e| e.to_string())?;
+    enforce_backup_retention(&backups, 10)?;
     Ok(Some(target))
 }
 
-fn enforce_retention(backups_dir: &Path, keep: usize) -> Result<(), String> {
+fn enforce_backup_retention(backups_dir: &Path, keep: usize) -> Result<(), String> {
     let mut items: Vec<(SystemTime, PathBuf)> = Vec::new();
     for e in fs::read_dir(backups_dir).map_err(|e| e.to_string())? {
         let e = e.map_err(|e| e.to_string())?;
         let p = e.path();
         let fname = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
-        if !fname.starts_with("quickclipboard-") || !fname.ends_with(".db") { continue; }
+        if !fname.starts_with("quickclipboard-backup-") || !fname.ends_with(".zip") { continue; }
         let md = e.metadata().map_err(|e| e.to_string())?;
         let t = md.modified().unwrap_or(SystemTime::UNIX_EPOCH);
         items.push((t, p));
@@ -115,8 +151,8 @@ pub fn reset_all_data() -> Result<String, String> {
     let _ = crate::services::database::connection::with_connection(|conn| {
         conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
     });
-    let _ = backup_db_in(&current_dir);
-    if current_dir != default_dir { let _ = backup_db_in(&default_dir); }
+    let _ = backup_full_zip(&current_dir);
+    if current_dir != default_dir { let _ = backup_full_zip(&default_dir); }
 
     close_database();
 
@@ -179,7 +215,7 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             let _ = crate::services::database::connection::with_connection(|conn| {
                 conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
             });
-            let _ = backup_db_in(&current_dir_for_backup);
+            let _ = backup_full_zip(&current_dir_for_backup);
             let mut new_settings = if imported_settings.exists() {
                 let s = fs::read_to_string(&imported_settings).map_err(|e| e.to_string())?;
                 serde_json::from_str::<crate::services::AppSettings>(&s).map_err(|e| e.to_string())?
@@ -417,8 +453,8 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
     let _ = crate::services::database::connection::with_connection(|conn| {
         conn.execute_batch("PRAGMA wal_checkpoint(FULL); PRAGMA wal_checkpoint(TRUNCATE);")
     });
-    let _ = backup_db_in(src_dir);
-    if check_target_has_data(dst_dir)?.has_database { let _ = backup_db_in(dst_dir); }
+    let _ = backup_full_zip(src_dir);
+    if check_target_has_data(dst_dir)?.has_data { let _ = backup_full_zip(dst_dir); }
 
     close_database();
 
