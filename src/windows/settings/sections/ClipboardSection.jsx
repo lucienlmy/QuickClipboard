@@ -42,6 +42,10 @@ function ClipboardSection({
           <Toggle checked={settings.saveImages} onChange={checked => onSettingChange('saveImages', checked)} />
         </SettingItem>
 
+        <SettingItem label={t('settings.clipboard.imagePreview')} description={t('settings.clipboard.imagePreviewDesc')}>
+          <Toggle checked={settings.imagePreview} onChange={checked => onSettingChange('imagePreview', checked)} />
+        </SettingItem>
+
         <SettingItem label={t('settings.clipboard.windowPosition')} description={t('settings.clipboard.windowPositionDesc')}>
           <Select value={settings.windowPositionMode} onChange={value => onSettingChange('windowPositionMode', value)} options={positionOptions} className="w-48" />
         </SettingItem>

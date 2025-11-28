@@ -1,4 +1,5 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteClipboardItem } from '@shared/store/clipboardStore';
 import { pasteFavorite } from '@shared/store/favoritesStore';
@@ -31,6 +32,8 @@ function FavoriteItem({
     renderContent
   } = useItemCommon(item);
   const isFileType = getPrimaryType(contentType) === 'file';
+  const isImageType = getPrimaryType(contentType) === 'image';
+  const previewTimerRef = useRef(null);
   const groups = useSnapshot(groupsStore);
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部';
 
@@ -79,11 +82,36 @@ function FavoriteItem({
   };
 
   // 处理鼠标悬停
-  const handleMouseEnter = () => {
+  const handleMouseEnter = async () => {
     if (onHover) {
       onHover();
     }
+    
+    // 图片类型：延迟显示预览
+    if (isImageType && settings.imagePreview !== false) {
+      previewTimerRef.current = setTimeout(async () => {
+        try {
+          const filesData = JSON.parse(item.content.substring(6));
+          const filePath = filesData?.files?.[0]?.path || null;
+          await invoke('pin_image_from_file', { filePath, previewMode: true });
+        } catch (error) {
+          console.error('显示图片预览失败:', error);
+        }
+      }, 300);
+    }
   };
+  
+  // 处理鼠标离开
+  const handleMouseLeave = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    
+    if (isImageType) {
+      invoke('close_image_preview').catch(() => {});
+    }
+  }, [isImageType]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -203,7 +231,7 @@ function FavoriteItem({
   }, [settings.rowHeight]);
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
 
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter}>
+  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
     {/* 顶部操作区域：操作按钮、分组、序号 */}
     <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
       {/* 编辑按钮 */}

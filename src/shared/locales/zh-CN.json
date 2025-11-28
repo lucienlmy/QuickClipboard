@@ -259,6 +259,8 @@
       "monitorDesc": "自动监听系统剪贴板变化",
       "saveImages": "保存图片",
       "saveImagesDesc": "自动保存复制的图片到剪贴板历史",
+      "imagePreview": "图片预览",
+      "imagePreviewDesc": "鼠标悬停图片项目时在窗口中显示预览",
       "autoScrollToTop": "自动滚动到顶部",
       "autoScrollToTopDesc": "有新内容时和每次显示窗口时，剪贴板列表自动滚动到第一项",
       "autoClearSearch": "自动清空搜索框",

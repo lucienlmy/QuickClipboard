@@ -100,6 +100,12 @@ import {
             states.initialSize = { width: data.width, height: data.height };
         }
 
+        // 预览模式
+        if (data && data.preview_mode) {
+            document.body.classList.add('preview-mode');
+            return;
+        }
+
         if (savedSettings.alwaysOnTop) {
             await currentWindow.setAlwaysOnTop(true);
         }

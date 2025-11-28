@@ -140,3 +140,24 @@ body.thumbnail-mode #pinImage {
     opacity: 1;
     pointer-events: auto;
 }
+
+/* 预览模式 */
+body.preview-mode {
+    pointer-events: none;
+}
+
+body.preview-mode .image-clip {
+    padding: 5px;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+body.preview-mode #pinImage {
+    cursor: default;
+    width: 99%;
+    height: 99%;
+    filter:
+        drop-shadow(0 0 2px rgba(59,130,246,1))
+        drop-shadow(0 0 2px rgba(59,130,246,1))
+        drop-shadow(0 0 2px rgba(59,130,246,1));
+}

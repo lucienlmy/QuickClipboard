@@ -1,4 +1,5 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteClipboardItem, clipboardStore } from '@shared/store/clipboardStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
@@ -33,6 +34,8 @@ function ClipboardItem({
     renderContent
   } = useItemCommon(item);
   const isFileType = getPrimaryType(contentType) === 'file';
+  const isImageType = getPrimaryType(contentType) === 'image';
+  const previewTimerRef = useRef(null);
 
   // 拖拽功能
   const {
@@ -84,11 +87,37 @@ function ClipboardItem({
   };
 
   // 处理鼠标悬停
-  const handleMouseEnter = () => {
+  const handleMouseEnter = async (e) => {
     if (onHover) {
       onHover();
     }
+    
+    // 图片类型：延迟显示预览
+    if (isImageType && settings.imagePreview !== false) {
+      previewTimerRef.current = setTimeout(async () => {
+        try {
+          const filesData = JSON.parse(item.content.substring(6))
+          const filePath = filesData?.files?.[0]?.path || null
+          await invoke('pin_image_from_file', { filePath, previewMode: true });
+        } catch (error) {
+          console.error('显示图片预览失败:', error);
+        }
+      }, 300);
+    }
   };
+  
+  // 处理鼠标离开
+  const handleMouseLeave = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    
+    // 关闭预览窗口
+    if (isImageType) {
+      invoke('close_image_preview').catch(() => {});
+    }
+  }, [isImageType]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -250,7 +279,7 @@ function ClipboardItem({
     bg-gray-100/80 dark:bg-gray-800/80
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border hover:translate-y-[-3px] ${getHeightClass()}`}>
+  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border hover:translate-y-[-3px] ${getHeightClass()}`}>
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
       <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
         {/* 收藏按钮 */}

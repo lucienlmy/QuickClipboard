@@ -20,6 +20,7 @@ pub struct AppSettings {
     pub clipboard_monitor: bool,
     pub ignore_duplicates: bool,
     pub save_images: bool,
+    pub image_preview: bool,
 
     // 音效设置
     pub sound_enabled: bool,
@@ -139,6 +140,7 @@ impl Default for AppSettings {
             clipboard_monitor: true,
             ignore_duplicates: true,
             save_images: true,
+            image_preview: false,
 
             sound_enabled: true,
             sound_volume: 50.0,

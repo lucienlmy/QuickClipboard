@@ -52,6 +52,7 @@ export const defaultSettings = {
   clipboardMonitor: true,
   ignoreDuplicates: true,
   saveImages: true,
+  imagePreview: false,
   autoScrollToTopOnShow: false,
   autoClearSearch: false,
   windowPositionMode: 'smart',
