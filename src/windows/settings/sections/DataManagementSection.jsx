@@ -7,7 +7,7 @@ import SettingItem from '../components/SettingItem';
 import Button from '@shared/components/ui/Button';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
-import { getCurrentStoragePath, getDefaultStoragePath, changeStoragePath, resetStoragePathToDefault, exportDataZip, importDataZip, resetAllData, checkTargetHasData } from '@shared/api/dataManagement';
+import { getCurrentStoragePath, getDefaultStoragePath, changeStoragePath, resetStoragePathToDefault, exportDataZip, importDataZip, resetAllData, checkTargetHasData, listBackups } from '@shared/api/dataManagement';
 import { showError, showMessage, showConfirm } from '@shared/utils/dialog';
 import { reloadAllWindows } from '@shared/api/window';
 import { resetSettingsToDefault } from '@shared/api/settings';
@@ -23,6 +23,7 @@ function DataManagementSection() {
   const [busy, setBusy] = useState(false);
   const [busyText, setBusyText] = useState('');
   const [migrationDialog, setMigrationDialog] = useState(null); // { type: 'change' | 'reset', targetPath?: string, targetInfo?: object }
+  const [backupDialog, setBackupDialog] = useState(null); // { backups: [] }
 
   const formatSize = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -71,13 +72,39 @@ function DataManagementSection() {
     }
   };
 
-  const handleImportData = async () => {
+  const handleImportFromFile = async () => {
     try {
       const file = await open({ multiple: false, filters: [{ name: 'Zip', extensions: ['zip'] }] });
       if (!file) return;
+      await doImport(file);
+    } catch (e) {
+      await showError(t('settings.dataManagement.importFailed', { message: e?.message || e }));
+    }
+  };
+
+  const handleImportFromBackup = async () => {
+    try {
+      const backups = await listBackups();
+      if (backups.length === 0) {
+        await showMessage(t('settings.dataManagement.noBackups'));
+        return;
+      }
+      setBackupDialog({ backups });
+    } catch (e) {
+      await showError(e?.message || e);
+    }
+  };
+
+  const handleSelectBackup = async (backupPath) => {
+    setBackupDialog(null);
+    await doImport(backupPath);
+  };
+
+  const doImport = async (filePath) => {
+    try {
       setBusyText(t('settings.dataManagement.overlayImporting'));
       setBusy(true);
-      const resultPath = await importDataZip(file, importMode);
+      const resultPath = await importDataZip(filePath, importMode);
       const latest = await getCurrentStoragePath();
       setStoragePath(latest);
       await showMessage(t('settings.dataManagement.importSuccess', { path: resultPath }));
@@ -262,9 +289,14 @@ function DataManagementSection() {
       {/* 数据导入 */}
       <SettingsSection title={t('settings.dataManagement.importTitle')} description={t('settings.dataManagement.importDesc')}>
         <SettingItem label={t('settings.dataManagement.importData')} description={t('settings.dataManagement.importDataDesc')}>
-          <Button onClick={handleImportData} variant="secondary" icon={<i className="ti ti-upload"></i>}>
-            {t('settings.dataManagement.selectFile')}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleImportFromFile} variant="secondary" icon={<i className="ti ti-file-upload"></i>}>
+              {t('settings.dataManagement.selectFile')}
+            </Button>
+            <Button onClick={handleImportFromBackup} variant="secondary" icon={<i className="ti ti-history"></i>}>
+              {t('settings.dataManagement.fromBackup')}
+            </Button>
+          </div>
         </SettingItem>
 
         <SettingItem label={t('settings.dataManagement.importMode')} description={t('settings.dataManagement.importModeDesc')}>
@@ -435,6 +467,58 @@ function DataManagementSection() {
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
               <button
                 onClick={() => setMigrationDialog(null)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 备份选择对话框 */}
+      {backupDialog && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <i className="ti ti-history text-blue-600 dark:text-blue-400 text-xl"></i>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('settings.dataManagement.selectBackup')}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('settings.dataManagement.selectBackupDesc')}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+              {backupDialog.backups.map((backup, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSelectBackup(backup.path)}
+                  className="w-full flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                >
+                  <i className="ti ti-file-zip text-blue-500 text-xl"></i>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-900 dark:text-white truncate">
+                      {backup.name}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-3">
+                      <span>{backup.created_at}</span>
+                      <span>{formatSize(backup.size)}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+              <button
+                onClick={() => setBackupDialog(null)}
                 className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 {t('common.cancel')}

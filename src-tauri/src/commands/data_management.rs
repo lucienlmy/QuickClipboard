@@ -89,3 +89,8 @@ pub fn dm_reset_all_data(app: tauri::AppHandle) -> Result<String, String> {
     let path = crate::services::data_management::reset_all_data()?;
     Ok(path)
 }
+
+#[tauri::command]
+pub fn dm_list_backups() -> Result<Vec<crate::services::data_management::BackupInfo>, String> {
+    crate::services::data_management::list_backups()
+}

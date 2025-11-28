@@ -512,7 +512,11 @@
       "migrationTargetOnlyDesc": "Use existing data at target location, current data will be discarded",
       "migrationMerge": "Merge Data",
       "migrationMergeDesc": "Merge current data with target data, keeping content from both",
-      "alreadyDefault": "Already at default storage location"
+      "alreadyDefault": "Already at default storage location",
+      "fromBackup": "Restore from Backup",
+      "noBackups": "No backups available",
+      "selectBackup": "Select Backup",
+      "selectBackupDesc": "Choose a backup file to restore"
     },
     "about": {
       "title": "About",

@@ -124,6 +124,41 @@ fn backup_full_zip(dir: &Path) -> Result<Option<PathBuf>, String> {
     Ok(Some(target))
 }
 
+// 获取备份列表
+#[derive(Debug, Clone, Serialize)]
+pub struct BackupInfo {
+    pub path: String,
+    pub name: String,
+    pub size: u64,
+    pub created_at: String,
+}
+
+pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
+    let current_dir = get_current_storage_dir()?;
+    let backups_dir = current_dir.join("backups");
+    if !backups_dir.exists() { return Ok(vec![]); }
+    
+    let mut items: Vec<BackupInfo> = Vec::new();
+    for e in fs::read_dir(&backups_dir).map_err(|e| e.to_string())? {
+        let e = e.map_err(|e| e.to_string())?;
+        let p = e.path();
+        let fname = p.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
+        if !fname.starts_with("quickclipboard-backup-") || !fname.ends_with(".zip") { continue; }
+        let md = e.metadata().map_err(|e| e.to_string())?;
+        let size = md.len();
+        let modified = md.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+        let datetime: chrono::DateTime<Local> = modified.into();
+        items.push(BackupInfo {
+            path: p.to_string_lossy().to_string(),
+            name: fname,
+            size,
+            created_at: datetime.format("%Y-%m-%d %H:%M:%S").to_string(),
+        });
+    }
+    items.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(items)
+}
+
 fn enforce_backup_retention(backups_dir: &Path, keep: usize) -> Result<(), String> {
     let mut items: Vec<(SystemTime, PathBuf)> = Vec::new();
     for e in fs::read_dir(backups_dir).map_err(|e| e.to_string())? {

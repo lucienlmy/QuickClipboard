@@ -514,7 +514,11 @@
       "migrationTargetOnlyDesc": "直接使用目标位置的现有数据，当前数据将被丢弃",
       "migrationMerge": "合并数据",
       "migrationMergeDesc": "将当前数据与目标数据合并，保留双方的内容",
-      "alreadyDefault": "当前已在默认存储位置"
+      "alreadyDefault": "当前已在默认存储位置",
+      "fromBackup": "从备份恢复",
+      "noBackups": "暂无可用备份",
+      "selectBackup": "选择备份",
+      "selectBackupDesc": "选择要恢复的备份文件"
     },
     "about": {
       "title": "关于",

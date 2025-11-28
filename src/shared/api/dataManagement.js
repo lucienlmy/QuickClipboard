@@ -34,3 +34,7 @@ export async function importDataZip(zipPath, mode) {
 export async function resetAllData() {
   return await invoke('dm_reset_all_data')
 }
+
+export async function listBackups() {
+  return await invoke('dm_list_backups')
+}

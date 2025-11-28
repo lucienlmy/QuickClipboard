@@ -117,6 +117,7 @@ pub fn run() {
                 commands::dm_export_data_zip,
                 commands::dm_import_data_zip,
                 commands::dm_reset_all_data,
+                commands::dm_list_backups,
                 commands::set_mouse_position,
                 commands::start_builtin_screenshot,
                 commands::capture_all_screenshots,
