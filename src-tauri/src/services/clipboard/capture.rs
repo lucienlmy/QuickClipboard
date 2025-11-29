@@ -46,31 +46,21 @@ fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
 
 impl ClipboardContent {
     // 从剪贴板捕获内容
-    pub fn capture() -> Result<Option<Self>, String> {
+    pub fn capture() -> Result<Vec<Self>, String> {
         let ctx = ClipboardContext::new()
             .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
         
-        // 获取图片
-        if let Ok(rust_image) = ctx.get_image() {
-            if let Ok(image_path) = save_clipboard_image(&rust_image) {
-                return Ok(Some(ClipboardContent {
-                    content_type: ContentType::Files,
-                    text: Some(image_path.clone()),
-                    html: None,
-                    files: Some(vec![image_path]),
-                }));
-            }
-        }
+        let mut results = Vec::new();
         
-        // 取文件路径
+        // 获取文件路径
         if let Ok(files) = ctx.get_files() {
             if !files.is_empty() {
-                return Ok(Some(ClipboardContent {
+                return Ok(vec![ClipboardContent {
                     content_type: ContentType::Files,
                     text: Some(files.join("\n")),
                     html: None,
                     files: Some(files),
-                }));
+                }]);
             }
         }
         
@@ -79,28 +69,38 @@ impl ClipboardContent {
             if !html.trim().is_empty() {
                 let text = ctx.get_text().ok();
                 
-                return Ok(Some(ClipboardContent {
+                results.push(ClipboardContent {
                     content_type: ContentType::RichText,
                     text,
                     html: Some(html),
                     files: None,
-                }));
+                });
             }
-        }
-        
-        // 获取纯文本
-        if let Ok(text) = ctx.get_text() {
+        } else if let Ok(text) = ctx.get_text() {
+            // 获取纯文本
             if !text.trim().is_empty() {
-                return Ok(Some(ClipboardContent {
+                results.push(ClipboardContent {
                     content_type: ContentType::Text,
                     text: Some(text),
                     html: None,
                     files: None,
-                }));
+                });
+            }
+        }
+        
+        // 获取图片
+        if let Ok(rust_image) = ctx.get_image() {
+            if let Ok(image_path) = save_clipboard_image(&rust_image) {
+                results.push(ClipboardContent {
+                    content_type: ContentType::Files,
+                    text: Some(image_path.clone()),
+                    html: None,
+                    files: Some(vec![image_path]),
+                });
             }
         }
 
-        Ok(None)
+        Ok(results)
     }
     
     // 计算内容的哈希值

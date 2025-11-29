@@ -27,9 +27,9 @@ static MONITOR_STATE: Lazy<Arc<Mutex<MonitorState>>> = Lazy::new(|| {
     }))
 });
 
-// 上一次捕获的内容哈希（用于去重）
-static LAST_CONTENT_HASH: Lazy<Arc<Mutex<Option<String>>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(None))
+// 上一次捕获的内容哈希集合（用于去重）
+static LAST_CONTENT_HASHES: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(Vec::new()))
 });
 
 // 剪贴板监听管理器
@@ -114,32 +114,55 @@ fn handle_clipboard_change() -> Result<(), String> {
         return Ok(());
     }
     
-    let content = match ClipboardContent::capture()? {
-        Some(content) => content,
-        None => return Ok(()),
-    };
-    
-    let content_hash = content.calculate_hash();
-    
-    {
-        let mut last_hash = LAST_CONTENT_HASH.lock();
-        if let Some(ref last) = *last_hash {
-            if last == &content_hash {
-                return Ok(());
-            }
-        }
-        *last_hash = Some(content_hash);
+    let contents = ClipboardContent::capture()?;
+    if contents.is_empty() {
+        return Ok(());
     }
     
-    let processed = process_content(content)?;
+    // 计算所有内容的哈希
+    let current_hashes: Vec<String> = contents.iter().map(|c| c.calculate_hash()).collect();
     
-    match store_clipboard_item(processed) {
-        Ok(_) => {
-            let _ = emit_clipboard_updated();
-            crate::AppSounds::play_copy();
+    // 检查是否与上次完全相同
+    {
+        let last_hashes = LAST_CONTENT_HASHES.lock();
+        if *last_hashes == current_hashes {
+            return Ok(());
         }
-        Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
-        Err(e) => return Err(format!("存储剪贴板内容失败: {}", e)),
+    }
+    
+    // 过滤出新内容
+    let new_contents: Vec<_> = contents.into_iter()
+        .filter(|c| {
+            let hash = c.calculate_hash();
+            let last_hashes = LAST_CONTENT_HASHES.lock();
+            !last_hashes.contains(&hash)
+        })
+        .collect();
+    
+    {
+        let mut last_hashes = LAST_CONTENT_HASHES.lock();
+        *last_hashes = current_hashes;
+    }
+    
+    if new_contents.is_empty() {
+        return Ok(());
+    }
+    
+    // 处理并存储每个新内容项
+    let mut any_stored = false;
+    for content in new_contents {
+        let processed = process_content(content)?;
+        
+        match store_clipboard_item(processed) {
+            Ok(_) => any_stored = true,
+            Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
+            Err(e) => return Err(format!("存储剪贴板内容失败: {}", e)),
+        }
+    }
+    
+    if any_stored {
+        let _ = emit_clipboard_updated();
+        crate::AppSounds::play_copy();
     }
     
     Ok(())
@@ -167,8 +190,8 @@ pub fn set_last_hash_text(text: &str) {
     hasher.update(text.as_bytes());
     let hash = format!("{:x}", hasher.finalize());
     
-    let mut last_hash = LAST_CONTENT_HASH.lock();
-    *last_hash = Some(hash);
+    let mut last_hashes = LAST_CONTENT_HASHES.lock();
+    *last_hashes = vec![hash];
 }
 
 // 预设哈希缓存（文件类型）
@@ -188,8 +211,8 @@ pub fn set_last_hash_files(content: &str) {
             }
             
             let hash = format!("{:x}", hasher.finalize());
-            let mut last_hash = LAST_CONTENT_HASH.lock();
-            *last_hash = Some(hash);
+            let mut last_hashes = LAST_CONTENT_HASHES.lock();
+            *last_hashes = vec![hash];
         }
     }
 }
