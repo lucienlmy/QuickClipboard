@@ -312,13 +312,7 @@ function ClipboardItem({
     // 小行高模式：显示内容（隐藏时间）
     <div className="flex items-center gap-2 h-full overflow-hidden">
           <div className="flex-1 min-w-0 overflow-hidden h-full">
-            {getPrimaryType(contentType) === 'image' || getPrimaryType(contentType) === 'file' ?
-        // 图片和文件：显示实际内容（紧凑模式）
-        renderContent(true) :
-        // 文本和富文本：显示文字内容
-        <p className={`text-sm text-gray-800 dark:text-gray-200 break-all leading-relaxed ${getLineClampClass()}`}>
-                {item.content || ''}
-              </p>}
+            {renderContent(true)}
           </div>
         </div> :
     // 中/大/自适应行高模式
