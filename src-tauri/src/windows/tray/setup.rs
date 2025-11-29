@@ -1,6 +1,6 @@
 use image::GenericImageView;
 use tauri::{
-    tray::{TrayIconBuilder, TrayIconEvent, MouseButton},
+    tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState},
     AppHandle,
 };
 
@@ -26,10 +26,19 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .icon(icon)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(move |_tray, event| {
-            if let TrayIconEvent::Click { button, .. } = event {
-                if button == MouseButton::Left {
-                    click_handler();
+            match event {
+                TrayIconEvent::Click { button, button_state, .. } => {
+                    if button == MouseButton::Left && button_state == MouseButtonState::Up {
+                        click_handler();
+                    }
                 }
+                TrayIconEvent::Enter { .. } => {
+                    crate::input_monitor::set_tray_hovered(true);
+                }
+                TrayIconEvent::Leave { .. } => {
+                    crate::input_monitor::set_tray_hovered(false);
+                }
+                _ => {}
             }
         })
         .on_menu_event(handle_menu_event)
