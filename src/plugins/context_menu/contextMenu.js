@@ -10,21 +10,36 @@ const menuContainer = document.getElementById('menuContainer');
 
 let currentOptions = null;
 let initialMenuSize = null;
+let currentThemeSetting = null;
 
-function applyTheme(theme) {
-    if (theme === 'dark') {
+const systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function applyThemeClass(isDark) {
+    if (isDark) {
         document.body.classList.add('dark-theme');
-    } else if (theme === 'light') {
+    } else {
         document.body.classList.remove('dark-theme');
-    } else if (theme === 'auto' || !theme) {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (isDark) {
-            document.body.classList.add('dark-theme');
-        } else {
-            document.body.classList.remove('dark-theme');
-        }
     }
 }
+
+function applyTheme(theme) {
+    currentThemeSetting = theme;
+    
+    if (theme === 'dark') {
+        applyThemeClass(true);
+    } else if (theme === 'light') {
+        applyThemeClass(false);
+    } else if (theme === 'auto' || !theme) {
+        applyThemeClass(systemThemeMediaQuery.matches);
+    }
+}
+
+// 监听系统主题变化
+systemThemeMediaQuery.addEventListener('change', (e) => {
+    if (currentThemeSetting === 'auto' || !currentThemeSetting) {
+        applyThemeClass(e.matches);
+    }
+});
 
 function updateScrollIndicator(element) {
     if (!element) return;

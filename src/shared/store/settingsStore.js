@@ -14,6 +14,11 @@ export const settingsStore = proxy({
   rowHeight: 'medium',
   fileDisplayMode: 'detailed',
   
+  // 系统主题状态
+  systemIsDark: typeof window !== 'undefined' && window.matchMedia 
+    ? window.matchMedia('(prefers-color-scheme: dark)').matches 
+    : false,
+  
   // 加载设置
   async loadSettings() {
     const settings = await loadSettingsFromBackend()

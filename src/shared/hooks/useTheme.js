@@ -4,18 +4,19 @@ import { settingsStore } from '@shared/store/settingsStore'
 import darkThemeCss from '../styles/dark-theme.css?inline'
 import backgroundThemeCss from '../styles/theme-background.css?inline'
 
-// 监听系统主题变化
+// 系统主题媒体查询
 let systemThemeMediaQuery = null
-let systemIsDark = false
-
-// 初始化系统主题检测
 if (typeof window !== 'undefined' && window.matchMedia) {
   systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  systemIsDark = systemThemeMediaQuery.matches
+  
+  // 监听系统主题变化
+  systemThemeMediaQuery.addEventListener('change', (e) => {
+    settingsStore.systemIsDark = e.matches
+  })
 }
 
 // 获取实际应用的主题
-export function getEffectiveTheme(theme) {
+export function getEffectiveTheme(theme, systemIsDark = settingsStore.systemIsDark) {
   if (theme === 'auto') {
     return systemIsDark ? 'dark' : 'light'
   }
@@ -59,30 +60,11 @@ function unloadBackgroundThemeCSS() {
 }
 
 export function useTheme() {
-  const { theme, darkThemeStyle, backgroundImagePath } = useSnapshot(settingsStore)
-
-  useEffect(() => {
-    // 监听系统主题变化
-    const handleSystemThemeChange = (e) => {
-      systemIsDark = e.matches
-
-      if (settingsStore.theme === 'auto') {
-        // 强制更新
-        settingsStore.updateSettings({ theme: 'auto' })
-      }
-    }
-
-    if (systemThemeMediaQuery) {
-      systemThemeMediaQuery.addEventListener('change', handleSystemThemeChange)
-      return () => {
-        systemThemeMediaQuery.removeEventListener('change', handleSystemThemeChange)
-      }
-    }
-  }, [])
+  const { theme, darkThemeStyle, backgroundImagePath, systemIsDark } = useSnapshot(settingsStore)
 
   // 动态加载/卸载暗色主题CSS
   useEffect(() => {
-    const effectiveTheme = getEffectiveTheme(theme)
+    const effectiveTheme = getEffectiveTheme(theme, systemIsDark)
     const isDark = effectiveTheme === 'dark'
 
     if (isDark && darkThemeStyle === 'classic') {
@@ -97,10 +79,10 @@ export function useTheme() {
     } else {
       unloadBackgroundThemeCSS()
     }
-  }, [theme, darkThemeStyle])
+  }, [theme, darkThemeStyle, systemIsDark])
 
   // 计算实际应用的主题
-  const effectiveTheme = getEffectiveTheme(theme)
+  const effectiveTheme = getEffectiveTheme(theme, systemIsDark)
 
   // 判断是否为暗色主题
   const isDark = effectiveTheme === 'dark'
