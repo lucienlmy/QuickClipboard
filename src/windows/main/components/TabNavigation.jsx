@@ -24,13 +24,21 @@ function TabNavigation({
   });
   const [tabAnimationKey, setTabAnimationKey] = useState(0);
   const [filterAnimationKey, setFilterAnimationKey] = useState(0);
+
   const tabs = [{
     id: 'clipboard',
-    label: t('clipboard.title') || '剪贴板'
+    label: t('clipboard.title') || '剪贴板',
+    icon: 'ti ti-clipboard-text'
   }, {
     id: 'favorites',
-    label: t('favorites.title') || '收藏'
+    label: t('favorites.title') || '收藏',
+    icon: 'ti ti-star'
+  }, {
+    id: 'emoji',
+    label: t('emoji.title') || '符号',
+    icon: 'ti ti-mood-smile'
   }];
+
   const filters = [{
     id: 'all',
     label: t('filter.all') || '全部',
@@ -96,7 +104,7 @@ function TabNavigation({
     };
   }, [updateTabIndicator, updateFilterIndicator]);
   return <div className="tab-navigation flex-shrink-0 bg-gray-100 dark:bg-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm transition-colors duration-500 tab-bar">
-    <div className="flex items-stretch h-9">
+    <div className="flex items-stretch h-9 whitespace-nowrap">
       {/* 左侧：标签切换 - 50% */}
       <div className="flex-1 flex items-center px-2 relative">
         <div className="flex items-center justify-center gap-1 w-full relative">
@@ -110,7 +118,7 @@ function TabNavigation({
           }}>
             <div key={`tab-bounce-${tabAnimationKey}`} className="w-full h-full rounded-lg bg-blue-500 animate-button-bounce" />
           </div>
-          {tabs.map((tab, index) => <TabButton key={tab.id} id={tab.id} label={tab.label} isActive={activeTab === tab.id} onClick={onTabChange} index={index} buttonRef={el => tabsRef.current[tab.id] = el} />)}
+          {tabs.map((tab, index) => <TabButton key={tab.id} id={tab.id} label={tab.label} icon={tab.icon} isActive={activeTab === tab.id} onClick={onTabChange} index={index} buttonRef={el => tabsRef.current[tab.id] = el} />)}
         </div>
       </div>
 
@@ -118,7 +126,7 @@ function TabNavigation({
       <div className="w-px bg-gray-400/60 dark:bg-gray-600/60 my-1.5" />
 
       {/* 右侧：内容筛选 - 50% */}
-      <div className="flex-1 flex items-center px-2 relative">
+      <div className="flex-1 flex items-center px-1 relative">
         <div className="flex items-center justify-center gap-1 mx-auto relative">
           {/* 滑动指示器 */}
           <div className="absolute rounded-lg transition-all duration-300 ease-out pointer-events-none" style={{

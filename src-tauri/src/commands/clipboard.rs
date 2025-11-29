@@ -181,3 +181,19 @@ pub fn update_clipboard_item_cmd(id: i64, content: String) -> Result<(), String>
 pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
     db_toggle_pin(id)
 }
+
+// 直接粘贴文本
+#[tauri::command]
+pub fn paste_text_direct(text: String, app: tauri::AppHandle) -> Result<(), String> {
+    use crate::services::paste::paste_handler::paste_text_direct as do_paste;
+    
+    do_paste(&text)?;
+    
+    if !crate::get_window_state().is_pinned {
+        if let Some(window) = crate::get_main_window(&app) {
+            crate::hide_main_window(&window);
+        }
+    }
+    
+    Ok(())
+}

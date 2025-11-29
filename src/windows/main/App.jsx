@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
 import { listen } from '@tauri-apps/api/event';
@@ -18,9 +18,11 @@ import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
 import FavoritesTab from './components/FavoritesTab';
+const EmojiTab = lazy(() => import('./components/EmojiTab'));
 import FooterBar from './components/FooterBar';
 import GroupsPopup from './components/GroupsPopup';
 import ToastContainer from '@shared/components/common/ToastContainer';
+
 function App() {
   const {
     t
@@ -206,13 +208,13 @@ function App() {
     }
   };
   const handleTabLeft = () => {
-    const tabs = ['clipboard', 'favorites'];
+    const tabs = ['clipboard', 'favorites', 'emoji'];
     const currentIndex = tabs.indexOf(activeTab);
     const newIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
     setActiveTab(tabs[newIndex]);
   };
   const handleTabRight = () => {
-    const tabs = ['clipboard', 'favorites'];
+    const tabs = ['clipboard', 'favorites', 'emoji'];
     const currentIndex = tabs.indexOf(activeTab);
     const newIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1;
     setActiveTab(tabs[newIndex]);
@@ -318,6 +320,7 @@ function App() {
   const ContentComponent = <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
       {activeTab === 'clipboard' && <ClipboardTab ref={clipboardTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'favorites' && <FavoritesTab ref={favoritesTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
+      {activeTab === 'emoji' && <Suspense fallback={null}><EmojiTab /></Suspense>}
     </div>;
   const FooterComponent = <FooterBar>
       <GroupsPopup ref={groupsPopupRef} activeTab={activeTab} onTabChange={setActiveTab} onGroupChange={handleGroupChange} />

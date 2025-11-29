@@ -1,9 +1,25 @@
 use clipboard_rs::ClipboardContext;
 use crate::services::database::ClipboardItem;
-use super::text::{paste_rich_text, paste_rich_text_with_format, PasteFormat};
+use super::text::{paste_text, paste_rich_text, paste_rich_text_with_format, PasteFormat};
 use super::file::paste_files;
 use super::keyboard::simulate_paste;
 use chrono;
+
+// 直接粘贴文本
+pub fn paste_text_direct(text: &str) -> Result<(), String> {
+    crate::services::clipboard::set_last_hash_text(text);
+    
+    let ctx = ClipboardContext::new()
+        .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
+    
+    paste_text(&ctx, text)?;
+    
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    simulate_paste()?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    
+    Ok(())
+}
 
 // 粘贴剪贴板项
 pub fn paste_clipboard_item(item: &ClipboardItem) -> Result<(), String> {

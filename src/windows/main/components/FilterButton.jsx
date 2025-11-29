@@ -33,8 +33,10 @@ function FilterButton({ id, label, icon, isActive, onClick, buttonRef }) {
         onClick={handleClick}
         title={label}
         className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg
-          focus:outline-none active:scale-95
-          ${isActive ? 'bg-blue-500 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}
+          focus:outline-none active:scale-95 hover:scale-105
+          ${isActive
+            ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}
         `}
         style={{
           transitionProperty: 'transform, box-shadow, background-color, color',

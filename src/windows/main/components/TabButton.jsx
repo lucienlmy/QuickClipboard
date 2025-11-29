@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 function TabButton({
   id,
   label,
+  icon,
   isActive,
   onClick,
   index,
@@ -29,28 +30,48 @@ function TabButton({
       return () => clearTimeout(delayTimer);
     }
   }, [isAnimating]);
+
   const handleClick = () => {
     setIsAnimating(true);
     onClick(id);
   };
-  return <div ref={buttonRef} className="relative flex-1 max-w-[140px]">
-      <button onClick={handleClick} className={`
-          relative z-10 w-full py-1 text-sm font-medium rounded-lg 
-          focus:outline-none active:scale-95
-          ${isActive ? 'bg-blue-500 text-white hover:bg-blue-600' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'}
-        `} style={{
-      transitionProperty: 'transform, box-shadow, background-color, color',
-      transitionDuration: '200ms, 200ms, 500ms, 500ms'
-    }}>
-        {label}
+
+  return (
+    <div ref={buttonRef} className="relative flex-1 h-7">
+      <button
+        onClick={handleClick}
+        title={label}
+        className={`
+          relative z-10 flex items-center justify-center w-full h-full rounded-lg
+          transition-transform transition-colors duration-200
+          focus:outline-none hover:scale-105
+
+          ${isActive
+            ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+            : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'}
+        `}
+        style={{
+          transitionProperty: 'transform, box-shadow, background-color, color',
+          transitionDuration: '200ms, 200ms, 500ms, 500ms'
+        }}
+      >
+        <i className={icon} style={{ fontSize: 16 }} />
       </button>
 
       {/* 粒子效果 */}
-      {particles.map(particle => <div key={particle.id} className="absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full bg-blue-400 pointer-events-none z-20" style={{
-      '--particle-angle': `${particle.angle}deg`,
-      '--particle-distance': `${particle.distance}px`,
-      animation: 'particleExplosion 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards'
-    }} />)}
-    </div>;
+      {particles.map(particle => (
+        <div
+          key={particle.id}
+          className="absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full bg-blue-400 pointer-events-none z-20"
+          style={{
+            '--particle-angle': `${particle.angle}deg`,
+            '--particle-distance': `${particle.distance}px`,
+            animation: 'particleExplosion 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards'
+          }}
+        />
+      ))}
+    </div>
+  );
 }
+
 export default TabButton;
