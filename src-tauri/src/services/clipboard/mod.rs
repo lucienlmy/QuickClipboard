@@ -11,5 +11,6 @@ pub use monitor::{
     set_app_handle,
     set_last_hash_text,
     set_last_hash_files,
+    set_last_hash_file,
 };
 

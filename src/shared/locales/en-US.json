@@ -24,7 +24,9 @@
     "deleted": "Deleted",
     "deleteFailed": "Delete failed",
     "editFailed": "Edit failed",
-    "operationFailed": "Operation failed"
+    "operationFailed": "Operation failed",
+    "noResults": "No results",
+    "rename": "Rename"
   },
   "clipboard": {
     "title": "Clipboard",
@@ -44,8 +46,10 @@
     "confirmDeleteTitle": "Confirm Delete"
   },
   "emoji": {
-    "title": "Symbols",
+    "title": "Emoji/Symbols",
     "emoji": "Emoji",
+    "symbols": "Symbols",
+    "images": "Images",
     "symbolsTab": "Symbols",
     "skinTone": "Skin Tone",
     "recent": "Recent",
@@ -73,8 +77,17 @@
       "misc": "Miscellaneous",
       "technical": "Technical",
       "letterlike": "Letterlike",
-      "numbers": "Numbers"
-    }
+      "numbers": "Numbers",
+      "images": "Images",
+      "gifs": "GIFs"
+    },
+    "dragToAdd": "Drag images here to add",
+    "dropToAdd": "Drop to add images",
+    "supportFormats": "Supports PNG, JPG, GIF, WebP",
+    "noValidImages": "No valid image files",
+    "onlyGifAllowed": "This category only accepts GIF files",
+    "onlyImageAllowed": "This category only accepts non-GIF images",
+    "searchImagePlaceholder": "Search filename..."
   },
   "groups": {
     "title": "Groups",

@@ -24,7 +24,9 @@
     "deleted": "已删除",
     "deleteFailed": "删除失败",
     "editFailed": "编辑失败",
-    "operationFailed": "操作失败"
+    "operationFailed": "操作失败",
+    "noResults": "无搜索结果",
+    "rename": "重命名"
   },
   "clipboard": {
     "title": "剪贴板",
@@ -44,8 +46,10 @@
     "confirmDeleteTitle": "确认删除"
   },
   "emoji": {
-    "title": "符号",
+    "title": "表情/符号",
     "emoji": "Emoji",
+    "symbols": "符号",
+    "images": "图片",
     "symbolsTab": "符号",
     "skinTone": "肤色",
     "recent": "最近使用",
@@ -73,8 +77,17 @@
       "misc": "杂项",
       "technical": "技术",
       "letterlike": "字母",
-      "numbers": "数字"
-    }
+      "numbers": "数字",
+      "images": "图片",
+      "gifs": "GIF"
+    },
+    "dragToAdd": "拖入图片添加",
+    "dropToAdd": "松开添加图片",
+    "supportFormats": "支持 PNG, JPG, GIF, WebP",
+    "noValidImages": "没有有效的图片文件",
+    "onlyGifAllowed": "此分类只接受 GIF 文件",
+    "onlyImageAllowed": "此分类只接受非 GIF 图片",
+    "searchImagePlaceholder": "搜索文件名..."
   },
   "groups": {
     "title": "分组",

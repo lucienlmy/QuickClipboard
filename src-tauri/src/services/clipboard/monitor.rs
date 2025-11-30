@@ -217,3 +217,15 @@ pub fn set_last_hash_files(content: &str) {
     }
 }
 
+// 预设哈希缓存（单文件路径）
+pub fn set_last_hash_file(file_path: &str) {
+    use sha2::{Sha256, Digest};
+    
+    let mut hasher = Sha256::new();
+    hasher.update(file_path.as_bytes());
+    
+    let hash = format!("{:x}", hasher.finalize());
+    let mut last_hashes = LAST_CONTENT_HASHES.lock();
+    *last_hashes = vec![hash];
+}
+

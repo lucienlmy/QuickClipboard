@@ -70,6 +70,7 @@ pub fn run() {
                 commands::update_clipboard_item_cmd,
                 commands::toggle_pin_clipboard_item,
                 commands::paste_text_direct,
+                commands::paste_image_file,
                 commands::move_clipboard_item,
                 commands::move_clipboard_item_by_id,
                 commands::apply_history_limit,
@@ -166,6 +167,14 @@ pub fn run() {
                 windows::pin_image_window::close_pin_image_window_by_self,
                 windows::pin_image_window::close_image_preview,
                 windows::pin_image_window::save_pin_image_as,
+                commands::il_init,
+                commands::il_save_image,
+                commands::il_get_image_list,
+                commands::il_get_image_count,
+                commands::il_delete_image,
+                commands::il_rename_image,
+                commands::il_get_images_dir,
+                commands::il_get_gifs_dir,
             ])
         .setup(|app| {
                 #[cfg(desktop)]

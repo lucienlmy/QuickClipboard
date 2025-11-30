@@ -215,3 +215,19 @@ pub fn paste_text_direct(text: String, app: tauri::AppHandle) -> Result<(), Stri
     
     Ok(())
 }
+
+// 粘贴图片文件
+#[tauri::command]
+pub fn paste_image_file(file_path: String, app: tauri::AppHandle) -> Result<(), String> {
+    use crate::services::paste::paste_handler::paste_image_file as do_paste;
+    
+    do_paste(&file_path)?;
+
+    if !crate::get_window_state().is_pinned {
+        if let Some(window) = crate::get_main_window(&app) {
+            crate::hide_main_window(&window);
+        }
+    }
+    
+    Ok(())
+}
