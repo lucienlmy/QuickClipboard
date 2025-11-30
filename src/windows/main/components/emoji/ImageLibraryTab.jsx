@@ -270,6 +270,7 @@ function ImageLibraryTab() {
             key={item.id}
             onClick={() => handleImageClick(item)}
             role="button"
+            title={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
             className="relative group aspect-square rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
           >
             {item.loading ? (

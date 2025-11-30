@@ -22,23 +22,23 @@ pub struct ImageListResult {
     pub items: Vec<ImageInfo>,
 }
 
-/// 获取图片库目录路径
+// 获取图片库目录路径
 pub fn get_image_library_dir() -> Result<PathBuf, String> {
     let data_dir = get_data_directory()?;
     Ok(data_dir.join(IMAGE_LIBRARY_DIR))
 }
 
-/// 获取图片子目录路径
+// 获取图片子目录路径
 pub fn get_images_dir() -> Result<PathBuf, String> {
     Ok(get_image_library_dir()?.join(IMAGES_SUBDIR))
 }
 
-/// 获取 GIF 子目录路径
+// 获取 GIF 子目录路径
 pub fn get_gifs_dir() -> Result<PathBuf, String> {
     Ok(get_image_library_dir()?.join(GIFS_SUBDIR))
 }
 
-/// 初始化图片库目录结构
+// 初始化图片库目录结构
 pub fn init_image_library() -> Result<(), String> {
     let images_dir = get_images_dir()?;
     let gifs_dir = get_gifs_dir()?;
@@ -56,7 +56,7 @@ pub fn init_image_library() -> Result<(), String> {
     Ok(())
 }
 
-/// 通过文件头魔数判断是否为 GIF
+// 通过文件头魔数判断是否为 GIF
 fn is_gif_by_magic(data: &[u8]) -> bool {
     if data.len() < 6 {
         return false;
@@ -64,7 +64,7 @@ fn is_gif_by_magic(data: &[u8]) -> bool {
     &data[0..6] == b"GIF87a" || &data[0..6] == b"GIF89a"
 }
 
-/// 通过文件头判断是否为 WebP
+// 通过文件头判断是否为 WebP
 fn is_webp_by_magic(data: &[u8]) -> bool {
     if data.len() < 12 {
         return false;
@@ -72,7 +72,7 @@ fn is_webp_by_magic(data: &[u8]) -> bool {
     &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP"
 }
 
-/// 检测 WebP 是否为动态图
+// 检测 WebP 是否为动态图
 fn is_animated_webp(data: &[u8]) -> bool {
     if !is_webp_by_magic(data) || data.len() < 30 {
         return false;
@@ -87,7 +87,7 @@ fn is_animated_webp(data: &[u8]) -> bool {
     false
 }
 
-/// 将静态 WebP 转换为 JPG
+// 将静态 WebP 转换为 JPG
 fn convert_webp_to_jpg(data: &[u8]) -> Result<Vec<u8>, String> {
     use image::ImageReader;
     use std::io::Cursor;
@@ -107,7 +107,47 @@ fn convert_webp_to_jpg(data: &[u8]) -> Result<Vec<u8>, String> {
     Ok(buffer)
 }
 
-/// 保存图片到图片库
+// 提取 GIF 第一帧为 PNG 数据
+fn extract_gif_first_frame(data: &[u8]) -> Option<Vec<u8>> {
+    use image::codecs::gif::GifDecoder;
+    use image::AnimationDecoder;
+    use std::io::Cursor;
+    
+    let decoder = GifDecoder::new(Cursor::new(data)).ok()?;
+    let first_frame = decoder.into_frames().next()?.ok()?;
+    
+    let mut buffer = Vec::new();
+    let mut cursor = Cursor::new(&mut buffer);
+    first_frame.buffer().write_to(&mut cursor, image::ImageFormat::Png).ok()?;
+    
+    Some(buffer)
+}
+
+// 使用 OCR 识别图片文字
+fn ocr_image_text(data: &[u8]) -> Option<String> {
+    use qcocr::recognize_from_bytes;
+    
+    let result = recognize_from_bytes(data, None).ok()?;
+    let text = result.text.trim();
+    
+    if text.is_empty() {
+        return None;
+    }
+    
+    let cleaned: String = text
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .take(50)
+        .collect();
+    
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned)
+    }
+}
+
+// 保存图片到图片库
 pub fn save_image(filename: &str, data: &[u8]) -> Result<ImageInfo, String> {
     init_image_library()?;
     
@@ -115,9 +155,6 @@ pub fn save_image(filename: &str, data: &[u8]) -> Result<ImageInfo, String> {
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_millis();
-    
-    let uuid_part = uuid::Uuid::new_v4().to_string();
-    let uuid_short = uuid_part.split('-').next().unwrap_or("");
     
     let (final_data, extension, category): (Vec<u8>, &str, &str) = if is_gif_by_magic(data) {
         // GIF 文件直接保存
@@ -140,8 +177,20 @@ pub fn save_image(filename: &str, data: &[u8]) -> Result<ImageInfo, String> {
         (data.to_vec(), ext, "images")
     };
     
+    let ocr_text = if is_gif_by_magic(data) {
+        extract_gif_first_frame(data).and_then(|frame| ocr_image_text(&frame))
+    } else if category != "gifs" {
+        ocr_image_text(&final_data)
+    } else {
+        None
+    };
+    
     let target_dir = if category == "gifs" { get_gifs_dir()? } else { get_images_dir()? };
-    let new_filename = format!("{}_{}.{}", timestamp, uuid_short, extension);
+    
+    let new_filename = match ocr_text {
+        Some(text) => format!("{}_{}.{}", timestamp, text, extension),
+        None => format!("{}.{}", timestamp, extension),
+    };
     let file_path = target_dir.join(&new_filename);
     
     fs::write(&file_path, &final_data)
@@ -157,7 +206,7 @@ pub fn save_image(filename: &str, data: &[u8]) -> Result<ImageInfo, String> {
     })
 }
 
-/// 获取图片列表
+// 获取图片列表
 pub fn get_image_list(category: &str, offset: usize, limit: usize) -> Result<ImageListResult, String> {
     init_image_library()?;
     
@@ -221,7 +270,7 @@ pub fn get_image_list(category: &str, offset: usize, limit: usize) -> Result<Ima
     Ok(ImageListResult { total: 0, items: vec![] })
 }
 
-/// 获取图片总数
+// 获取图片总数
 pub fn get_image_count(category: &str) -> Result<usize, String> {
     init_image_library()?;
     
@@ -251,7 +300,7 @@ pub fn get_image_count(category: &str) -> Result<usize, String> {
     Ok(count)
 }
 
-/// 删除图片
+// 删除图片
 pub fn delete_image(category: &str, filename: &str) -> Result<(), String> {
     let dir = match category {
         "gifs" => get_gifs_dir()?,
@@ -268,7 +317,7 @@ pub fn delete_image(category: &str, filename: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 重命名图片
+// 重命名图片
 pub fn rename_image(category: &str, old_filename: &str, new_filename: &str) -> Result<ImageInfo, String> {
     let dir = match category {
         "gifs" => get_gifs_dir()?,
