@@ -107,17 +107,22 @@ async function captureSelectionToBlob(stageRef, selection, cornerRadius = 0) {
 
 // 导出到剪贴板
 export async function exportToClipboard(stageRef, selection, cornerRadius = 0) {
-  if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
-    console.error('当前环境不支持图片剪贴板写入');
-    return;
-  }
-
   const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius);
   if (!blob) return;
 
+  const arrayBuffer = await blob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+
   try {
-    const item = new window.ClipboardItem({ 'image/png': blob });
-    await navigator.clipboard.write([item]);
+    const timestamp = Date.now();
+    const tempFileName = `screenshot_clipboard_${timestamp}.png`;
+    await writeFile(tempFileName, uint8Array, { baseDir: BaseDirectory.Temp });
+
+    const { tempDir } = await import('@tauri-apps/api/path');
+    const tempDirPath = await tempDir();
+    const tempFilePath = `${tempDirPath}${tempFileName}`;
+
+    await invoke('copy_image_to_clipboard', { filePath: tempFilePath });
     await cancelScreenshotSession();
   } catch (err) {
     console.error('写入剪贴板失败:', err);

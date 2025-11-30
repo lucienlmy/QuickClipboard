@@ -289,6 +289,7 @@ function App() {
         onLongScreenshotEnter={longScreenshot.enter}
         onLongScreenshotStart={longScreenshot.start}
         onLongScreenshotStop={longScreenshot.stop}
+        onLongScreenshotCopy={longScreenshot.copy}
         onLongScreenshotSave={longScreenshot.save}
         onLongScreenshotCancel={longScreenshot.cancel}
       />

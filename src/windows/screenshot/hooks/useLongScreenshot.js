@@ -76,12 +76,56 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     }
   }, []);
 
+  // 复制到剪贴板
+  const copyToClipboard = useCallback(async () => {
+    try {
+      if (capturedCount === 0) {
+        alert('没有捕获的内容');
+        return;
+      }
+
+      // 停止捕获
+      if (isCapturing) {
+        await invoke('stop_long_screenshot_capture');
+        setIsCapturing(false);
+      }
+
+      setIsSaving(true);
+
+      const timestamp = Date.now();
+      const tempDir = await import('@tauri-apps/api/path').then(m => m.tempDir());
+      const tempPath = `${tempDir}long_screenshot_${timestamp}.png`;
+      
+      await invoke('save_long_screenshot', { path: tempPath });
+      
+      await invoke('copy_image_to_clipboard', { filePath: tempPath });
+
+      setIsSaving(false);
+      setIsActive(false);
+      setPreview(null);
+      setCapturedCount(0);
+
+      await invoke('disable_long_screenshot_passthrough');
+      await cancelScreenshotSession();
+    } catch (err) {
+      console.error('复制失败:', err);
+      alert(`复制失败: ${err}`);
+      setIsSaving(false);
+    }
+  }, [capturedCount, isCapturing]);
+
   // 保存长截屏
   const saveScreenshot = useCallback(async () => {
     try {
       if (capturedCount === 0) {
         alert('没有捕获的内容');
         return;
+      }
+
+      // 停止捕获
+      if (isCapturing) {
+        await invoke('stop_long_screenshot_capture');
+        setIsCapturing(false);
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -97,19 +141,10 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
         return;
       }
     
-      // 如果正在捕获，先停止
-      if (isCapturing) {
-        await invoke('stop_long_screenshot_capture');
-        setIsCapturing(false);
-      }
-    
-      // 显示保存中状态
       setIsSaving(true);
       
-      // 保存文件
       await invoke('save_long_screenshot', { path: filePath });
       
-      // 保存后关闭界面
       setIsSaving(false);
       setIsActive(false);
       setPreview(null);
@@ -173,6 +208,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     enter,
     start,
     stop,
+    copy: copyToClipboard,
     save: saveScreenshot,
     cancel,
   };

@@ -12,6 +12,7 @@ function SelectionToolbar({
   onLongScreenshotEnter,
   onLongScreenshotStart,
   onLongScreenshotStop,
+  onLongScreenshotCopy,
   onLongScreenshotSave,
   onLongScreenshotCancel,
 }) {
@@ -92,12 +93,12 @@ function SelectionToolbar({
       className={[
         'flex items-center justify-center w-6 h-6 rounded-md border text-gray-600 dark:text-gray-200',
         'active:scale-95 hover:scale-110',
-        tool.active
-          ? 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
-          : tool.variant === 'primary'
-            ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white shadow-sm'
-            : tool.disabled
-              ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+        tool.disabled
+          ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+          : tool.active
+            ? 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
+            : tool.variant === 'primary'
+              ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white shadow-sm'
               : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700',
         'transition-all duration-200 ease-in-out',
       ].join(' ')}
@@ -111,8 +112,8 @@ function SelectionToolbar({
     {
       id: 'longScreenshot-confirm',
       icon: 'ti ti-check',
-      title: '完成长截屏',
-      onClick: onLongScreenshotSave,
+      title: '复制到剪贴板',
+      onClick: onLongScreenshotCopy,
       variant: 'primary',
       disabled: !hasLongScreenshotPreview,
     },
@@ -122,6 +123,14 @@ function SelectionToolbar({
       title: '取消',
       onClick: onLongScreenshotCancel,
       variant: 'ghost',
+    },
+    {
+      id: 'longScreenshot-save',
+      icon: 'ti ti-download',
+      title: '保存',
+      onClick: onLongScreenshotSave,
+      variant: 'default',
+      disabled: !hasLongScreenshotPreview,
     },
     {
       id: 'longScreenshot-toggle',

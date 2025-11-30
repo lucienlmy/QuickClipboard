@@ -182,6 +182,24 @@ pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
     db_toggle_pin(id)
 }
 
+// 复制图片文件到剪贴板
+#[tauri::command]
+pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
+    use clipboard_rs::{Clipboard, ClipboardContext};
+    use std::path::Path;
+    
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err(format!("图片文件不存在: {}", file_path));
+    }
+    
+    let ctx = ClipboardContext::new()
+        .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
+    
+    ctx.set_files(vec![file_path])
+        .map_err(|e| format!("复制到剪贴板失败: {}", e))
+}
+
 // 直接粘贴文本
 #[tauri::command]
 pub fn paste_text_direct(text: String, app: tauri::AppHandle) -> Result<(), String> {

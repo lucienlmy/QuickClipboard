@@ -91,22 +91,15 @@ export async function createContextMenu(window, states, onThumbnailToggle) {
 }
 
 // 复制图片到剪贴板
-async function copyImageToClipboard(img) {
-    if (!img || !img.src) {
-        console.error('图片元素无效');
-        return;
-    }
-
+async function copyImageToClipboard() {
     try {
-        const response = await fetch(img.src);
-        const blob = await response.blob();
-
-        await navigator.clipboard.write([
-            new ClipboardItem({
-                [blob.type]: blob
-            })
-        ]);
-
+        const data = await invoke('get_pin_image_data');
+        if (!data || !data.file_path) {
+            console.error('无法获取图片路径');
+            return;
+        }
+        
+        await invoke('copy_image_to_clipboard', { filePath: data.file_path });
         console.log('图片已复制到剪贴板');
     } catch (error) {
         console.error('复制图片失败:', error);
@@ -199,7 +192,7 @@ async function handleMenuAction(action, window, states, onThumbnailToggle, img) 
             break;
 
         case 'copy':
-            await copyImageToClipboard(img);
+            await copyImageToClipboard();
             break;
 
         case 'save-as':
