@@ -285,6 +285,7 @@ function App() {
         canClearCanvas={editing.canClearCanvas}
         longScreenshotMode={longScreenshot.isActive}
         isLongScreenshotCapturing={longScreenshot.isCapturing}
+        isLongScreenshotSaving={longScreenshot.isSaving}
         hasLongScreenshotPreview={!!longScreenshot.preview}
         onLongScreenshotEnter={longScreenshot.enter}
         onLongScreenshotStart={longScreenshot.start}

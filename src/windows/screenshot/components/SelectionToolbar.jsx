@@ -8,6 +8,7 @@ function SelectionToolbar({
   // 长截屏相关
   longScreenshotMode,
   isLongScreenshotCapturing,
+  isLongScreenshotSaving,
   hasLongScreenshotPreview,
   onLongScreenshotEnter,
   onLongScreenshotStart,
@@ -115,7 +116,7 @@ function SelectionToolbar({
       title: '复制到剪贴板',
       onClick: onLongScreenshotCopy,
       variant: 'primary',
-      disabled: !hasLongScreenshotPreview,
+      disabled: isLongScreenshotSaving || !hasLongScreenshotPreview,
     },
     {
       id: 'longScreenshot-cancel',
@@ -123,6 +124,7 @@ function SelectionToolbar({
       title: '取消',
       onClick: onLongScreenshotCancel,
       variant: 'ghost',
+      disabled: isLongScreenshotSaving,
     },
     {
       id: 'longScreenshot-save',
@@ -130,7 +132,7 @@ function SelectionToolbar({
       title: '保存',
       onClick: onLongScreenshotSave,
       variant: 'default',
-      disabled: !hasLongScreenshotPreview,
+      disabled: isLongScreenshotSaving || !hasLongScreenshotPreview,
     },
     {
       id: 'longScreenshot-toggle',
@@ -138,6 +140,7 @@ function SelectionToolbar({
       title: isLongScreenshotCapturing ? '停止捕获' : '开始捕获',
       onClick: isLongScreenshotCapturing ? onLongScreenshotStop : onLongScreenshotStart,
       variant: isLongScreenshotCapturing ? 'default' : 'primary',
+      disabled: isLongScreenshotSaving,
     },
   ];
 

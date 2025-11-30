@@ -83,7 +83,7 @@ export default function LongScreenshotPanel({
       className="absolute z-20 select-none"
       style={{ left: position.x, top: position.y }}
     >
-      <div className="w-[240px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden flex flex-col">
+      <div className="w-[240px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden flex flex-col relative">
         {/* 标题栏 */}
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200 dark:border-gray-700">
           <i className="ti ti-capture text-sm text-gray-600 dark:text-gray-300"></i>
@@ -98,7 +98,7 @@ export default function LongScreenshotPanel({
             {isSaving ? (
               <>
                 <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
-                <span className="text-gray-600 dark:text-gray-300">正在保存中...</span>
+                <span className="text-gray-600 dark:text-gray-300">正在处理中...</span>
               </>
             ) : isCapturing ? (
               <>
@@ -123,21 +123,12 @@ export default function LongScreenshotPanel({
         >
           {previewImage ? (
             <>
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden relative">
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
                 <img
                   src={previewImage}
                   alt="长截屏预览"
                   className="w-full h-auto block"
                 />
-                {/* 保存中覆盖层 */}
-                {isSaving && (
-                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-3"></div>
-                      <span className="text-white text-sm font-medium">正在保存...</span>
-                    </div>
-                  </div>
-                )}
               </div>
               {/* 滚动锚点 */}
               <div ref={scrollAnchorRef} className="h-0" />
@@ -151,6 +142,16 @@ export default function LongScreenshotPanel({
             </div>
           )}
         </div>
+
+        {/* 保存/复制中遮罩层 */}
+        {isSaving && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+            <div className="text-center">
+              <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin mb-2"></div>
+              <span className="text-white text-sm font-medium">处理中...</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
