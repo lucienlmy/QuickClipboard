@@ -64,35 +64,94 @@ fn is_gif_by_magic(data: &[u8]) -> bool {
     &data[0..6] == b"GIF87a" || &data[0..6] == b"GIF89a"
 }
 
+/// 通过文件头判断是否为 WebP
+fn is_webp_by_magic(data: &[u8]) -> bool {
+    if data.len() < 12 {
+        return false;
+    }
+    &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP"
+}
+
+/// 检测 WebP 是否为动态图
+fn is_animated_webp(data: &[u8]) -> bool {
+    if !is_webp_by_magic(data) || data.len() < 30 {
+        return false;
+    }
+    
+    if data.len() >= 16 && &data[12..16] == b"VP8X" {
+        if data.len() >= 21 {
+            let flags = data[20];
+            return (flags & 0x02) != 0;
+        }
+    }
+    false
+}
+
+/// 将静态 WebP 转换为 JPG
+fn convert_webp_to_jpg(data: &[u8]) -> Result<Vec<u8>, String> {
+    use image::ImageReader;
+    use std::io::Cursor;
+    
+    let reader = ImageReader::new(Cursor::new(data))
+        .with_guessed_format()
+        .map_err(|e| format!("读取 WebP 失败: {}", e))?;
+    
+    let img = reader.decode()
+        .map_err(|e| format!("解码 WebP 失败: {}", e))?;
+    
+    let mut buffer = Vec::new();
+    let mut cursor = Cursor::new(&mut buffer);
+    img.write_to(&mut cursor, image::ImageFormat::Jpeg)
+        .map_err(|e| format!("编码 JPG 失败: {}", e))?;
+    
+    Ok(buffer)
+}
+
 /// 保存图片到图片库
 pub fn save_image(filename: &str, data: &[u8]) -> Result<ImageInfo, String> {
     init_image_library()?;
-    
-    let is_gif = is_gif_by_magic(data);
-    let category = if is_gif { "gifs" } else { "images" };
-    let target_dir = if is_gif { get_gifs_dir()? } else { get_images_dir()? };
     
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_millis();
     
-    let extension = std::path::Path::new(filename)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("png");
+    let uuid_part = uuid::Uuid::new_v4().to_string();
+    let uuid_short = uuid_part.split('-').next().unwrap_or("");
     
-    let new_filename = format!("{}_{}.{}", timestamp, uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or(""), extension);
+    let (final_data, extension, category): (Vec<u8>, &str, &str) = if is_gif_by_magic(data) {
+        // GIF 文件直接保存
+        (data.to_vec(), "gif", "gifs")
+    } else if is_webp_by_magic(data) {
+        if is_animated_webp(data) {
+            // 动态 WebP 直接保存
+            (data.to_vec(), "webp", "gifs")
+        } else {
+            // 静态 WebP 转 JPG
+            let jpg_data = convert_webp_to_jpg(data)?;
+            (jpg_data, "jpg", "images")
+        }
+    } else {
+        // 其他格式保留原扩展名
+        let ext = std::path::Path::new(filename)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("png");
+        (data.to_vec(), ext, "images")
+    };
+    
+    let target_dir = if category == "gifs" { get_gifs_dir()? } else { get_images_dir()? };
+    let new_filename = format!("{}_{}.{}", timestamp, uuid_short, extension);
     let file_path = target_dir.join(&new_filename);
     
-    fs::write(&file_path, data)
+    fs::write(&file_path, &final_data)
         .map_err(|e| format!("保存图片失败: {}", e))?;
     
     Ok(ImageInfo {
         id: new_filename.clone(),
         filename: new_filename,
         path: file_path.to_string_lossy().to_string(),
-        size: data.len() as u64,
+        size: final_data.len() as u64,
         created_at: timestamp as u64,
         category: category.to_string(),
     })

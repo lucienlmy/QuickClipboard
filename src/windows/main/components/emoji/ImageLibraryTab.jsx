@@ -21,6 +21,8 @@ function ImageLibraryTab() {
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [renamingItem, setRenamingItem] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const loadedRangeRef = useRef({ start: 0, end: 0 });
   const imageScrollerRef = useRef(null);
   const imageSearchInputRef = useInputFocus();
@@ -101,17 +103,23 @@ function ImageLibraryTab() {
     const imageFiles = files.filter(f => f.type.startsWith('image/'));
 
     if (imageFiles.length === 0) {
-      toast.warning(t('emoji.noValidImages') || '没有有效的图片文件', {
+      toast.warning(t('emoji.noValidImages'), {
         size: TOAST_SIZES.EXTRA_SMALL,
         position: TOAST_POSITIONS.BOTTOM_RIGHT
       });
       return;
     }
 
+    setIsUploading(true);
+    setUploadProgress({ current: 0, total: imageFiles.length });
+
     let gifCount = 0;
     let imageCount = 0;
 
-    for (const file of imageFiles) {
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      setUploadProgress({ current: i + 1, total: imageFiles.length });
+      
       try {
         const buffer = await file.arrayBuffer();
         const data = new Uint8Array(buffer);
@@ -126,6 +134,8 @@ function ImageLibraryTab() {
         });
       }
     }
+
+    setIsUploading(false);
 
     let message = '';
     if (imageCount > 0 && gifCount > 0) {
@@ -250,7 +260,7 @@ function ImageLibraryTab() {
     }
 
     if (!imageSearchQuery.trim() && rowItems.some(item => item.loading)) {
-      loadImageRange(startIdx, startIdx + IMAGE_COLS - 1);
+      setTimeout(() => loadImageRange(startIdx, startIdx + IMAGE_COLS - 1), 0);
     }
 
     return (
@@ -364,7 +374,24 @@ function ImageLibraryTab() {
         <div className="absolute inset-0 bg-blue-500/10 pointer-events-none flex items-center justify-center z-10">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
             <i className="ti ti-upload text-2xl text-blue-500"></i>
-            <span className="text-gray-700 dark:text-gray-200">{t('emoji.dropToAdd') || '松开添加图片'}</span>
+            <span className="text-gray-700 dark:text-gray-200">{t('emoji.dropToAdd')}</span>
+          </div>
+        </div>
+      )}
+
+      {isUploading && (
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg px-6 py-4 flex flex-col items-center gap-3">
+            <i className="ti ti-loader-2 animate-spin text-3xl text-blue-500"></i>
+            <span className="text-gray-700 dark:text-gray-200">
+              {t('emoji.uploading', { current: uploadProgress.current, total: uploadProgress.total })}
+            </span>
+            <div className="w-40 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-500 transition-all duration-200"
+                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+              />
+            </div>
           </div>
         </div>
       )}

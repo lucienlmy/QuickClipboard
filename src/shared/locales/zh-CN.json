@@ -92,7 +92,8 @@
     "addedImages": "已添加 {{count}} 张图片",
     "addedGifs": "已添加 {{count}} 张 GIF",
     "addedBoth": "已添加 {{imageCount}} 张图片、{{gifCount}} 张 GIF",
-    "renameFailed": "重命名失败"
+    "renameFailed": "重命名失败",
+    "uploading": "正在添加 {{current}}/{{total}}..."
   },
   "groups": {
     "title": "分组",

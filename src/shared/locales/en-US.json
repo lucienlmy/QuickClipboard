@@ -92,7 +92,8 @@
     "addedImages": "Added {{count}} image(s)",
     "addedGifs": "Added {{count}} GIF(s)",
     "addedBoth": "Added {{imageCount}} image(s) and {{gifCount}} GIF(s)",
-    "renameFailed": "Rename failed"
+    "renameFailed": "Rename failed",
+    "uploading": "Adding {{current}}/{{total}}..."
   },
   "groups": {
     "title": "Groups",
