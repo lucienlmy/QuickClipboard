@@ -87,7 +87,12 @@
     "noValidImages": "No valid image files",
     "onlyGifAllowed": "This category only accepts GIF files",
     "onlyImageAllowed": "This category only accepts non-GIF images",
-    "searchImagePlaceholder": "Search filename..."
+    "searchImagePlaceholder": "Search filename...",
+    "saveFailed": "Save failed: {{name}}",
+    "addedImages": "Added {{count}} image(s)",
+    "addedGifs": "Added {{count}} GIF(s)",
+    "addedBoth": "Added {{imageCount}} image(s) and {{gifCount}} GIF(s)",
+    "renameFailed": "Rename failed"
   },
   "groups": {
     "title": "Groups",
