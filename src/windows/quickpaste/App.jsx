@@ -323,27 +323,30 @@ function QuickPasteWindow() {
               const active = activeIndex === index;
 
               return item ? (
-                <div className="px-2 py-1.5">
+                <div className="px-2 py-1.5 relative">
+                  {active && (
+                    <div className="absolute inset-0 m-1 rounded-lg border-2 border-blue-500 dark:border-blue-400 border-l-8 shadow-lg shadow-blue-500/30 pointer-events-none z-20" />
+                  )}
                   <div className={`
-                    relative pl-3 pr-3 py-3 rounded-lg transition-all duration-200 cursor-pointer
+                    relative pl-4 pr-3 py-3 rounded-lg cursor-pointer border shadow-sm
                     ${getRowHeightStyle()}
                     ${active
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
-                      : 'bg-white/60 dark:bg-gray-800/60 hover:bg-gray-50/80 dark:hover:bg-gray-700/50 border border-transparent'
+                      ? 'bg-blue-50/80 dark:bg-blue-900/25 border-transparent scale-[1.05]'
+                      : 'bg-white/80 dark:bg-gray-800/70 hover:bg-gray-50 dark:hover:bg-gray-700/60 border-gray-200 dark:border-gray-700 hover:shadow'
                     }
                   `} onClick={() => handleItemClick(item, index)}>
 
                     {/* 内容区域 */}
-                    <div className={`text-xs h-full flex items-center ${active ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <div className={`text-xs h-full flex items-center ${active ? 'text-gray-900 dark:text-gray-100 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                       {renderItemContent(item)}
                     </div>
 
                     {/* 序号 */}
                     <div className={`
-                      absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold transition-all
+                      absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center text-[10px] font-bold transition-all duration-200
                       ${active
-                        ? 'bg-blue-500 text-white shadow-sm'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        ? 'w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-300/50 dark:ring-blue-400/30'
+                        : 'w-6 h-6 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                       }
                     `}>
                       {index + 1}
