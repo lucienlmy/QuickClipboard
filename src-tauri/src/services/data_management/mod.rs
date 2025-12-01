@@ -12,14 +12,18 @@ pub struct TargetDataInfo {
     pub has_data: bool,
     pub has_database: bool,
     pub has_images: bool,
+    pub has_image_library: bool,
     pub database_size: u64,
     pub images_count: usize,
     pub images_size: u64,
+    pub image_library_count: usize,
+    pub image_library_size: u64,
 }
 
 pub fn check_target_has_data(target_dir: &Path) -> Result<TargetDataInfo, String> {
     let db_path = target_dir.join("quickclipboard.db");
     let images_dir = target_dir.join("clipboard_images");
+    let image_library_dir = target_dir.join("image_library");
     
     let has_database = db_path.exists();
     let database_size = if has_database {
@@ -46,13 +50,46 @@ pub fn check_target_has_data(target_dir: &Path) -> Result<TargetDataInfo, String
         (false, 0, 0)
     };
     
+    let (has_image_library, image_library_count, image_library_size) = if image_library_dir.exists() {
+        let mut count = 0usize;
+        let mut size = 0u64;
+        if let Ok(entries) = fs::read_dir(&image_library_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Ok(sub_entries) = fs::read_dir(&path) {
+                        for sub_entry in sub_entries.flatten() {
+                            if let Ok(meta) = sub_entry.metadata() {
+                                if meta.is_file() {
+                                    count += 1;
+                                    size += meta.len();
+                                }
+                            }
+                        }
+                    }
+                } else if let Ok(meta) = entry.metadata() {
+                    if meta.is_file() {
+                        count += 1;
+                        size += meta.len();
+                    }
+                }
+            }
+        }
+        (count > 0, count, size)
+    } else {
+        (false, 0, 0)
+    };
+    
     Ok(TargetDataInfo {
-        has_data: has_database || has_images,
+        has_data: has_database || has_images || has_image_library,
         has_database,
         has_images,
+        has_image_library,
         database_size,
         images_count,
         images_size,
+        image_library_count,
+        image_library_size,
     })
 }
 
@@ -194,6 +231,8 @@ pub fn reset_all_data() -> Result<String, String> {
     fn clean_dir(dir: &Path) -> Result<(), String> {
         let images = dir.join("clipboard_images");
         if images.exists() { let _ = fs::remove_dir_all(&images); }
+        let image_library = dir.join("image_library");
+        if image_library.exists() { let _ = fs::remove_dir_all(&image_library); }
         for name in ["quickclipboard.db", "quickclipboard.db-shm", "quickclipboard.db-wal"] {
             let p = dir.join(name);
             if p.exists() { let _ = fs::remove_file(&p); }
@@ -242,6 +281,7 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
 
     let imported_db = temp_root.join("quickclipboard.db");
     let imported_images = temp_root.join("clipboard_images");
+    let imported_image_library = temp_root.join("image_library");
     let imported_settings = temp_root.join("settings.json");
 
     match mode {
@@ -284,6 +324,9 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             let target_images = target_dir.join("clipboard_images");
             if target_images.exists() { fs::remove_dir_all(&target_images).map_err(|e| e.to_string())?; }
             if imported_images.exists() { copy_dir_all(&imported_images, &target_images)?; }
+            let target_image_library = target_dir.join("image_library");
+            if target_image_library.exists() { fs::remove_dir_all(&target_image_library).map_err(|e| e.to_string())?; }
+            if imported_image_library.exists() { copy_dir_all(&imported_image_library, &target_image_library)?; }
 
             let src_db = temp_root.join("quickclipboard.db");
             let dst_db = target_dir.join("quickclipboard.db");
@@ -312,6 +355,12 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             if imported_images.exists() {
                 if !target_images.exists() { fs::create_dir_all(&target_images).map_err(|e| e.to_string())?; }
                 merge_dir_overwrite(&imported_images, &target_images)?;
+            }
+
+            let target_image_library = current_dir.join("image_library");
+            if imported_image_library.exists() {
+                if !target_image_library.exists() { fs::create_dir_all(&target_image_library).map_err(|e| e.to_string())?; }
+                merge_dir_overwrite(&imported_image_library, &target_image_library)?;
             }
 
             if imported_db.exists() {
@@ -495,6 +544,8 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
 
     let src_images = src_dir.join("clipboard_images");
     let dst_images = dst_dir.join("clipboard_images");
+    let src_image_library = src_dir.join("image_library");
+    let dst_image_library = dst_dir.join("image_library");
     let src_db = src_dir.join("quickclipboard.db");
     let dst_db = dst_dir.join("quickclipboard.db");
 
@@ -503,11 +554,17 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
             if dst_images.exists() {
                 fs::remove_dir_all(&dst_images).map_err(|e| format!("删除目标图片目录失败: {}", e))?;
             }
+            if dst_image_library.exists() {
+                fs::remove_dir_all(&dst_image_library).map_err(|e| format!("删除目标图库目录失败: {}", e))?;
+            }
             if dst_db.exists() {
                 fs::remove_file(&dst_db).map_err(|e| format!("删除目标数据库失败: {}", e))?;
             }
             if src_images.exists() {
                 safe_move_item(&src_images, &dst_images)?;
+            }
+            if src_image_library.exists() {
+                safe_move_item(&src_image_library, &dst_image_library)?;
             }
             if src_db.exists() {
                 safe_move_item(&src_db, &dst_db)?;
@@ -516,6 +573,9 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
         "target_only" => {
             if src_images.exists() {
                 fs::remove_dir_all(&src_images).map_err(|e| format!("删除源图片目录失败: {}", e))?;
+            }
+            if src_image_library.exists() {
+                fs::remove_dir_all(&src_image_library).map_err(|e| format!("删除源图库目录失败: {}", e))?;
             }
             if src_db.exists() {
                 fs::remove_file(&src_db).map_err(|e| format!("删除源数据库失败: {}", e))?;
@@ -528,6 +588,12 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
                 if dst_images.exists() { merge_dir_no_overwrite(&dst_images, &src_images)?; }
                 if dst_images.exists() { fs::remove_dir_all(&dst_images).map_err(|e| format!("删除目标图片目录失败: {}", e))?; }
                 safe_move_item(&src_images, &dst_images)?;
+            }
+            if src_image_library.exists() {
+                if !dst_image_library.exists() { fs::create_dir_all(&dst_image_library).map_err(|e| e.to_string())?; }
+                if dst_image_library.exists() { merge_dir_no_overwrite(&dst_image_library, &src_image_library)?; }
+                if dst_image_library.exists() { fs::remove_dir_all(&dst_image_library).map_err(|e| format!("删除目标图库目录失败: {}", e))?; }
+                safe_move_item(&src_image_library, &dst_image_library)?;
             }
             if src_db.exists() {
                 if dst_db.exists() {
@@ -562,6 +628,7 @@ pub fn export_data_zip(target_path: PathBuf) -> Result<PathBuf, String> {
     close_database();
 
     let images_dir = current_dir.join("clipboard_images");
+    let image_library_dir = current_dir.join("image_library");
     let db_files = [
         "quickclipboard.db",
     ];
@@ -583,26 +650,30 @@ pub fn export_data_zip(target_path: PathBuf) -> Result<PathBuf, String> {
         }
     }
 
-    if images_dir.exists() {
-        fn add_dir_recursively(base: &Path, dir: &Path, zip: &mut zip::ZipWriter<fs::File>, options: zip::write::SimpleFileOptions) -> Result<(), String> {
-            for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
-                let entry = entry.map_err(|e| e.to_string())?;
-                let path = entry.path();
-                let rel = path.strip_prefix(base).map_err(|e| e.to_string())?;
-                if path.is_dir() {
-                    add_dir_recursively(base, &path, zip, options)?;
-                } else {
-                    let zip_path = Path::new("clipboard_images").join(rel);
-                    let mut f = fs::File::open(&path).map_err(|e| format!("读取文件失败: {}", e))?;
-                    let zip_name = zip_path.to_string_lossy();
-                    zip.start_file(zip_name.as_ref(), options).map_err(|e| e.to_string())?;
-                    std::io::copy(&mut f, zip).map_err(|e| e.to_string())?;
-                }
+    fn add_dir_to_zip(base: &Path, dir: &Path, prefix: &str, zip: &mut zip::ZipWriter<fs::File>, options: zip::write::SimpleFileOptions) -> Result<(), String> {
+        for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            let rel = path.strip_prefix(base).map_err(|e| e.to_string())?;
+            if path.is_dir() {
+                add_dir_to_zip(base, &path, prefix, zip, options)?;
+            } else {
+                let zip_path = Path::new(prefix).join(rel);
+                let mut f = fs::File::open(&path).map_err(|e| format!("读取文件失败: {}", e))?;
+                let zip_name = zip_path.to_string_lossy();
+                zip.start_file(zip_name.as_ref(), options).map_err(|e| e.to_string())?;
+                std::io::copy(&mut f, zip).map_err(|e| e.to_string())?;
             }
-            Ok(())
         }
+        Ok(())
+    }
 
-        add_dir_recursively(&images_dir, &images_dir, &mut zip, options)?;
+    if images_dir.exists() {
+        add_dir_to_zip(&images_dir, &images_dir, "clipboard_images", &mut zip, options)?;
+    }
+
+    if image_library_dir.exists() {
+        add_dir_to_zip(&image_library_dir, &image_library_dir, "image_library", &mut zip, options)?;
     }
 
     if settings_path.exists() {

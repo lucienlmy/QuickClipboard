@@ -562,6 +562,7 @@
       "migrationConflictDesc": "检测到目标位置已存在 QuickClipboard 数据，请选择如何处理：",
       "targetHasDatabase": "数据库",
       "targetHasImages": "图片",
+      "targetHasImageLibrary": "图库",
       "imagesCount": "张",
       "migrationSourceOnly": "使用当前数据（覆盖目标）",
       "migrationSourceOnlyDesc": "将当前数据迁移到目标位置，目标位置的现有数据将被覆盖",

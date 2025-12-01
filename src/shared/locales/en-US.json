@@ -560,6 +560,7 @@
       "migrationConflictDesc": "QuickClipboard data already exists at the target location. Please choose how to proceed:",
       "targetHasDatabase": "Database",
       "targetHasImages": "Images",
+      "targetHasImageLibrary": "Image Library",
       "imagesCount": "files",
       "migrationSourceOnly": "Use Current Data (Overwrite Target)",
       "migrationSourceOnlyDesc": "Migrate current data to target location, existing data at target will be overwritten",

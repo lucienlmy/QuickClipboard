@@ -414,6 +414,15 @@ function DataManagementSection() {
                     <span className="text-gray-500">({formatSize(migrationDialog.targetInfo.images_size)})</span>
                   )}
                 </div>
+                {(migrationDialog.targetInfo.has_image_library || migrationDialog.targetInfo.image_library_count > 0) && (
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 mt-1">
+                    <i className="ti ti-photo-star"></i>
+                    <span>{t('settings.dataManagement.targetHasImageLibrary')}: {migrationDialog.targetInfo.image_library_count} {t('settings.dataManagement.imagesCount')}</span>
+                    {migrationDialog.targetInfo.image_library_count > 0 && (
+                      <span className="text-gray-500">({formatSize(migrationDialog.targetInfo.image_library_size)})</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             
