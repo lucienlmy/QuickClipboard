@@ -50,7 +50,7 @@ function FooterBar({
     }],
     onSelect: value => settingsStore.setFileDisplayMode(value)
   }];
-  const toggleShortcutHint = settings.toggleShortcut || 'Alt+V';
+  const toggleShortcutHint = settings.toggleShortcut || 'Shift+Space';
   let numberShortcutHint = null;
   if (settings.numberShortcuts) {
     const modifier = settings.numberShortcutsModifier || 'Ctrl';

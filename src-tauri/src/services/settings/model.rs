@@ -134,7 +134,7 @@ impl Default for AppSettings {
             dark_theme_style: "classic".to_string(),
             opacity: 0.9,
             background_image_path: String::new(),
-            toggle_shortcut: "Alt+V".to_string(),
+            toggle_shortcut: "Shift+Space".to_string(),
             number_shortcuts: true,
             number_shortcuts_modifier: "Ctrl".to_string(),
             clipboard_monitor: true,

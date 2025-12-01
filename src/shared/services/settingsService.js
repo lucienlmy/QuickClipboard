@@ -28,7 +28,7 @@ export const defaultSettings = {
   clipboardAnimationEnabled: true,
   
   // 快捷键设置
-  toggleShortcut: 'Alt+V',
+  toggleShortcut: 'Shift+Space',
   quickpasteShortcut: 'Ctrl+`',
   screenshotShortcut: 'Ctrl+Shift+A',
   numberShortcuts: true,

@@ -11,7 +11,7 @@ pub fn show_startup_notification(app: &AppHandle) -> Result<(), String> {
     let shortcut = if !settings.toggle_shortcut.is_empty() {
         settings.toggle_shortcut.clone()
     } else {
-        "Alt+V".to_string()
+        "Shift+Space".to_string()
     };
     
     let notification_body = format!(

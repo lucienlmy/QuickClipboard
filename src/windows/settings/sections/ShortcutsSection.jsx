@@ -115,8 +115,8 @@ function ShortcutsSection({
             <ShortcutInput
               value={settings.toggleShortcut}
               onChange={value => handleShortcutChange('toggleShortcut', value)}
-              onReset={() => handleShortcutChange('toggleShortcut', 'Alt+V')}
-              presets={['Alt+V', 'Win+V', 'Ctrl+Alt+V', 'F1']}
+              onReset={() => handleShortcutChange('toggleShortcut', 'Shift+Space')}
+              presets={['Shift+Space', 'Win+V', 'Ctrl+Alt+V', 'F1']}
               hasError={hasErrorStatus('toggleShortcut', 'toggle')}
               errorMessage={getErrorMessage('toggleShortcut', 'toggle')}
             />
@@ -126,7 +126,7 @@ function ShortcutsSection({
               className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
               onClick={async () => {
                 try {
-                  await onSettingChange('toggleShortcut', 'Alt+V');
+                  await onSettingChange('toggleShortcut', 'Shift+Space');
                   await promptEnableWinVHotkey();
                   setTimeout(() => {
                     reload();
