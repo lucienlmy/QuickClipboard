@@ -466,3 +466,166 @@
   background-color: #313131 !important;
   border: 0.1px solid #7c7c7c !important;
 }
+
+/* =================== 便捷粘贴窗口 =================== */
+
+/* 主容器 */
+.theme-dark.window-quickpaste .quickpaste-container,
+.dark.window-quickpaste .quickpaste-container {
+  background-color: rgba(30, 30, 30, 0.98) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* 标题栏 */
+.theme-dark.window-quickpaste .quickpaste-container > div:first-child,
+.dark.window-quickpaste .quickpaste-container > div:first-child {
+  background: rgba(40, 40, 40, 0.9) !important;
+  background-image: none !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 标题栏文本 */
+.theme-dark.window-quickpaste .quickpaste-container h2,
+.dark.window-quickpaste .quickpaste-container h2 {
+  color: #e0e0e0 !important;
+}
+
+.theme-dark.window-quickpaste .quickpaste-container > div:first-child span,
+.dark.window-quickpaste .quickpaste-container > div:first-child span {
+  background: rgba(60, 60, 60, 0.9) !important;
+  background-image: none !important;
+  color: #ccc !important;
+}
+
+/* 空状态容器 */
+.theme-dark.window-quickpaste .quickpaste-container > div:nth-child(3) > div,
+.dark.window-quickpaste .quickpaste-container > div:nth-child(3) > div {
+  background: rgba(50, 50, 50, 0.9) !important;
+  background-image: none !important;
+}
+
+.theme-dark.window-quickpaste .quickpaste-container > div:nth-child(3) span,
+.dark.window-quickpaste .quickpaste-container > div:nth-child(3) span {
+  color: #888 !important;
+}
+
+/* 列表项 - 未选中 */
+.theme-dark.window-quickpaste .quickpaste-container .bg-white\/80,
+.dark.window-quickpaste .quickpaste-container .bg-white\/80 {
+  background-color: rgba(50, 50, 50, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 列表项 - 悬停 */
+.theme-dark.window-quickpaste .quickpaste-container .bg-white\/80:hover,
+.dark.window-quickpaste .quickpaste-container .bg-white\/80:hover {
+  background-color: rgba(60, 60, 60, 0.9) !important;
+}
+
+/* 列表项 - 选中 */
+.theme-dark.window-quickpaste .quickpaste-container .bg-blue-50\/80,
+.dark.window-quickpaste .quickpaste-container .bg-blue-50\/80 {
+  background-color: rgba(74, 137, 220, 0.15) !important;
+}
+
+/* 选中边框 */
+.theme-dark.window-quickpaste .quickpaste-container .border-blue-500,
+.dark.window-quickpaste .quickpaste-container .border-blue-500 {
+  border-color: #4a89dc !important;
+}
+
+/* 选中项阴影 */
+.theme-dark.window-quickpaste .quickpaste-container .shadow-blue-500\/30,
+.dark.window-quickpaste .quickpaste-container .shadow-blue-500\/30 {
+  box-shadow: 0 0 8px rgba(74, 137, 220, 0.4) !important;
+}
+
+/* 列表项内容文本 - 选中 */
+.theme-dark.window-quickpaste .quickpaste-container .text-gray-900,
+.dark.window-quickpaste .quickpaste-container .text-gray-900 {
+  color: #e0e0e0 !important;
+}
+
+/* 列表项内容文本 - 未选中 */
+.theme-dark.window-quickpaste .quickpaste-container .text-gray-700,
+.dark.window-quickpaste .quickpaste-container .text-gray-700 {
+  color: #ccc !important;
+}
+
+/* 序号 - 选中 */
+.theme-dark.window-quickpaste .quickpaste-container .bg-gradient-to-br.from-blue-500,
+.dark.window-quickpaste .quickpaste-container .bg-gradient-to-br.from-blue-500 {
+  background: #4a89dc !important;
+  background-image: none !important;
+}
+
+/* 序号 - 未选中 */
+.theme-dark.window-quickpaste .quickpaste-container .bg-gray-100,
+.dark.window-quickpaste .quickpaste-container .bg-gray-100 {
+  background-color: rgba(60, 60, 60, 0.9) !important;
+}
+
+/* 序号文本 - 未选中 */
+.theme-dark.window-quickpaste .quickpaste-container .text-gray-500,
+.dark.window-quickpaste .quickpaste-container .text-gray-500 {
+  color: #888 !important;
+}
+
+/* 加载状态 */
+.theme-dark.window-quickpaste .quickpaste-container .bg-gray-300,
+.dark.window-quickpaste .quickpaste-container .bg-gray-300,
+.theme-dark.window-quickpaste .quickpaste-container .bg-gray-200,
+.dark.window-quickpaste .quickpaste-container .bg-gray-200 {
+  background-color: rgba(80, 80, 80, 0.8) !important;
+}
+
+.theme-dark.window-quickpaste .quickpaste-container .text-gray-400,
+.dark.window-quickpaste .quickpaste-container .text-gray-400 {
+  color: #888 !important;
+}
+
+/* 加载骨架屏 */
+.theme-dark.window-quickpaste .quickpaste-container .bg-gray-50\/50,
+.dark.window-quickpaste .quickpaste-container .bg-gray-50\/50 {
+  background-color: rgba(40, 40, 40, 0.5) !important;
+}
+
+/* 图片内容背景 */
+.theme-dark.window-quickpaste .quickpaste-container .from-gray-100,
+.dark.window-quickpaste .quickpaste-container .from-gray-100 {
+  --tw-gradient-from: rgba(50, 50, 50, 0.9) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.theme-dark.window-quickpaste .quickpaste-container .to-gray-200,
+.dark.window-quickpaste .quickpaste-container .to-gray-200 {
+  --tw-gradient-to: rgba(60, 60, 60, 0.9) !important;
+}
+
+/* 底部取消按钮 - 正常状态 */
+.theme-dark.window-quickpaste .quickpaste-container > div:last-child:not(:hover),
+.dark.window-quickpaste .quickpaste-container > div:last-child:not(:hover) {
+  background: rgba(50, 40, 40, 0.6) !important;
+  background-image: none !important;
+}
+
+.theme-dark.window-quickpaste .quickpaste-container .text-red-600,
+.dark.window-quickpaste .quickpaste-container .text-red-600 {
+  color: #e57373 !important;
+}
+
+/* 滚动条*/
+.theme-dark.window-quickpaste .quickpaste-scrollbar-container,
+.dark.window-quickpaste .quickpaste-scrollbar-container {
+  scrollbar-color: rgba(136, 142, 155, 0.4) transparent !important;
+}
+
+.theme-dark.window-quickpaste .quickpaste-scrollbar-container::-webkit-scrollbar-thumb,
+.dark.window-quickpaste .quickpaste-scrollbar-container::-webkit-scrollbar-thumb {
+  background: rgba(136, 142, 155, 0.4) !important;
+}
+
+.theme-dark.window-quickpaste .quickpaste-scrollbar-container::-webkit-scrollbar-thumb:hover,
+.dark.window-quickpaste .quickpaste-scrollbar-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(136, 142, 155, 0.6) !important;
+}
