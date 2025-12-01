@@ -1,6 +1,9 @@
+import { useCallback } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
+import { useTranslation } from 'react-i18next';
 
 // 图片文件扩展名
 const IMAGE_FILE_EXTENSIONS = ['PNG', 'JPG', 'JPEG', 'GIF', 'BMP', 'WEBP', 'ICO', 'SVG'];
@@ -58,7 +61,22 @@ function FileContent({
   item,
   compact = false
 }) {
+  const { t } = useTranslation();
   const settings = useSnapshot(settingsStore);
+
+  const handleDragStart = useCallback(async (event, filePaths) => {
+    const paths = (Array.isArray(filePaths) ? filePaths : [])
+      .filter(Boolean);
+    if (!paths.length || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await startDrag({ item: paths, icon: paths[0] });
+    } catch (err) {
+      console.error('拖拽文件失败:', err);
+    }
+  }, []);
+
   let filesData = null;
   try {
     if (item.content?.startsWith('files:')) {
@@ -77,6 +95,19 @@ function FileContent({
     </div>;
   }
 
+  const draggablePaths = filesData.files
+    .map(file => file.path)
+    .filter(Boolean);
+  const canDrag = draggablePaths.length > 0;
+  const dragSuffix = canDrag && draggablePaths.length > 1
+    ? t('clipboard.dragFilesToExternal', '拖拽到外部（共{{count}}个文件）', { count: draggablePaths.length })
+    : t('clipboard.dragFileToExternal', '拖拽到外部');
+
+  const buildTitle = (file) => {
+    const base = `${file.name}\n${file.path || ''}\n${formatFileSize(file.size || 0)}`;
+    return canDrag ? `${base}\n${dragSuffix}` : base;
+  };
+
   // 仅图标模式：网格布局
   if (settings.fileDisplayMode === 'iconOnly') {
     const iconSize = compact ? 29 : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 80 : 50;
@@ -86,13 +117,29 @@ function FileContent({
       <div className="w-full flex flex-wrap" style={{
         gap
       }}>
-        {filesData.files.map((file, index) => <div key={index} className="flex items-center justify-center bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors flex-shrink-0" style={{
-          width: `${itemSize}px`,
-          height: `${itemSize}px`,
-          padding: '2px'
-        }} title={`${file.name}\n${file.path}\n${formatFileSize(file.size || 0)}`}>
-          <FileIcon file={file} size={iconSize} />
-        </div>)}
+        {filesData.files.map((file, index) => {
+          const dragProps = canDrag ? {
+            onMouseDown: (e) => handleDragStart(e, draggablePaths),
+            'data-drag-ignore': 'true',
+            title: buildTitle(file)
+          } : {
+            title: buildTitle(file)
+          };
+          return (
+            <div
+              key={index}
+              className={`flex items-center justify-center bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors flex-shrink-0${canDrag ? ' cursor-grab active:cursor-grabbing' : ''}`}
+              style={{
+                width: `${itemSize}px`,
+                height: `${itemSize}px`,
+                padding: '2px'
+              }}
+              {...dragProps}
+            >
+              <FileIcon file={file} size={iconSize} />
+            </div>
+          );
+        })}
       </div>
     </div>;
   }
@@ -100,22 +147,37 @@ function FileContent({
   // 小行高模式：使用紧凑样式
   if (compact) {
     return <div className="w-full h-full overflow-hidden">
-      {filesData.files.map((file, index) => <div key={index} className="flex items-center gap-1 px-1 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors h-full">
-        <FileIcon file={file} size={24} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-1">
-            <span className="text-xs text-gray-800 dark:text-gray-200 truncate font-medium">
-              {file.name}
-            </span>
-            <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-              {formatFileSize(file.size || 0)}
-            </span>
+      {filesData.files.map((file, index) => {
+        const dragProps = canDrag ? {
+          onMouseDown: (e) => handleDragStart(e, draggablePaths),
+          'data-drag-ignore': 'true',
+          title: buildTitle(file)
+        } : {
+          title: buildTitle(file)
+        };
+        return (
+          <div
+            key={index}
+            className={`flex items-center gap-1 px-1 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors h-full${canDrag ? ' cursor-grab active:cursor-grabbing' : ''}`}
+            {...dragProps}
+          >
+            <FileIcon file={file} size={24} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs text-gray-800 dark:text-gray-200 truncate font-medium">
+                  {file.name}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                  {formatFileSize(file.size || 0)}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">
+                {file.path}
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">
-            {file.path}
-          </div>
-        </div>
-      </div>)}
+        );
+      })}
     </div>;
   }
 
@@ -123,25 +185,40 @@ function FileContent({
   const normalIconSize = settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 48 : 36;
   return <div className="w-full h-full overflow-y-auto space-y-1 pr-1">
     {/* 文件列表 */}
-    {filesData.files.map((file, index) => <div key={index} className="flex items-center gap-2 px-2 py-1.5 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors h-full">
-      {/* 文件图标 */}
-      <FileIcon file={file} size={normalIconSize} />
+    {filesData.files.map((file, index) => {
+      const dragProps = canDrag ? {
+        onMouseDown: (e) => handleDragStart(e, draggablePaths),
+        'data-drag-ignore': 'true',
+        title: buildTitle(file)
+      } : {
+        title: buildTitle(file)
+      };
+      return (
+        <div
+          key={index}
+          className={`flex items-center gap-2 px-2 py-1.5 bg-white dark:bg-gray-900/50 rounded border border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 transition-colors h-full${canDrag ? ' cursor-grab active:cursor-grabbing' : ''}`}
+          {...dragProps}
+        >
+          {/* 文件图标 */}
+          <FileIcon file={file} size={normalIconSize} />
 
-      {/* 文件信息 */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm text-gray-800 dark:text-gray-200 truncate font-medium">
-            {file.name}
-          </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-            {formatFileSize(file.size || 0)}
-          </span>
+          {/* 文件信息 */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm text-gray-800 dark:text-gray-200 truncate font-medium">
+                {file.name}
+              </span>
+              <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                {formatFileSize(file.size || 0)}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+              {file.path}
+            </div>
+          </div>
         </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-          {file.path}
-        </div>
-      </div>
-    </div>)}
+      );
+    })}
   </div>;
 }
 export default FileContent;

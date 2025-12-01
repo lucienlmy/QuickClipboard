@@ -35,7 +35,10 @@
     "copy": "复制",
     "paste": "粘贴",
     "pin": "固定",
-    "unpin": "取消固定"
+    "unpin": "取消固定",
+    "dragImageToExternal": "拖拽到外部应用",
+    "dragFileToExternal": "拖拽到外部应用",
+    "dragFilesToExternal": "拖拽到外部应用（共{{count}}个文件）"
   },
   "favorites": {
     "title": "收藏",

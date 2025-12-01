@@ -2,7 +2,7 @@ import {
   DndContext, 
   closestCenter,
   KeyboardSensor,
-  MouseSensor,
+  MouseSensor as LibMouseSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -15,12 +15,34 @@ import {
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { useState, useCallback } from 'react'
 
+function shouldHandleDrag(element) {
+  let cur = element
+  while (cur) {
+    if (cur.dataset && cur.dataset.dragIgnore === 'true') {
+      return false
+    }
+    cur = cur.parentElement
+  }
+  return true
+}
+
+class CustomMouseSensor extends LibMouseSensor {
+  static activators = [
+    {
+      eventName: 'onMouseDown',
+      handler: ({ nativeEvent: event }) => {
+        return shouldHandleDrag(event.target)
+      },
+    },
+  ]
+}
+
 // 可排序列表上下文 Hook
 export function useSortableList({ items, onDragEnd }) {
   const [activeId, setActiveId] = useState(null)
   
   const sensors = useSensors(
-    useSensor(MouseSensor, {
+    useSensor(CustomMouseSensor, {
       activationConstraint: {
         distance: 3,
       },

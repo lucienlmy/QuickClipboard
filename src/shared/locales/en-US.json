@@ -35,7 +35,10 @@
     "copy": "Copy",
     "paste": "Paste",
     "pin": "Pin",
-    "unpin": "Unpin"
+    "unpin": "Unpin",
+    "dragImageToExternal": "Drag to external apps",
+    "dragFileToExternal": "Drag to external apps",
+    "dragFilesToExternal": "Drag to external apps ({{count}} files)"
   },
   "favorites": {
     "title": "Favorites",
