@@ -44,6 +44,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_drag::init())
             .invoke_handler(tauri::generate_handler![
                 commands::start_custom_drag,
                 commands::stop_custom_drag,

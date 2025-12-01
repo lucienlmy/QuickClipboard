@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
+import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { restoreLastFocus } from '@shared/api/window';
 import { Virtuoso } from 'react-virtuoso';
@@ -29,6 +30,17 @@ function ImageLibraryTab() {
   const [scrollerElement, setScrollerElement] = useState(null);
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
+  const internalDragRef = useRef(false);
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      if (internalDragRef.current) {
+        internalDragRef.current = false;
+      }
+    };
+    window.addEventListener('mouseup', handleMouseUp, true);
+    return () => window.removeEventListener('mouseup', handleMouseUp, true);
+  }, []);
 
   const loadImageCount = useCallback(async () => {
     try {
@@ -85,12 +97,14 @@ function ImageLibraryTab() {
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (internalDragRef.current) return;
     setIsDragging(true);
   }, []);
 
   const handleDragLeave = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (internalDragRef.current) return;
     setIsDragging(false);
   }, []);
 
@@ -98,6 +112,11 @@ function ImageLibraryTab() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+
+    if (internalDragRef.current) {
+      internalDragRef.current = false;
+      return;
+    }
 
     const files = Array.from(e.dataTransfer.files);
     const imageFiles = files.filter(f => f.type.startsWith('image/'));
@@ -175,6 +194,18 @@ function ImageLibraryTab() {
       });
     }
   }, [t]);
+
+  const handleDragStart = useCallback(async (e, item) => {
+    if (!item || item.loading || e.button !== 0) return;
+    if (e.target.closest('[data-drag-ignore="true"]')) return;
+    internalDragRef.current = true;
+    e.preventDefault();
+    try {
+      await startDrag({ item: [item.path], icon: item.path });
+    } catch (err) {
+      console.error('拖拽失败:', err);
+    }
+  }, []);
 
   const handleDeleteImage = useCallback(async (e, item) => {
     e.stopPropagation();
@@ -269,6 +300,7 @@ function ImageLibraryTab() {
           <div
             key={item.id}
             onClick={() => handleImageClick(item)}
+            onMouseDown={(e) => handleDragStart(e, item)}
             role="button"
             title={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
             className="relative group aspect-square rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
@@ -283,7 +315,11 @@ function ImageLibraryTab() {
                   className="w-full h-full object-cover pointer-events-none"
                   loading="lazy"
                 />
-                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div
+                  className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  data-drag-ignore="true"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <button
                     onClick={(e) => handleRenameStart(e, item)}
                     className="w-5 h-5 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center"
@@ -305,11 +341,11 @@ function ImageLibraryTab() {
         ))}
       </div>
     );
-  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, imageSearchQuery, loadImageRange, handleImageClick, handleDeleteImage, handleRenameStart, t]);
+  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, imageSearchQuery, loadImageRange, handleImageClick, handleDragStart, handleDeleteImage, handleRenameStart, t]);
 
   return (
     <div 
-      className={`h-full flex bg-gray-50 dark:bg-gray-900 relative ${isDragging ? 'ring-2 ring-blue-500 ring-inset' : ''}`}
+      className="h-full flex bg-gray-50 dark:bg-gray-900 relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -372,7 +408,7 @@ function ImageLibraryTab() {
       </div>
 
       {isDragging && (
-        <div className="absolute inset-0 bg-blue-500/10 pointer-events-none flex items-center justify-center z-10">
+        <div className="absolute inset-0 bg-blue-500/10 pointer-events-none flex items-center justify-center z-10 ring-2 ring-blue-500 ring-inset">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
             <i className="ti ti-upload text-2xl text-blue-500"></i>
             <span className="text-gray-700 dark:text-gray-200">{t('emoji.dropToAdd')}</span>
@@ -381,7 +417,7 @@ function ImageLibraryTab() {
       )}
 
       {isUploading && (
-        <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20">
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[9999]">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg px-6 py-4 flex flex-col items-center gap-3">
             <i className="ti ti-loader-2 animate-spin text-3xl text-blue-500"></i>
             <span className="text-gray-700 dark:text-gray-200">

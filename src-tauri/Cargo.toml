@@ -48,6 +48,7 @@ reqwest = { version = "0.11", features = ["json", "stream", "blocking"] }
 file_icon_provider = {git="https://github.com/iohannrabeson/file_icon_provider"}
 parking_lot = "0.12"
 tauri-plugin-http = "2.5.2"
+tauri-plugin-drag = "2"
 rdev = { version = "0.5.3", features = ["unstable_grab"] }
 enigo = "0.6.1"
 tauri-plugin-autostart = "2.5.1"

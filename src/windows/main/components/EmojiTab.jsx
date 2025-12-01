@@ -30,6 +30,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const [skinTone, setSkinTone] = useState(() => localStorage.getItem(SKIN_TONE_KEY) || 'default');
   const [skinPickerEmoji, setSkinPickerEmoji] = useState(null);
   const [isReady, setIsReady] = useState(false);
+  const [isModeReady, setIsModeReady] = useState(true);
+  const prevEmojiModeRef = useRef(emojiMode);
   const scrollContainerRef = useRef(null);
   const activeCategoryRef = useRef('recent');
   const sidebarButtonsRef = useRef({});
@@ -201,6 +203,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
 
   // 构建虚拟列表数据
   const virtualData = useMemo(() => {
+    if (!isModeReady) return [];
+    
     if (searchQuery && searchResults) {
       const sections = [];
       if (searchResults.emojis.length > 0) {
@@ -251,7 +255,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       }
     });
     return sections;
-  }, [searchQuery, searchResults, emojiMode, recentEmojis, t, symbolRowsCache, isReady]);
+  }, [searchQuery, searchResults, emojiMode, recentEmojis, t, symbolRowsCache, isReady, isModeReady]);
 
   virtualDataRef.current = virtualData;
 
@@ -278,6 +282,19 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     if (firstCat) {
       activeCategoryRef.current = firstCat;
       scrollContainerRef.current?.scrollToIndex({ index: 0 });
+    }
+  }, [emojiMode]);
+
+  useEffect(() => {
+    const prevMode = prevEmojiModeRef.current;
+    prevEmojiModeRef.current = emojiMode;
+    
+    if (emojiMode === 'emoji' && prevMode !== 'emoji') {
+      setIsModeReady(false);
+      const timer = setTimeout(() => {
+        setIsModeReady(true);
+      }, 250);
+      return () => clearTimeout(timer);
     }
   }, [emojiMode]);
 
@@ -433,7 +450,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
 
         {/* 内容滚动区 */}
         <div className="flex-1 overflow-hidden custom-scrollbar-container">
-          {!isReady ? (
+          {(!isReady || !isModeReady) ? (
             <div className="flex items-center justify-center h-32 text-gray-400">
               <i className="ti ti-loader-2 animate-spin mr-2"></i>
               {t('common.loading')}
