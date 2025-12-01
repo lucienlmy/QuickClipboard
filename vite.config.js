@@ -1,12 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
-import removeConsole from 'vite-plugin-remove-console'
 import UnoCSS from 'unocss/vite'
+import { resolve } from 'path'
+
+const isDev = process.env.NODE_ENV === 'development'
+const isTauriDebug = process.env.TAURI_DEBUG === 'true'
 
 export default defineConfig({
   root: 'src',
   clearScreen: false,
+
   server: {
     port: 1421,
     strictPort: true,
@@ -14,7 +17,6 @@ export default defineConfig({
 
   envPrefix: ['VITE_', 'TAURI_'],
 
-  // 路径别名
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -26,26 +28,31 @@ export default defineConfig({
 
   plugins: [
     UnoCSS({
-      mode: 'global', // 使用全局模式，确保样式在所有入口中共享
+      mode: 'global',
+      inspector: false,
     }),
     react(),
-    process.env.NODE_ENV === 'production' || (!process.env.TAURI_DEBUG && process.env.NODE_ENV !== 'development')
-      ? removeConsole({
-        includes: ['log', 'debug', 'info'],
-        excludes: ['error', 'warn']
-      })
-      : null
-  ].filter(Boolean),
-  
+  ],
+
   build: {
     outDir: '../dist',
-    target: process.env.TAURI_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
-    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
-    sourcemap: !!process.env.TAURI_DEBUG,
+    target: process.env.TAURI_PLATFORM === 'windows'
+      ? 'chrome105'
+      : 'safari13',
+
+    minify: isDev || isTauriDebug ? false : 'esbuild',
+
+    esbuild: isDev || isTauriDebug
+      ? {}
+      : {
+          drop: ['debugger'],
+          pure: ['console.log', 'console.info', 'console.debug'],
+        },
+
+    sourcemap: isDev || isTauriDebug,
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 1000,
+
     rollupOptions: {
-      // 多窗口入口配置
       input: {
         main: resolve(__dirname, 'src/windows/main/index.html'),
         settings: resolve(__dirname, 'src/windows/settings/index.html'),
@@ -57,19 +64,16 @@ export default defineConfig({
         pinImage: resolve(__dirname, 'src/windows/pinImage/pinImage.html'),
         updater: resolve(__dirname, 'src/windows/updater/index.html'),
       },
+
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-          // 将共享代码分离
-          if (id.includes('/shared/')) {
-            return 'shared';
-          }
-        },
         assetFileNames: 'assets/[name]-[hash][extname]',
         chunkFileNames: 'js/[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
+
+        manualChunks(id) {
+          if (id.includes('node_modules')) return 'vendor'
+          if (id.includes('/shared/')) return 'shared'
+        },
       },
     },
   },

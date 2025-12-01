@@ -73,16 +73,13 @@ uiautomation = "0.24.0"
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 
-# 发布版本优化配置
 [profile.release]
-# 启用链接时优化 (LTO)
-lto = true
-# 优化速度（高性能优化）
+lto = "fat"
 opt-level = 3
-# 启用代码生成单元优化
 codegen-units = 1
-# 启用panic时立即终止
 panic = "abort"
-# 去除调试符号
-strip = true
+strip = "debuginfo"
+debug = false
+incremental = false
+overflow-checks = false
 
