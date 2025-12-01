@@ -75,6 +75,28 @@ const FavoritesList = forwardRef(({
     onDragEnd: handleDragEnd
   });
   const activeIndex = activeItem ? itemsWithId.findIndex(item => item._sortId === activeId || item.id === activeId) : -1;
+  const dragActive = Boolean(activeId);
+  
+  useEffect(() => {
+    if (!activeId || !scrollerElement) return;
+
+    const handleWheel = (e) => {
+      e.preventDefault();
+      scrollerElement.scrollTop += e.deltaY;
+    };
+
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    return () => document.removeEventListener('wheel', handleWheel);
+  }, [activeId, scrollerElement]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    document.body.classList.add('dragging-cursor');
+    return () => {
+      document.body.classList.remove('dragging-cursor');
+    };
+  }, [activeId]);
+
   const {
     currentSelectedIndex,
     navigateUp,
@@ -192,7 +214,7 @@ const FavoritesList = forwardRef(({
               animationDelay: `${animationDelay}ms`,
               animationFillMode: 'backwards'
             }}>
-                    <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} />
+                    <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} isDragActive={dragActive} />
                   </div>
                 </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
@@ -210,7 +232,7 @@ const FavoritesList = forwardRef(({
             small: 'h-[50px]'
           }[settings.rowHeight] ?? 'h-[90px]';
           return <div className={`px-2.5 pb-2 pt-1 ${overlayHeight}`}>
-            <FavoriteItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} />
+            <FavoriteItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} isDragActive={true} />
           </div>;
         })()}
       </DragOverlay>

@@ -20,7 +20,8 @@ function ClipboardItem({
   onClick,
   sortId,
   isSelected = false,
-  onHover
+  onHover,
+  isDragActive = false
 }) {
   const {
     t
@@ -51,7 +52,7 @@ function ClipboardItem({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: transition || 'transform 200ms ease',
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
     cursor: isDragging ? 'grabbing' : 'pointer',
     zIndex: isDragging ? 1000 : 'auto'
   };
@@ -88,10 +89,13 @@ function ClipboardItem({
 
   // 处理鼠标悬停
   const handleMouseEnter = async (e) => {
+    if (isDragging || isDragActive) {
+      return;
+    }
     if (onHover) {
       onHover();
     }
-    
+
     // 图片类型：延迟显示预览
     if (isImageType && settings.imagePreview !== false) {
       previewTimerRef.current = setTimeout(async () => {

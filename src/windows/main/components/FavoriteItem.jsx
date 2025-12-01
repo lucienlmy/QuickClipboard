@@ -13,13 +13,15 @@ import { useTranslation } from 'react-i18next';
 import { deleteFavorite } from '@shared/store/favoritesStore';
 import { openEditorForFavorite } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
+
 function FavoriteItem({
   item,
   index,
   isDraggable = true,
   isSelected = false,
   onHover,
-  onClick
+  onClick,
+  isDragActive = false
 }) {
   const {
     t
@@ -59,7 +61,7 @@ function FavoriteItem({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: transition || 'transform 200ms ease',
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
     cursor: isDragging ? 'grabbing' : 'pointer',
     zIndex: isDragging ? 1000 : 'auto'
   };
@@ -83,6 +85,9 @@ function FavoriteItem({
 
   // 处理鼠标悬停
   const handleMouseEnter = async () => {
+    if (isDragActive || isDragging) {
+      return;
+    }
     if (onHover) {
       onHover();
     }

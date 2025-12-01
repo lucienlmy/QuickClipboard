@@ -81,6 +81,27 @@ const ClipboardList = forwardRef(({
     onDragEnd: handleDragEnd
   });
   const activeIndex = activeItem ? itemsWithId.findIndex(item => item._sortId === activeId || item.id === activeId) : -1;
+  
+  useEffect(() => {
+    if (!activeId || !scrollerElement) return;
+    
+    const handleWheel = (e) => {
+      e.preventDefault();
+      scrollerElement.scrollTop += e.deltaY;
+    };
+    
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    return () => document.removeEventListener('wheel', handleWheel);
+  }, [activeId, scrollerElement]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    document.body.classList.add('dragging-cursor');
+    return () => {
+      document.body.classList.remove('dragging-cursor');
+    };
+  }, [activeId]);
+
   const {
     currentSelectedIndex,
     navigateUp,
@@ -196,6 +217,7 @@ const ClipboardList = forwardRef(({
           }[settings.rowHeight] ?? 'h-20';
           const animationDelay = Math.min(index * 20, 100);
           const isAutoHeight = settings.rowHeight === 'auto';
+          const dragActive = Boolean(activeId);
           return <div className="px-2.5 pb-2 pt-1 relative">
                   <div className={`${isAutoHeight ? 'absolute inset-0' : ''} rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${skeletonHeight} animate-pulse`} style={{
               animation: `pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite, fadeOut 0.3s ease-out ${animationDelay + 200}ms forwards`
@@ -207,7 +229,7 @@ const ClipboardList = forwardRef(({
               animationDelay: `${animationDelay}ms`,
               animationFillMode: 'backwards'
             }}>
-                    <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} />
+                    <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDragActive={dragActive} />
                   </div>
                 </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
@@ -225,7 +247,7 @@ const ClipboardList = forwardRef(({
             small: 'h-[50px]'
           }[settings.rowHeight] ?? 'h-[90px]';
           return <div className={`px-2.5 pb-2 pt-1 ${overlayHeight}`}>
-            <ClipboardItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} />
+            <ClipboardItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} isDragActive={true} />
           </div>;
         })()}
       </DragOverlay>
