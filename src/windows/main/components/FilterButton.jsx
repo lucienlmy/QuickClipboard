@@ -1,29 +1,5 @@
-import { useState, useEffect } from 'react';
 function FilterButton({ id, label, icon, isActive, onClick, buttonRef }) {
-  const [particles, setParticles] = useState([]);
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  useEffect(() => {
-    if (isAnimating) {
-      const delayTimer = setTimeout(() => {
-        const newParticles = Array.from({ length: 6 }, (_, i) => ({
-          id: Date.now() + i,
-          angle: i * 60 + Math.random() * 30,
-          distance: 10 + Math.random() * 6
-        }));
-        setParticles(newParticles);
-        const clearTimer = setTimeout(() => {
-          setParticles([]);
-          setIsAnimating(false);
-        }, 600);
-        return () => clearTimeout(clearTimer);
-      }, 300);
-      return () => clearTimeout(delayTimer);
-    }
-  }, [isAnimating]);
-
   const handleClick = () => {
-    setIsAnimating(true);
     onClick(id);
   };
 
@@ -45,18 +21,6 @@ function FilterButton({ id, label, icon, isActive, onClick, buttonRef }) {
       >
         <i className={icon} style={{ fontSize: 16 }} />
       </button>
-
-      {particles.map(particle => (
-        <div
-          key={particle.id}
-          className="absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full bg-blue-400 pointer-events-none z-20"
-          style={{
-            '--particle-angle': `${particle.angle}deg`,
-            '--particle-distance': `${particle.distance}px`,
-            animation: 'particleExplosion 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards'
-          }}
-        />
-      ))}
     </div>
   );
 }
