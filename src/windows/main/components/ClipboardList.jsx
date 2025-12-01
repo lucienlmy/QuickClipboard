@@ -216,10 +216,18 @@ const ClipboardList = forwardRef(({
         </SortableContext>
       </div>
 
-      <DragOverlay>
-        {activeItem && activeIndex !== -1 && <div className="px-2.5 pb-2 pt-1">
+      <DragOverlay dropAnimation={null}>
+        {activeItem && activeIndex !== -1 && (() => {
+          const overlayHeight = {
+            auto: 'h-auto max-h-[350px]',
+            large: 'h-[120px]',
+            medium: 'h-[90px]',
+            small: 'h-[50px]'
+          }[settings.rowHeight] ?? 'h-[90px]';
+          return <div className={`px-2.5 pb-2 pt-1 ${overlayHeight}`}>
             <ClipboardItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} />
-          </div>}
+          </div>;
+        })()}
       </DragOverlay>
     </DndContext>;
 });
