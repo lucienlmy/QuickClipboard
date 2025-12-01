@@ -9,11 +9,11 @@ import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { ImageLibraryTab } from './emoji';
 import {
-  SYMBOL_CATS, EMOJI_CATS, SKIN_TONES,
+  SYMBOL_CATS, EMOJI_CATS, IMAGE_CATS, SKIN_TONES,
   EMOJI_COLS, SYMBOL_COLS,
   RECENT_KEY, SKIN_TONE_KEY, MAX_RECENT,
   symbolCategories, splitIntoRowsStatic,
-  ensureEmojiData, getEmojiRowsCache, getEmojiMetaCache, getEmojiSkinSupport
+  ensureEmojiData, getEmojiDataCache, getEmojiRowsCache, getEmojiMetaCache, getEmojiSkinSupport
 } from './emoji/emojiData';
 
 
@@ -169,7 +169,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     const query = rawQuery.toLowerCase();
     
     const emojiResults = [];
-    Object.values(emojiDataCache).forEach(emojis => {
+    const emojiDataCache = getEmojiDataCache();
+    if (emojiDataCache) Object.values(emojiDataCache).forEach(emojis => {
       emojis.forEach(item => {
         if (item.name?.toLowerCase().includes(query) || item.nameCn?.includes(rawQuery)) {
           emojiResults.push(item);
@@ -278,10 +279,16 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   }, []);
 
   useEffect(() => {
-    const firstCat = showSymbols ? SYMBOL_CATS[0]?.id : EMOJI_CATS[0]?.id;
-    if (firstCat) {
-      activeCategoryRef.current = firstCat;
-      scrollContainerRef.current?.scrollToIndex({ index: 0 });
+    setSearchQuery('');
+    
+    if (showImages) {
+      setImageCategory('images');
+    } else {
+      const firstCat = showSymbols ? SYMBOL_CATS[0]?.id : EMOJI_CATS[0]?.id;
+      if (firstCat) {
+        activeCategoryRef.current = firstCat;
+        scrollContainerRef.current?.scrollToIndex({ index: 0 });
+      }
     }
   }, [emojiMode]);
 
@@ -401,23 +408,40 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     return null;
   }, [handlePaste, isChinese, skinTone, applySkintone, getSkinVariants, handleSkinPickerOpen]);
 
-  // 图片模式渲染
-  if (showImages) {
-    return <ImageLibraryTab />;
-  }
+  const currentCategories = useMemo(() => {
+    if (showImages) return IMAGE_CATS;
+    if (showSymbols) return SYMBOL_CATS;
+    return EMOJI_CATS;
+  }, [showImages, showSymbols]);
+
+  const handleImageCategoryClick = useCallback((catId) => {
+    setImageCategory(catId);
+  }, []);
+
+  const handleCategoryClick = useCallback((catId) => {
+    if (showImages) {
+      handleImageCategoryClick(catId);
+    } else {
+      scrollToCategory(catId);
+    }
+  }, [showImages, handleImageCategoryClick, scrollToCategory]);
+
+  const activeCategory = showImages ? imageCategory : activeCategoryRef.current;
 
   return (
     <div className="h-full flex bg-gray-50 dark:bg-gray-900">
       {/* 侧边分类栏 */}
-      <div className="w-10 flex-shrink-0 bg-gray-100 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700/50 flex flex-col py-1 overflow-y-auto scrollbar-hide">
+      <div className="emoji-sidebar w-10 flex-shrink-0 bg-gray-100 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700/50 flex flex-col py-1 overflow-y-auto scrollbar-hide">
         {/* 分类按钮 */}
-        {(showSymbols ? SYMBOL_CATS : EMOJI_CATS).map((cat, idx) => (
+        {currentCategories.map((cat, idx) => (
           <button
             key={cat.id}
             ref={el => sidebarButtonsRef.current[cat.id] = el}
-            onClick={() => scrollToCategory(cat.id)}
+            onClick={() => handleCategoryClick(cat.id)}
             className={`w-8 h-8 mx-auto mb-0.5 flex items-center justify-center rounded-lg transition-colors ${
-              idx === 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+              (showImages ? imageCategory === cat.id : idx === 0) 
+                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
             }`}
             title={t(cat.labelKey)}
           >
@@ -429,7 +453,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       {/* 主内容区 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 搜索框 */}
-        <div className="flex-shrink-0 p-2 border-b border-gray-200 dark:border-gray-700/50">
+        <div className="emoji-search-bar flex-shrink-0 p-2 border-b border-gray-200 dark:border-gray-700/50">
           <div className="relative">
             <i className="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
             <input
@@ -437,7 +461,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder={t('emoji.searchPlaceholder')}
+              placeholder={showImages ? (t('emoji.searchImagePlaceholder') || '搜索文件名...') : t('emoji.searchPlaceholder')}
               className="w-full h-8 pl-8 pr-8 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
             />
             {searchQuery && (
@@ -449,7 +473,10 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
         </div>
 
         {/* 内容滚动区 */}
-        <div className="flex-1 overflow-hidden custom-scrollbar-container">
+        {showImages ? (
+          <ImageLibraryTab imageCategory={imageCategory} searchQuery={searchQuery} />
+        ) : (
+        <div className="emoji-content flex-1 overflow-hidden custom-scrollbar-container">
           {(!isReady || !isModeReady) ? (
             <div className="flex items-center justify-center h-32 text-gray-400">
               <i className="ti ti-loader-2 animate-spin mr-2"></i>
@@ -469,6 +496,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
             />
           )}
         </div>
+        )}
       </div>
 
       {/* 肤色选择器 */}

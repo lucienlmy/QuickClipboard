@@ -5,28 +5,23 @@ import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { restoreLastFocus } from '@shared/api/window';
 import { Virtuoso } from 'react-virtuoso';
-import { useInputFocus } from '@shared/hooks/useInputFocus';
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar';
 import * as imageLibrary from '@shared/api/imageLibrary';
-import { IMAGE_CATS, IMAGE_COLS } from './emojiData';
-import CategorySidebar from './CategorySidebar';
+import { IMAGE_COLS } from './emojiData';
 import RenameDialog from './RenameDialog';
 
-function ImageLibraryTab() {
+function ImageLibraryTab({ imageCategory, searchQuery }) {
   const { t } = useTranslation();
-  const [imageCategory, setImageCategory] = useState('images');
   const [imageTotal, setImageTotal] = useState(0);
   const [imageItems, setImageItems] = useState([]);
   const [imageLoading, setImageLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [renamingItem, setRenamingItem] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const loadedRangeRef = useRef({ start: 0, end: 0 });
   const imageScrollerRef = useRef(null);
-  const imageSearchInputRef = useInputFocus();
   const [scrollerElement, setScrollerElement] = useState(null);
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
@@ -92,7 +87,6 @@ function ImageLibraryTab() {
 
   useEffect(() => {
     setImageItems([]);
-    setImageSearchQuery('');
     loadedRangeRef.current = { start: 0, end: 0 };
     loadImageCount();
   }, [imageCategory, loadImageCount]);
@@ -251,26 +245,26 @@ function ImageLibraryTab() {
   }, []);
 
   const filteredImageItems = useMemo(() => {
-    if (!imageSearchQuery.trim()) return imageItems;
-    const query = imageSearchQuery.toLowerCase();
+    if (!searchQuery?.trim()) return imageItems;
+    const query = searchQuery.toLowerCase();
     return imageItems.filter(item => 
       item && !item.loading && item.filename.toLowerCase().includes(query)
     );
-  }, [imageItems, imageSearchQuery]);
+  }, [imageItems, searchQuery]);
 
   const filteredImageTotal = useMemo(() => {
-    if (!imageSearchQuery.trim()) return imageTotal;
+    if (!searchQuery?.trim()) return imageTotal;
     return filteredImageItems.length;
-  }, [imageSearchQuery, imageTotal, filteredImageItems]);
+  }, [searchQuery, imageTotal, filteredImageItems]);
 
   const imageRowCount = useMemo(() => {
-    const total = imageSearchQuery.trim() ? filteredImageTotal : imageTotal;
+    const total = searchQuery?.trim() ? filteredImageTotal : imageTotal;
     return Math.ceil(total / IMAGE_COLS);
-  }, [imageTotal, filteredImageTotal, imageSearchQuery]);
+  }, [imageTotal, filteredImageTotal, searchQuery]);
 
   const renderImageRow = useCallback((rowIndex) => {
-    const items = imageSearchQuery.trim() ? filteredImageItems : imageItems;
-    const total = imageSearchQuery.trim() ? filteredImageTotal : imageTotal;
+    const items = searchQuery?.trim() ? filteredImageItems : imageItems;
+    const total = searchQuery?.trim() ? filteredImageTotal : imageTotal;
     const startIdx = rowIndex * IMAGE_COLS;
     const rowItems = [];
     
@@ -281,7 +275,7 @@ function ImageLibraryTab() {
       rowItems.push(item || { id: `loading-${idx}`, loading: true });
     }
 
-    if (!imageSearchQuery.trim() && rowItems.some(item => item.loading)) {
+    if (!searchQuery?.trim() && rowItems.some(item => item.loading)) {
       setTimeout(() => loadImageRange(startIdx, startIdx + IMAGE_COLS - 1), 0);
     }
 
@@ -332,42 +326,15 @@ function ImageLibraryTab() {
         ))}
       </div>
     );
-  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, imageSearchQuery, loadImageRange, handleImageClick, handleDragMouseDown, handleDeleteImage, handleRenameStart, t]);
+  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, loadImageRange, handleImageClick, handleDragMouseDown, handleDeleteImage, handleRenameStart, t]);
 
   return (
     <div 
-      className="h-full flex bg-gray-50 dark:bg-gray-900 relative"
+      className="h-full flex flex-col overflow-hidden relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <CategorySidebar 
-        categories={IMAGE_CATS}
-        activeCategory={imageCategory}
-        onCategoryClick={setImageCategory}
-      />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 搜索框 */}
-        <div className="flex-shrink-0 p-2 border-b border-gray-200 dark:border-gray-700/50">
-          <div className="relative">
-            <i className="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-            <input
-              ref={imageSearchInputRef}
-              type="text"
-              value={imageSearchQuery}
-              onChange={e => setImageSearchQuery(e.target.value)}
-              placeholder={t('emoji.searchImagePlaceholder') || '搜索文件名...'}
-              className="w-full h-8 pl-8 pr-8 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-            />
-            {imageSearchQuery && (
-              <button onClick={() => setImageSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <i className="ti ti-x text-sm"></i>
-              </button>
-            )}
-          </div>
-        </div>
-
         {imageTotal === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
             <div className={`w-20 h-20 rounded-2xl border-2 border-dashed flex items-center justify-center mb-3 transition-colors ${
@@ -388,7 +355,7 @@ function ImageLibraryTab() {
               ref={imageScrollerRef}
               totalCount={imageRowCount}
               itemContent={renderImageRow}
-              computeItemKey={(index) => `row-${imageCategory}-${imageSearchQuery}-${index}`}
+              computeItemKey={(index) => `row-${imageCategory}-${searchQuery}-${index}`}
               scrollerRef={scrollerRefCallback}
               overscan={3}
               className="h-full"
@@ -396,7 +363,6 @@ function ImageLibraryTab() {
             />
           </div>
         )}
-      </div>
 
       {isDragging && (
         <div className="absolute inset-0 bg-blue-500/10 pointer-events-none flex items-center justify-center z-10 ring-2 ring-blue-500 ring-inset">
