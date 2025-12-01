@@ -5,6 +5,7 @@ import { Stage, Layer } from 'react-konva';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { settingsStore } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
+import { getEffectiveTheme } from '@shared/hooks/useTheme';
 import useScreenshotStage from './hooks/useScreenshotStage';
 import useCursorMovement from './hooks/useCursorMovement';
 import BackgroundLayer from './components/BackgroundLayer';
@@ -27,6 +28,9 @@ import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 function App() {
   useSettingsSync();
   const settings = useSnapshot(settingsStore);
+  
+  const effectiveTheme = getEffectiveTheme(settings.theme, settings.systemIsDark);
+  const isDark = effectiveTheme === 'dark';
 
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
   const stageRef = useRef(null);
@@ -189,7 +193,7 @@ function App() {
   }, [reloadFromLastCapture]);
 
   return (
-    <div className="w-screen h-screen bg-transparent relative">
+    <div className={`w-screen h-screen bg-transparent relative ${isDark ? 'dark' : ''}`}>
       <Stage
         ref={stageRef}
         width={stageSize.width}
@@ -249,6 +253,7 @@ function App() {
             stageRegionManager={stageRegionManager}
             colorIncludeFormat={settings.screenshotColorIncludeFormat}
             onMousePosUpdate={(updateFn) => { magnifierUpdateRef.current = updateFn; }}
+            isDark={isDark}
           />
         </Layer>
       </Stage>

@@ -13,7 +13,7 @@ const PADDING = 8;
 const MAGNIFIER_WIDTH = GRID_WIDTH + PADDING * 2;
 const COLOR_BAR_WIDTH = MAGNIFIER_WIDTH - PADDING * 2;
 
-function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate }) {
+function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate, isDark = false }) {
   const { position: mousePos } = useSnapshot(mouseStore);
   const [colorFormat, setColorFormat] = useState('hex');
   const screenImageDataRef = useRef(new Map());
@@ -93,7 +93,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
         ctx.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         if (row === centerRow && col === centerCol) centerColor = color;
         if (row !== centerRow || col !== centerCol) {
-          ctx.strokeStyle = '#d1d5db';
+          ctx.strokeStyle = isDark ? '#4b5563' : '#d1d5db';
           ctx.lineWidth = 0.5;
           ctx.strokeRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         }
@@ -103,7 +103,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     ctx.lineWidth = 2;
     ctx.strokeRect(centerCol * CELL_SIZE, centerRow * CELL_SIZE, CELL_SIZE, CELL_SIZE);
     return centerColor;
-  }, [getPixelColor]);
+  }, [getPixelColor, isDark]);
 
   const getColorString = useCallback((color, format, includeFormat = true) => {
     const { r = 0, g = 0, b = 0 } = color;
@@ -200,12 +200,12 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
         y={0}
         width={MAGNIFIER_WIDTH}
         height={totalHeight}
-        fill="white"
-        stroke="#e5e7eb"
+        fill={isDark ? '#1f2937' : 'white'}
+        stroke={isDark ? '#374151' : '#e5e7eb'}
         strokeWidth={1}
         shadowColor="black"
         shadowBlur={10}
-        shadowOpacity={0.2}
+        shadowOpacity={isDark ? 0.4 : 0.2}
         cornerRadius={8}
         perfectDrawEnabled={false}
       />
@@ -230,7 +230,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
             width={COLOR_BAR_WIDTH}
             height={20}
             fill="rgb(0, 0, 0)"
-            stroke="#d1d5db"
+            stroke={isDark ? '#4b5563' : '#d1d5db'}
             strokeWidth={1}
             cornerRadius={4}
           />
@@ -255,7 +255,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
           text="X: 0  Y: 0"
           fontSize={11}
           fontFamily="monospace"
-          fill="#6b7280"
+          fill={isDark ? '#9ca3af' : '#6b7280'}
         />
 
         {/* 快捷键提示 */}
@@ -265,7 +265,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
           text="Shift切换 | C复制"
           fontSize={10}
           fontFamily="sans-serif"
-          fill="#9ca3af"
+          fill={isDark ? '#6b7280' : '#9ca3af'}
         />
       </Group>
     </Group>
