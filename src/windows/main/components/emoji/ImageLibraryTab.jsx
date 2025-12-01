@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
+import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { restoreLastFocus } from '@shared/api/window';
 import { Virtuoso } from 'react-virtuoso';
 import { useInputFocus } from '@shared/hooks/useInputFocus';
@@ -31,6 +31,9 @@ function ImageLibraryTab() {
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
   const internalDragRef = useRef(false);
+  const handleDragMouseDown = useDragWithThreshold({
+    onDragStart: () => { internalDragRef.current = true; }
+  });
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -195,18 +198,6 @@ function ImageLibraryTab() {
     }
   }, [t]);
 
-  const handleDragStart = useCallback(async (e, item) => {
-    if (!item || item.loading || e.button !== 0) return;
-    if (e.target.closest('[data-drag-ignore="true"]')) return;
-    internalDragRef.current = true;
-    e.preventDefault();
-    try {
-      await startDrag({ item: [item.path], icon: item.path });
-    } catch (err) {
-      console.error('拖拽失败:', err);
-    }
-  }, []);
-
   const handleDeleteImage = useCallback(async (e, item) => {
     e.stopPropagation();
     if (!item || item.loading) return;
@@ -300,7 +291,7 @@ function ImageLibraryTab() {
           <div
             key={item.id}
             onClick={() => handleImageClick(item)}
-            onMouseDown={(e) => handleDragStart(e, item)}
+            onMouseDown={(e) => !item.loading && item.path && handleDragMouseDown(e, [item.path], item.path)}
             role="button"
             title={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
             className="relative group aspect-square rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
@@ -341,7 +332,7 @@ function ImageLibraryTab() {
         ))}
       </div>
     );
-  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, imageSearchQuery, loadImageRange, handleImageClick, handleDragStart, handleDeleteImage, handleRenameStart, t]);
+  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, imageSearchQuery, loadImageRange, handleImageClick, handleDragMouseDown, handleDeleteImage, handleRenameStart, t]);
 
   return (
     <div 

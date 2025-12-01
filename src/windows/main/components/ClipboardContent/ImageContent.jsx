@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import { useTranslation } from 'react-i18next';
+import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 
-// 图片内容组件
 function ImageContent({
   item
 }) {
@@ -22,11 +21,9 @@ function ImageContent({
       setError(false);
       let imageId = null;
 
-      // 从 image_id 字段获取
       if (item.image_id) {
         imageId = item.image_id;
       }
-      // 从 content 字段解析 (格式: "image:xxx")
       else if (item.content?.startsWith('image:')) {
         imageId = item.content.substring(6);
       }
@@ -51,7 +48,6 @@ function ImageContent({
         }
       }
 
-      //imageId（旧版本格式），通过 image-id 路径加载
       if (imageId) {
         const dataDir = await invoke('get_data_directory');
         const filePath = `${dataDir}/clipboard_images/${imageId}.png`;
@@ -69,17 +65,7 @@ function ImageContent({
     }
   };
 
-  // 处理拖拽到外部
-  const handleDragStart = useCallback(async (e) => {
-    if (!imagePathRef.current || e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      await startDrag({ item: [imagePathRef.current], icon: imagePathRef.current });
-    } catch (err) {
-      console.error('拖拽图片失败:', err);
-    }
-  }, []);
+  const handleDragMouseDown = useDragWithThreshold();
 
   if (loading) {
     return <div className="w-full min-h-[80px] bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
@@ -93,7 +79,7 @@ function ImageContent({
   }
   return <div 
     className="w-full h-full rounded overflow-hidden flex items-center justify-start bg-gray-100 dark:bg-gray-800 cursor-grab active:cursor-grabbing"
-    onMouseDown={imagePathRef.current ? handleDragStart : undefined}
+    onMouseDown={imagePathRef.current ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
     data-drag-ignore={imagePathRef.current ? "true" : undefined}
     title={imagePathRef.current ? t('clipboard.dragImageToExternal', '拖拽到外部') : undefined}
   >

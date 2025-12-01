@@ -1,14 +1,11 @@
-import { useCallback } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { useTranslation } from 'react-i18next';
+import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 
-// 图片文件扩展名
 const IMAGE_FILE_EXTENSIONS = ['PNG', 'JPG', 'JPEG', 'GIF', 'BMP', 'WEBP', 'ICO', 'SVG'];
 
-// 格式化文件大小
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -17,29 +14,24 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// 获取文件图标（返回真实图标或文件缩略图）
 function FileIcon({
   file,
   size = 20
 }) {
   const isImageFile = IMAGE_FILE_EXTENSIONS.includes(file.file_type?.toUpperCase());
 
-  // 默认占位图标（SVG）
   const placeholderSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiBmaWxsPSIjQ0NDQ0NDIi8+Cjwvc3ZnPgo=';
 
-  // 如果是图片文件且有路径，显示缩略图预览
   if (isImageFile && file.path) {
     const iconSrc = convertFileSrc(file.path, 'asset');
     return <img src={iconSrc} alt={file.file_type || '文件'} className="flex-shrink-0 rounded-sm object-cover" style={{
       width: `${size}px`,
       height: `${size}px`
     }} loading="lazy" decoding="async" onError={e => {
-      // 加载失败时显示占位图
       e.target.src = placeholderSrc;
     }} />;
   }
 
-  // 如果有图标数据（base64），使用真实图标
   if (file.icon_data) {
     return <img src={file.icon_data} alt={file.file_type || '文件'} className="flex-shrink-0" style={{
       width: `${size}px`,
@@ -48,7 +40,6 @@ function FileIcon({
     }} />;
   }
 
-  // 默认占位图标
   return <img src={placeholderSrc} alt={file.file_type || '文件'} className="flex-shrink-0" style={{
     width: `${size}px`,
     height: `${size}px`,
@@ -56,26 +47,13 @@ function FileIcon({
   }} />;
 }
 
-// 文件内容组件
 function FileContent({
   item,
   compact = false
 }) {
   const { t } = useTranslation();
   const settings = useSnapshot(settingsStore);
-
-  const handleDragStart = useCallback(async (event, filePaths) => {
-    const paths = (Array.isArray(filePaths) ? filePaths : [])
-      .filter(Boolean);
-    if (!paths.length || event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    try {
-      await startDrag({ item: paths, icon: paths[0] });
-    } catch (err) {
-      console.error('拖拽文件失败:', err);
-    }
-  }, []);
+  const handleDragMouseDown = useDragWithThreshold();
 
   let filesData = null;
   try {
@@ -119,7 +97,7 @@ function FileContent({
       }}>
         {filesData.files.map((file, index) => {
           const dragProps = canDrag ? {
-            onMouseDown: (e) => handleDragStart(e, draggablePaths),
+            onMouseDown: (e) => handleDragMouseDown(e, draggablePaths, draggablePaths[0]),
             'data-drag-ignore': 'true',
             title: buildTitle(file)
           } : {
@@ -144,12 +122,12 @@ function FileContent({
     </div>;
   }
 
-  // 小行高模式：使用紧凑样式
+  // 小行高模式
   if (compact) {
     return <div className="w-full h-full overflow-hidden">
       {filesData.files.map((file, index) => {
         const dragProps = canDrag ? {
-          onMouseDown: (e) => handleDragStart(e, draggablePaths),
+          onMouseDown: (e) => handleDragMouseDown(e, draggablePaths, draggablePaths[0]),
           'data-drag-ignore': 'true',
           title: buildTitle(file)
         } : {
@@ -181,13 +159,13 @@ function FileContent({
     </div>;
   }
 
-  // 正常模式：完整显示
+  // 正常模式
   const normalIconSize = settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 48 : 36;
   return <div className="w-full h-full overflow-y-auto space-y-1 pr-1">
     {/* 文件列表 */}
     {filesData.files.map((file, index) => {
       const dragProps = canDrag ? {
-        onMouseDown: (e) => handleDragStart(e, draggablePaths),
+        onMouseDown: (e) => handleDragMouseDown(e, draggablePaths, draggablePaths[0]),
         'data-drag-ignore': 'true',
         title: buildTitle(file)
       } : {
