@@ -13,11 +13,16 @@ const FavoritesTab = forwardRef(({
   const snap = useSnapshot(favoritesStore);
   const listRef = useRef(null);
   const [isAtTop, setIsAtTop] = useState(true);
+
   useEffect(() => {
     favoritesStore.setContentType(contentFilter);
     favoritesStore.setFilter(searchQuery);
     refreshFavorites();
-    navigationStore.resetNavigation();
+    if (searchQuery) {
+      navigationStore.setSelectedIndex(0);
+    } else {
+      navigationStore.resetNavigation();
+    }
   }, [searchQuery, contentFilter]);
 
   // 暴露导航方法给父组件

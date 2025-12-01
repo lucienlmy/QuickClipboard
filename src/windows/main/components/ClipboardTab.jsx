@@ -15,17 +15,24 @@ const ClipboardTab = forwardRef(({
   const listRef = useRef(null);
   const [isAtTop, setIsAtTop] = useState(true);
   const prevTotalCountRef = useRef(snap.totalCount);
+
   useEffect(() => {
     clipboardStore.setContentType(contentFilter);
     clipboardStore.setFilter(searchQuery);
     refreshClipboardHistory();
-    navigationStore.resetNavigation();
+    if (searchQuery) {
+      navigationStore.setSelectedIndex(0);
+    } else {
+      navigationStore.resetNavigation();
+    }
   }, [searchQuery, contentFilter]);
+
   const scrollToTopIfEnabled = (delay = 50) => {
     if (settings.autoScrollToTopOnShow) {
       setTimeout(() => listRef.current?.scrollToTop?.('auto'), delay);
     }
   };
+
   useEffect(() => {
     if (snap.totalCount > prevTotalCountRef.current) {
       scrollToTopIfEnabled(100);
