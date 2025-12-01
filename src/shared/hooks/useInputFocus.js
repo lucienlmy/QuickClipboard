@@ -7,6 +7,13 @@ let focusDebounceTimer = null
 let blurDebounceTimer = null
 const FOCUS_DEBOUNCE_DELAY = 50
 
+// 重置状态
+if (typeof window !== 'undefined') {
+  window.addEventListener('blur', () => {
+    currentFocusState = 'normal'
+  })
+}
+
 // 防抖的焦点启用函数
 async function debouncedEnableFocus() {
   if (blurDebounceTimer) {

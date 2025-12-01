@@ -7,6 +7,7 @@ import { useInputFocus } from '@shared/hooks/useInputFocus';
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
+import { restoreLastFocus } from '@shared/api/window';
 import { ImageLibraryTab } from './emoji';
 import {
   SYMBOL_CATS, EMOJI_CATS, IMAGE_CATS, SKIN_TONES,
