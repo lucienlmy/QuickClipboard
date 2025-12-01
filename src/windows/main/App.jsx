@@ -209,16 +209,20 @@ function App() {
     }
   };
   const handleTabLeft = () => {
-    const tabs = ['clipboard', 'favorites', 'emoji'];
-    const currentIndex = tabs.indexOf(activeTab);
-    const newIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
-    setActiveTab(tabs[newIndex]);
+    setActiveTab(currentTab => {
+      const tabs = ['clipboard', 'favorites', 'emoji'];
+      const currentIndex = tabs.indexOf(currentTab);
+      if (currentIndex === -1) return tabs[tabs.length - 1];
+      return tabs[currentIndex === 0 ? tabs.length - 1 : currentIndex - 1];
+    });
   };
   const handleTabRight = () => {
-    const tabs = ['clipboard', 'favorites', 'emoji'];
-    const currentIndex = tabs.indexOf(activeTab);
-    const newIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1;
-    setActiveTab(tabs[newIndex]);
+    setActiveTab(currentTab => {
+      const tabs = ['clipboard', 'favorites', 'emoji'];
+      const currentIndex = tabs.indexOf(currentTab);
+      if (currentIndex === -1) return tabs[0];
+      return tabs[currentIndex === tabs.length - 1 ? 0 : currentIndex + 1];
+    });
   };
   const handleFocusSearch = () => {
     if (searchRef.current?.focus) {
