@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
-import { setAutoStart } from '@shared/api/settings';
+import { setAutoStart, getAutoStartStatus } from '@shared/api/settings';
 import { toast } from '@shared/store/toastStore';
 import { getAvailableLanguages } from '@shared/i18n';
 import i18n from '@shared/i18n';
@@ -16,6 +16,27 @@ function GeneralSection({
     t
   } = useTranslation();
   const [autoStartLoading, setAutoStartLoading] = useState(false);
+  const [autoStartSynced, setAutoStartSynced] = useState(false);
+  const [autoStartMismatch, setAutoStartMismatch] = useState(false);
+
+  // 初同步自启动状态
+  useEffect(() => {
+    const syncAutoStartStatus = async () => {
+      try {
+        const systemStatus = await getAutoStartStatus();
+        if (systemStatus !== settings.autoStart) {
+          setAutoStartMismatch(true);
+          console.warn('开机自启动状态不一致 - 系统:', systemStatus, '配置:', settings.autoStart);
+          await onSettingChange('autoStart', systemStatus);
+        }
+        setAutoStartSynced(true);
+      } catch (error) {
+        console.error('获取开机自启动状态失败:', error);
+        setAutoStartSynced(true);
+      }
+    };
+    syncAutoStartStatus();
+  }, []);
   const historyLimitOptions = [{
     value: 50,
     label: `50 ${t('settings.general.items')}`
@@ -44,7 +65,8 @@ function GeneralSection({
       toast.success(checked ? t('settings.general.autoStartEnabled') : t('settings.general.autoStartDisabled'));
     } catch (error) {
       console.error('设置开机自启动失败:', error);
-      toast.error(t('settings.general.autoStartFailed'));
+      const errorMsg = typeof error === 'string' ? error : (error?.message || t('settings.general.autoStartFailed'));
+      toast.error(errorMsg);
     } finally {
       setAutoStartLoading(false);
     }

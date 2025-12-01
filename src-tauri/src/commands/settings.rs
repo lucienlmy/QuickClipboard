@@ -139,10 +139,24 @@ pub fn set_auto_start(app: tauri::AppHandle, enabled: bool) -> Result<(), String
         
         let autostart_manager = app.autolaunch();
         
-        if enabled {
-            autostart_manager.enable().map_err(|e| format!("启用开机自启动失败: {}", e))?;
-        } else {
-            autostart_manager.disable().map_err(|e| format!("禁用开机自启动失败: {}", e))?;
+        let current_status = autostart_manager.is_enabled().unwrap_or(false);
+        
+        if current_status != enabled {
+            if enabled {
+                if let Err(e) = autostart_manager.enable() {
+                    let err_msg = format!("{}", e);
+                    let friendly_msg = if err_msg.contains("permission") || err_msg.contains("access") {
+                        "启用开机自启动失败：权限不足，请检查杀毒软件是否拦截"
+                    } else if err_msg.contains("registry") {
+                        "启用开机自启动失败：无法写入注册表"
+                    } else {
+                        &format!("启用开机自启动失败: {}", err_msg)
+                    };
+                    return Err(friendly_msg.to_string());
+                }
+            } else if let Err(e) = autostart_manager.disable() {
+                return Err(format!("禁用开机自启动失败: {}", e));
+            }
         }
     }
 
