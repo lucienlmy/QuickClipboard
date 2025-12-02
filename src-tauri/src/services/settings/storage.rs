@@ -43,7 +43,14 @@ impl SettingsStorage {
         }
 
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        serde_json::from_str(&content).map_err(|e| e.to_string())
+        let mut settings: AppSettings = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        
+        if settings.number_shortcuts_modifier.contains("Alt") {
+            settings.number_shortcuts_modifier = "Ctrl".to_string();
+            let _ = Self::save(&settings);
+        }
+        
+        Ok(settings)
     }
 
     pub fn exists() -> Result<bool, String> {

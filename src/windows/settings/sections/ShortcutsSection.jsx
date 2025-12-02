@@ -17,6 +17,7 @@ function ShortcutsSection({
     t
   } = useTranslation();
   const {
+    statuses,
     hasError: hasBackendError,
     getError: getBackendError,
     reload
@@ -62,22 +63,25 @@ function ShortcutsSection({
   };
   const numberModifierOptions = [{
     value: 'Ctrl',
-    label: 'Ctrl + ' + t('settings.shortcuts.number')
-  }, {
-    value: 'Alt',
-    label: 'Alt + ' + t('settings.shortcuts.number')
+    label: 'Ctrl + 1~9'
   }, {
     value: 'Shift',
-    label: 'Shift + ' + t('settings.shortcuts.number')
+    label: 'Shift + 1~9'
   }, {
     value: 'Ctrl+Shift',
-    label: 'Ctrl + Shift + ' + t('settings.shortcuts.number')
+    label: 'Ctrl + Shift + 1~9'
   }, {
-    value: 'Ctrl+Alt',
-    label: 'Ctrl + Alt + ' + t('settings.shortcuts.number')
+    value: 'F',
+    label: 'F1 ~ F9'
   }, {
-    value: 'Alt+Shift',
-    label: 'Alt + Shift + ' + t('settings.shortcuts.number')
+    value: 'Ctrl+F',
+    label: 'Ctrl + F1~F9'
+  }, {
+    value: 'Shift+F',
+    label: 'Shift + F1~F9'
+  }, {
+    value: 'Ctrl+Shift+F',
+    label: 'Ctrl + Shift + F1~F9'
   }];
   const mouseModifierOptions = [{
     value: 'None',
@@ -166,6 +170,13 @@ function ShortcutsSection({
         <SettingItem label={t('settings.shortcuts.numberModifier')} description={t('settings.shortcuts.numberModifierDesc')}>
           <Select value={settings.numberShortcutsModifier} onChange={value => onSettingChange('numberShortcutsModifier', value)} options={numberModifierOptions} className="w-56" />
         </SettingItem>
+
+        {hasBackendError('number_shortcuts') && (
+          <div className="px-4 py-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md">
+            <span className="font-medium">{t('settings.shortcuts.numberRegistrationFailed')}：</span>
+            {statuses['number_shortcuts']?.shortcut}
+          </div>
+        )}
       </SettingsSection>
 
       <SettingsSection title={t('settings.shortcuts.mouseTitle')} description={t('settings.shortcuts.mouseDesc')}>

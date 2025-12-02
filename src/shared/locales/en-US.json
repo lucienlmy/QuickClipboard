@@ -267,6 +267,7 @@
       "enableNumberDesc": "Use shortcut + number to quickly operate clipboard items",
       "numberModifier": "Number Shortcut Modifier",
       "numberModifierDesc": "Choose modifier key combination for number shortcuts",
+      "numberRegistrationFailed": "The following shortcuts failed to register (may be occupied by other programs)",
       "mouseTitle": "Mouse Shortcuts",
       "mouseDesc": "Quickly operate clipboard with mouse",
       "enableMouseMiddle": "Enable Middle Click Shortcut",

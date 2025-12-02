@@ -267,6 +267,7 @@
       "enableNumberDesc": "使用快捷键+数字快速操作剪贴板项目",
       "numberModifier": "数字快捷键修饰键",
       "numberModifierDesc": "选择数字快捷键的修饰键组合",
+      "numberRegistrationFailed": "以下快捷键注册失败（可能已被其他程序占用）",
       "mouseTitle": "鼠标快捷键",
       "mouseDesc": "使用鼠标快速操作剪贴板",
       "enableMouseMiddle": "启用鼠标中键快捷键",

@@ -178,26 +178,62 @@ pub fn register_number_shortcuts(modifier: &str) -> Result<(), String> {
     
     unregister_number_shortcuts();
     
+    {
+        let mut status_map = SHORTCUT_STATUS.lock();
+        status_map.remove("number_shortcuts");
+    }
+    
+    let is_f_key = modifier.ends_with("F");
+    let prefix = if is_f_key {
+        modifier.strip_suffix("F").unwrap_or("").trim_end_matches('+')
+    } else {
+        modifier
+    };
+    
+    let mut failed_shortcuts: Vec<String> = Vec::new();
+    
     for num in 1..=9 {
         let id = format!("number_{}", num);
-        let shortcut_str = format!("{}+{}", modifier, num);
+        let shortcut_str = if is_f_key {
+            if prefix.is_empty() {
+                format!("F{}", num)
+            } else {
+                format!("{}+F{}", prefix, num)
+            }
+        } else {
+            format!("{}+{}", modifier, num)
+        };
         
         if let Ok(shortcut) = parse_shortcut(&shortcut_str) {
             let index = (num - 1) as usize;
             
-            app.global_shortcut()
-                .on_shortcut(shortcut, move |_app, _shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        if let Err(e) = handle_number_shortcut(index) {
-                            eprintln!("执行数字快捷键 {} 失败: {}", index + 1, e);
-                        }
+            match app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    if let Err(e) = handle_number_shortcut(index) {
+                        eprintln!("执行数字快捷键 {} 失败: {}", index + 1, e);
                     }
-                })
-                .map_err(|e| format!("注册数字快捷键 {} 失败: {}", shortcut_str, e))?;
-            
-            REGISTERED_SHORTCUTS.lock().push((id, shortcut_str.clone()));
-            println!("已注册数字快捷键: {}", shortcut_str);
+                }
+            }) {
+                Ok(_) => {
+                    REGISTERED_SHORTCUTS.lock().push((id, shortcut_str.clone()));
+                    println!("已注册数字快捷键: {}", shortcut_str);
+                }
+                Err(e) => {
+                    eprintln!("注册数字快捷键 {} 失败: {}，继续注册其他快捷键", shortcut_str, e);
+                    failed_shortcuts.push(shortcut_str);
+                }
+            }
         }
+    }
+    
+    if !failed_shortcuts.is_empty() {
+        let mut status_map = SHORTCUT_STATUS.lock();
+        status_map.insert("number_shortcuts".to_string(), ShortcutStatus {
+            id: "number_shortcuts".to_string(),
+            shortcut: failed_shortcuts.join(", "),
+            success: false,
+            error: Some("REGISTRATION_FAILED".to_string()),
+        });
     }
     
     Ok(())
