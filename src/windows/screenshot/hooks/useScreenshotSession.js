@@ -5,7 +5,7 @@ import { useSelectionInteraction } from './useSelectionInteraction';
 import { useAutoSelection } from './useAutoSelection';
 import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUtils';
 
-export function useScreenshotSession(stageRef, stageRegionManager) {
+export function useScreenshotSession(stageRef, stageRegionManager, { screens = [] } = {}) {
   const {
     selection,
     cornerRadius,
@@ -108,30 +108,29 @@ export function useScreenshotSession(stageRef, stageRegionManager) {
   const handleConfirmSelection = useCallback(async () => {
     if (!selection) return;
     try {
-      await exportToClipboard(stageRef, selection, cornerRadius);
+      await exportToClipboard(stageRef, selection, cornerRadius, { screens });
     } catch (err) {
       console.error('复制选区到剪贴板失败:', err);
     }
-  }, [selection, stageRef, cornerRadius]);
+  }, [selection, stageRef, cornerRadius, screens]);
 
   const handlePinSelection = useCallback(async () => {
     if (!selection) return;
     try {
-      const screens = stageRegionManager?.getScreens?.() || [];
-      await exportToPin(stageRef, selection, cornerRadius, screens);
+      await exportToPin(stageRef, selection, cornerRadius, { screens });
     } catch (err) {
       console.error('创建贴图失败:', err);
     }
-  }, [selection, stageRef, cornerRadius, stageRegionManager]);
+  }, [selection, stageRef, cornerRadius, screens]);
 
   const handleSaveSelection = useCallback(async () => {
     if (!selection) return;
     try {
-      await exportToFile(stageRef, selection, cornerRadius);
+      await exportToFile(stageRef, selection, cornerRadius, { screens });
     } catch (err) {
       console.error('保存文件失败:', err);
     }
-  }, [selection, stageRef, cornerRadius]);
+  }, [selection, stageRef, cornerRadius, screens]);
 
   return {
     selection,

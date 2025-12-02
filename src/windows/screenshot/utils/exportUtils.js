@@ -2,112 +2,62 @@ import { invoke } from '@tauri-apps/api/core';
 import { writeFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { save } from '@tauri-apps/plugin-dialog';
 import { cancelScreenshotSession } from '@shared/api/system';
+import { compositeSelectionImage } from './imageCompositor';
 
-async function captureSelectionToBlob(stageRef, selection, cornerRadius = 0) {
+function applyCornerRadius(canvas, cornerRadius, pixelRatio) {
+  const radius = cornerRadius * pixelRatio;
+  const newCanvas = document.createElement('canvas');
+  newCanvas.width = canvas.width;
+  newCanvas.height = canvas.height;
+  const ctx = newCanvas.getContext('2d');
+
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(0, 0, canvas.width, canvas.height, radius);
+  } else {
+    ctx.moveTo(radius, 0);
+    ctx.lineTo(canvas.width - radius, 0);
+    ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
+    ctx.lineTo(canvas.width, canvas.height - radius);
+    ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
+    ctx.lineTo(radius, canvas.height);
+    ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
+    ctx.lineTo(0, radius);
+    ctx.quadraticCurveTo(0, 0, radius, 0);
+  }
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(canvas, 0, 0);
+
+  return newCanvas;
+}
+
+async function captureSelectionToBlob(stageRef, selection, cornerRadius = 0, { screens = [] } = {}) {
   if (!selection || !stageRef || !stageRef.current) return null;
 
   const stage = stageRef.current.getStage ? stageRef.current.getStage() : stageRef.current;
   if (!stage || typeof stage.toDataURL !== 'function') return null;
 
-  const { x, y, width, height } = selection;
-  const x1 = Math.round(x);
-  const y1 = Math.round(y);
-  const x2 = Math.round(x + width);
-  const y2 = Math.round(y + height);
-
-  const safeX = x1;
-  const safeY = y1;
-  const safeWidth = Math.max(1, x2 - x1);
-  const safeHeight = Math.max(1, y2 - y1);
-
-  const overlayLayer = stage.findOne('#screenshot-overlay-layer');
-  const uiLayer = stage.findOne('#screenshot-ui-layer');
-
-  const overlayVisible = overlayLayer?.visible();
-  const uiVisible = uiLayer?.visible();
-  
-  if (overlayLayer) overlayLayer.visible(false);
-  if (uiLayer) uiLayer.visible(false);
-
-  const exportNode = stage;
-
-  const stagePixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
-
-  let dataURL;
   try {
-    dataURL = exportNode.toDataURL({
-      x: safeX,
-      y: safeY,
-      width: safeWidth,
-      height: safeHeight,
-      pixelRatio: stagePixelRatio,
+    let canvas = await compositeSelectionImage({ stage, selection, screens });
+    
+    if (cornerRadius > 0) {
+      const pixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
+      canvas = applyCornerRadius(canvas, cornerRadius, pixelRatio);
+    }
+    
+    return new Promise((resolve) => {
+      canvas.toBlob(resolve, 'image/png');
     });
-  } finally {
-    if (overlayLayer && overlayVisible !== undefined) overlayLayer.visible(overlayVisible);
-    if (uiLayer && uiVisible !== undefined) uiLayer.visible(uiVisible);
+  } catch (err) {
+    console.error('截图合成失败:', err);
+    return null;
   }
-
-  let blob;
-
-  if (cornerRadius > 0) {
-    try {
-      blob = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-
-            const radius = cornerRadius * stagePixelRatio;
-
-            ctx.beginPath();
-            if (ctx.roundRect) {
-              ctx.roundRect(0, 0, canvas.width, canvas.height, radius);
-            } else {
-              ctx.moveTo(radius, 0);
-              ctx.lineTo(canvas.width - radius, 0);
-              ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
-              ctx.lineTo(canvas.width, canvas.height - radius);
-              ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
-              ctx.lineTo(radius, canvas.height);
-              ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
-              ctx.lineTo(0, radius);
-              ctx.quadraticCurveTo(0, 0, radius, 0);
-            }
-            ctx.closePath();
-            ctx.clip();
-
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob((b) => resolve(b), 'image/png');
-          } catch (err) {
-            reject(err);
-          }
-        };
-        img.onerror = (e) => reject(new Error('Failed to load image'));
-        img.src = dataURL;
-      });
-    } catch (err) {
-      console.error('圆角处理失败:', err);
-      return null;
-    }
-  } else {
-    try {
-      const response = await fetch(dataURL);
-      blob = await response.blob();
-    } catch (err) {
-      console.error('获取图片数据失败:', err);
-      return null;
-    }
-  }
-
-  return blob;
 }
 
 // 导出到剪贴板
-export async function exportToClipboard(stageRef, selection, cornerRadius = 0) {
-  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius);
+export async function exportToClipboard(stageRef, selection, cornerRadius = 0, { screens = [] } = {}) {
+  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius, { screens });
   if (!blob) return;
 
   const arrayBuffer = await blob.arrayBuffer();
@@ -130,8 +80,8 @@ export async function exportToClipboard(stageRef, selection, cornerRadius = 0) {
 }
 
 // 导出为贴图
-export async function exportToPin(stageRef, selection, cornerRadius = 0, screens = []) {
-  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius);
+export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [] } = {}) {
+  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius, { screens });
   if (!blob) return;
 
   const arrayBuffer = await blob.arrayBuffer();
@@ -177,8 +127,8 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, screens
 }
 
 // 导出为文件
-export async function exportToFile(stageRef, selection, cornerRadius = 0) {
-  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius);
+export async function exportToFile(stageRef, selection, cornerRadius = 0, { screens = [] } = {}) {
+  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius, { screens });
   if (!blob) return;
 
   const arrayBuffer = await blob.arrayBuffer();

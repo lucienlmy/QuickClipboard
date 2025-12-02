@@ -8,7 +8,7 @@ import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { getEffectiveTheme } from '@shared/hooks/useTheme';
 import useScreenshotStage from './hooks/useScreenshotStage';
 import useCursorMovement from './hooks/useCursorMovement';
-import BackgroundLayer from './components/BackgroundLayer';
+import WebGLBackgroundLayer from './components/WebGLBackgroundLayer';
 import SelectionOverlay from './components/SelectionOverlay';
 import Magnifier from './components/Magnifier';
 import SelectionInfoBar from './components/SelectionInfoBar';
@@ -33,12 +33,13 @@ function App() {
   const isDark = effectiveTheme === 'dark';
 
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
+  
   const stageRef = useRef(null);
   const magnifierUpdateRef = useRef(null);
   const [ocrResult, setOcrResult] = useState(null);
 
   const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager);
-  const session = useScreenshotSession(stageRef, stageRegionManager);
+  const session = useScreenshotSession(stageRef, stageRegionManager, { screens });
   const editing = useScreenshotEditing(screens, stageRef);
   const longScreenshot = useLongScreenshot(session.selection, screens, stageRegionManager);
 
@@ -142,7 +143,7 @@ function App() {
     if (ocrResult) return;
     const performOcr = async () => {
       try {
-        const result = await recognizeSelectionOcr(stageRef, session.selection);
+        const result = await recognizeSelectionOcr(stageRef, session.selection, { screens });
         setOcrResult(result);
         editing.handleToolParameterChange('recognizedText', result.text);
       } catch (error) {
@@ -194,6 +195,13 @@ function App() {
 
   return (
     <div className={`w-screen h-screen bg-transparent relative ${isDark ? 'dark' : ''}`}>
+      {!longScreenshot.isActive && (
+        <WebGLBackgroundLayer 
+          screens={screens} 
+          stageWidth={stageSize.width} 
+          stageHeight={stageSize.height} 
+        />
+      )}
       <Stage
         ref={stageRef}
         width={stageSize.width}
@@ -206,7 +214,6 @@ function App() {
         onContextMenu={handleContextMenu}
         onWheel={session.handleWheel}
       >
-        {!longScreenshot.isActive && <BackgroundLayer screens={screens} />}
         {!longScreenshot.isActive && <EditingLayer
           shapes={editing.shapes}
           listening={!!editing.activeToolId}
@@ -356,7 +363,6 @@ function App() {
         />
       )}
 
-      {/* 快捷键帮助 */}
       {settings.screenshotHintsEnabled && (
         <KeyboardShortcutsHelp
           stageRegionManager={stageRegionManager}

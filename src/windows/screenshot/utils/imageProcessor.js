@@ -1,6 +1,7 @@
-// 图像处理工具：使用 Konva 滤镜处理马赛克和模糊效果
+// 使用 Konva 滤镜处理马赛克和模糊效果
 
 import Konva from 'konva';
+import { drawBackgroundFromScreens } from './imageCompositor';
 
 // 应用马赛克效果到图像区域
 export function applyMosaic(canvas, x, y, width, height, blockSize = 10) {
@@ -105,18 +106,12 @@ export async function processMosaicShape(shape, stageRef, screens, existingShape
     tempCanvas.height = stage.height();
     const tempCtx = tempCanvas.getContext('2d');
     
-    // 绘制所有屏幕图像（背景）
-    screens.forEach(screen => {
-      if (screen.image && screen.image.complete) {
-        tempCtx.drawImage(
-          screen.image,
-          screen.x,
-          screen.y,
-          screen.width,
-          screen.height
-        );
-      }
-    });
+    drawBackgroundFromScreens(tempCtx, screens, { 
+      x: 0, 
+      y: 0, 
+      width: stage.width(), 
+      height: stage.height() 
+    }, 1);
     
     // 如果是全局模式，使用 Stage 的完整渲染（包括背景 + 所有编辑层内容）
     if (shape.coverageMode === 'global') {

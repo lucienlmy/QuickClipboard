@@ -1,58 +1,23 @@
 import { invoke } from '@tauri-apps/api/core';
+import { compositeSelectionImage } from './imageCompositor';
 
-export async function recognizeSelectionOcr(stageRef, selection) {
+export async function recognizeSelectionOcr(stageRef, selection, { screens = [] } = {}) {
   if (!selection || !stageRef || !stageRef.current) {
-    throw new Error('无效的选区或舞台引用');
+    throw new Error('无法获取 Konva Stage 实例');
   }
 
   const stage = stageRef.current.getStage ? stageRef.current.getStage() : stageRef.current;
   if (!stage || typeof stage.toDataURL !== 'function') {
-    throw new Error('无法获取舞台对象');
+    throw new Error('Konva Stage 或选区无效');
   }
 
-  const { x, y, width, height } = selection;
-  const x1 = Math.round(x);
-  const y1 = Math.round(y);
-  const x2 = Math.round(x + width);
-  const y2 = Math.round(y + height);
+  const stagePixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
 
-  const safeX = x1;
-  const safeY = y1;
-  const safeWidth = Math.max(1, x2 - x1);
-  const safeHeight = Math.max(1, y2 - y1);
+  const canvas = await compositeSelectionImage({ stage, selection, screens });
+  const dataURL = canvas.toDataURL('image/png');
+  const base64Data = dataURL.split(',')[1];
+  const imageData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
-  // 隐藏UI层
-  const overlayLayer = stage.findOne('#screenshot-overlay-layer');
-  const uiLayer = stage.findOne('#screenshot-ui-layer');
-
-  const overlayVisible = overlayLayer?.visible();
-  const uiVisible = uiLayer?.visible();
-  
-  if (overlayLayer) overlayLayer.visible(false);
-  if (uiLayer) uiLayer.visible(false);
-
-  let stagePixelRatio;
-  let imageData;
-  
-  try {
-    stagePixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
-    
-    const dataURL = stage.toDataURL({
-      x: safeX,
-      y: safeY,
-      width: safeWidth,
-      height: safeHeight,
-      pixelRatio: stagePixelRatio,
-    });
-    
-    const base64Data = dataURL.split(',')[1];
-    imageData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-  } finally {
-    if (overlayLayer && overlayVisible !== undefined) overlayLayer.visible(overlayVisible);
-    if (uiLayer && uiVisible !== undefined) uiLayer.visible(uiVisible);
-  }
-
-  // 调用后端OCR识别
   const result = await invoke('recognize_image_ocr', { 
     imageData: Array.from(imageData)
   });
