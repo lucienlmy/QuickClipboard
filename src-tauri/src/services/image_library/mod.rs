@@ -227,7 +227,7 @@ pub fn get_image_list(category: &str, offset: usize, limit: usize) -> Result<Ima
                         .and_then(|e| e.to_str())
                         .map(|e| e.to_lowercase())
                         .unwrap_or_default();
-                    matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp")
+                    matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "avif" | "svg" | "ico" | "tiff" | "tif" | "heic" | "heif" | "jfif")
                 }
             })
             .collect();
@@ -292,7 +292,7 @@ pub fn get_image_count(category: &str) -> Result<usize, String> {
                     .and_then(|e| e.to_str())
                     .map(|e| e.to_lowercase())
                     .unwrap_or_default();
-                matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp")
+                matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "avif" | "svg" | "ico" | "tiff" | "tif" | "heic" | "heif" | "jfif")
             }
         })
         .count();
