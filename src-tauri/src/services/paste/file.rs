@@ -19,9 +19,8 @@ struct FileClipboardData {
     operation: String,
 }
 
-// 粘贴文件路径
+// 粘贴文件路径（只粘贴存在的文件）
 pub fn paste_files(ctx: &ClipboardContext, content: &str) -> Result<(), String> {
-    // 解析文件数据
     if !content.starts_with("files:") {
         return Err("无效的文件内容格式".to_string());
     }
@@ -30,20 +29,16 @@ pub fn paste_files(ctx: &ClipboardContext, content: &str) -> Result<(), String> 
     let file_data: FileClipboardData = serde_json::from_str(json_str)
         .map_err(|e| format!("解析文件数据失败: {}", e))?;
     
-    // 提取文件路径列表
     let file_paths: Vec<String> = file_data.files
         .iter()
         .map(|f| f.path.clone())
+        .filter(|p| Path::new(p).exists())
         .collect();
     
-    // 验证所有文件是否存在
-    for path in &file_paths {
-        if !Path::new(path).exists() {
-            return Err(format!("文件不存在: {}", path));
-        }
+    if file_paths.is_empty() {
+        return Err("所有文件都不存在".to_string());
     }
     
-    // 设置文件路径到剪贴板
     ctx.set_files(file_paths)
         .map_err(|e| format!("设置文件到剪贴板失败: {}", e))
 }

@@ -7,6 +7,53 @@ use crate::services::database::{
     toggle_pin_clipboard_item as db_toggle_pin, ClipboardItem,
     PaginatedResult, QueryParams,
 };
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+
+#[derive(Deserialize, Serialize)]
+struct FileInfo {
+    path: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    size: u64,
+    #[serde(default)]
+    is_directory: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon_data: Option<String>,
+    #[serde(default)]
+    file_type: String,
+    #[serde(default)]
+    exists: bool,
+}
+
+#[derive(Deserialize, Serialize)]
+struct FilesData {
+    files: Vec<FileInfo>,
+    #[serde(default)]
+    operation: String,
+}
+
+fn fill_file_exists(items: &mut [ClipboardItem]) {
+    for item in items.iter_mut() {
+        if item.content_type == "file" || item.content_type == "image" {
+            check_and_fill_file_exists(item);
+        }
+    }
+}
+
+fn check_and_fill_file_exists(item: &mut ClipboardItem) {
+    if !item.content.starts_with("files:") { return; }
+    
+    if let Ok(mut data) = serde_json::from_str::<FilesData>(&item.content[6..]) {
+        for file in &mut data.files {
+            file.exists = Path::new(&file.path).exists();
+        }
+        if let Ok(json) = serde_json::to_string(&data) {
+            item.content = format!("files:{}", json);
+        }
+    }
+}
 
 // 分页查询剪贴板历史
 #[tauri::command]
@@ -23,7 +70,9 @@ pub fn get_clipboard_history(
         content_type,
     };
 
-    query_clipboard_items(params)
+    let mut result = query_clipboard_items(params)?;
+    fill_file_exists(&mut result.items);
+    Ok(result)
 }
 
 // 另存图片
