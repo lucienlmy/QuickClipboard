@@ -1,4 +1,3 @@
-# Logs
 logs
 *.log
 npm-debug.log*
@@ -12,10 +11,8 @@ dist
 dist-ssr
 *.local
 
-# Rust build artifacts
 target
 
-# Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -26,8 +23,4 @@ target
 *.sln
 *.sw?
 
-QuickClipboard.md
-settings.md
-QuickClipboard-rust.md
-src-旧原生
-src-旧
+docs
