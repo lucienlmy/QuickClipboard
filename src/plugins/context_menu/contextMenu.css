@@ -9,20 +9,20 @@ body {
     font-size: 14px;
     overflow: hidden;
     background: transparent;
-    padding: 8px; /* 留出空间显示阴影 */
+    padding: 8px; 
 }
 
 .menu-container {
-    position: relative; /* 子菜单相对于它定位 */
+    position: relative; 
     background: #ffffff;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     padding: 8px 0;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
-    overflow: visible; /* 允许子菜单溢出 */
-    width: max-content; /* 根据内容自动宽度 */
+    box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2);
+    overflow: visible; 
+    width: max-content; 
     min-width: 200px;
-    max-width: 300px; /* 最大宽度限制 */
+    max-width: 400px; 
 }
 
 .menu-item {
@@ -66,6 +66,11 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: #333;
+    word-break: break-all;
+}
+
+.submenu-container .menu-item-label {
+    max-width: 350px;
 }
 
 .menu-item.disabled .menu-item-label {
@@ -88,14 +93,18 @@ body {
 
 /* 子菜单容器 */
 .submenu-container {
-    position: absolute; /* 相对于 body 绝对定位 */
+    position: absolute;
     display: none;
     background: #ffffff;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     padding: 8px 0;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2);
     min-width: 160px;
+    max-width: 400px;
+    max-height: 400px; 
+    overflow-y: auto;
+    overflow-x: hidden;
     z-index: 1000;
 }
 
@@ -103,11 +112,34 @@ body {
     display: block;
 }
 
+.submenu-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.submenu-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+}
+
+.submenu-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.submenu-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.submenu-container::-webkit-scrollbar-thumb:active {
+    background: rgba(0, 0, 0, 0.4);
+}
+
 /* 暗色主题 */
 body.dark-theme .menu-container {
     background: #2b2b2b;
     border-color: #404040;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2);
 }
 
 body.dark-theme .menu-item:hover:not(.disabled) {
@@ -142,6 +174,19 @@ body.dark-theme .menu-item-submenu-indicator {
 body.dark-theme .submenu-container {
     background: #2b2b2b;
     border-color: #404040;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* 暗色主题的子菜单滚动条 */
+body.dark-theme .submenu-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-theme .submenu-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+body.dark-theme .submenu-container::-webkit-scrollbar-thumb:active {
+    background: rgba(255, 255, 255, 0.4);
 }
 

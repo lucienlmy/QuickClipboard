@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1421",
     "frontendDist": "../dist"
   },
   "app": {
@@ -15,6 +15,7 @@
       {
         "label": "main",
         "title": "快速剪贴板",
+        "url": "windows/main/index.html",
         "width": 360,
         "height": 520,
         "minWidth": 350,
@@ -33,50 +34,6 @@
         "dragDropEnabled": false,
         "shadow": false,
         "visibleOnAllWorkspaces": true
-      },
-      {
-        "label": "preview",
-        "title": "快速预览",
-        "url": "preview.html",
-        "width": 400,
-        "height": 180,
-        "minWidth": 350,
-        "minHeight": 180,
-        "maxWidth": 400,
-        "maxHeight": 180,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "center": false,
-        "visible": false,
-        "resizable": false,
-        "focus": false,
-        "maximizable": false,
-        "minimizable": false,
-        "dragDropEnabled": false
-      },
-      {
-        "label": "screenshot",
-        "title": "截屏窗口",
-        "url": "screenshot/index.html",
-        "width": 1920,
-        "height": 1080,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "center": false,
-        "visible": false,
-        "resizable": false,
-        "focus": false,
-        "maximizable": false,
-        "minimizable": false,
-        "dragDropEnabled": false,
-        "fullscreen": false,
-        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {
@@ -84,12 +41,13 @@
       "capabilities": [
         "default",
         "settings",
-        "preview",
+        "quickpaste",
         "text-editor",
         "screenshot",
         "pin-image",
         "input-dialog",
-        "context-menu"
+        "context-menu",
+        "updater"
       ],
       "assetProtocol": {
         "enable": true,
@@ -104,8 +62,8 @@
   "bundle": {
     "active": true,
     "targets": [
-      "msi",
-      "nsis"
+      "nsis",
+      "app"
     ],
     "publisher": "MoSheng",
     "homepage": "https://github.com/mosheng1/QuickClipboard",
@@ -118,9 +76,6 @@
       "icons/icon1024.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "../sounds": "sounds"
-    },
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
@@ -133,19 +88,16 @@
       "wix": {
         "language": "zh-CN"
       }
-    }
+    },
+    "createUpdaterArtifacts": true
   },
   "plugins": {
     "updater": {
-      "active": true,
       "endpoints": [
+        "https://api.quickclipboard.cn/update/latest.json",
         "https://github.com/mosheng1/QuickClipboard/releases/latest/download/latest.json"
       ],
-      "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlBRjJDNjRFN0RGNUI2MDUKUldRRnR2VjlUc2J5bWtnYmlnbzZuUHpjN3dYSFJuQU5vbmY5RUpzVDN6Q1B6OFF5LzVIRG0zRUMK",
-      "windows": {
-        "installMode": "passive"
-      }
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlCMDU4RTQxRTUyRTg3Q0MKUldUTWh5N2xRWTRGbTVxWUFhdXJPUzVKTkZkcjF6OE55dzg3UUJlRGF4em8yczliUUpTR29CKzQK"
     }
   }
 }

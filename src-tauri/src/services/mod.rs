@@ -1,15 +1,23 @@
-pub mod translation_service;
-pub mod paste_service;
-pub mod window_service;
-pub mod edge_snap_service;
-pub mod clipboard_service;
-pub mod quick_text_service;
-pub mod mouse_service;
-pub mod drag_sort_service;
-pub mod group_service;
-pub mod sound_service;
-pub mod system_service;
-pub mod file_operation_service;
-pub mod image_service;
-pub mod ai_service;
-pub mod preview_service;
+pub mod clipboard;
+pub mod database;
+pub mod data_management;
+pub mod notification;
+pub mod settings;
+pub mod system;
+pub mod paste;
+pub mod sound;
+pub mod screenshot;
+pub mod image_library;
+
+pub use settings::{AppSettings, get_settings, update_settings, get_data_directory};
+pub use notification::show_startup_notification;
+pub use system::hotkey;
+pub use sound::{SoundPlayer, AppSounds};
+
+pub fn is_portable_build() -> bool {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_name().and_then(|s| s.to_str()).map(|s| s.to_ascii_lowercase()))
+        .map(|name| name.contains("portable"))
+        .unwrap_or(false)
+}
