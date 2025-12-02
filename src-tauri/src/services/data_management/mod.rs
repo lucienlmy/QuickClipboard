@@ -6,6 +6,7 @@ use crate::services::{get_data_directory, get_settings, update_settings};
 use crate::services::settings::storage::SettingsStorage;
 use crate::services::database::{init_database};
 use crate::services::database::connection::{close_database, with_connection};
+use crate::services::system::hotkey::reload_from_settings;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TargetDataInfo {
@@ -254,8 +255,11 @@ pub fn reset_all_data() -> Result<String, String> {
         conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
     });
 
+    let _ = reload_from_settings();
+
     Ok(default_dir.to_string_lossy().to_string())
 }
+
 pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> {
     if !zip_path.exists() {
         return Err("导入文件不存在".into());
@@ -344,6 +348,8 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             let _ = crate::services::database::connection::with_connection(|conn| {
                 conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
             });
+
+            let _ = reload_from_settings();
 
             let _ = fs::remove_dir_all(&temp_root);
             Ok(target_dir.to_string_lossy().to_string())
