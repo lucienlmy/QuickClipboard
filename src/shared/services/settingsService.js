@@ -113,7 +113,11 @@ export const defaultSettings = {
   
   // 保存的窗口状态
   savedWindowPosition: null,
-  savedWindowSize: null
+  savedWindowSize: null,
+  
+  // 数据存储设置
+  customStoragePath: null,
+  useCustomStorage: false
 }
 
 // 从 Tauri 后端加载设置
