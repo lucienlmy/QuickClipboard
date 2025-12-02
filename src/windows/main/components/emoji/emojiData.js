@@ -55,8 +55,8 @@ export const SYMBOL_CATS = [
   { id: 'arrows', icon: 'ti-arrow-right', labelKey: 'emoji.cat.arrows' },
   { id: 'math', icon: 'ti-math', labelKey: 'emoji.cat.math' },
   { id: 'currency', icon: 'ti-currency-dollar', labelKey: 'emoji.cat.currency' },
-  { id: 'geometric', icon: 'ti-shape', labelKey: 'emoji.cat.geometric' },
-  { id: 'box', icon: 'ti-box', labelKey: 'emoji.cat.box' },
+  { id: 'geometric', icon: 'ti-cube', labelKey: 'emoji.cat.geometric' },
+  { id: 'box', icon: 'ti-square-dashed', labelKey: 'emoji.cat.box' },
   { id: 'misc', icon: 'ti-star', labelKey: 'emoji.cat.misc' },
   { id: 'technical', icon: 'ti-settings', labelKey: 'emoji.cat.technical' },
   { id: 'letterlike', icon: 'ti-letter-a', labelKey: 'emoji.cat.letterlike' },
@@ -77,7 +77,7 @@ export const EMOJI_CATS = [
   { id: 'travel-places', icon: 'ti-plane', labelKey: 'emoji.travel' },
   { id: 'activities', icon: 'ti-ball-football', labelKey: 'emoji.activities' },
   { id: 'objects', icon: 'ti-bulb', labelKey: 'emoji.objects' },
-  { id: 'symbols', icon: 'ti-heart', labelKey: 'emoji.symbolsCat' },
+  { id: 'symbols', icon: 'ti-abc', labelKey: 'emoji.symbolsCat' },
 ];
 
 export const RECENT_KEY = 'emoji_recent_v1';
