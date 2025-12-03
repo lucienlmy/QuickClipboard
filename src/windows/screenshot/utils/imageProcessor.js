@@ -5,6 +5,20 @@ import { drawBackgroundFromScreens } from './imageCompositor';
 
 // 应用马赛克效果到图像区域
 export function applyMosaic(canvas, x, y, width, height, blockSize = 10) {
+  const padding = Math.max(blockSize * 2, 20);
+  const sourceWidth = canvas.width;
+  const sourceHeight = canvas.height;
+  
+  const extX = Math.max(0, x - padding);
+  const extY = Math.max(0, y - padding);
+  const extRight = Math.min(sourceWidth, x + width + padding);
+  const extBottom = Math.min(sourceHeight, y + height + padding);
+  const extWidth = extRight - extX;
+  const extHeight = extBottom - extY;
+  
+  const offsetX = x - extX;
+  const offsetY = y - extY;
+  
   const tempContainer = document.createElement('div');
   tempContainer.style.position = 'absolute';
   tempContainer.style.top = '-9999px';
@@ -14,8 +28,8 @@ export function applyMosaic(canvas, x, y, width, height, blockSize = 10) {
   try {
     const tempStage = new Konva.Stage({
       container: tempContainer,
-      width: width,
-      height: height,
+      width: extWidth,
+      height: extHeight,
     });
     const tempLayer = new Konva.Layer();
     tempStage.add(tempLayer);
@@ -24,7 +38,7 @@ export function applyMosaic(canvas, x, y, width, height, blockSize = 10) {
       x: 0,
       y: 0,
       image: canvas,
-      crop: { x, y, width, height },
+      crop: { x: extX, y: extY, width: extWidth, height: extHeight },
       filters: [Konva.Filters.Pixelate],
       pixelSize: blockSize,
     });
@@ -38,7 +52,7 @@ export function applyMosaic(canvas, x, y, width, height, blockSize = 10) {
     tempStage.destroy();
     
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(resultCanvas, 0, 0, width, height, x, y, width, height);
+    ctx.drawImage(resultCanvas, offsetX, offsetY, width, height, x, y, width, height);
     
     return canvas;
   } finally {
@@ -48,6 +62,20 @@ export function applyMosaic(canvas, x, y, width, height, blockSize = 10) {
 
 // 应用模糊效果到图像区域（Konva.Filters.Blur）
 export function applyBlur(canvas, x, y, width, height, radius = 10) {
+  const padding = Math.max(radius * 3, 30);
+  const sourceWidth = canvas.width;
+  const sourceHeight = canvas.height;
+  
+  const extX = Math.max(0, x - padding);
+  const extY = Math.max(0, y - padding);
+  const extRight = Math.min(sourceWidth, x + width + padding);
+  const extBottom = Math.min(sourceHeight, y + height + padding);
+  const extWidth = extRight - extX;
+  const extHeight = extBottom - extY;
+  
+  const offsetX = x - extX;
+  const offsetY = y - extY;
+  
   const tempContainer = document.createElement('div');
   tempContainer.style.position = 'absolute';
   tempContainer.style.top = '-9999px';
@@ -57,8 +85,8 @@ export function applyBlur(canvas, x, y, width, height, radius = 10) {
   try {
     const tempStage = new Konva.Stage({
       container: tempContainer,
-      width: width,
-      height: height,
+      width: extWidth,
+      height: extHeight,
     });
     const tempLayer = new Konva.Layer();
     tempStage.add(tempLayer);
@@ -67,7 +95,7 @@ export function applyBlur(canvas, x, y, width, height, radius = 10) {
       x: 0,
       y: 0,
       image: canvas,
-      crop: { x, y, width, height },
+      crop: { x: extX, y: extY, width: extWidth, height: extHeight },
       filters: [Konva.Filters.Blur],
       blurRadius: radius,
     });
@@ -81,7 +109,7 @@ export function applyBlur(canvas, x, y, width, height, radius = 10) {
     tempStage.destroy();
     
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(resultCanvas, 0, 0, width, height, x, y, width, height);
+    ctx.drawImage(resultCanvas, offsetX, offsetY, width, height, x, y, width, height);
     
     return canvas;
   } finally {
