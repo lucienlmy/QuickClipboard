@@ -97,7 +97,7 @@ function FavoriteItem({
       previewTimerRef.current = setTimeout(async () => {
         try {
           const filesData = JSON.parse(item.content.substring(6));
-          const filePath = filesData?.files?.[0]?.path || null;
+          const filePath = filesData?.files?.[0]?.actual_path || filesData?.files?.[0]?.path || null;
           await invoke('pin_image_from_file', { filePath, previewMode: true });
         } catch (error) {
           console.error('显示图片预览失败:', error);

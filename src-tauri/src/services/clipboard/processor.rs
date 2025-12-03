@@ -29,9 +29,9 @@ struct FileClipboardData {
 
 // 处理后的剪贴板数据结构
 pub struct ProcessedContent {
-    pub content: String,              // 主要内容
-    pub html_content: Option<String>, // HTML富文本内容
-    pub content_type: String,         // 内容类型：text/rich_text/image/file/link
+    pub content: String,              
+    pub html_content: Option<String>, 
+    pub content_type: String,         
     pub image_id: Option<String>,
 }
 
@@ -104,17 +104,7 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 ContentType::new("file")
             };
             let image_id = if file_infos.len() == 1 && ct.to_db_string() == "image" {
-                let p = std::path::Path::new(&file_infos[0].path);
-                if let (Some(stem), Ok(data_dir)) = (p.file_stem().and_then(|s| s.to_str()), crate::services::get_data_directory()) {
-                    let images_dir = data_dir.join("clipboard_images");
-                    if p.starts_with(&images_dir) {
-                        Some(stem.to_string())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
+                extract_image_id_from_path(&file_infos[0].path)
             } else { None };
             
             Ok(ProcessedContent {
@@ -130,13 +120,25 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
 // 收集文件信息
 fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
     let mut file_infos = Vec::new();
+    let data_dir = crate::services::get_data_directory().ok();
     
     for path_str in file_paths {
-        let path = Path::new(path_str);
+        let (actual_path, stored_path) = if path_str.starts_with("clipboard_images/") || path_str.starts_with("clipboard_images\\") {
+            if let Some(ref data_dir) = data_dir {
+                let full_path = data_dir.join(path_str);
+                (full_path.to_string_lossy().to_string(), path_str.clone())
+            } else {
+                (path_str.clone(), path_str.clone())
+            }
+        } else {
+            (path_str.clone(), path_str.clone())
+        };
+        
+        let path = Path::new(&actual_path);
         
         // 获取文件元数据
         let metadata = fs::metadata(path)
-            .map_err(|e| format!("无法读取文件信息 {}: {}", path_str, e))?;
+            .map_err(|e| format!("无法读取文件信息 {}: {}", actual_path, e))?;
         
         // 提取文件名
         let name = path.file_name()
@@ -155,10 +157,10 @@ fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
         };
         
         // 获取文件图标
-        let icon_data = crate::utils::icon::get_file_icon_base64(path_str);
+        let icon_data = crate::utils::icon::get_file_icon_base64(&actual_path);
         
         file_infos.push(FileInfo {
-            path: path_str.clone(),
+            path: stored_path,
             name,
             size: metadata.len(),
             is_directory: metadata.is_dir(),
@@ -383,6 +385,14 @@ fn calculate_image_id(data: &[u8]) -> String {
     hasher.update(data);
     let hash = format!("{:x}", hasher.finalize());
     hash[..16].to_string()
+}
+
+fn extract_image_id_from_path(path_str: &str) -> Option<String> {
+    if path_str.starts_with("clipboard_images/") || path_str.starts_with("clipboard_images\\") {
+        let p = std::path::Path::new(path_str);
+        return p.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string());
+    }
+    None
 }
 
 

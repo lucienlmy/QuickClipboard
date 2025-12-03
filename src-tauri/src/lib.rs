@@ -80,6 +80,7 @@ pub fn run() {
                 commands::clear_clipboard_history,
                 commands::save_image_from_path,
                 commands::copy_image_to_clipboard,
+                commands::resolve_image_path,
                 commands::get_favorites_history,
                 commands::get_favorites_total_count,
                 commands::get_favorite_item_by_id_cmd,

@@ -277,7 +277,11 @@ async function handleContentTypeActions(result, item, index) {
   let filePath = null
   try {
     const filesData = JSON.parse(item.content.substring(6))
-    filePath = filesData?.files?.[0]?.path || null
+    const storedPath = filesData?.files?.[0]?.path || null
+    if (storedPath) {
+      const { invoke } = await import('@tauri-apps/api/core')
+      filePath = await invoke('resolve_image_path', { storedPath })
+    }
   } catch (_) {
     filePath = null
   }

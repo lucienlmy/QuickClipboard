@@ -34,12 +34,13 @@ function ImageContent({
         const filesData = JSON.parse(item.content.substring(6));
         if (filesData.files && filesData.files.length > 0) {
           const file = filesData.files[0];
-          const filePath = file.path;
           const exists = file.exists !== false;
-          imagePathRef.current = filePath;
+          const actualPath = file.actual_path || file.path;
+          
+          imagePathRef.current = actualPath;
           setFileExists(exists);
           if (exists) {
-            const assetUrl = convertFileSrc(filePath, 'asset');
+            const assetUrl = convertFileSrc(actualPath, 'asset');
             setImageSrc(assetUrl);
           }
           setLoading(false);

@@ -25,6 +25,8 @@ struct FileInfo {
     file_type: String,
     #[serde(default)]
     exists: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    actual_path: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -47,12 +49,45 @@ fn check_and_fill_file_exists(item: &mut ClipboardItem) {
     
     if let Ok(mut data) = serde_json::from_str::<FilesData>(&item.content[6..]) {
         for file in &mut data.files {
-            file.exists = Path::new(&file.path).exists();
+            let actual_path = resolve_stored_path(&file.path);
+            file.exists = Path::new(&actual_path).exists();
+            file.actual_path = Some(actual_path);
         }
         if let Ok(json) = serde_json::to_string(&data) {
             item.content = format!("files:{}", json);
         }
     }
+}
+
+// 解析存储的路径为实际路径
+fn resolve_stored_path(stored_path: &str) -> String {
+    if stored_path.starts_with("clipboard_images/") || stored_path.starts_with("clipboard_images\\") {
+        if let Ok(data_dir) = crate::services::get_data_directory() {
+            return data_dir.join(stored_path).to_string_lossy().to_string();
+        }
+    }
+    
+    if let Some(relative_part) = extract_relative_path_from_absolute(stored_path) {
+        if let Ok(data_dir) = crate::services::get_data_directory() {
+            let new_path = data_dir.join(&relative_part);
+            if new_path.exists() {
+                return new_path.to_string_lossy().to_string();
+            }
+        }
+    }
+    
+    stored_path.to_string()
+}
+
+// 从旧数据绝对路径中提取相对路径
+fn extract_relative_path_from_absolute(path: &str) -> Option<String> {
+    let normalized = path.replace("\\", "/");
+    
+    if let Some(idx) = normalized.find("clipboard_images/") {
+        return Some(normalized[idx..].to_string());
+    }
+    
+    None
 }
 
 // 分页查询剪贴板历史
@@ -279,4 +314,9 @@ pub fn paste_image_file(file_path: String, app: tauri::AppHandle) -> Result<(), 
     }
     
     Ok(())
+}
+
+#[tauri::command]
+pub fn resolve_image_path(stored_path: String) -> Result<String, String> {
+    Ok(resolve_stored_path(&stored_path))
 }

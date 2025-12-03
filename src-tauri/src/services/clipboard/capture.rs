@@ -33,7 +33,8 @@ fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
     // 计算哈希并重命名
     let png_data = std::fs::read(&temp_file).map_err(|e| e.to_string())?;
     let hash = format!("{:x}", Sha256::digest(&png_data));
-    let final_path = images_dir.join(format!("{}.png", &hash[..16]));
+    let filename = format!("{}.png", &hash[..16]);
+    let final_path = images_dir.join(&filename);
     
     if final_path.exists() {
         std::fs::remove_file(&temp_file).ok();
@@ -41,7 +42,7 @@ fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
         std::fs::rename(&temp_file, &final_path).map_err(|e| e.to_string())?;
     }
     
-    Ok(final_path.to_str().ok_or("路径转换失败")?.to_string())
+    Ok(format!("clipboard_images/{}", filename))
 }
 
 impl ClipboardContent {

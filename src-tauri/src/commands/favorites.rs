@@ -8,6 +8,84 @@ use crate::services::database::{
     update_favorite as db_update_favorite,
     FavoritesQueryParams, PaginatedResult, FavoriteItem
 };
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+
+#[derive(Deserialize, Serialize)]
+struct FileInfo {
+    path: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    size: u64,
+    #[serde(default)]
+    is_directory: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon_data: Option<String>,
+    #[serde(default)]
+    file_type: String,
+    #[serde(default)]
+    exists: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    actual_path: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct FilesData {
+    files: Vec<FileInfo>,
+    #[serde(default)]
+    operation: String,
+}
+
+fn fill_file_exists_for_favorites(items: &mut [FavoriteItem]) {
+    for item in items.iter_mut() {
+        if item.content_type == "file" || item.content_type == "image" {
+            check_and_fill_file_exists(item);
+        }
+    }
+}
+
+fn check_and_fill_file_exists(item: &mut FavoriteItem) {
+    if !item.content.starts_with("files:") { return; }
+    
+    if let Ok(mut data) = serde_json::from_str::<FilesData>(&item.content[6..]) {
+        for file in &mut data.files {
+            let actual_path = resolve_stored_path(&file.path);
+            file.exists = Path::new(&actual_path).exists();
+            file.actual_path = Some(actual_path);
+        }
+        if let Ok(json) = serde_json::to_string(&data) {
+            item.content = format!("files:{}", json);
+        }
+    }
+}
+
+fn resolve_stored_path(stored_path: &str) -> String {
+    if stored_path.starts_with("clipboard_images/") || stored_path.starts_with("clipboard_images\\") {
+        if let Ok(data_dir) = crate::services::get_data_directory() {
+            return data_dir.join(stored_path).to_string_lossy().to_string();
+        }
+    }
+    
+    if let Some(relative_part) = extract_relative_path_from_absolute(stored_path) {
+        if let Ok(data_dir) = crate::services::get_data_directory() {
+            let new_path = data_dir.join(&relative_part);
+            if new_path.exists() {
+                return new_path.to_string_lossy().to_string();
+            }
+        }
+    }
+    
+    stored_path.to_string()
+}
+
+fn extract_relative_path_from_absolute(path: &str) -> Option<String> {
+    let normalized = path.replace("\\", "/");
+    if let Some(idx) = normalized.find("clipboard_images/") {
+        return Some(normalized[idx..].to_string());
+    }
+    None
+}
 
 // 分页查询收藏列表
 #[tauri::command]
@@ -26,7 +104,9 @@ pub fn get_favorites_history(
         content_type,
     };
     
-    query_favorites(params)
+    let mut result = query_favorites(params)?;
+    fill_file_exists_for_favorites(&mut result.items);
+    Ok(result)
 }
 
 // 获取收藏总数
