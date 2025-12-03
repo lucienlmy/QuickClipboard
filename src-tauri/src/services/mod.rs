@@ -14,6 +14,40 @@ pub use notification::show_startup_notification;
 pub use system::hotkey;
 pub use sound::{SoundPlayer, AppSounds};
 
+pub fn normalize_path_for_hash(path: &str) -> String {
+    let normalized = path.replace("\\", "/");
+    for prefix in ["clipboard_images/", "pin_images/"] {
+        if let Some(idx) = normalized.find(prefix) {
+            return normalized[idx..].to_string();
+        }
+    }
+    normalized
+}
+
+// 解析存储的路径为实际绝对路径
+pub fn resolve_stored_path(stored_path: &str) -> String {
+    if stored_path.starts_with("clipboard_images/") || stored_path.starts_with("clipboard_images\\")
+        || stored_path.starts_with("pin_images/") || stored_path.starts_with("pin_images\\") {
+        if let Ok(data_dir) = get_data_directory() {
+            return data_dir.join(stored_path).to_string_lossy().to_string();
+        }
+    }
+    
+    let normalized = stored_path.replace("\\", "/");
+    for prefix in ["clipboard_images/", "pin_images/"] {
+        if let Some(idx) = normalized.find(prefix) {
+            if let Ok(data_dir) = get_data_directory() {
+                let new_path = data_dir.join(&normalized[idx..]);
+                if new_path.exists() {
+                    return new_path.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
+    
+    stored_path.to_string()
+}
+
 pub fn is_portable_build() -> bool {
     std::env::current_exe()
         .ok()

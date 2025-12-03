@@ -92,13 +92,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
 
       setIsSaving(true);
 
-      const timestamp = Date.now();
-      const tempDir = await import('@tauri-apps/api/path').then(m => m.tempDir());
-      const tempPath = `${tempDir}long_screenshot_${timestamp}.png`;
-      
-      await invoke('save_long_screenshot', { path: tempPath });
-      
-      await invoke('copy_image_to_clipboard', { filePath: tempPath });
+      await invoke('copy_long_screenshot_to_clipboard');
 
       setIsSaving(false);
       setIsActive(false);

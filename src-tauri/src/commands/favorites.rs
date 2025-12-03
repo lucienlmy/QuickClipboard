@@ -61,30 +61,7 @@ fn check_and_fill_file_exists(item: &mut FavoriteItem) {
 }
 
 fn resolve_stored_path(stored_path: &str) -> String {
-    if stored_path.starts_with("clipboard_images/") || stored_path.starts_with("clipboard_images\\") {
-        if let Ok(data_dir) = crate::services::get_data_directory() {
-            return data_dir.join(stored_path).to_string_lossy().to_string();
-        }
-    }
-    
-    if let Some(relative_part) = extract_relative_path_from_absolute(stored_path) {
-        if let Ok(data_dir) = crate::services::get_data_directory() {
-            let new_path = data_dir.join(&relative_part);
-            if new_path.exists() {
-                return new_path.to_string_lossy().to_string();
-            }
-        }
-    }
-    
-    stored_path.to_string()
-}
-
-fn extract_relative_path_from_absolute(path: &str) -> Option<String> {
-    let normalized = path.replace("\\", "/");
-    if let Some(idx) = normalized.find("clipboard_images/") {
-        return Some(normalized[idx..].to_string());
-    }
-    None
+    crate::services::resolve_stored_path(stored_path)
 }
 
 // 分页查询收藏列表

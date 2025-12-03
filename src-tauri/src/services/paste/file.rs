@@ -31,7 +31,7 @@ pub fn paste_files(ctx: &ClipboardContext, content: &str) -> Result<(), String> 
     
     let file_paths: Vec<String> = file_data.files
         .iter()
-        .map(|f| f.path.clone())
+        .map(|f| crate::services::resolve_stored_path(&f.path))
         .filter(|p| Path::new(p).exists())
         .collect();
     

@@ -205,7 +205,8 @@ pub fn set_last_hash_files(content: &str) {
             if let Some(files) = json["files"].as_array() {
                 for file in files {
                     if let Some(path) = file["path"].as_str() {
-                        hasher.update(path.as_bytes());
+                        let normalized = crate::services::normalize_path_for_hash(path);
+                        hasher.update(normalized.as_bytes());
                     }
                 }
             }

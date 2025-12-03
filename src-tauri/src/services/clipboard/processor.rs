@@ -121,12 +121,25 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
 fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
     let mut file_infos = Vec::new();
     let data_dir = crate::services::get_data_directory().ok();
+    let images_dir = data_dir.as_ref().map(|d| d.join("clipboard_images"));
     
     for path_str in file_paths {
         let (actual_path, stored_path) = if path_str.starts_with("clipboard_images/") || path_str.starts_with("clipboard_images\\") {
             if let Some(ref data_dir) = data_dir {
                 let full_path = data_dir.join(path_str);
                 (full_path.to_string_lossy().to_string(), path_str.clone())
+            } else {
+                (path_str.clone(), path_str.clone())
+            }
+        } else if let Some(ref img_dir) = images_dir {
+            let path = Path::new(path_str);
+            if path.starts_with(img_dir) {
+                if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+                    let relative = format!("clipboard_images/{}", filename);
+                    (path_str.clone(), relative)
+                } else {
+                    (path_str.clone(), path_str.clone())
+                }
             } else {
                 (path_str.clone(), path_str.clone())
             }

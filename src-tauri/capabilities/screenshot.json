@@ -20,6 +20,11 @@
     "fs:allow-temp-read-recursive",
     "fs:allow-temp-write",
     "fs:allow-temp-write-recursive",
+    "fs:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "**" }]
+    },
     "dialog:allow-save"
   ]
 }

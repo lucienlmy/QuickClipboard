@@ -88,6 +88,45 @@ pub async fn save_long_screenshot(path: String) -> Result<(), String> {
     .map_err(|e| format!("任务执行失败: {}", e))?
 }
 
+// 长截屏复制到剪贴板
+#[tauri::command]
+pub async fn copy_long_screenshot_to_clipboard() -> Result<(), String> {
+    use clipboard_rs::{Clipboard, ClipboardContext};
+    use sha2::{Sha256, Digest};
+    
+    tokio::task::spawn_blocking(move || {
+        let data_dir = crate::services::get_data_directory()?;
+        let images_dir = data_dir.join("clipboard_images");
+        std::fs::create_dir_all(&images_dir)
+            .map_err(|e| format!("创建目录失败: {}", e))?;
+        
+        let temp_path = images_dir.join("_temp_long_screenshot.png");
+        crate::windows::screenshot_window::long_screenshot::save_long_screenshot(
+            temp_path.to_string_lossy().to_string()
+        )?;
+        
+        let png_data = std::fs::read(&temp_path)
+            .map_err(|e| format!("读取图片失败: {}", e))?;
+        let hash = format!("{:x}", Sha256::digest(&png_data));
+        let filename = format!("{}.png", &hash[..16]);
+        let final_path = images_dir.join(&filename);
+        
+        if final_path.exists() {
+            let _ = std::fs::remove_file(&temp_path);
+        } else {
+            std::fs::rename(&temp_path, &final_path)
+                .map_err(|e| format!("移动文件失败: {}", e))?;
+        }
+        
+        let ctx = ClipboardContext::new()
+            .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
+        ctx.set_files(vec![final_path.to_string_lossy().to_string()])
+            .map_err(|e| format!("复制到剪贴板失败: {}", e))
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
+}
+
 // OCR识别结果结构
 #[derive(Debug, serde::Serialize)]
 pub struct OcrWord {

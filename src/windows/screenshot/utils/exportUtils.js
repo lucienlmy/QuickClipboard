@@ -1,8 +1,15 @@
 import { invoke } from '@tauri-apps/api/core';
-import { writeFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+import { writeFile, mkdir, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { save } from '@tauri-apps/plugin-dialog';
 import { cancelScreenshotSession } from '@shared/api/system';
 import { compositeSelectionImage } from './imageCompositor';
+
+async function calculateImageHash(data) {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex.substring(0, 16);
+}
 
 function applyCornerRadius(canvas, cornerRadius, pixelRatio) {
   const radius = cornerRadius * pixelRatio;
@@ -64,15 +71,15 @@ export async function exportToClipboard(stageRef, selection, cornerRadius = 0, {
   const uint8Array = new Uint8Array(arrayBuffer);
 
   try {
-    const timestamp = Date.now();
-    const tempFileName = `screenshot_clipboard_${timestamp}.png`;
-    await writeFile(tempFileName, uint8Array, { baseDir: BaseDirectory.Temp });
+    const dataDir = await invoke('get_data_directory');
+    const hash = await calculateImageHash(uint8Array);
+    const filename = `${hash}.png`;
+    const filePath = `${dataDir}\\clipboard_images\\${filename}`;
+    
+    await mkdir(`${dataDir}\\clipboard_images`, { recursive: true });
+    await writeFile(filePath, uint8Array);
 
-    const { tempDir } = await import('@tauri-apps/api/path');
-    const tempDirPath = await tempDir();
-    const tempFilePath = `${tempDirPath}${tempFileName}`;
-
-    await invoke('copy_image_to_clipboard', { filePath: tempFilePath });
+    await invoke('copy_image_to_clipboard', { filePath });
     await cancelScreenshotSession();
   } catch (err) {
     console.error('写入剪贴板失败:', err);
@@ -88,13 +95,13 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
   const uint8Array = new Uint8Array(arrayBuffer);
 
   try {
-    const timestamp = Date.now();
-    const tempFileName = `screenshot_pin_${timestamp}.png`;
-    await writeFile(tempFileName, uint8Array, { baseDir: BaseDirectory.Temp });
-
-    const { tempDir } = await import('@tauri-apps/api/path');
-    const tempDirPath = await tempDir();
-    const tempFilePath = `${tempDirPath}${tempFileName}`;
+    const dataDir = await invoke('get_data_directory');
+    const hash = await calculateImageHash(uint8Array);
+    const filename = `${hash}.png`;
+    const filePath = `${dataDir}\\pin_images\\${filename}`;
+    
+    await mkdir(`${dataDir}\\pin_images`, { recursive: true });
+    await writeFile(filePath, uint8Array);
     
     const { x, y, width, height } = selection;
     const windowScale = window.devicePixelRatio || 1;
@@ -112,7 +119,7 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     const logicalHeight = Math.round(height);
     
     await invoke('pin_image_from_file', {
-      filePath: tempFilePath,
+      filePath,
       x: physicalX,
       y: physicalY,
       width: logicalWidth,

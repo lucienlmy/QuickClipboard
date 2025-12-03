@@ -59,35 +59,9 @@ fn check_and_fill_file_exists(item: &mut ClipboardItem) {
     }
 }
 
-// 解析存储的路径为实际路径
+// 路径解析函数
 fn resolve_stored_path(stored_path: &str) -> String {
-    if stored_path.starts_with("clipboard_images/") || stored_path.starts_with("clipboard_images\\") {
-        if let Ok(data_dir) = crate::services::get_data_directory() {
-            return data_dir.join(stored_path).to_string_lossy().to_string();
-        }
-    }
-    
-    if let Some(relative_part) = extract_relative_path_from_absolute(stored_path) {
-        if let Ok(data_dir) = crate::services::get_data_directory() {
-            let new_path = data_dir.join(&relative_part);
-            if new_path.exists() {
-                return new_path.to_string_lossy().to_string();
-            }
-        }
-    }
-    
-    stored_path.to_string()
-}
-
-// 从旧数据绝对路径中提取相对路径
-fn extract_relative_path_from_absolute(path: &str) -> Option<String> {
-    let normalized = path.replace("\\", "/");
-    
-    if let Some(idx) = normalized.find("clipboard_images/") {
-        return Some(normalized[idx..].to_string());
-    }
-    
-    None
+    crate::services::resolve_stored_path(stored_path)
 }
 
 // 分页查询剪贴板历史
@@ -271,16 +245,44 @@ pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
 pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
     use clipboard_rs::{Clipboard, ClipboardContext};
     use std::path::Path;
+    use sha2::{Sha256, Digest};
     
     let path = Path::new(&file_path);
     if !path.exists() {
         return Err(format!("图片文件不存在: {}", file_path));
     }
     
+    // 检查是否已经在数据目录下
+    let data_dir = crate::services::get_data_directory()?;
+    let clipboard_images_dir = data_dir.join("clipboard_images");
+    let pin_images_dir = data_dir.join("pin_images");
+    let is_in_data_dir = path.starts_with(&clipboard_images_dir) || path.starts_with(&pin_images_dir);
+    
+    let final_path = if is_in_data_dir {
+        file_path.clone()
+    } else {
+        let image_data = std::fs::read(&path)
+            .map_err(|e| format!("读取图片失败: {}", e))?;
+        
+        let hash = format!("{:x}", Sha256::digest(&image_data));
+        let filename = format!("{}.png", &hash[..16]);
+        
+        std::fs::create_dir_all(&clipboard_images_dir)
+            .map_err(|e| format!("创建目录失败: {}", e))?;
+        
+        let saved_path = clipboard_images_dir.join(&filename);
+        if !saved_path.exists() {
+            std::fs::write(&saved_path, &image_data)
+                .map_err(|e| format!("保存图片失败: {}", e))?;
+        }
+        
+        saved_path.to_string_lossy().to_string()
+    };
+    
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
     
-    ctx.set_files(vec![file_path])
+    ctx.set_files(vec![final_path])
         .map_err(|e| format!("复制到剪贴板失败: {}", e))
 }
 

@@ -124,7 +124,8 @@ impl ClipboardContent {
             ContentType::Files => {
                 if let Some(files) = &self.files {
                     for file in files {
-                        hasher.update(file.as_bytes());
+                        let normalized = crate::services::normalize_path_for_hash(file);
+                        hasher.update(normalized.as_bytes());
                     }
                 }
             }
