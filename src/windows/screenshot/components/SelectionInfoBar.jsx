@@ -5,6 +5,9 @@ function SelectionInfoBar({
   cornerRadius, 
   aspectRatio,
   isMoving,
+  isDrawing,
+  isResizing,
+  isDrawingShape,
   stageRegionManager,
   onCornerRadiusChange, 
   onAspectRatioChange 
@@ -91,6 +94,7 @@ function SelectionInfoBar({
   };
 
   const { x, y } = getInfoBarPosition();
+  const disablePointerEvents = isDrawing || isResizing || isDrawingShape;
 
   return (
     <div
@@ -98,7 +102,11 @@ function SelectionInfoBar({
         position: 'absolute', 
         left: x, 
         top: y, 
-        pointerEvents: 'none' 
+        pointerEvents: disablePointerEvents ? 'none' : 'auto',
+        opacity: disablePointerEvents ? 0.5 : 1,
+        transition: disablePointerEvents 
+          ? 'opacity 1500ms ease-out' 
+          : 'opacity 300ms ease-out', 
       }}
     >
       <div className="flex items-center gap-2 px-2 py-1.5 bg-white/85 dark:bg-gray-800/85 backdrop-blur-sm rounded-md shadow-sm border border-gray-200/50 dark:border-gray-700/50 select-none">
@@ -116,7 +124,6 @@ function SelectionInfoBar({
               <select
                 value={aspectRatio}
                 onChange={handleAspectRatioChange}
-                style={{ pointerEvents: 'auto' }}
                 className="appearance-none pl-2 pr-5 py-0.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700/50 dark:hover:bg-gray-600/50 text-gray-700 dark:text-gray-200 rounded cursor-pointer outline-none transition-colors text-center min-w-[60px]"
                 title="比例"
               >
@@ -138,7 +145,7 @@ function SelectionInfoBar({
               <>
                 <div className="w-px h-3 bg-gray-200 dark:bg-gray-700"></div>
                 {/* 圆角设置 */}
-                <label style={{ pointerEvents: 'auto' }} className="group flex items-center gap-0.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700/50 dark:hover:bg-gray-600/50 rounded pl-1.5 pr-0.5 py-0.5 transition-colors cursor-text relative">
+                <label className="group flex items-center gap-0.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700/50 dark:hover:bg-gray-600/50 rounded pl-1.5 pr-0.5 py-0.5 transition-colors cursor-text relative">
                   <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mr-0.5">R</span>
                   <input
                     type="number"

@@ -271,6 +271,9 @@ function App() {
           cornerRadius={session.cornerRadius}
           aspectRatio={session.aspectRatio}
           isMoving={session.isMoving}
+          isDrawing={session.isDrawing}
+          isResizing={session.isResizing}
+          isDrawingShape={editing.isDrawingShape}
           stageRegionManager={stageRegionManager}
           onCornerRadiusChange={session.updateCornerRadius}
           onAspectRatioChange={session.updateAspectRatio}
@@ -282,6 +285,7 @@ function App() {
         isDrawing={session.isDrawing}
         isMoving={session.isMoving}
         isResizing={session.isResizing}
+        isDrawingShape={editing.isDrawingShape}
         stageRegionManager={stageRegionManager}
         onCancel={session.handleCancelSelection}
         onConfirm={session.handleConfirmSelection}
@@ -314,6 +318,7 @@ function App() {
           parameters={editing.toolParameters}
           values={editing.toolStyle}
           isSelectMode={editing.isSelectMode}
+          isDrawingShape={editing.isDrawingShape}
           stageRegionManager={stageRegionManager}
           onParameterChange={editing.handleToolParameterChange}
           onTogglePersistence={editing.handleTogglePersistence}
@@ -367,6 +372,7 @@ function App() {
         <KeyboardShortcutsHelp
           stageRegionManager={stageRegionManager}
           longScreenshotMode={longScreenshot.isActive}
+          isDrawingShape={editing.isDrawingShape}
         />
       )}
     </div>

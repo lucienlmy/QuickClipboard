@@ -3,12 +3,14 @@ import { useSnapshot } from 'valtio';
 import { KEYBOARD_SHORTCUTS, TOOL_ORDER, getToolShortcuts } from '../constants/keyboardShortcuts';
 import { mouseStore } from '../store/mouseStore';
 
-export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode }) {
+export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape }) {
   const { position: mousePos } = useSnapshot(mouseStore);
   const [visible, setVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isHintHovered, setIsHintHovered] = useState(false);
   const hintRef = useRef(null);
+
+  const disablePointerEvents = isDrawingShape;
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -115,13 +117,19 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
       return null;
     }
     
+    const hintBaseOpacity = isHintHovered ? 0 : 1;
+    const hintFinalOpacity = disablePointerEvents ? hintBaseOpacity * 0.5 : hintBaseOpacity;
+
     return (
       <div 
         ref={hintRef}
-        className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-3 py-2 pointer-events-none select-none transition-opacity duration-200"
+        className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-3 py-2 pointer-events-none select-none"
         style={{
           ...hintPosition,
-          opacity: isHintHovered ? 0 : 1,
+          opacity: hintFinalOpacity,
+          transition: disablePointerEvents 
+            ? 'opacity 1500ms ease-out' 
+            : 'opacity 200ms ease-out',
         }}
       >
         <div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">

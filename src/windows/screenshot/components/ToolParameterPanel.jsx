@@ -81,6 +81,7 @@ export default function ToolParameterPanel({
   parameters,
   values,
   isSelectMode,
+  isDrawingShape,
   stageRegionManager,
   onParameterChange,
   onAction,
@@ -334,7 +335,15 @@ export default function ToolParameterPanel({
     <div
       ref={panelRef}
       className="absolute z-20 select-none"
-      style={{ left: position.x, top: position.y }}
+      style={{ 
+        left: position.x, 
+        top: position.y,
+        pointerEvents: isDrawingShape ? 'none' : 'auto',
+        opacity: isDrawingShape ? 0.5 : 1,
+        transition: isDrawingShape 
+          ? 'opacity 1500ms ease-out' 
+          : 'opacity 300ms ease-out', 
+      }}
     >
       <div ref={contentRef} className="w-[220px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 flex flex-col gap-3 overflow-hidden">
         <div

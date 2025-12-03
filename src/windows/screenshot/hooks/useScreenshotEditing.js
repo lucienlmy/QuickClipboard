@@ -571,6 +571,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     toolParameters: activeTool?.parameters || [],
     toolStyle: activeToolStyle,
     isSelectMode: isSelectMode || false,
+    isDrawingShape: currentShape !== null && !['number', 'text'].includes(currentShape?.tool),
     handleToolParameterChange,
     handleTogglePersistence,
     undo,

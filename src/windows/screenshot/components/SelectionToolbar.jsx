@@ -1,7 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
 function SelectionToolbar({
-  selection, isDrawing, isMoving, isResizing, stageRegionManager,
+  selection, isDrawing, isMoving, isResizing, isDrawingShape, stageRegionManager,
   onCancel, onConfirm, onPin, onSave,
   activeToolId, onToolChange, undo, redo, canUndo, canRedo,
   clearCanvas, canClearCanvas,
@@ -19,6 +19,8 @@ function SelectionToolbar({
 }) {
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
+
+  const disablePointerEvents = isDrawingShape;
 
   const toolbarWidth = 340;
   const toolbarHeight = 35;
@@ -282,7 +284,12 @@ function SelectionToolbar({
         position: 'absolute',
         left: x,
         top: y,
-        transform: 'translateX(-100%)'
+        transform: 'translateX(-100%)',
+        pointerEvents: disablePointerEvents ? 'none' : 'auto',
+        opacity: disablePointerEvents ? 0.5 : 1,
+        transition: disablePointerEvents 
+          ? 'opacity 1500ms ease-out' 
+          : 'opacity 300ms ease-out', 
       }}
     >
       {longScreenshotMode ? (
