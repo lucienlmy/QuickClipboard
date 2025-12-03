@@ -45,8 +45,14 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
     if !settings.screenshot_enabled {
         return Ok(());
     }
-    crate::services::screenshot::capture_and_store_last(app)?;
     let window = get_or_create_window(app)?;
+
+    if window.is_visible().unwrap_or(false) {
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    crate::services::screenshot::capture_and_store_last(app)?;
     let _ = window.emit("screenshot:new-session", ());
     let _ = window.show();
     resize_window_to_virtual_screen(&window);
