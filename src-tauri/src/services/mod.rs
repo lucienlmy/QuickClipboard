@@ -26,18 +26,20 @@ pub fn normalize_path_for_hash(path: &str) -> String {
 
 // 解析存储的路径为实际绝对路径
 pub fn resolve_stored_path(stored_path: &str) -> String {
-    if stored_path.starts_with("clipboard_images/") || stored_path.starts_with("clipboard_images\\")
-        || stored_path.starts_with("pin_images/") || stored_path.starts_with("pin_images\\") {
+    let normalized_input = stored_path.replace("/", "\\");
+    
+    if normalized_input.starts_with("clipboard_images\\") || normalized_input.starts_with("pin_images\\") {
         if let Ok(data_dir) = get_data_directory() {
-            return data_dir.join(stored_path).to_string_lossy().to_string();
+            return data_dir.join(&normalized_input).to_string_lossy().to_string();
         }
     }
     
-    let normalized = stored_path.replace("\\", "/");
+    let search_path = stored_path.replace("\\", "/");
     for prefix in ["clipboard_images/", "pin_images/"] {
-        if let Some(idx) = normalized.find(prefix) {
+        if let Some(idx) = search_path.find(prefix) {
             if let Ok(data_dir) = get_data_directory() {
-                let new_path = data_dir.join(&normalized[idx..]);
+                let relative = search_path[idx..].replace("/", "\\");
+                let new_path = data_dir.join(&relative);
                 if new_path.exists() {
                     return new_path.to_string_lossy().to_string();
                 }
