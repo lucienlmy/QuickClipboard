@@ -1,7 +1,7 @@
 
 const CURVE_ARROW_DEFAULT_STYLE = {
   stroke: '#ff4d4f',
-  strokeWidth: 12,
+  strokeWidth: 6,
   opacity: 1,
   lineStyle: 'solid',
 };

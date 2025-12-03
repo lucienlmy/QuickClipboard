@@ -1,7 +1,7 @@
 
 const PEN_DEFAULT_STYLE = {
   stroke: '#ff4d4f',
-  strokeWidth: 4,
+  strokeWidth: 6,
   opacity: 1,
   lineStyle: 'solid',
   smoothing: 0.5,

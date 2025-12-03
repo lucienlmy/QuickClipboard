@@ -15,11 +15,11 @@ const buildDiamondShape = (rect) => {
 };
 const SHAPE_DEFAULT_STYLE = {
   shapeType: 'rectangle',
-  stroke: '#1677FF',
-  strokeWidth: 2,
+  stroke: '#FF4D4F',
+  strokeWidth: 6,
   strokeOpacity: 1,
-  fill: '#1677FF',
-  fillOpacity: 0.15,
+  fill: '#FF4D4F',
+  fillOpacity: 0,
   arrowhead: 'block',
 };
 
