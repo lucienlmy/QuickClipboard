@@ -1,4 +1,5 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+import { DRAWING_TOOLS, HISTORY_TOOLS, ACTION_TOOLS } from '../constants/tools';
 
 function SelectionToolbar({
   selection, isDrawing, isMoving, isResizing, isDrawingShape, stageRegionManager,
@@ -147,133 +148,46 @@ function SelectionToolbar({
   ];
 
   // 普通模式的按钮
+  const actionCallbacks = { confirm: onConfirm, cancel: onCancel, pin: onPin, save: onSave };
+  const actionVariants = { confirm: 'primary', cancel: 'ghost' };
   const actionTools = [
-    {
-      id: 'confirm',
-      icon: 'ti ti-check',
-      title: '确定',
-      onClick: onConfirm,
-      variant: 'primary',
-    },
-    {
-      id: 'cancel',
-      icon: 'ti ti-x',
-      title: '取消',
-      onClick: onCancel,
-      variant: 'ghost',
-    },
-    {
-      id: 'pin',
-      icon: 'ti ti-pin',
-      title: '贴图',
-      onClick: onPin,
-      variant: 'default',
-    },
-    {
-      id: 'save',
-      icon: 'ti ti-download',
-      title: '保存',
-      onClick: onSave,
-      variant: 'default',
-    },
+    ...ACTION_TOOLS.map(t => ({
+      ...t,
+      onClick: actionCallbacks[t.actionKey],
+      variant: actionVariants[t.actionKey] || 'default',
+    })),
     {
       id: 'longScreenshot',
       icon: 'ti ti-viewport-tall',
       title: '长截屏',
       onClick: () => {
-        const pos = getToolbarPosition(true); // 使用长截图模式的位置计算
-        const toolbarPosition = {
+        const pos = getToolbarPosition(true);
+        onLongScreenshotEnter({
           x: pos.x - toolbarWidth,
           y: pos.y,
           width: toolbarWidth,
           height: toolbarHeight,
-        };
-        onLongScreenshotEnter(toolbarPosition);
+        });
       },
       variant: 'default'
     }
   ];
 
-  const historyTools = [
-    { id: 'clear', icon: 'ti ti-trash', title: '清空画布', onClick: clearCanvas, disabled: !canClearCanvas, variant: 'default' },
-    { id: 'redo', icon: 'ti ti-arrow-forward-up', title: '重做', onClick: redo, disabled: !canRedo, variant: 'default' },
-    { id: 'undo', icon: 'ti ti-arrow-back-up', title: '撤销', onClick: undo, disabled: !canUndo, variant: 'default' },
-  ];
+  const historyActions = { undo, redo, clear: clearCanvas };
+  const historyDisabled = { undo: !canUndo, redo: !canRedo, clear: !canClearCanvas };
+  const historyTools = [...HISTORY_TOOLS].reverse().map(t => ({
+    ...t,
+    onClick: historyActions[t.actionKey],
+    disabled: historyDisabled[t.actionKey],
+    variant: 'default',
+  }));
 
-  const drawingTools = [
-    {
-      id: 'ocr',
-      icon: 'ti ti-text-scan-2',
-      title: 'OCR识别',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'ocr' ? null : 'ocr'),
-      active: activeToolId === 'ocr',
-      variant: 'default'
-    },
-     {
-      id: 'shape',
-      icon: 'ti ti-triangle-square-circle',
-      title: '形状',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'shape' ? null : 'shape'),
-      active: activeToolId === 'shape',
-      variant: 'default'
-    },
-    {
-      id: 'curveArrow',
-      icon: 'ti ti-arrow-ramp-right',
-      title: '箭头',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'curveArrow' ? null : 'curveArrow'),
-      active: activeToolId === 'curveArrow',
-      variant: 'default'
-    },
-    {
-      id: 'number',
-      icon: 'ti ti-circle-number-1',
-      title: '序号',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'number' ? null : 'number'),
-      active: activeToolId === 'number',
-      variant: 'default'
-    },
-    {
-      id: 'watermark',
-      icon: 'ti ti-droplet-half-2',
-      title: '水印',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'watermark' ? null : 'watermark'),
-      active: activeToolId === 'watermark',
-      variant: 'default'
-    },
-    {
-      id: 'mosaic',
-      icon: 'ti ti-blur',
-      title: '马赛克',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'mosaic' ? null : 'mosaic'),
-      active: activeToolId === 'mosaic',
-      variant: 'default'
-    },
-    {
-      id: 'text',
-      icon: 'ti ti-typography',
-      title: '文本',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'text' ? null : 'text'),
-      active: activeToolId === 'text',
-      variant: 'default'
-    },
-    {
-      id: 'pen',
-      icon: 'ti ti-pencil',
-      title: '画笔',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'pen' ? null : 'pen'),
-      active: activeToolId === 'pen',
-      variant: 'default'
-    },
-    {
-      id: 'select',
-      icon: 'ti ti-pointer',
-      title: '选择',
-      onClick: () => onToolChange && onToolChange(activeToolId === 'select' ? null : 'select'),
-      active: activeToolId === 'select',
-      variant: 'default'
-    },
-  ];
+  const drawingTools = [...DRAWING_TOOLS].reverse().map(t => ({
+    ...t,
+    onClick: () => onToolChange?.(activeToolId === t.id ? null : t.id),
+    active: activeToolId === t.id,
+    variant: 'default',
+  }));
 
   const { x, y } = getToolbarPosition();
 

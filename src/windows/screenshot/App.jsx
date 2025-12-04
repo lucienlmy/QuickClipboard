@@ -24,6 +24,7 @@ import OcrOverlay from './components/OcrOverlay';
 import { recognizeSelectionOcr } from './utils/ocrUtils';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
+import RadialToolPicker from './components/RadialToolPicker';
 
 function App() {
   useSettingsSync();
@@ -373,6 +374,29 @@ function App() {
           stageRegionManager={stageRegionManager}
           longScreenshotMode={longScreenshot.isActive}
           isDrawingShape={editing.isDrawingShape}
+        />
+      )}
+
+      {session.hasValidSelection && !longScreenshot.isActive && (
+        <RadialToolPicker
+          activeToolId={editing.activeToolId}
+          onToolSelect={(toolId) => editing.setActiveToolId(editing.activeToolId === toolId ? null : toolId)}
+          actions={{
+            undo: editing.undo,
+            redo: editing.redo,
+            clear: editing.clearCanvas,
+            save: session.handleSaveSelection,
+            pin: session.handlePinSelection,
+            confirm: session.handleConfirmSelection,
+            cancel: session.handleCancelSelection,
+          }}
+          disabledActions={{
+            undo: !editing.canUndo,
+            redo: !editing.canRedo,
+            clear: !editing.canClearCanvas,
+          }}
+          disabled={editing.isDrawingShape || session.isDrawing || session.isMoving || session.isResizing}
+          longScreenshotMode={longScreenshot.isActive}
         />
       )}
     </div>

@@ -1,16 +1,6 @@
 //截图窗口快捷键配置
 
-export const TOOL_ORDER = [
-  { id: 'select', name: '选择' },
-  { id: 'pen', name: '画笔' },
-  { id: 'text', name: '文本' },
-  { id: 'mosaic', name: '马赛克' },
-  { id: 'watermark', name: '水印' },
-  { id: 'number', name: '序号' },
-  { id: 'curveArrow', name: '箭头' },
-  { id: 'shape', name: '形状' },
-  { id: 'ocr', name: 'OCR识别' },
-];
+import { DRAWING_TOOLS } from './tools';
 
 export const KEYBOARD_SHORTCUTS = {
   // 工具切换
@@ -74,8 +64,8 @@ export function matchAnyShortcut(event, shortcuts) {
 //根据快捷键获取工具ID
 export function getToolIdByKey(key) {
   const numberIndex = KEYBOARD_SHORTCUTS.tools.numberKeys.indexOf(key);
-  if (numberIndex !== -1 && numberIndex < TOOL_ORDER.length) {
-    return TOOL_ORDER[numberIndex].id;
+  if (numberIndex !== -1 && numberIndex < DRAWING_TOOLS.length) {
+    return DRAWING_TOOLS[numberIndex].id;
   }
   
   return null;
@@ -83,7 +73,7 @@ export function getToolIdByKey(key) {
 
 //获取工具的快捷键显示文本（仅数字键）
 export function getToolShortcuts(toolId) {
-  const index = TOOL_ORDER.findIndex(t => t.id === toolId);
+  const index = DRAWING_TOOLS.findIndex(t => t.id === toolId);
   if (index === -1 || index >= 9) return [];
   
   return [(index + 1).toString()];
@@ -92,13 +82,13 @@ export function getToolShortcuts(toolId) {
 //获取所有快捷键的扁平化映射
 export function getFlatShortcutMap() {
   const map = new Map();
-  TOOL_ORDER.forEach((tool, index) => {
+  DRAWING_TOOLS.forEach((tool, index) => {
     if (index < 9) {
       const numberKey = (index + 1).toString();
       map.set(numberKey, {
         type: 'tool',
         action: tool.id,
-        description: tool.name,
+        description: tool.title,
       });
     }
   });
@@ -141,5 +131,5 @@ export function getFlatShortcutMap() {
 
 //获取工具在工具栏中的位置索引
 export function getToolIndex(toolId) {
-  return TOOL_ORDER.findIndex(t => t.id === toolId);
+  return DRAWING_TOOLS.findIndex(t => t.id === toolId);
 }

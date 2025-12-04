@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSnapshot } from 'valtio';
-import { KEYBOARD_SHORTCUTS, TOOL_ORDER, getToolShortcuts } from '../constants/keyboardShortcuts';
+import { KEYBOARD_SHORTCUTS, getToolShortcuts } from '../constants/keyboardShortcuts';
+import { DRAWING_TOOLS } from '../constants/tools';
 import { mouseStore } from '../store/mouseStore';
 
 export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape }) {
@@ -190,10 +191,10 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
           <section>
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">工具切换</h3>
             <div className="grid grid-cols-2 gap-2">
-              {TOOL_ORDER.map((tool) => (
+              {DRAWING_TOOLS.map((tool) => (
                 <ShortcutItem
                   key={tool.id}
-                  description={tool.name}
+                  description={tool.title}
                   keys={getToolShortcuts(tool.id)}
                 />
               ))}
