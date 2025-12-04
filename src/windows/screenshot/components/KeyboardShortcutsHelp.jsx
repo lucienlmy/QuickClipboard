@@ -4,7 +4,7 @@ import { KEYBOARD_SHORTCUTS, getToolShortcuts } from '../constants/keyboardShort
 import { DRAWING_TOOLS } from '../constants/tools';
 import { mouseStore } from '../store/mouseStore';
 
-export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape }) {
+export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape, hasValidSelection, isDrawing, isInteracting }) {
   const { position: mousePos } = useSnapshot(mouseStore);
   const [visible, setVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -48,10 +48,10 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
       const rect = hintRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const isInside = 
-        e.clientX >= rect.left && 
-        e.clientX <= rect.right && 
-        e.clientY >= rect.top && 
+      const isInside =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
         e.clientY <= rect.bottom;
 
       setIsHintHovered(isInside);
@@ -69,14 +69,14 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
 
     // 获取鼠标所在屏幕
     const targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
-    
+
     if (!targetScreen) {
       return { left: '50%', top: '50%' };
     }
 
     const centerX = targetScreen.x + targetScreen.width / 2;
     const centerY = targetScreen.y + targetScreen.height / 2;
-    
+
     const hintLeft = targetScreen.x + 16;
     const hintBottom = targetScreen.y + targetScreen.height - 16;
 
@@ -94,7 +94,7 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
     }
 
     const targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
-    
+
     if (!targetScreen) {
       return { bottom: '16px', left: '16px' };
     }
@@ -117,39 +117,70 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
     if (longScreenshotMode) {
       return null;
     }
-    
+
     const hintBaseOpacity = isHintHovered ? 0 : 1;
     const hintFinalOpacity = disablePointerEvents ? hintBaseOpacity * 0.5 : hintBaseOpacity;
 
     return (
-      <div 
+      <div
         ref={hintRef}
         className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-3 py-2 pointer-events-none select-none"
         style={{
           ...hintPosition,
           opacity: hintFinalOpacity,
-          transition: disablePointerEvents 
-            ? 'opacity 1500ms ease-out' 
+          transition: disablePointerEvents
+            ? 'opacity 1500ms ease-out'
             : 'opacity 200ms ease-out',
         }}
       >
         <div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
-          <div className="flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">↑↓←→</kbd>
-            <span>方向键移动光标</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Shift</kbd>
-            <span>切换颜色格式</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">C</kbd>
-            <span>复制颜色</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">1~9</kbd>
-            <span>数字1~9切换工具</span>
-          </div>
+          {!hasValidSelection ? (
+            <>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">↑↓←→</kbd>
+                <span>方向键移动光标</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Shift</kbd>
+                <span>切换颜色格式</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">C</kbd>
+                <span>复制颜色</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">↑↓←→</kbd>
+                <span>方向键移动光标</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">1~9</kbd>
+                <span>数字1~9切换工具</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Tab</kbd>
+                <span>显示工具选择轮盘</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Enter</kbd>
+                <span>确认并复制</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Ctrl+P</kbd>
+                <span>创建贴图</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Ctrl+S</kbd>
+                <span>保存为文件</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Escape</kbd>
+                <span>取消截屏</span>
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-2">
             <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Shift+?</kbd>
             <span>显示快捷键帮助</span>
@@ -160,11 +191,11 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
   }
 
   return (
-    <div 
+    <div
       className={`fixed inset-0 bg-black/50 z-[10000] transition-opacity duration-300 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
       onClick={handleClose}
     >
-      <div 
+      <div
         className="absolute bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-2xl w-full max-h-[80vh] overflow-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
         style={{
           left: isAnimating ? `${panelPosition.centerX || '50%'}px` : `${panelPosition.hintLeft || 16}px`,

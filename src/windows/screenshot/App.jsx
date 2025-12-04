@@ -385,6 +385,9 @@ function App() {
           stageRegionManager={stageRegionManager}
           longScreenshotMode={longScreenshot.isActive}
           isDrawingShape={editing.isDrawingShape}
+          hasValidSelection={session.hasValidSelection}
+          isDrawing={session.isDrawing}
+          isInteracting={session.isInteracting}
         />
       )}
 
