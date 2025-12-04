@@ -46,14 +46,14 @@ const createCommonProps = (index, isSelected, isSelectMode, onSelectShape, shape
 });
 
 // 渲染单个形状
-export const ShapeRenderer = ({ 
-  shape, 
-  index, 
-  shapeRef, 
-  isSelected, 
-  isSelectMode, 
+export const ShapeRenderer = ({
+  shape,
+  index,
+  shapeRef,
+  isSelected,
+  isSelectMode,
   shapeListening,
-  onSelectShape, 
+  onSelectShape,
   onShapeTransform,
   onTextEdit,
   isEditing
@@ -133,7 +133,7 @@ export const ShapeRenderer = ({
   if (shape.tool === 'polyline') {
     const offsetX = shape.offsetX ?? 0;
     const offsetY = shape.offsetY ?? 0;
-    
+
     return (
       <Group
         ref={shapeRef}
@@ -176,17 +176,40 @@ export const ShapeRenderer = ({
         )}
         {isSelected && isSelectMode && !shape.isDrawing && (
           <>
-            {Array.from({ length: shape.points.length / 2 }).map((_, i) => (
-              <Circle
-                key={i}
-                x={shape.points[i * 2]}
-                y={shape.points[i * 2 + 1]}
-                radius={5}
-                fill="#fff"
-                stroke="#1890ff"
-                strokeWidth={2}
-              />
-            ))}
+            {Array.from({ length: shape.points.length / 2 }).map((_, i) => {
+              const offset = i * 2;
+              return (
+                <Circle
+                  key={i}
+                  x={shape.points[offset]}
+                  y={shape.points[offset + 1]}
+                  radius={5}
+                  fill="#fff"
+                  stroke="#1890ff"
+                  strokeWidth={2}
+                  draggable
+                  onDragStart={(e) => {
+                    e.cancelBubble = true;
+                  }}
+                  onDragMove={(e) => {
+                    e.cancelBubble = true;
+                    const node = e.target;
+                    const newPoints = [...shape.points];
+                    newPoints[offset] = node.x();
+                    newPoints[offset + 1] = node.y();
+                    onShapeTransform({ points: newPoints });
+                  }}
+                  onDragEnd={(e) => {
+                    e.cancelBubble = true;
+                    const node = e.target;
+                    const newPoints = [...shape.points];
+                    newPoints[offset] = node.x();
+                    newPoints[offset + 1] = node.y();
+                    onShapeTransform({ points: newPoints });
+                  }}
+                />
+              );
+            })}
           </>
         )}
       </Group>
@@ -197,7 +220,7 @@ export const ShapeRenderer = ({
   if (shape.tool === 'pen') {
     const offsetX = shape.offsetX ?? 0;
     const offsetY = shape.offsetY ?? 0;
-    
+
     return (
       <Line
         ref={shapeRef}
@@ -261,9 +284,9 @@ export const ShapeRenderer = ({
         fontStyleString = 'bold';
       }
     }
-    
+
     const needsSkew = fontStyleArray.includes('italic');
-    
+
     return (
       <Text
         ref={shapeRef}
@@ -350,15 +373,15 @@ export const ShapeRenderer = ({
 
     // 画笔模式
     if (shape.drawMode === 'brush') {
-      const visualStyle = shape.renderMode === 'mosaic' 
+      const visualStyle = shape.renderMode === 'mosaic'
         ? {
-            stroke: 'rgba(0, 0, 0, 0.6)',
-            fill: 'rgba(0, 0, 0, 0.6)',
-          }
+          stroke: 'rgba(0, 0, 0, 0.6)',
+          fill: 'rgba(0, 0, 0, 0.6)',
+        }
         : {
-            stroke: 'rgba(100, 100, 100, 0.5)',
-            fill: 'rgba(100, 100, 100, 0.5)',
-          };
+          stroke: 'rgba(100, 100, 100, 0.5)',
+          fill: 'rgba(100, 100, 100, 0.5)',
+        };
 
       return (
         <Line
@@ -381,13 +404,13 @@ export const ShapeRenderer = ({
     if (shape.drawMode === 'region') {
       const visualStyle = shape.renderMode === 'mosaic'
         ? {
-            fill: 'rgba(0, 0, 0, 0.6)',
-            stroke: 'rgba(0, 0, 0, 0.8)',
-          }
+          fill: 'rgba(0, 0, 0, 0.6)',
+          stroke: 'rgba(0, 0, 0, 0.8)',
+        }
         : {
-            fill: 'rgba(100, 100, 100, 0.5)',
-            stroke: 'rgba(100, 100, 100, 0.7)',
-          };
+          fill: 'rgba(100, 100, 100, 0.5)',
+          stroke: 'rgba(100, 100, 100, 0.7)',
+        };
 
       return (
         <Rect
@@ -473,12 +496,12 @@ export const ShapeRenderer = ({
       const centerY = shape.centerY ?? (shape.y + shape.height / 2);
       const width = shape.width ?? Math.abs(shape.points[2] - shape.points[6]);
       const height = shape.height ?? Math.abs(shape.points[5] - shape.points[1]);
-      
+
       const relativePoints = [
-        0, -height / 2,      
-        width / 2, 0,       
-        0, height / 2,        
-        -width / 2, 0,       
+        0, -height / 2,
+        width / 2, 0,
+        0, height / 2,
+        -width / 2, 0,
       ];
 
       return (
@@ -496,9 +519,9 @@ export const ShapeRenderer = ({
           onDragEnd={(e) => {
             if (isSelectMode && onShapeTransform) {
               const node = e.target;
-              onShapeTransform({ 
-                centerX: node.x(), 
-                centerY: node.y() 
+              onShapeTransform({
+                centerX: node.x(),
+                centerY: node.y()
               });
             }
           }}
