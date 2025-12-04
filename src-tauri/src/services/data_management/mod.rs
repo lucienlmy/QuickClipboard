@@ -550,6 +550,8 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
 
     let src_images = src_dir.join("clipboard_images");
     let dst_images = dst_dir.join("clipboard_images");
+    let src_pin_images = src_dir.join("pin_images");
+    let dst_pin_images = dst_dir.join("pin_images");
     let src_image_library = src_dir.join("image_library");
     let dst_image_library = dst_dir.join("image_library");
     let src_db = src_dir.join("quickclipboard.db");
@@ -560,6 +562,9 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
             if dst_images.exists() {
                 fs::remove_dir_all(&dst_images).map_err(|e| format!("删除目标图片目录失败: {}", e))?;
             }
+            if dst_pin_images.exists() {
+                fs::remove_dir_all(&dst_pin_images).map_err(|e| format!("删除目标贴图目录失败: {}", e))?;
+            }
             if dst_image_library.exists() {
                 fs::remove_dir_all(&dst_image_library).map_err(|e| format!("删除目标图库目录失败: {}", e))?;
             }
@@ -568,6 +573,9 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
             }
             if src_images.exists() {
                 safe_move_item(&src_images, &dst_images)?;
+            }
+            if src_pin_images.exists() {
+                safe_move_item(&src_pin_images, &dst_pin_images)?;
             }
             if src_image_library.exists() {
                 safe_move_item(&src_image_library, &dst_image_library)?;
@@ -579,6 +587,9 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
         "target_only" => {
             if src_images.exists() {
                 fs::remove_dir_all(&src_images).map_err(|e| format!("删除源图片目录失败: {}", e))?;
+            }
+            if src_pin_images.exists() {
+                fs::remove_dir_all(&src_pin_images).map_err(|e| format!("删除源贴图目录失败: {}", e))?;
             }
             if src_image_library.exists() {
                 fs::remove_dir_all(&src_image_library).map_err(|e| format!("删除源图库目录失败: {}", e))?;
@@ -594,6 +605,12 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
                 if dst_images.exists() { merge_dir_no_overwrite(&dst_images, &src_images)?; }
                 if dst_images.exists() { fs::remove_dir_all(&dst_images).map_err(|e| format!("删除目标图片目录失败: {}", e))?; }
                 safe_move_item(&src_images, &dst_images)?;
+            }
+            if src_pin_images.exists() {
+                if !dst_pin_images.exists() { fs::create_dir_all(&dst_pin_images).map_err(|e| e.to_string())?; }
+                if dst_pin_images.exists() { merge_dir_no_overwrite(&dst_pin_images, &src_pin_images)?; }
+                if dst_pin_images.exists() { fs::remove_dir_all(&dst_pin_images).map_err(|e| format!("删除目标贴图目录失败: {}", e))?; }
+                safe_move_item(&src_pin_images, &dst_pin_images)?;
             }
             if src_image_library.exists() {
                 if !dst_image_library.exists() { fs::create_dir_all(&dst_image_library).map_err(|e| e.to_string())?; }
