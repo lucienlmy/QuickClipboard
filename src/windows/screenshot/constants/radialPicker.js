@@ -4,7 +4,7 @@
 export const RADIAL_PICKER_ITEM_SIZE = 40;
 export const RADIAL_PICKER_ITEM_GAP = 8;
 export const RADIAL_PICKER_RING_GAP = 12;
-export const RADIAL_PICKER_INNER_RADIUS = 50;
+export const RADIAL_PICKER_INNER_RADIUS = 55;
 export const RADIAL_PICKER_MAX_PER_RING = 10;
 export const RADIAL_PICKER_HIT_RADIUS = 24;
 

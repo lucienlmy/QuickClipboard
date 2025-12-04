@@ -3,6 +3,7 @@ import { createPenTool } from '../tools/penTool';
 import { createShapeTool } from '../tools/shapeTool';
 import { createSelectTool } from '../tools/selectTool';
 import { createCurveArrowTool } from '../tools/curveArrowTool';
+import { createPolylineTool } from '../tools/polylineTool';
 import { createTextTool } from '../tools/textTool';
 import { createMosaicTool } from '../tools/mosaicTool';
 import { createWatermarkTool } from '../tools/watermarkTool';
@@ -14,7 +15,7 @@ import { createPersistenceManager } from '../utils/toolParameterPersistence';
 
 // 检查形状是否在框选范围内
 const checkShapeInBox = (shape, box) => {
-  if (shape.tool === 'pen' || shape.tool === 'curveArrow') {
+  if (shape.tool === 'pen' || shape.tool === 'curveArrow' || shape.tool === 'polyline') {
     const offsetX = shape.x || shape.offsetX || 0;
     const offsetY = shape.y || shape.offsetY || 0;
     for (let i = 0; i < shape.points.length; i += 2) {
@@ -133,11 +134,13 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
   const [editingTextIndex, setEditingTextIndex] = useState(null);
   const isDrawingRef = useRef(false);
   const isSelectingRef = useRef(false);
+  const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
 
   const tools = useRef({
     pen: createPenTool(),
     shape: createShapeTool(),
     curveArrow: createCurveArrowTool(),
+    polyline: createPolylineTool(),
     number: createNumberTool(),
     text: createTextTool(),
     mosaic: createMosaicTool(),
@@ -325,6 +328,26 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     setHistoryStep(newHistory.length - 1);
   }, [history, historyStep]);
 
+  const finishPolylineIfDrawing = useCallback(() => {
+    if (currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
+      const tool = tools.current.polyline;
+      const finishedShape = tool.finishShape(currentShape);
+      if (finishedShape.points.length >= 4) {
+        const newShapes = [...shapes, finishedShape];
+        setShapes(newShapes);
+        setHistory(prev => [...prev.slice(0, historyStep + 1), newShapes]);
+        setHistoryStep(prev => prev + 1);
+      }
+      setCurrentShape(null);
+      isDrawingRef.current = false;
+    }
+  }, [currentShape, shapes, historyStep]);
+
+  const handleSetActiveToolId = useCallback((newToolId) => {
+    finishPolylineIfDrawing();
+    setActiveToolId(newToolId);
+  }, [finishPolylineIfDrawing]);
+
   const handleMouseDown = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
     
@@ -354,13 +377,41 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     const tool = tools.current[activeToolId];
     if (!tool) return false;
 
+    if (activeToolId === 'polyline') {
+      const now = Date.now();
+      const last = lastClickRef.current;
+      const dist = Math.sqrt((relativePos.x - last.x) ** 2 + (relativePos.y - last.y) ** 2);
+      const timeDiff = now - last.time;
+      
+      const isDoubleClick = timeDiff < 300 && dist < 20;
+      
+      lastClickRef.current = { x: relativePos.x, y: relativePos.y, time: now };
+      
+      if (currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
+        if (isDoubleClick) {
+          const finishedShape = tool.finishShape(currentShape);
+          if (finishedShape.points.length >= 4) {
+            setShapes(prevShapes => [...prevShapes, finishedShape]);
+            setHistory(prev => [...prev.slice(0, historyStep + 1), [...shapes, finishedShape]]);
+            setHistoryStep(prev => prev + 1);
+          }
+          setCurrentShape(null);
+          isDrawingRef.current = false;
+        } else {
+          const updatedShape = tool.addPoint(currentShape, relativePos);
+          setCurrentShape(updatedShape);
+        }
+        return true;
+      }
+    }
+
     isDrawingRef.current = true;
     
     const newShape = tool.createShape(relativePos, activeToolStyle);
     setCurrentShape(newShape);
     
     return true;
-  }, [activeToolId, activeToolStyle, editingTextIndex]);
+  }, [activeToolId, activeToolStyle, editingTextIndex, currentShape, shapes, historyStep]);
 
   const handleMouseMove = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
@@ -377,6 +428,13 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
         width,
         height,
       });
+      return true;
+    }
+    
+    if (activeToolId === 'polyline' && currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
+      const tool = tools.current[activeToolId];
+      const updatedShape = tool.updateShape(currentShape, relativePos);
+      setCurrentShape(updatedShape);
       return true;
     }
     
@@ -423,6 +481,10 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     }
     
     if (activeToolId === 'select' || !isDrawingRef.current) return false;
+
+    if (activeToolId === 'polyline' && currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
+      return true;
+    }
 
     if (currentShape) {
       let finalizedShape = (() => {
@@ -563,10 +625,14 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     });
   }, []);
 
+  const handleDoubleClick = useCallback((e, relativePos) => {
+    return false;
+  }, []);
+
   return {
     shapes: currentShape ? [...shapes, currentShape] : shapes,
     activeToolId,
-    setActiveToolId,
+    setActiveToolId: handleSetActiveToolId,
     activeTool,
     toolParameters: activeTool?.parameters || [],
     toolStyle: activeToolStyle,
@@ -583,6 +649,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleDoubleClick,
     selectedShapeIndices,
     setSelectedShapeIndices,
     toggleSelectShape,

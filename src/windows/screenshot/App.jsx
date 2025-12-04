@@ -123,6 +123,16 @@ function App() {
     }
   };
 
+  const handleDoubleClick = (e) => {
+    if (longScreenshot.isActive) return;
+    
+    if (editing.activeToolId && editing.handleDoubleClick) {
+      const stage = e.target.getStage();
+      const pos = stage.getPointerPosition();
+      editing.handleDoubleClick(e, pos);
+    }
+  };
+
   const handleContextMenu = useCallback((e) => {
     // 长截屏模式下禁用右键取消
     if (longScreenshot.isActive) {
@@ -212,6 +222,7 @@ function App() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onDblClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
         onWheel={session.handleWheel}
       >

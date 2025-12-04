@@ -129,6 +129,70 @@ export const ShapeRenderer = ({
     );
   }
 
+  // 折线工具
+  if (shape.tool === 'polyline') {
+    const offsetX = shape.offsetX ?? 0;
+    const offsetY = shape.offsetY ?? 0;
+    
+    return (
+      <Group
+        ref={shapeRef}
+        x={offsetX}
+        y={offsetY}
+        {...commonProps}
+        onDragEnd={(e) => {
+          if (isSelectMode && onShapeTransform) {
+            onShapeTransform({
+              offsetX: e.target.x(),
+              offsetY: e.target.y(),
+            });
+          }
+        }}
+      >
+        <Line
+          points={shape.points}
+          stroke={shape.stroke}
+          strokeWidth={shape.strokeWidth}
+          opacity={shape.opacity}
+          dash={shape.dash}
+          lineCap={shape.lineCap}
+          lineJoin={shape.lineJoin}
+          hitStrokeWidth={20}
+        />
+        {shape.isDrawing && shape.points.length >= 2 && (
+          <>
+            {Array.from({ length: shape.points.length / 2 }).map((_, i) => (
+              <Circle
+                key={i}
+                x={shape.points[i * 2]}
+                y={shape.points[i * 2 + 1]}
+                radius={4}
+                fill={shape.stroke}
+                stroke="#fff"
+                strokeWidth={1}
+              />
+            ))}
+          </>
+        )}
+        {isSelected && isSelectMode && !shape.isDrawing && (
+          <>
+            {Array.from({ length: shape.points.length / 2 }).map((_, i) => (
+              <Circle
+                key={i}
+                x={shape.points[i * 2]}
+                y={shape.points[i * 2 + 1]}
+                radius={5}
+                fill="#fff"
+                stroke="#1890ff"
+                strokeWidth={2}
+              />
+            ))}
+          </>
+        )}
+      </Group>
+    );
+  }
+
   // 画笔工具
   if (shape.tool === 'pen') {
     const offsetX = shape.offsetX ?? 0;

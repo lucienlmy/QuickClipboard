@@ -8,6 +8,7 @@ export const DRAWING_TOOLS = [
   { id: 'mosaic', icon: 'ti ti-blur', title: '马赛克' },
   { id: 'watermark', icon: 'ti ti-droplet-half-2', title: '水印' },
   { id: 'number', icon: 'ti ti-circle-number-1', title: '序号' },
+  { id: 'polyline', icon: 'ti ti-line', title: '折线' },
   { id: 'curveArrow', icon: 'ti ti-arrow-ramp-right', title: '箭头' },
   { id: 'shape', icon: 'ti ti-triangle-square-circle', title: '形状' },
   { id: 'ocr', icon: 'ti ti-text-scan-2', title: 'OCR识别' },
