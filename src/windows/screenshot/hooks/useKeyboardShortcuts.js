@@ -24,9 +24,18 @@ export default function useKeyboardShortcuts({
 }) {
   const enabledRef = useRef(true);
 
-  // 检查是否在输入状态（文本编辑）
+  // 检查是否在输入状态
   const isInTextInput = useCallback(() => {
-    return editingTextIndex !== null;
+    if (editingTextIndex !== null) return true;
+    
+    const activeElement = document.activeElement;
+    if (activeElement) {
+      const tagName = activeElement.tagName.toLowerCase();
+      if (tagName === 'input' || tagName === 'textarea') return true;
+      if (activeElement.isContentEditable) return true;
+    }
+    
+    return false;
   }, [editingTextIndex]);
 
   // 处理工具切换
