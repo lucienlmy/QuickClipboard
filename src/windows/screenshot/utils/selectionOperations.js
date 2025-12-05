@@ -30,7 +30,8 @@ export function calculateMovedSelection(selection, pos, moveOffset) {
 }
 
 //根据调整手柄计算新选区
-export function calculateResizedSelection(initialSelection, handleType, dx, dy) {
+export function calculateResizedSelection(initialSelection, handleType, dx, dy, options = {}) {
+  const { lockAspectRatio = false, aspectRatio: aspectRatioOverride } = options;
   let newSelection = { ...initialSelection };
 
   switch (handleType) {
@@ -80,7 +81,73 @@ export function calculateResizedSelection(initialSelection, handleType, dx, dy) 
     newSelection.height = Math.abs(newSelection.height);
   }
 
-  return newSelection;
+  if (!lockAspectRatio) {
+    return newSelection;
+  }
+
+  const ratioFromInitial =
+    initialSelection.width > 0 && initialSelection.height > 0
+      ? initialSelection.width / initialSelection.height
+      : 1;
+  const ratio = aspectRatioOverride && aspectRatioOverride > 0 ? aspectRatioOverride : ratioFromInitial;
+
+  return applyAspectRatioLock(newSelection, initialSelection, handleType, ratio);
+}
+
+function applyAspectRatioLock(resizedSelection, initialSelection, handleType, ratio) {
+  if (!isFinite(ratio) || ratio <= 0) return resizedSelection;
+
+  const baseWidth = Math.max(0, resizedSelection.width);
+  const baseHeight = Math.max(0, resizedSelection.height);
+  if (baseWidth === 0 || baseHeight === 0) return resizedSelection;
+
+  const isVerticalHandle = handleType === 'n' || handleType === 's';
+  const isHorizontalHandle = handleType === 'e' || handleType === 'w';
+
+  const widthDriven = isHorizontalHandle
+    ? true
+    : isVerticalHandle
+      ? false
+      : Math.abs(baseWidth - initialSelection.width) >= Math.abs(baseHeight - initialSelection.height);
+
+  const targetWidth = widthDriven ? baseWidth : baseHeight * ratio;
+  const targetHeight = widthDriven ? baseWidth / ratio : baseHeight;
+
+  const { x, y, width, height } = initialSelection;
+  const anchors = {
+    se: { ax: x, ay: y },
+    ne: { ax: x, ay: y + height },
+    nw: { ax: x + width, ay: y + height },
+    sw: { ax: x + width, ay: y },
+    e: { ax: x, ay: y + height / 2 },
+    w: { ax: x + width, ay: y + height / 2 },
+    n: { ax: x + width / 2, ay: y + height },
+    s: { ax: x + width / 2, ay: y },
+  };
+
+  const anchor = anchors[handleType];
+  if (!anchor) return resizedSelection;
+
+  switch (handleType) {
+    case 'se':
+      return { x: anchor.ax, y: anchor.ay, width: targetWidth, height: targetHeight };
+    case 'ne':
+      return { x: anchor.ax, y: anchor.ay - targetHeight, width: targetWidth, height: targetHeight };
+    case 'nw':
+      return { x: anchor.ax - targetWidth, y: anchor.ay - targetHeight, width: targetWidth, height: targetHeight };
+    case 'sw':
+      return { x: anchor.ax - targetWidth, y: anchor.ay, width: targetWidth, height: targetHeight };
+    case 'e':
+      return { x: anchor.ax, y: anchor.ay - targetHeight / 2, width: targetWidth, height: targetHeight };
+    case 'w':
+      return { x: anchor.ax - targetWidth, y: anchor.ay - targetHeight / 2, width: targetWidth, height: targetHeight };
+    case 'n':
+      return { x: anchor.ax - targetWidth / 2, y: anchor.ay - targetHeight, width: targetWidth, height: targetHeight };
+    case 's':
+      return { x: anchor.ax - targetWidth / 2, y: anchor.ay, width: targetWidth, height: targetHeight };
+    default:
+      return resizedSelection;
+  }
 }
 
 //计算圆角调整的 delta

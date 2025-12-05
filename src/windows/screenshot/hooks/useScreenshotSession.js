@@ -53,7 +53,8 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     if (!stage) return;
     const pos = stage.getPointerPosition();
     if (!pos) return;
-    interactionMouseMove(pos, autoSelectionRect);
+    const shiftKey = Boolean(e.evt?.shiftKey);
+    interactionMouseMove(pos, autoSelectionRect, { shiftKey });
     if (isDrawing && !selection) {
       clearAutoSelection();
     }

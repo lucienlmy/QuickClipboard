@@ -126,7 +126,9 @@ export function useSelectionInteraction(
 
   // 处理鼠标移动
   const handleMouseMove = useCallback(
-    (pos, autoSelectionRect) => {
+    (pos, autoSelectionRect, modifierState = {}) => {
+      const { shiftKey = false } = modifierState;
+
       if (isDraggingFromAuto && startPos && autoSelectionRect) {
         const dx = Math.abs(pos.x - startPos.x);
         const dy = Math.abs(pos.y - startPos.y);
@@ -153,7 +155,9 @@ export function useSelectionInteraction(
       if (isResizing && resizeHandle && startPos && initialSelection) {
         const dx = pos.x - startPos.x;
         const dy = pos.y - startPos.y;
-        let newSelection = calculateResizedSelection(initialSelection, resizeHandle, dx, dy);
+        let newSelection = calculateResizedSelection(initialSelection, resizeHandle, dx, dy, {
+          lockAspectRatio: shiftKey,
+        });
         
         if (stageRegionManager) {
           newSelection = stageRegionManager.constrainRect(newSelection);

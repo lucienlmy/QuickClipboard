@@ -164,6 +164,10 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
                 <span>显示工具选择轮盘</span>
               </div>
               <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Shift+拖拽手柄</kbd>
+                <span>按比例缩放选区</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Enter</kbd>
                 <span>确认并复制</span>
               </div>
