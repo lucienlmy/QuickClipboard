@@ -81,6 +81,10 @@ function ClipboardSection({
         <SettingItem label={t('settings.clipboard.pasteToTop')} description={t('settings.clipboard.pasteToTopDesc')}>
           <Toggle checked={settings.pasteToTop} onChange={checked => onSettingChange('pasteToTop', checked)} />
         </SettingItem>
+
+        <SettingItem label={t('settings.clipboard.showBadges')} description={t('settings.clipboard.showBadgesDesc')}>
+          <Toggle checked={settings.showBadges !== false} onChange={checked => onSettingChange('showBadges', checked)} />
+        </SettingItem>
       </SettingsSection>
     </>;
 }

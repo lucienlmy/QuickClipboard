@@ -251,7 +251,7 @@ function FavoriteItem({
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
 
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-    {(hasFileMissing || isPasted) && (
+    {settings.showBadges !== false && (hasFileMissing || isPasted) && (
       <div 
         className="absolute top-0 left-0 z-30 pointer-events-none overflow-hidden rounded-tl-md"
         style={{ width: 20, height: 20 }}

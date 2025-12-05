@@ -11,7 +11,6 @@ import { emit } from '@tauri-apps/api/event'
 import { toast } from '@shared/store/toastStore'
 import i18n from '@shared/i18n'
 
-// 默认设置配置
 export const defaultSettings = {
   // 常规设置
   autoStart: false,
@@ -64,6 +63,7 @@ export const defaultSettings = {
   autoFocusSearch: false,
   pasteWithFormat: true,
   pasteToTop: false,
+  showBadges: true,
   
   // 音效设置
   soundEnabled: true,
@@ -120,12 +120,11 @@ export const defaultSettings = {
   useCustomStorage: false
 }
 
-// 从 Tauri 后端加载设置
+// 加载设置
 export async function loadSettingsFromBackend() {
   try {
     const savedSettings = await reloadSettings()
-    
-    // 合并默认设置和保存的设置
+
     const mergedSettings = { ...defaultSettings, ...savedSettings }
     
     return mergedSettings
@@ -135,7 +134,7 @@ export async function loadSettingsFromBackend() {
   }
 }
 
-// 保存设置到 Tauri 后端
+// 保存设置
 export async function saveSettingsToBackend(settings, options = {}) {
   const { showToast = true } = options
   
@@ -206,7 +205,7 @@ export async function getAllWindowsInfoService() {
   }
 }
 
-// 隐藏主窗口（如果是自动显示的）
+// 隐藏主窗口
 export async function hideMainWindowIfAutoShownService() {
   try {
     await hideMainWindowIfAutoShown()

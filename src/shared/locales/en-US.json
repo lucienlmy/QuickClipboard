@@ -341,6 +341,8 @@
       "autoFocusSearchDesc": "Automatically focus search box when window is shown",
       "pasteToTop": "Pin Pasted Item to Top",
       "pasteToTopDesc": "After pasting, move the item to the top of the clipboard list",
+      "showBadges": "Show Status Badges",
+      "showBadgesDesc": "Show badges in top-left corner for pasted, pinned, or missing file status",
       "contentFilterTitle": "Content Filter",
       "contentFilterDesc": "Filter specific types or formats of clipboard content",
       "ignoreEmpty": "Ignore Empty Content",
