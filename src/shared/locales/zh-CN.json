@@ -719,7 +719,12 @@
     "noNotes": "暂无更新说明",
     "downloadAndInstall": "下载并安装",
     "later": "稍后",
-    "backgroundUpdate": "后台更新"
+    "backgroundUpdate": "后台更新",
+    "retry": "重试",
+    "exitApp": "退出程序",
+    "updateFailed": "更新失败",
+    "manualDownload": "手动下载",
+    "newVersionAvailable": "发现新版本"
   }
 }
 

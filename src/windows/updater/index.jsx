@@ -2,9 +2,10 @@ import '@tabler/icons-webfont/dist/tabler-icons.min.css'
 import 'uno.css';
 import '@unocss/reset/tailwind.css';
 import { listen, emit } from '@tauri-apps/api/event'
-import { relaunch } from '@tauri-apps/plugin-process'
+import { relaunch, exit } from '@tauri-apps/plugin-process'
 import { check } from '@tauri-apps/plugin-updater'
-import React, { useEffect, useState } from 'react'
+import { getVersion } from '@tauri-apps/api/app'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -26,20 +27,62 @@ function App() {
   const [notesLoading, setNotesLoading] = useState(false)
   const [notesError, setNotesError] = useState('')
   const [releaseUrl, setReleaseUrl] = useState('')
+  const [currentVersion, setCurrentVersion] = useState('')
+  
+  const updateInstanceRef = useRef(null)
+  const configReceivedRef = useRef(false)
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const version = await getVersion()
+        setCurrentVersion(version)
+      } catch (e) {
+        console.error('无法获取当前版本：', e)
+      }
+      try {
+        const update = await check()
+        if (update) {
+          updateInstanceRef.current = update
+        }
+      } catch (e) {
+        console.error('检查更新失败：', e)
+      }
+    }
+    init()
+  }, [])
 
   useEffect(() => {
     const unlisten = listen('update-config', async (e) => {
+      if (configReceivedRef.current) return
+      configReceivedRef.current = true
+      
       try {
         const cfg = e?.payload || {}
-        if (typeof cfg.forceUpdate === 'boolean') setForceUpdate(cfg.forceUpdate)
+        const isForceUpdate = typeof cfg.forceUpdate === 'boolean' ? cfg.forceUpdate : false
+        setForceUpdate(isForceUpdate)
         const v = cfg.version || null
         const n = cfg.notes || null
         setVersionInfo(v ? { version: v, date: undefined, notes: n } : null)
         if (n) await loadNotes(n)
         setStatus('available')
-        setMessage(t('updater.newVersionFound', { version: v || '' }))
-        if (cfg.forceUpdate) {
-          await startDownload()
+        
+        if (isForceUpdate) {
+          const waitForUpdate = async () => {
+            for (let i = 0; i < 20; i++) {
+              if (updateInstanceRef.current) {
+                await startDownloadInternal(updateInstanceRef.current)
+                return
+              }
+              await new Promise(r => setTimeout(r, 200))
+            }
+            const update = await check()
+            if (update) {
+              updateInstanceRef.current = update
+              await startDownloadInternal(update)
+            }
+          }
+          waitForUpdate()
         }
       } catch (_) {}
     })
@@ -62,7 +105,7 @@ function App() {
         setMessage(t('updater.installedRestarting', { defaultValue: '更新已安装，正在重启...' }))
         break
       case 'available':
-        setMessage(t('updater.newVersionFound', { defaultValue: '发现新版本 {{version}}', version: versionInfo?.version || '' }))
+        setMessage(t('updater.newVersionAvailable', { defaultValue: '发现新版本' }))
         break
       default:
         break
@@ -102,14 +145,8 @@ function App() {
     }
   }
 
-  async function startDownload(updateInstance) {
+  async function startDownloadInternal(update) {
     try {
-      const update = updateInstance || window.__pendingUpdate || await check()
-      if (!update) {
-        setStatus('none')
-        setMessage(t('updater.noUpdateShort', { defaultValue: '未发现新版本' }))
-        return
-      }
       setStatus('downloading')
       setMessage(t('updater.downloading', { defaultValue: '正在下载更新...' }))
       let downloaded = 0
@@ -136,9 +173,39 @@ function App() {
       await relaunch()
     } catch (e) {
       setStatus('error')
-      setMessage(t('updater.downloadFailed'))
+      setMessage(t('updater.downloadFailed', { defaultValue: '下载或安装失败' }))
     }
   }
+
+  async function startDownload() {
+    try {
+      let update = updateInstanceRef.current
+      if (!update) {
+        update = await check()
+        if (update) {
+          updateInstanceRef.current = update
+        }
+      }
+      if (!update) {
+        setStatus('none')
+        setMessage(t('updater.noUpdateShort', { defaultValue: '未发现新版本' }))
+        return
+      }
+      await startDownloadInternal(update)
+    } catch (e) {
+      setStatus('error')
+      setMessage(t('updater.downloadFailed', { defaultValue: '下载或安装失败' }))
+    }
+  }
+
+  const handleClose = useCallback(async () => {
+    if (forceUpdate) {
+      await exit(0)
+    } else {
+      const w = getCurrentWebviewWindow()
+      try { await w.close() } catch (_) {}
+    }
+  }, [forceUpdate])
 
   const pct = progress.total > 0 ? Math.min(100, Math.round(progress.downloaded * 100 / progress.total)) : 0
 
@@ -149,9 +216,6 @@ function App() {
           <div className="text-xl font-semibold flex items-center gap-2">
             <i className="ti ti-rocket" /> {t('about.appName', { defaultValue: 'QuickClipboard' })} · {t('updater.title', { defaultValue: '应用更新' })}
           </div>
-          {versionInfo && (
-            <div className="text-sm opacity-80">{t('updater.latestVersion', { defaultValue: '最新版本：{{version}}', version: versionInfo.version })}</div>
-          )}
         </div>
         {status === 'checking' ? (
           <div className="flex-1 min-h-40 flex flex-col items-center justify-center gap-3">
@@ -161,6 +225,18 @@ function App() {
         ) : (
           <>
             <div className="text-sm opacity-90">{status === 'error' ? null : message}</div>
+
+            {versionInfo && (status === 'available' || status === 'downloading' || status === 'error') && (
+              <div className="text-xs sm:text-sm opacity-90 flex items-center gap-3 flex-wrap">
+                <div className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
+                  <span className="font-medium">{currentVersion || '--'}</span>
+                </div>
+                <i className="ti ti-arrow-right text-gray-400" />
+                <div className="px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                  <span className="font-semibold">{versionInfo.version || '--'}</span>
+                </div>
+              </div>
+            )}
 
             {versionInfo && (
               <div className="flex-1 min-h-[180px] w-full border border-gray-200 dark:border-gray-700 rounded-md p-3 bg-gray-50 dark:bg-gray-800/50 flex flex-col overflow-hidden">
@@ -197,38 +273,59 @@ function App() {
               </div>
             )}
 
-            {(status === 'downloading' || status === 'error') && (
+            {status === 'downloading' && (
               <div className="w-full max-w-[520px] mt-1">
-                {status === 'downloading' ? (
-                  <>
-                    <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded">
-                      <div className="h-2 bg-blue-500 rounded" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="text-xs mt-1 opacity-70 flex items-center gap-2">
-                      <i className="ti ti-loader-2 animate-spin" />
-                      <span>{pct}%</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-xs mt-1 text-red-500">
-                    {message}
-                  </div>
-                )}
+                <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded">
+                  <div className="h-2 bg-blue-500 rounded transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <div className="text-xs mt-1 opacity-70 flex items-center gap-2">
+                  <i className="ti ti-loader-2 animate-spin" />
+                  <span>{pct}%</span>
+                  {progress.total > 0 && (
+                    <span className="ml-2">
+                      {(progress.downloaded / 1024 / 1024).toFixed(1)} / {(progress.total / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {status === 'error' && (
+              <div className="w-full max-w-[520px] mt-1 p-3 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                  <i className="ti ti-alert-circle" />
+                  <span className="text-sm font-medium">{t('updater.updateFailed', { defaultValue: '更新失败' })}</span>
+                </div>
+                <div className="text-xs mt-1 text-red-500 dark:text-red-400">
+                  {message}
+                </div>
+                <a 
+                  className="text-xs mt-2 inline-block text-blue-600 hover:underline" 
+                  href={releaseUrl || 'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
+                  target="_blank" 
+                  rel="noreferrer"
+                >
+                  {t('updater.manualDownload', { defaultValue: '手动下载' })}
+                </a>
               </div>
             )}
           </>
         )}
 
         <div className="flex gap-3 mt-2">
-          {status === 'available' && !forceUpdate && (
+          {status === 'available' && (
             <>
               <button onClick={() => startDownload()} className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
                 <i className="ti ti-download" /> {t('updater.downloadAndInstall', { defaultValue: '下载并安装' })}
               </button>
-              <button onClick={async () => { const w = getCurrentWebviewWindow(); try { await w.close(); } catch (_) {} }} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">{t('updater.later', { defaultValue: '稍后' })}</button>
+              {!forceUpdate && (
+                <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
+                  {t('updater.later', { defaultValue: '稍后' })}
+                </button>
+              )}
             </>
           )}
-          {status === 'downloading' && (
+          {status === 'downloading' && !forceUpdate && (
             <button
               onClick={async () => {
                 const w = getCurrentWebviewWindow();
@@ -239,8 +336,24 @@ function App() {
               {t('updater.backgroundUpdate', { defaultValue: '后台更新' })}
             </button>
           )}
+          {status === 'error' && (
+            <>
+              <button onClick={() => startDownload()} className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
+                <i className="ti ti-refresh" /> {t('updater.retry', { defaultValue: '重试' })}
+              </button>
+              <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm flex items-center gap-2">
+                {forceUpdate ? (
+                  <><i className="ti ti-power" /> {t('updater.exitApp', { defaultValue: '退出程序' })}</>
+                ) : (
+                  <>{t('common.close', { defaultValue: '关闭' })}</>
+                )}
+              </button>
+            </>
+          )}
           {status === 'none' && (
-            <button onClick={async () => { const w = getCurrentWebviewWindow(); try { await w.close(); } catch (_) {} }} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">{t('common.close', { defaultValue: '关闭' })}</button>
+            <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
+              {t('common.close', { defaultValue: '关闭' })}
+            </button>
           )}
         </div>
       </div>

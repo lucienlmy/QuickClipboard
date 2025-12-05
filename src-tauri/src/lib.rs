@@ -259,12 +259,7 @@ pub fn run() {
                     let _ = services::show_startup_notification(app.handle());
                 }
 
-                {
-                    let app_handle = app.handle().clone();
-                    tauri::async_runtime::spawn(async move {
-                        let _ = crate::commands::window::check_updates_and_open_window(app_handle).await;
-                    });
-                }
+                windows::updater_window::start_update_checker(app.handle().clone());
 
             Ok(())
         })

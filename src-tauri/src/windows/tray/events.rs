@@ -1,9 +1,16 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, menu::MenuEvent};
+use tauri::{AppHandle, Manager, menu::MenuEvent};
 use crate::windows::settings_window::open_settings_window;
 
 pub fn handle_tray_click(app: &AppHandle) {
+    if crate::windows::updater_window::is_force_update_mode() {
+        if let Some(w) = app.get_webview_window("updater") {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+        return;
+    }
     crate::toggle_main_window_visibility(app);
 }
 
@@ -26,14 +33,22 @@ pub fn create_click_handler(app_handle: AppHandle) -> impl Fn() + Send + 'static
 }
 
 pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
+    let is_force_update = crate::windows::updater_window::is_force_update_mode();
+    
     match event.id.as_ref() {
         "toggle" => {
+            if is_force_update {
+                focus_updater_window(app);
+                return;
+            }
             crate::toggle_main_window_visibility(app);
         }
         "toggle-hotkeys" => {
+            if is_force_update { return; }
             toggle_hotkeys(app);
         }
         "toggle-clipboard-monitor" => {
+            if is_force_update { return; }
             toggle_clipboard_monitor(app);
         }
         "restart" => {
@@ -43,14 +58,26 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
             quit_app(app);
         }
         "settings" => {
-            open_settings_window(app);
+            if is_force_update {
+                focus_updater_window(app);
+                return;
+            }
+            let _ = open_settings_window(app);
         }
         "screenshot" => {
+            if is_force_update { return; }
             if let Err(e) = crate::windows::screenshot_window::start_screenshot(app) {
                 eprintln!("启动截图窗口失败: {}", e);
             }
         }
         _ => {}
+    }
+}
+
+fn focus_updater_window(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("updater") {
+        let _ = w.show();
+        let _ = w.set_focus();
     }
 }
 

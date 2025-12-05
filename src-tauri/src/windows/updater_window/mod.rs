@@ -1,3 +1,3 @@
 mod creator;
 
-pub use creator::{open_updater_window, check_updates_and_open_window};
+pub use creator::{check_updates_and_open_window, is_force_update_mode, start_update_checker};

@@ -717,7 +717,12 @@
     "noNotes": "No release notes",
     "downloadAndInstall": "Download and Install",
     "later": "Later",
-    "backgroundUpdate": "Run in Background"
+    "backgroundUpdate": "Run in Background",
+    "retry": "Retry",
+    "exitApp": "Exit App",
+    "updateFailed": "Update Failed",
+    "manualDownload": "Manual Download",
+    "newVersionAvailable": "New version available"
   }
 }
 
