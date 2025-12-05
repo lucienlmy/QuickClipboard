@@ -4,6 +4,7 @@ const POLYLINE_DEFAULT_STYLE = {
   strokeWidth: 6,
   opacity: 1,
   lineStyle: 'solid',
+  connectionType: 'straight',
 };
 
 const POLYLINE_PARAMETERS = [
@@ -31,6 +32,15 @@ const POLYLINE_PARAMETERS = [
     max: 1,
     step: 0.05,
     formatter: (value) => `${Math.round(value * 100)}%`,
+  },
+  {
+    id: 'connectionType',
+    type: 'segmented',
+    label: '连线',
+    options: [
+      { value: 'straight', label: '直线', icon: 'ti ti-line' },
+      { value: 'curve', label: '曲线', icon: 'ti ti-wave-sine' },
+    ],
   },
   {
     id: 'lineStyle',
@@ -66,6 +76,7 @@ export const createPolylineTool = () => {
         strokeWidth: merged.strokeWidth,
         opacity: merged.opacity,
         dash,
+        connectionType: merged.connectionType,
         lineCap: 'round',
         lineJoin: 'round',
         offsetX: 0,

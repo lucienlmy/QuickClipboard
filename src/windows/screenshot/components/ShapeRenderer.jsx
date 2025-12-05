@@ -133,6 +133,7 @@ export const ShapeRenderer = ({
   if (shape.tool === 'polyline') {
     const offsetX = shape.offsetX ?? 0;
     const offsetY = shape.offsetY ?? 0;
+    const tension = shape.connectionType === 'curve' ? 0.5 : 0;
 
     return (
       <Group
@@ -157,6 +158,7 @@ export const ShapeRenderer = ({
           dash={shape.dash}
           lineCap={shape.lineCap}
           lineJoin={shape.lineJoin}
+          tension={tension}
           hitStrokeWidth={20}
         />
         {shape.isDrawing && shape.points.length >= 2 && (
