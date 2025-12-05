@@ -29,15 +29,16 @@ import RadialToolPicker from './components/RadialToolPicker';
 function App() {
   useSettingsSync();
   const settings = useSnapshot(settingsStore);
-  
+
   const effectiveTheme = getEffectiveTheme(settings.theme, settings.systemIsDark);
   const isDark = effectiveTheme === 'dark';
 
   const { screens, stageSize, stageRegionManager, reloadFromLastCapture } = useScreenshotStage();
-  
+
   const stageRef = useRef(null);
   const magnifierUpdateRef = useRef(null);
   const [ocrResult, setOcrResult] = useState(null);
+  const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
 
   const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager);
   const session = useScreenshotSession(stageRef, stageRegionManager, { screens });
@@ -123,9 +124,25 @@ function App() {
     }
   };
 
+  const handleClick = (e) => {
+    if (longScreenshot.isActive || editing.activeToolId) return;
+
+    const stage = e.target.getStage();
+    const { x, y } = stage.getPointerPosition();
+    const now = Date.now();
+    const last = lastClickRef.current;
+
+    const isDoubleClick = now - last.time < 500 && now - last.time > 50 && Math.hypot(x - last.x, y - last.y) < 5;
+    lastClickRef.current = { x, y, time: now };
+
+    if (isDoubleClick && session.hasValidSelection) {
+      session.handleConfirmSelection();
+    }
+  };
+
   const handleDoubleClick = (e) => {
     if (longScreenshot.isActive) return;
-    
+
     if (editing.activeToolId && editing.handleDoubleClick) {
       const stage = e.target.getStage();
       const pos = stage.getPointerPosition();
@@ -207,10 +224,10 @@ function App() {
   return (
     <div className={`w-screen h-screen bg-transparent relative ${isDark ? 'dark' : ''}`}>
       {!longScreenshot.isActive && (
-        <WebGLBackgroundLayer 
-          screens={screens} 
-          stageWidth={stageSize.width} 
-          stageHeight={stageSize.height} 
+        <WebGLBackgroundLayer
+          screens={screens}
+          stageWidth={stageSize.width}
+          stageHeight={stageSize.height}
         />
       )}
       <Stage
@@ -222,6 +239,7 @@ function App() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onClick={handleClick}
         onDblClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
         onWheel={session.handleWheel}
