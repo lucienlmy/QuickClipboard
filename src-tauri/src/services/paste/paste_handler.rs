@@ -5,6 +5,20 @@ use super::file::paste_files;
 use super::keyboard::simulate_paste;
 use chrono;
 
+fn emit_paste_count_updated(id: i64) {
+    use tauri::Emitter;
+    if let Some(app) = crate::services::clipboard::get_app_handle() {
+        let _ = app.emit("paste-count-updated", id);
+    }
+}
+
+fn emit_favorite_paste_count_updated(id: &str) {
+    use tauri::Emitter;
+    if let Some(app) = crate::services::clipboard::get_app_handle() {
+        let _ = app.emit("favorite-paste-count-updated", id);
+    }
+}
+
 // 直接粘贴文本
 pub fn paste_text_direct(text: &str) -> Result<(), String> {
     crate::services::clipboard::set_last_hash_text(text);
@@ -53,22 +67,42 @@ pub fn paste_clipboard_item(item: &ClipboardItem) -> Result<(), String> {
 
 // 粘贴剪贴板项并自动转换旧格式（更新 clipboard 表）
 pub fn paste_clipboard_item_with_update(item: &ClipboardItem) -> Result<(), String> {
-    paste_item_internal(item, Some(item.id), None, None)
+    let result = paste_item_internal(item, Some(item.id), None, None);
+    if result.is_ok() {
+        let _ = crate::services::database::increment_paste_count(item.id);
+        emit_paste_count_updated(item.id);
+    }
+    result
 }
 
 // 粘贴收藏项并自动转换旧格式（更新 favorites 表）
 pub fn paste_favorite_item_with_update(item: &ClipboardItem, favorite_id: &str) -> Result<(), String> {
-    paste_item_internal(item, None, Some(favorite_id.to_string()), None)
+    let result = paste_item_internal(item, None, Some(favorite_id.to_string()), None);
+    if result.is_ok() {
+        let _ = crate::services::database::increment_favorite_paste_count(favorite_id);
+        emit_favorite_paste_count_updated(favorite_id);
+    }
+    result
 }
 
 // 粘贴剪贴板项（指定格式）
 pub fn paste_clipboard_item_with_format(item: &ClipboardItem, format: Option<PasteFormat>) -> Result<(), String> {
-    paste_item_internal(item, Some(item.id), None, format)
+    let result = paste_item_internal(item, Some(item.id), None, format);
+    if result.is_ok() {
+        let _ = crate::services::database::increment_paste_count(item.id);
+        emit_paste_count_updated(item.id);
+    }
+    result
 }
 
 // 粘贴收藏项（指定格式）
 pub fn paste_favorite_item_with_format(item: &ClipboardItem, favorite_id: &str, format: Option<PasteFormat>) -> Result<(), String> {
-    paste_item_internal(item, None, Some(favorite_id.to_string()), format)
+    let result = paste_item_internal(item, None, Some(favorite_id.to_string()), format);
+    if result.is_ok() {
+        let _ = crate::services::database::increment_favorite_paste_count(favorite_id);
+        emit_favorite_paste_count_updated(favorite_id);
+    }
+    result
 }
 
 // 内部粘贴实现

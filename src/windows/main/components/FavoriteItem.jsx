@@ -36,6 +36,20 @@ function FavoriteItem({
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const previewTimerRef = useRef(null);
+
+  const hasFileMissing = (() => {
+    if (!isFileType && !isImageType) return false;
+    if (!item.content?.startsWith('files:')) return false;
+    try {
+      const filesData = JSON.parse(item.content.substring(6));
+      return filesData.files?.some(f => f.exists === false) || false;
+    } catch {
+      return false;
+    }
+  })();
+
+  const isPasted = item.paste_count > 0;
+
   const groups = useSnapshot(groupsStore);
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部';
 
@@ -166,7 +180,7 @@ function FavoriteItem({
   };
 
   // 键盘选中样式
-  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-1.5';
   const smallElementClasses = `
     flex items-center justify-center
     w-5 h-5
@@ -237,6 +251,24 @@ function FavoriteItem({
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
 
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    {(hasFileMissing || isPasted) && (
+      <div 
+        className="absolute top-0 left-0 z-30 pointer-events-none overflow-hidden rounded-tl-md"
+        style={{ width: 20, height: 20 }}
+        title={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : t('common.pasted')}
+      >
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: 0,
+          height: 0,
+          borderStyle: 'solid',
+          borderWidth: '20px 20px 0 0',
+          borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : 'rgba(255,209,79,1)') + ' transparent transparent transparent',
+        }} />
+      </div>
+    )}
     {/* 顶部操作区域：操作按钮、分组、序号 */}
     <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
       {/* 编辑按钮 */}

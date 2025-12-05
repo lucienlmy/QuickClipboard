@@ -1,10 +1,23 @@
 import { proxy } from 'valtio'
+import { listen } from '@tauri-apps/api/event'
 import { 
   getFavoritesHistory,
   getFavoritesTotalCount,
   deleteFavorite as apiDeleteFavorite,
   pasteFavorite as apiPasteFavorite
 } from '@shared/api/favorites'
+
+listen('favorite-paste-count-updated', (event) => {
+  const id = event.payload
+  const newItems = new Map(favoritesStore.items)
+  for (const [index, item] of newItems.entries()) {
+    if (item && item.id === id) {
+      newItems.set(index, { ...item, paste_count: (item.paste_count || 0) + 1 })
+      break
+    }
+  }
+  favoritesStore.items = newItems
+})
 
 // 收藏 Store
 export const favoritesStore = proxy({

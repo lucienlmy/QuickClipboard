@@ -70,6 +70,22 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             [],
         ).map_err(|e| format!("添加置顶字段失败: {}", e))?;
     }
+
+    let paste_count_exists = conn
+        .prepare("PRAGMA table_info(clipboard)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "paste_count"))
+        })
+        .unwrap_or(false);
+    
+    if !paste_count_exists {
+        conn.execute(
+            "ALTER TABLE clipboard ADD COLUMN paste_count INTEGER NOT NULL DEFAULT 0",
+            [],
+        ).map_err(|e| format!("添加粘贴次数字段失败: {}", e))?;
+    }
     
     migrate_clipboard_order(conn);
 
@@ -118,6 +134,21 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         ).map_err(|e| format!("添加颜色字段失败: {}", e))?;
     }
 
+    let fav_paste_count_exists = conn
+        .prepare("PRAGMA table_info(favorites)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "paste_count"))
+        })
+        .unwrap_or(false);
+    
+    if !fav_paste_count_exists {
+        conn.execute(
+            "ALTER TABLE favorites ADD COLUMN paste_count INTEGER NOT NULL DEFAULT 0",
+            [],
+        ).map_err(|e| format!("添加收藏粘贴次数字段失败: {}", e))?;
+    }
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_clipboard_order_updated ON clipboard(item_order DESC, updated_at DESC)",

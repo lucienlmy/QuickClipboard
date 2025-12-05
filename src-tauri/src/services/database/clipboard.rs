@@ -89,7 +89,7 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         }
         
         let query_sql = format!(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, created_at, updated_at 
+            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, created_at, updated_at 
              FROM clipboard 
              {} 
              ORDER BY is_pinned DESC, item_order DESC, updated_at DESC 
@@ -137,8 +137,9 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
                     image_id: row.get(4)?,
                     item_order: row.get(5)?,
                     is_pinned: row.get::<_, i64>(6)? != 0,
-                    created_at: row.get(7)?,
-                    updated_at: row.get(8)?,
+                    paste_count: row.get(7)?,
+                    created_at: row.get(8)?,
+                    updated_at: row.get(9)?,
                 })
             }
         )?
@@ -159,7 +160,7 @@ pub fn get_clipboard_count() -> Result<i64, String> {
 pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {
         conn.query_row(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, created_at, updated_at 
+            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, created_at, updated_at 
              FROM clipboard WHERE id = ?",
             params![id],
             |row| {
@@ -171,13 +172,24 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
                     image_id: row.get(4)?,
                     item_order: row.get(5)?,
                     is_pinned: row.get::<_, i64>(6)? != 0,
-                    created_at: row.get(7)?,
-                    updated_at: row.get(8)?,
+                    paste_count: row.get(7)?,
+                    created_at: row.get(8)?,
+                    updated_at: row.get(9)?,
                 })
             }
         )
         .optional()
         .map_err(|e| e.into())
+    })
+}
+
+pub fn increment_paste_count(id: i64) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "UPDATE clipboard SET paste_count = paste_count + 1 WHERE id = ?",
+            params![id],
+        )?;
+        Ok(())
     })
 }
 

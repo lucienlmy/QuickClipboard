@@ -55,7 +55,7 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
         let query_sql = if is_all_groups {
             // 查询全部分组时，按分组顺序排列
             format!(
-                "SELECT f.id, f.title, f.content, f.html_content, f.content_type, f.image_id, f.group_name, f.item_order, f.created_at, f.updated_at 
+                "SELECT f.id, f.title, f.content, f.html_content, f.content_type, f.image_id, f.group_name, f.item_order, f.paste_count, f.created_at, f.updated_at 
                  FROM favorites f 
                  LEFT JOIN groups g ON f.group_name = g.name 
                  {} 
@@ -65,7 +65,7 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
             )
         } else {
             format!(
-                "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at 
+                "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at 
                  FROM favorites {} ORDER BY item_order DESC, updated_at DESC LIMIT ? OFFSET ?",
                 where_sql
             )
@@ -108,8 +108,9 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
                 image_id: row.get(5)?,
                 group_name: row.get(6)?,
                 item_order: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                paste_count: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
             })
         })?
         .collect::<Result<Vec<FavoriteItem>, rusqlite::Error>>()?;
@@ -181,7 +182,7 @@ pub fn get_favorites_count(group_name: Option<String>) -> Result<i64, String> {
 pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
     with_connection(|conn| {
         conn.query_row(
-            "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at 
+            "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at 
              FROM favorites WHERE id = ?",
             params![id],
             |row| {
@@ -194,13 +195,24 @@ pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
                     image_id: row.get(5)?,
                     group_name: row.get(6)?,
                     item_order: row.get(7)?,
-                    created_at: row.get(8)?,
-                    updated_at: row.get(9)?,
+                    paste_count: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
                 })
             }
         )
         .optional()
         .map_err(|e| e.into())
+    })
+}
+
+pub fn increment_favorite_paste_count(id: &str) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "UPDATE favorites SET paste_count = paste_count + 1 WHERE id = ?",
+            params![id],
+        )?;
+        Ok(())
     })
 }
 
@@ -322,6 +334,7 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
             image_id,
             group_name,
             item_order: new_order,
+            paste_count: 0,
             created_at: now,
             updated_at: now,
         })
@@ -426,7 +439,7 @@ pub fn add_favorite(title: String, content: String, group_name: Option<String>) 
         Ok(FavoriteItem {
             id: id.clone(), title, content, html_content: None,
             content_type: "text".to_string(), image_id: None, group_name,
-            item_order: new_order, created_at: now, updated_at: now,
+            item_order: new_order, paste_count: 0, created_at: now, updated_at: now,
         })
     })
 }

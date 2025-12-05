@@ -4,8 +4,8 @@ use crate::services::database::{
     get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_to_top,
     move_clipboard_item_by_id as db_move_clipboard_item_by_id,
     query_clipboard_items, update_clipboard_item as db_update_clipboard_item,
-    toggle_pin_clipboard_item as db_toggle_pin, ClipboardItem,
-    PaginatedResult, QueryParams,
+    toggle_pin_clipboard_item as db_toggle_pin,
+    ClipboardItem, PaginatedResult, QueryParams,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -190,6 +190,7 @@ pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), S
             image_id: favorite.image_id,
             item_order: favorite.item_order,
             is_pinned: false,
+            paste_count: 0,
             created_at: favorite.created_at,
             updated_at: favorite.updated_at,
         };

@@ -12,6 +12,7 @@ pub struct ClipboardItem {
     pub image_id: Option<String>,
     pub item_order: i64,
     pub is_pinned: bool,
+    pub paste_count: i64,
     pub created_at: i64,  
     pub updated_at: i64, 
 }
@@ -29,6 +30,7 @@ pub struct FavoriteItem {
     pub image_id: Option<String>,
     pub group_name: String,
     pub item_order: i64,
+    pub paste_count: i64,
     pub created_at: i64,  
     pub updated_at: i64, 
 }

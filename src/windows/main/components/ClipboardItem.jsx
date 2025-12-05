@@ -1,14 +1,13 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import { pasteClipboardItem, clipboardStore } from '@shared/store/clipboardStore';
+import { pasteClipboardItem, clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
 import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
 import { addClipboardToFavorites, togglePinClipboardItem } from '@shared/api';
-import { refreshClipboardHistory } from '@shared/store/clipboardStore';
 import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
@@ -26,6 +25,7 @@ function ClipboardItem({
   const {
     t
   } = useTranslation();
+  const isPasted = item.paste_count > 0;
   const {
     settings,
     getHeightClass,
@@ -37,6 +37,17 @@ function ClipboardItem({
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const previewTimerRef = useRef(null);
+
+  const hasFileMissing = (() => {
+    if (!isFileType && !isImageType) return false;
+    if (!item.content?.startsWith('files:')) return false;
+    try {
+      const filesData = JSON.parse(item.content.substring(6));
+      return filesData.files?.some(f => f.exists === false) || false;
+    } catch {
+      return false;
+    }
+  })();
 
   // 拖拽功能
   const {
@@ -238,7 +249,7 @@ function ClipboardItem({
   }, [settings.rowHeight]);
 
   // 键盘选中样式
-  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-1.5';
   const smallElementClasses = `
     flex items-center justify-center
     w-5 h-5
@@ -284,6 +295,36 @@ function ClipboardItem({
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border hover:translate-y-[-3px] ${getHeightClass()}`}>
+      {(hasFileMissing || item.is_pinned || isPasted) && (
+        <div 
+          className="absolute top-0 left-0 z-30 pointer-events-none overflow-hidden rounded-tl-md"
+          style={{ width: 20, height: 20 }}
+          title={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : item.is_pinned ? t('contextMenu.pinned') : t('common.pasted')}
+        >
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: 0,
+            height: 0,
+            borderStyle: 'solid',
+            borderWidth: '20px 20px 0 0',
+            borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : isPasted ? 'rgba(255,209,79,1)' : 'rgba(59,130,246,1)') + ' transparent transparent transparent',
+          }} />
+          {!hasFileMissing && item.is_pinned && isPasted && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 0,
+              height: 0,
+              borderStyle: 'solid',
+              borderWidth: '16px 16px 0 0',
+              borderColor: 'rgba(59,130,246,1) transparent transparent transparent',
+            }} />
+          )}
+        </div>
+      )}
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
       <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
         {/* 收藏按钮 */}

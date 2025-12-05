@@ -9,6 +9,7 @@ pub use monitor::{
     stop_clipboard_monitor, 
     is_monitor_running,
     set_app_handle,
+    get_app_handle,
     set_last_hash_text,
     set_last_hash_files,
     set_last_hash_file,

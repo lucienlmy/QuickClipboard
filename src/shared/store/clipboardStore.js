@@ -1,4 +1,5 @@
 import { proxy } from 'valtio'
+import { listen } from '@tauri-apps/api/event'
 import { 
   getClipboardHistory, 
   getClipboardTotalCount,
@@ -6,6 +7,18 @@ import {
   clearClipboardHistory as apiClearHistory,
   pasteClipboardItem as apiPasteClipboardItem
 } from '@shared/api'
+
+listen('paste-count-updated', (event) => {
+  const id = event.payload
+  const newItems = new Map(clipboardStore.items)
+  for (const [index, item] of newItems.entries()) {
+    if (item && item.id === id) {
+      newItems.set(index, { ...item, paste_count: (item.paste_count || 0) + 1 })
+      break
+    }
+  }
+  clipboardStore.items = newItems
+})
 
 // 剪贴板 Store
 export const clipboardStore = proxy({

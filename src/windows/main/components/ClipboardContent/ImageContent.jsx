@@ -78,7 +78,7 @@ function ImageContent({
     </div>;
   }
   return <div 
-    className="w-full h-full rounded overflow-hidden flex items-center justify-start bg-gray-100 dark:bg-gray-800 cursor-grab active:cursor-grabbing"
+    className="w-full h-full rounded overflow-hidden flex items-center justify-start bg-transparent cursor-grab active:cursor-grabbing"
     onMouseDown={imagePathRef.current ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
     data-drag-ignore={imagePathRef.current ? "true" : undefined}
     title={imagePathRef.current ? t('clipboard.dragImageToExternal', '拖拽到外部') : undefined}

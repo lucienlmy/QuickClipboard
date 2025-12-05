@@ -176,6 +176,10 @@ pub fn set_app_handle(handle: tauri::AppHandle) {
     *APP_HANDLE.lock() = Some(handle);
 }
 
+pub fn get_app_handle() -> Option<tauri::AppHandle> {
+    APP_HANDLE.lock().clone()
+}
+
 fn emit_clipboard_updated() -> Result<(), String> {
     let app_handle = APP_HANDLE.lock();
     let handle = app_handle.as_ref().ok_or("应用未初始化")?;
