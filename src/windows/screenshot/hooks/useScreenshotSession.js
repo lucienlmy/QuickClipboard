@@ -15,6 +15,7 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     clearSelection,
     updateCornerRadius,
     updateAspectRatio,
+    updateSelectionSize,
   } = useSelection();
 
   const {
@@ -26,7 +27,14 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     handleMouseMove: interactionMouseMove,
     handleMouseUp: interactionMouseUp,
     resetInteractionState,
-  } = useSelectionInteraction(selection, updateSelection, cornerRadius, updateCornerRadius, stageRegionManager);
+  } = useSelectionInteraction(
+    selection,
+    updateSelection,
+    cornerRadius,
+    updateCornerRadius,
+    aspectRatio,
+    stageRegionManager
+  );
 
   const {
     autoSelectionRect,
@@ -140,6 +148,7 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     hasValidSelection,
     updateCornerRadius,
     updateAspectRatio,
+    updateSelectionSize,
     isDrawing,
     isMoving,
     isResizing,

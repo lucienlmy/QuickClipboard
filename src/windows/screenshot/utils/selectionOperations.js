@@ -174,13 +174,31 @@ export function calculateNewRadius(initialRadius, delta, selection) {
   return Math.max(0, Math.min(newRadius, maxRadius));
 }
 
-//根据宽高比调整选区高度
-export function applyAspectRatio(selection, aspectRatioValue) {
+//根据宽高比调整选区
+export function applyAspectRatio(selection, aspectRatioValue, bounds = null) {
   const ratio = parseFloat(aspectRatioValue);
   if (!isNaN(ratio) && ratio > 0) {
+    let width = selection.width;
+    let height = width / ratio;
+    
+    if (bounds) {
+      const maxW = bounds.x + bounds.width - selection.x;
+      const maxH = bounds.y + bounds.height - selection.y;
+      
+      if (height > maxH) {
+        height = maxH;
+        width = height * ratio;
+      }
+      if (width > maxW) {
+        width = maxW;
+        height = width / ratio;
+      }
+    }
+    
     return {
       ...selection,
-      height: selection.width / ratio,
+      width: Math.max(1, width),
+      height: Math.max(1, height),
     };
   }
   return selection;

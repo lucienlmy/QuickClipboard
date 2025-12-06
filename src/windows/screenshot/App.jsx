@@ -307,6 +307,7 @@ function App() {
           stageRegionManager={stageRegionManager}
           onCornerRadiusChange={session.updateCornerRadius}
           onAspectRatioChange={session.updateAspectRatio}
+          onSizeChange={session.updateSelectionSize}
         />
       )}
 

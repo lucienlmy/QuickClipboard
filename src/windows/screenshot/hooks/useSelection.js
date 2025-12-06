@@ -23,13 +23,22 @@ export function useSelection() {
     setCornerRadius(radius);
   }, []);
 
-  const updateAspectRatio = useCallback((value) => {
+  const updateAspectRatio = useCallback((value, bounds = null) => {
     setAspectRatio(value);
 
     if (value !== ASPECT_RATIO_PRESETS.FREE && selection) {
-      const newSelection = applyAspectRatio(selection, value);
+      const newSelection = applyAspectRatio(selection, value, bounds);
       setSelection(newSelection);
     }
+  }, [selection]);
+
+  const updateSelectionSize = useCallback((width, height) => {
+    if (!selection) return;
+    setSelection({
+      ...selection,
+      width: Math.max(1, width),
+      height: Math.max(1, height),
+    });
   }, [selection]);
 
   const hasValidSelection = selection && selection.width > 0 && selection.height > 0;
@@ -43,5 +52,6 @@ export function useSelection() {
     clearSelection,
     updateCornerRadius,
     updateAspectRatio,
+    updateSelectionSize,
   };
 }

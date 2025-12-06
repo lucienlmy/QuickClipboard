@@ -16,6 +16,7 @@ export function useSelectionInteraction(
   updateSelection,
   cornerRadius,
   updateCornerRadius,
+  aspectRatio,
   stageRegionManager
 ) {
   // 交互状态
@@ -155,8 +156,11 @@ export function useSelectionInteraction(
       if (isResizing && resizeHandle && startPos && initialSelection) {
         const dx = pos.x - startPos.x;
         const dy = pos.y - startPos.y;
+        const aspectRatioLocked = aspectRatio && aspectRatio !== 'free';
+        const aspectRatioValue = aspectRatioLocked ? parseFloat(aspectRatio) : undefined;
         let newSelection = calculateResizedSelection(initialSelection, resizeHandle, dx, dy, {
-          lockAspectRatio: shiftKey,
+          lockAspectRatio: shiftKey || aspectRatioLocked,
+          aspectRatio: aspectRatioValue,
         });
         
         if (stageRegionManager) {
@@ -207,6 +211,7 @@ export function useSelectionInteraction(
       updateSelection,
       updateCornerRadius,
       stageRegionManager,
+      aspectRatio,
     ]
   );
 
