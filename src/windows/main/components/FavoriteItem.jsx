@@ -180,7 +180,7 @@ function FavoriteItem({
   };
 
   // 键盘选中样式
-  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-1.5';
+  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border-1.5' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-1.5';
   const smallElementClasses = `
     flex items-center justify-center
     w-5 h-5
@@ -232,16 +232,9 @@ function FavoriteItem({
     if (settings.rowHeight === 'auto' && el) {
       const handleWheel = (e) => {
         e.preventDefault();
-        let parent = el.parentElement;
-        while (parent) {
-          const style = getComputedStyle(parent);
-          const isScrollable = parent.scrollHeight > parent.clientHeight &&
-            style.overflowY !== 'hidden' && style.overflowY !== 'visible';
-          if (isScrollable) {
-            parent.scrollTop += e.deltaY;
-            break;
-          }
-          parent = parent.parentElement;
+        const scroller = el.closest('.favorites-list')?.firstElementChild;
+        if (scroller) {
+          scroller.scrollBy({ top: e.deltaY, behavior: 'instant' });
         }
       };
       el.addEventListener('wheel', handleWheel, { passive: false });

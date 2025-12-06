@@ -197,9 +197,12 @@ const ClipboardList = forwardRef(({
             atTop
           });
         }} rangeChanged={handleRangeChanged} increaseViewportBy={{
-          top: 200,
-          bottom: 200
-        }} defaultItemHeight={getDefaultItemHeight()} itemContent={index => {
+          top: 400,
+          bottom: 400
+        }} defaultItemHeight={getDefaultItemHeight()} computeItemKey={index => {
+          const item = itemsWithId[index];
+          return item?.id || item?._sortId || `item-${index}`;
+        }} itemContent={index => {
           const item = itemsWithId[index];
           if (!item || item._isPlaceholder) {
             return <div className="px-2.5 pb-2 pt-1">
