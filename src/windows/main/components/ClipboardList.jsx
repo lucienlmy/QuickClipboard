@@ -37,22 +37,20 @@ const ClipboardList = forwardRef(({
           _isPlaceholder: true
         };
       }
-      return {
-        ...item,
-        _sortId: `${item.created_at}-${index}`
-      };
+      item._sortId = `${item.created_at}-${index}`;
+      return item;
     });
   }, [itemsArray]);
-  
+
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
     const fromItem = itemsWithId[oldIndex];
     const toItem = itemsWithId[newIndex];
-    
+
     if (fromItem?.is_pinned !== toItem?.is_pinned) {
       return;
     }
-    
+
     try {
       if (fromItem?.id && toItem?.id) {
         await moveClipboardItemById(fromItem.id, toItem.id);
@@ -63,6 +61,7 @@ const ClipboardList = forwardRef(({
       clipboardStore.items = new Map();
     }
   };
+
   const {
     DndContext,
     SortableContext,
@@ -80,16 +79,17 @@ const ClipboardList = forwardRef(({
     items: itemsWithId,
     onDragEnd: handleDragEnd
   });
+
   const activeIndex = activeItem ? itemsWithId.findIndex(item => item._sortId === activeId || item.id === activeId) : -1;
-  
+
   useEffect(() => {
     if (!activeId || !scrollerElement) return;
-    
+
     const handleWheel = (e) => {
       e.preventDefault();
       scrollerElement.scrollTop += e.deltaY;
     };
-    
+
     document.addEventListener('wheel', handleWheel, { passive: false });
     return () => document.removeEventListener('wheel', handleWheel);
   }, [activeId, scrollerElement]);
@@ -131,6 +131,7 @@ const ClipboardList = forwardRef(({
     },
     enabled: snap.activeTab === 'clipboard'
   });
+
   const handleRangeChanged = useCallback(async ({
     startIndex,
     endIndex
@@ -139,6 +140,9 @@ const ClipboardList = forwardRef(({
       startIndex,
       endIndex
     };
+
+    clipboardStore.updateViewRange(startIndex, endIndex);
+
     let rangeStart = -1,
       rangeEnd = -1;
     for (let i = startIndex; i <= endIndex && i < clipSnap.totalCount; i++) {
@@ -151,6 +155,7 @@ const ClipboardList = forwardRef(({
       await loadClipboardRange(Math.max(0, rangeStart - 20), Math.min(clipSnap.totalCount - 1, rangeEnd + 20));
     }
   }, [clipSnap.totalCount, clipSnap.items]);
+
   useEffect(() => {
     if (clipSnap.totalCount > 0 && clipSnap.items.size === 0) {
       const {

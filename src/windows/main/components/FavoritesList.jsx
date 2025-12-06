@@ -38,15 +38,13 @@ const FavoritesList = forwardRef(({
           _isPlaceholder: true
         };
       }
-      return {
-        ...item,
-        _sortId: `${item.id}`
-      };
+      item._sortId = `${item.id}`;
+      return item;
     });
   }, [itemsArray]);
-  
+
   const canDrag = groupsSnap.currentGroup !== '全部' && !favSnap.filter && favSnap.contentType === 'all';
-  
+
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
     try {
@@ -57,6 +55,7 @@ const FavoritesList = forwardRef(({
       favoritesStore.items = new Map();
     }
   };
+
   const {
     DndContext,
     SortableContext,
@@ -74,9 +73,10 @@ const FavoritesList = forwardRef(({
     items: itemsWithId,
     onDragEnd: handleDragEnd
   });
+
   const activeIndex = activeItem ? itemsWithId.findIndex(item => item._sortId === activeId || item.id === activeId) : -1;
   const dragActive = Boolean(activeId);
-  
+
   useEffect(() => {
     if (!activeId || !scrollerElement) return;
 
@@ -117,6 +117,7 @@ const FavoritesList = forwardRef(({
     },
     enabled: snap.activeTab === 'favorites'
   });
+
   const handleRangeChanged = useCallback(async ({
     startIndex,
     endIndex
@@ -125,6 +126,9 @@ const FavoritesList = forwardRef(({
       startIndex,
       endIndex
     };
+
+    favoritesStore.updateViewRange(startIndex, endIndex);
+
     let rangeStart = -1,
       rangeEnd = -1;
     for (let i = startIndex; i <= endIndex && i < favSnap.totalCount; i++) {
@@ -137,6 +141,7 @@ const FavoritesList = forwardRef(({
       await loadFavoritesRange(Math.max(0, rangeStart - 20), Math.min(favSnap.totalCount - 1, rangeEnd + 20), groupsSnap.currentGroup);
     }
   }, [favSnap.totalCount, favSnap.items, groupsSnap.currentGroup]);
+
   useEffect(() => {
     if (favSnap.totalCount > 0 && favSnap.items.size === 0) {
       const {

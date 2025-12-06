@@ -20,6 +20,9 @@ listen('paste-count-updated', (event) => {
   clipboardStore.items = newItems
 })
 
+const CACHE_WINDOW_SIZE = 150 
+const CACHE_BUFFER = 75    
+
 // 剪贴板 Store
 export const clipboardStore = proxy({
   items: new Map(),
@@ -30,15 +33,40 @@ export const clipboardStore = proxy({
   loading: false,
   error: null,
   loadingRanges: new Set(),
+  currentViewRange: { start: 0, end: 50 }, 
   
   // 设置指定范围的数据
   setItemsInRange(startIndex, items) {
-
     const newItems = new Map(this.items)
     items.forEach((item, offset) => {
       newItems.set(startIndex + offset, item)
     })
     this.items = newItems
+  },
+  
+  updateViewRange(startIndex, endIndex) {
+    this.currentViewRange = { start: startIndex, end: endIndex }
+    this.trimCache()
+  },
+  
+  trimCache() {
+    if (this.items.size <= CACHE_WINDOW_SIZE) return
+    
+    const { start, end } = this.currentViewRange
+    const center = Math.floor((start + end) / 2)
+    const keepStart = Math.max(0, center - CACHE_BUFFER)
+    const keepEnd = Math.min(this.totalCount - 1, center + CACHE_BUFFER)
+    
+    const newItems = new Map()
+    for (const [index, item] of this.items) {
+      if (index >= keepStart && index <= keepEnd) {
+        newItems.set(index, item)
+      }
+    }
+    
+    if (newItems.size < this.items.size) {
+      this.items = newItems
+    }
   },
 
   getItem(index) {
@@ -83,6 +111,7 @@ export const clipboardStore = proxy({
     this.items = new Map()
     this.selectedIds = new Set()
     this.totalCount = 0
+    this.currentViewRange = { start: 0, end: 50 }
   },
   
   // 记录正在加载的范围

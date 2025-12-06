@@ -57,6 +57,7 @@ pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
 pub fn hide_quickpaste_window(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("quickpaste") {
         let _ = window.hide();
+        let _ = window.eval("window.location.reload()");
     }
     set_visible(false);
     Ok(())
