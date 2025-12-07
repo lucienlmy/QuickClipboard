@@ -114,7 +114,7 @@ pub async fn show_menu(
         w
     };
     let _ = window.emit("reload-menu", ());
-    std::thread::sleep(std::time::Duration::from_millis(10));
+    std::thread::sleep(std::time::Duration::from_millis(100));
     let _ = window.set_always_on_top(true);
     let _ = window.show();
     let _ = window.set_always_on_top(true);

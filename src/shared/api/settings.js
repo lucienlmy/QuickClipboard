@@ -35,6 +35,26 @@ export async function getAutoStartStatus() {
   return await invoke('get_auto_start_status')
 }
 
+// 设置管理员权限运行
+export async function setRunAsAdmin(enabled) {
+  return await invoke('set_run_as_admin', { enabled })
+}
+
+// 获取管理员权限运行状态
+export async function getRunAsAdminStatus() {
+  return await invoke('get_run_as_admin_status')
+}
+
+// 检查当前是否以管理员权限运行
+export async function isRunningAsAdmin() {
+  return await invoke('is_running_as_admin')
+}
+
+// 以管理员权限重启程序
+export async function restartAsAdmin() {
+  return await invoke('restart_as_admin')
+}
+
 // 获取所有快捷键状态
 export async function getShortcutStatuses() {
   return await invoke('get_shortcut_statuses')

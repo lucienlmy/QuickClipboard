@@ -14,6 +14,7 @@ import i18n from '@shared/i18n'
 export const defaultSettings = {
   // 常规设置
   autoStart: false,
+  runAsAdmin: false,
   startHidden: false,
   showStartupNotification: true,
   historyLimit: 100,

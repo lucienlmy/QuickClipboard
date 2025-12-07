@@ -105,6 +105,10 @@ pub fn run() {
                 commands::get_data_directory_cmd,
                 commands::set_auto_start,
                 commands::get_auto_start_status,
+                commands::set_run_as_admin,
+                commands::get_run_as_admin_status,
+                commands::is_running_as_admin,
+                commands::restart_as_admin,
                 commands::reload_hotkeys,
                 commands::enable_hotkeys,
                 commands::disable_hotkeys,
@@ -182,6 +186,16 @@ pub fn run() {
                 commands::il_get_gifs_dir,
             ])
         .setup(|app| {
+                #[cfg(windows)]
+                {
+                    let settings = get_settings();
+                    if settings.run_as_admin && !commands::is_running_as_admin() {
+                        if services::system::elevate::try_elevate_and_restart() {
+                            std::process::exit(0);
+                        }
+                    }
+                }
+
                 #[cfg(desktop)]
                 {
                     use tauri_plugin_autostart::MacosLauncher;

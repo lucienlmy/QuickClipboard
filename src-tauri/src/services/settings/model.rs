@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct AppSettings {
     // 基础设置
     pub auto_start: bool,
+    pub run_as_admin: bool,
     pub start_hidden: bool,
     pub show_startup_notification: bool,
     #[serde(alias = "history_limit")]
@@ -127,6 +128,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             auto_start: false,
+            run_as_admin: false,
             start_hidden: true,
             show_startup_notification: true,
             history_limit: 100,

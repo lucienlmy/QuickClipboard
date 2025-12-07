@@ -4,8 +4,9 @@ import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
-import { setAutoStart, getAutoStartStatus } from '@shared/api/settings';
+import { setAutoStart, getAutoStartStatus, setRunAsAdmin, getRunAsAdminStatus, restartAsAdmin, isRunningAsAdmin } from '@shared/api/settings';
 import { toast } from '@shared/store/toastStore';
+import { showConfirm } from '@shared/utils/dialog';
 import { getAvailableLanguages } from '@shared/i18n';
 import i18n from '@shared/i18n';
 function GeneralSection({
@@ -18,10 +19,11 @@ function GeneralSection({
   const [autoStartLoading, setAutoStartLoading] = useState(false);
   const [autoStartSynced, setAutoStartSynced] = useState(false);
   const [autoStartMismatch, setAutoStartMismatch] = useState(false);
+  const [runAsAdminLoading, setRunAsAdminLoading] = useState(false);
 
-  // 初同步自启动状态
+  // 初同步自启动状态和管理员权限状态
   useEffect(() => {
-    const syncAutoStartStatus = async () => {
+    const syncStatuses = async () => {
       try {
         const systemStatus = await getAutoStartStatus();
         if (systemStatus !== settings.autoStart) {
@@ -34,8 +36,18 @@ function GeneralSection({
         console.error('获取开机自启动状态失败:', error);
         setAutoStartSynced(true);
       }
+
+      try {
+        const adminStatus = await getRunAsAdminStatus();
+        if (adminStatus !== settings.runAsAdmin) {
+          console.warn('管理员权限状态不一致 - 系统:', adminStatus, '配置:', settings.runAsAdmin);
+          await onSettingChange('runAsAdmin', adminStatus);
+        }
+      } catch (error) {
+        console.error('获取管理员权限状态失败:', error);
+      }
     };
-    syncAutoStartStatus();
+    syncStatuses();
   }, []);
   const historyLimitOptions = [{
     value: 50,
@@ -71,6 +83,35 @@ function GeneralSection({
       setAutoStartLoading(false);
     }
   };
+
+  const handleRunAsAdminChange = async checked => {
+    setRunAsAdminLoading(true);
+    try {
+      await setRunAsAdmin(checked);
+      await onSettingChange('runAsAdmin', checked);
+      toast.success(checked ? t('settings.general.runAsAdminEnabled') : t('settings.general.runAsAdminDisabled'));
+      
+      if (checked) {
+        const isAdmin = await isRunningAsAdmin();
+        if (!isAdmin) {
+          const shouldRestart = await showConfirm(t('settings.general.runAsAdminRestartConfirm'));
+          if (shouldRestart) {
+            try {
+              await restartAsAdmin();
+            } catch (e) {
+              toast.error(t('settings.general.runAsAdminRestartFailed'));
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('设置管理员权限失败:', error);
+      const errorMsg = typeof error === 'string' ? error : (error?.message || t('settings.general.runAsAdminFailed'));
+      toast.error(errorMsg);
+    } finally {
+      setRunAsAdminLoading(false);
+    }
+  };
   const handleLanguageChange = async lang => {
     try {
       await i18n.changeLanguage(lang);
@@ -88,6 +129,10 @@ function GeneralSection({
 
       <SettingItem label={t('settings.general.autoStart')} description={t('settings.general.autoStartDesc')}>
         <Toggle checked={settings.autoStart} onChange={handleAutoStartChange} disabled={autoStartLoading} />
+      </SettingItem>
+
+      <SettingItem label={t('settings.general.runAsAdmin')} description={t('settings.general.runAsAdminDesc')}>
+        <Toggle checked={settings.runAsAdmin} onChange={handleRunAsAdminChange} disabled={runAsAdminLoading} />
       </SettingItem>
 
       <SettingItem label={t('settings.general.startupNotification')} description={t('settings.general.startupNotificationDesc')}>

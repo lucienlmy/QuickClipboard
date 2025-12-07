@@ -267,3 +267,35 @@ pub fn save_quickpaste_window_size(width: u32, height: u32) -> Result<(), String
     Ok(())
 }
 
+// 设置管理员权限运行
+#[tauri::command]
+pub fn set_run_as_admin(enabled: bool) -> Result<(), String> {
+    let mut settings = get_settings();
+    settings.run_as_admin = enabled;
+    update_settings(settings)?;
+    Ok(())
+}
+
+// 获取管理员权限运行状态配置
+#[tauri::command]
+pub fn get_run_as_admin_status() -> Result<bool, String> {
+    Ok(get_settings().run_as_admin)
+}
+
+// 检查当前是否以管理员权限运行
+#[tauri::command]
+pub fn is_running_as_admin() -> bool {
+    crate::services::system::is_running_as_admin()
+}
+
+// 以管理员权限重启程序
+#[tauri::command]
+pub fn restart_as_admin(app: tauri::AppHandle) -> Result<(), String> {
+    if crate::services::system::try_elevate_and_restart() {
+        app.exit(0);
+        Ok(())
+    } else {
+        Err("请求管理员权限失败，用户取消了UAC提示".to_string())
+    }
+}
+
