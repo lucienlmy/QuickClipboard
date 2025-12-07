@@ -191,6 +191,15 @@ function ClipboardItem({
   // 处理删除按钮点击
   const handleDeleteClick = async e => {
     e.stopPropagation();
+    
+    if (isImageType) {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      invoke('close_image_preview').catch(() => {});
+    }
+    
     try {
       const {
         deleteClipboardItem
