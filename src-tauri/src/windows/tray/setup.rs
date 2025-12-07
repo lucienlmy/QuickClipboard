@@ -16,6 +16,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let app_handle = app.clone();
+    let app_handle_for_enter = app.clone();
     let click_handler = create_click_handler(app_handle.clone());
     
     let _tray = TrayIconBuilder::with_id("main-tray")
@@ -39,6 +40,9 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         }
                         _ => {}
                     }
+                }
+                TrayIconEvent::Enter { .. } => {
+                    let _ = crate::services::system::save_current_focus(app_handle_for_enter.clone());
                 }
                 _ => {}
             }

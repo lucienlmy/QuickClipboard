@@ -46,18 +46,36 @@ pub fn restore_last_focus() -> Result<(), String> {
 #[cfg(windows)]
 fn save_current_focus_with_window(window: &WebviewWindow) {
     use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetClassNameW};
     use std::ffi::c_void;
     
     unsafe {
         let current_hwnd = GetForegroundWindow();
+        
+        if current_hwnd.0.is_null() {
+            return;
+        }
+        
+        let mut class_name = [0u16; 256];
+        let len = GetClassNameW(current_hwnd, &mut class_name);
+        if len > 0 {
+            let class_str = String::from_utf16_lossy(&class_name[..len as usize]);
+            // 过滤掉任务栏、托盘等系统窗口
+            if class_str == "Shell_TrayWnd" 
+                || class_str == "Shell_SecondaryTrayWnd"
+                || class_str == "NotifyIconOverflowWindow"
+                || class_str == "Windows.UI.Core.CoreWindow"
+                || class_str.starts_with("HwndWrapper") {
+                return;
+            }
+        }
         
         // 获取剪贴板窗口句柄
         if let Ok(hwnd_raw) = window.hwnd() {
             let clipboard_hwnd = HWND(hwnd_raw.0 as *mut c_void);
             
             // 只有当前台窗口不是剪贴板窗口时，才记录
-            if !current_hwnd.0.is_null() && current_hwnd.0 != clipboard_hwnd.0 {
+            if current_hwnd.0 != clipboard_hwnd.0 {
                 *LAST_FOCUS_HWND.lock() = Some(current_hwnd.0 as usize);
             }
         }
