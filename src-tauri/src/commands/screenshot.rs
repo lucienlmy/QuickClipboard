@@ -2,9 +2,14 @@ use tauri::Manager;
 
 // 启动内置截图功能
 #[tauri::command]
-pub fn start_builtin_screenshot(app: tauri::AppHandle) -> Result<(), String> {
-    crate::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
-    crate::windows::screenshot_window::start_screenshot(&app)
+pub async fn start_builtin_screenshot(app: tauri::AppHandle) -> Result<(), String> {
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
+        crate::windows::screenshot_window::start_screenshot(&app_clone)
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
 }
 
 // 捕获所有显示器截图
