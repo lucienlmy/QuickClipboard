@@ -84,6 +84,80 @@ impl ScreenUtils {
             .ok_or_else(|| "主显示器不存在".to_string())
     }
 
+    // 获取当前显示器的真实边缘 (left, right, top, bottom)
+    pub fn get_real_edges(window: &WebviewWindow) -> Result<(bool, bool, bool, bool), String> {
+        let current_monitor = window
+            .current_monitor()
+            .map_err(|e| format!("获取当前显示器失败: {}", e))?
+            .ok_or_else(|| "当前显示器不存在".to_string())?;
+
+        let cur_pos = current_monitor.position();
+        let cur_size = current_monitor.size();
+        
+        let all_monitors = Self::get_all_monitors_with_edges(window)?;
+        
+        for (mx, my, mw, mh, left, right, top, bottom) in all_monitors {
+            if mx == cur_pos.x && my == cur_pos.y 
+                && mw == cur_size.width as i32 && mh == cur_size.height as i32 {
+                return Ok((left, right, top, bottom));
+            }
+        }
+        
+        Ok((true, true, true, true))
+    }
+    
+    // 获取所有显示器及其真实边缘 (x, y, w, h, left, right, top, bottom)
+    pub fn get_all_monitors_with_edges(window: &WebviewWindow) -> Result<Vec<(i32, i32, i32, i32, bool, bool, bool, bool)>, String> {
+        let raw_monitors: Vec<_> = window
+            .available_monitors()
+            .map_err(|e| format!("获取显示器列表失败: {}", e))?
+            .into_iter()
+            .map(|m| {
+                let pos = m.position();
+                let size = m.size();
+                (pos.x, pos.y, size.width as i32, size.height as i32)
+            })
+            .collect();
+        
+        const TOLERANCE: i32 = 5;
+        
+        let monitors_with_edges: Vec<_> = raw_monitors.iter().map(|&(mx, my, mw, mh)| {
+            let m_right = mx + mw;
+            let m_bottom = my + mh;
+            
+            let mut left_is_edge = true;
+            let mut right_is_edge = true;
+            let mut top_is_edge = true;
+            let mut bottom_is_edge = true;
+            
+            for &(ox, oy, ow, oh) in &raw_monitors {
+                let o_right = ox + ow;
+                let o_bottom = oy + oh;
+                
+                if ox == mx && oy == my && ow == mw && oh == mh {
+                    continue;
+                }
+                
+                if (o_right - mx).abs() <= TOLERANCE && oy < m_bottom && o_bottom > my {
+                    left_is_edge = false;
+                }
+                if (ox - m_right).abs() <= TOLERANCE && oy < m_bottom && o_bottom > my {
+                    right_is_edge = false;
+                }
+                if (o_bottom - my).abs() <= TOLERANCE && ox < m_right && o_right > mx {
+                    top_is_edge = false;
+                }
+                if (oy - m_bottom).abs() <= TOLERANCE && ox < m_right && o_right > mx {
+                    bottom_is_edge = false;
+                }
+            }
+            
+            (mx, my, mw, mh, left_is_edge, right_is_edge, top_is_edge, bottom_is_edge)
+        }).collect();
+        
+        Ok(monitors_with_edges)
+    }
+
     // 约束窗口位置到屏幕边界内
     pub fn constrain_to_physical_bounds(
         x: i32,

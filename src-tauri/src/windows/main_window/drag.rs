@@ -22,7 +22,7 @@ mod platform {
     pub static BOUND_RIGHT: AtomicI32 = AtomicI32::new(0);
     pub static BOUND_BOTTOM: AtomicI32 = AtomicI32::new(0);
     pub static ORIGINAL_WNDPROC_PTR: AtomicIsize = AtomicIsize::new(0);
-    pub static MONITORS: once_cell::sync::Lazy<parking_lot::Mutex<Vec<(i32, i32, i32, i32)>>> = 
+    pub static MONITORS: once_cell::sync::Lazy<parking_lot::Mutex<Vec<(i32, i32, i32, i32, bool, bool, bool, bool)>>> = 
         once_cell::sync::Lazy::new(|| parking_lot::Mutex::new(Vec::new()));
     pub static WINDOW_SIZE: once_cell::sync::Lazy<parking_lot::Mutex<(i32, i32)>> = 
         once_cell::sync::Lazy::new(|| parking_lot::Mutex::new((0, 0)));
@@ -47,28 +47,43 @@ mod platform {
     ) -> LRESULT {
         if msg == WM_WINDOWPOSCHANGING && IS_DRAGGING_ACTIVE.load(Ordering::Relaxed) && lparam.0 != 0 {
             let wp = &mut *(lparam.0 as *mut WINDOWPOS);
-            let (vx, vright) = (
-                BOUND_LEFT.load(Ordering::Relaxed),
-                BOUND_RIGHT.load(Ordering::Relaxed),
-            );
-            
-            wp.x = wp.x.clamp(vx, vright);
             
             if let (Some(monitors), Some(size)) = (MONITORS.try_lock(), WINDOW_SIZE.try_lock()) {
-                let cx = wp.x + wp.cx / 2;
-                let mut top = BOUND_TOP.load(Ordering::Relaxed);
-                let mut bottom = BOUND_BOTTOM.load(Ordering::Relaxed);
+                let (w, h) = *size;
+                let cx = wp.x + w / 2;
+                let cy = wp.y + h / 2;
                 
-                for &(mx, my, mw, mh) in monitors.iter() {
-                    if cx >= mx && cx < mx + mw {
-                        top = my;
-                        bottom = my + mh - size.1;
-                        break;
+                let current_monitor = monitors.iter()
+                    .find(|(mx, my, mw, mh, _, _, _, _)| {
+                        cx >= *mx && cx < mx + mw && cy >= *my && cy < my + mh
+                    });
+                
+                if let Some(&(mx, my, mw, mh, left_edge, right_edge, top_edge, bottom_edge)) = current_monitor {
+                    if left_edge {
+                        wp.x = wp.x.max(mx);
                     }
+                    if right_edge {
+                        wp.x = wp.x.min(mx + mw - w);
+                    }
+                    if top_edge {
+                        wp.y = wp.y.max(my);
+                    }
+                    if bottom_edge {
+                        wp.y = wp.y.min(my + mh - h);
+                    }
+                } else {
+                    let vx = BOUND_LEFT.load(Ordering::Relaxed);
+                    let vy = BOUND_TOP.load(Ordering::Relaxed);
+                    let vright = BOUND_RIGHT.load(Ordering::Relaxed);
+                    let vbottom = BOUND_BOTTOM.load(Ordering::Relaxed);
+                    wp.x = wp.x.clamp(vx, vright);
+                    wp.y = wp.y.clamp(vy, vbottom);
                 }
-                wp.y = wp.y.clamp(top, bottom);
             } else {
+                let vx = BOUND_LEFT.load(Ordering::Relaxed);
                 let vy = BOUND_TOP.load(Ordering::Relaxed);
+                let vright = BOUND_RIGHT.load(Ordering::Relaxed);
+                wp.x = wp.x.clamp(vx, vright);
                 wp.y = wp.y.max(vy);
             }
         }
@@ -89,13 +104,9 @@ pub fn start_drag(window: &WebviewWindow, _: i32, _: i32) -> Result<(), String> 
     let (w, h) = (size.width as i32, size.height as i32);
     *platform::WINDOW_SIZE.lock() = (w, h);
 
-    let monitors: Vec<_> = window
-        .available_monitors()
-        .map_err(|e| format!("获取显示器列表失败: {}", e))?
-        .into_iter()
-        .map(|m| (m.position().x, m.position().y, m.size().width as i32, m.size().height as i32))
-        .collect();
-    *platform::MONITORS.lock() = monitors;
+    let monitors_with_edges = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(window)
+        .unwrap_or_default();
+    *platform::MONITORS.lock() = monitors_with_edges;
 
     let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size_from_window(window)
         .unwrap_or((0, 0, 1920, 1080));

@@ -19,13 +19,16 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
-    let edge = if (x - monitor_x).abs() <= SNAP_THRESHOLD {
+    let (left_is_edge, right_is_edge, top_is_edge, bottom_is_edge) = 
+        crate::utils::screen::ScreenUtils::get_real_edges(window)?;
+    
+    let edge = if left_is_edge && (x - monitor_x).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Left)
-    } else if (monitor_right - (x + w as i32)).abs() <= SNAP_THRESHOLD {
+    } else if right_is_edge && (monitor_right - (x + w as i32)).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Right)
-    } else if (y - monitor_y).abs() <= SNAP_THRESHOLD {
+    } else if top_is_edge && (y - monitor_y).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Top)
-    } else if (monitor_bottom - (y + h as i32)).abs() <= SNAP_THRESHOLD {
+    } else if bottom_is_edge && (monitor_bottom - (y + h as i32)).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Bottom)
     } else {
         None
