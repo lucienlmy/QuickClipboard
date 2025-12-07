@@ -1,168 +1,141 @@
-// 右键菜单窗口管理
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, WebviewWindowBuilder, LogicalSize};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, WebviewWindowBuilder};
 
-// 菜单项
+fn enable_passthrough(window: tauri::WebviewWindow, session_id: u64) {
+    std::thread::spawn(move || {
+        let mut last = true;
+        while super::get_active_menu_session() == session_id {
+            let (mx, my) = crate::utils::mouse::get_cursor_position();
+            let in_region = super::is_point_in_menu_region(mx, my);
+            if in_region != last {
+                last = in_region;
+                let _ = window.set_ignore_cursor_events(!in_region);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let _ = window.set_ignore_cursor_events(false);
+        super::clear_menu_regions();
+    });
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MenuItem {
-    // 菜单项 ID
     pub id: String,
-    // 菜单项显示文本
     pub label: String,
-    // 图标
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
-    // Favicon URL
     #[serde(skip_serializing_if = "Option::is_none")]
     pub favicon: Option<String>,
-    // 图标颜色
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_color: Option<String>,
-    // 是否禁用
     #[serde(default)]
     pub disabled: bool,
-    // 是否为分割线
     #[serde(default)]
     pub separator: bool,
-    // 子菜单（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub children: Option<Vec<MenuItem>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_image: Option<String>,
 }
 
-// 右键菜单配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextMenuOptions {
-    // 菜单项列表
     pub items: Vec<MenuItem>,
-    // 菜单显示位置 x 坐标
     pub x: i32,
-    // 菜单显示位置 y 坐标
     pub y: i32,
-    // 菜单宽度
+    pub cursor_x: i32,
+    pub cursor_y: i32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<i32>,
-    // 主题
     #[serde(skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
-    // 菜单会话 ID
     pub session_id: u64,
+    #[serde(default)]
+    pub monitor_x: f64,
+    #[serde(default)]
+    pub monitor_y: f64,
+    #[serde(default)]
+    pub monitor_width: f64,
+    #[serde(default)]
+    pub monitor_height: f64,
 }
 
-// 创建并显示右键菜单窗口
 pub async fn show_menu(
     app: AppHandle,
     mut options: ContextMenuOptions,
 ) -> Result<Option<String>, String> {
-    
-    const MENU_WINDOW_LABEL: &str = "context-menu";
-    
+    const LABEL: &str = "context-menu";
+
     super::clear_result();
     super::clear_options();
-    
+
     let session_id = super::next_menu_session_id();
     options.session_id = session_id;
-
     super::set_active_menu_session(session_id);
+
+    let (mx, my, mw, mh, scale) = crate::screen::ScreenUtils::get_monitor_at_cursor(
+        &app.get_webview_window("main").unwrap_or_else(|| app.get_webview_window("quickpaste").unwrap()),
+    )
+    .map(|m| {
+        let pos = m.position();
+        let size = m.size();
+        (pos.x as f64, pos.y as f64, size.width as f64, size.height as f64, m.scale_factor())
+    })
+    .unwrap_or((0.0, 0.0, 1920.0, 1080.0, 1.0));
+
+    options.cursor_x = options.x - (mx / scale) as i32;
+    options.cursor_y = options.y - (my / scale) as i32;
+    options.monitor_x = mx / scale;
+    options.monitor_y = my / scale;
+    options.monitor_width = mw / scale;
+    options.monitor_height = mh / scale;
+
     super::set_options(options.clone());
 
-    let menu_width = options.width.unwrap_or(200);
-    let item_height = 36;
-    let separator_height = 9;
-    let shadow_padding = 16;
-    
-    let content_height: i32 = options.items.iter().map(|item| {
-        if item.separator {
-            separator_height
-        } else {
-            item_height
-        }
-    }).sum();
-    let menu_height = content_height + 16;
-    
-    let width = menu_width + shadow_padding;
-    let height = menu_height + shadow_padding;
+    let (width, height) = (300.0, 400.0);
+    let (init_x, init_y) = (options.x as f64 - 10.0, options.y as f64 - 10.0);
 
-    let window = if let Some(existing_window) = app.get_webview_window(MENU_WINDOW_LABEL) {
-        let _ = existing_window.hide();
-        let _ = existing_window.set_always_on_top(false);
-        
-        let size = LogicalSize::new(width as f64, height as f64);
-        existing_window.set_size(size)
-            .map_err(|e| format!("设置窗口大小失败: {}", e))?;
-        
-        existing_window.set_focusable(false)
-            .map_err(|e| format!("设置窗口焦点失败: {}", e))?;
-        
-        existing_window
+    let window = if let Some(w) = app.get_webview_window(LABEL) {
+        let _ = w.hide();
+        let _ = w.set_always_on_top(false);
+        let _ = w.set_size(LogicalSize::new(width, height));
+        let _ = w.set_position(tauri::LogicalPosition::new(init_x, init_y));
+        let _ = w.set_focusable(false);
+        let _ = w.set_ignore_cursor_events(false);
+        w
     } else {
-        let new_window = WebviewWindowBuilder::new(
-            &app,
-            MENU_WINDOW_LABEL,
-            tauri::WebviewUrl::App("plugins/context_menu/contextMenu.html".into()),
-        )
-        .title("菜单")
-        .inner_size(width as f64, height as f64)
-        .position(0.0, 0.0)
-        .resizable(false) 
-        .maximizable(false)
-        .minimizable(false)
-        .decorations(false)
-        .transparent(true)
-        .shadow(false) 
-        .always_on_top(true)
-        .focused(false)
-        .focusable(false)
-        .visible(false)
-        .skip_taskbar(true)
-        .build()
-        .map_err(|e| format!("创建菜单窗口失败: {}", e))?;
-        
-        new_window
+        let w = WebviewWindowBuilder::new(&app, LABEL, tauri::WebviewUrl::App("plugins/context_menu/contextMenu.html".into()))
+            .title("菜单").inner_size(width, height).position(init_x, init_y)
+            .resizable(false).maximizable(false).minimizable(false)
+            .decorations(false).transparent(true).shadow(false)
+            .always_on_top(true).focused(false).focusable(false).visible(false).skip_taskbar(true)
+            .build().map_err(|e| format!("创建菜单窗口失败: {}", e))?;
+        let _ = w.set_ignore_cursor_events(false);
+        w
     };
-    
-    crate::utils::positioning::position_at_cursor(&window)
-        .map_err(|e| format!("设置菜单位置失败: {}", e))?;
-
-    window
-        .set_always_on_top(true)
-        .map_err(|e| format!("设置窗口置顶失败: {}", e))?;
-    
-    window
-        .show()
-        .map_err(|e| format!("显示菜单失败: {}", e))?;
-    
-    window
-        .set_always_on_top(true)
-        .map_err(|e| format!("重新设置窗口置顶失败: {}", e))?;
-    
     let _ = window.emit("reload-menu", ());
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    let _ = window.set_always_on_top(true);
+    let _ = window.show();
+    let _ = window.set_always_on_top(true);
+
+    enable_passthrough(window.clone(), session_id);
 
     let (tx, rx) = tokio::sync::oneshot::channel();
-    
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(std::time::Duration::from_millis(50));
-            if super::MENU_RESULT.get().and_then(|m| m.lock().ok()).map(|r| r.is_some()).unwrap_or(false) {
-                let _ = tx.send(());
-                break;
-            }
-            if super::get_active_menu_session() != session_id {
+            let has_result = super::MENU_RESULT.get().and_then(|m| m.lock().ok()).map_or(false, |r| r.is_some());
+            if has_result || super::get_active_menu_session() != session_id {
                 let _ = tx.send(());
                 break;
             }
         }
     });
-
     let _ = rx.await;
 
-    if super::get_active_menu_session() == session_id {
-        let result = super::get_result();
-        super::clear_active_menu_session(session_id);
-        super::clear_options_for_session(session_id);
-        Ok(result)
-    } else {
-        super::clear_options_for_session(session_id);
-        Ok(None)
-    }
+    let result = if super::get_active_menu_session() == session_id { super::get_result() } else { None };
+    super::clear_active_menu_session(session_id);
+    super::clear_options_for_session(session_id);
+    Ok(result)
 }
-

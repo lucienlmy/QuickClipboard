@@ -4,11 +4,9 @@ use tauri::{
     AppHandle,
 };
 
-use super::{create_tray_menu, create_click_handler, handle_menu_event};
+use super::create_click_handler;
 
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let menu = create_tray_menu(app)?;
-
     let icon = {
         let icon_data = include_bytes!("../../../icons/icon64.png");
         let img = image::load_from_memory(icon_data)?;
@@ -18,18 +16,28 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let app_handle = app.clone();
-    let click_handler = create_click_handler(app_handle);
+    let click_handler = create_click_handler(app_handle.clone());
     
     let _tray = TrayIconBuilder::with_id("main-tray")
-        .menu(&menu)
         .tooltip("快速剪贴板")
         .icon(icon)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(move |_tray, event| {
             match event {
                 TrayIconEvent::Click { button, button_state, .. } => {
-                    if button == MouseButton::Left && button_state == MouseButtonState::Up {
-                        click_handler();
+                    match button {
+                        MouseButton::Left if button_state == MouseButtonState::Up => {
+                            click_handler();
+                        }
+                        MouseButton::Right if button_state == MouseButtonState::Up => {
+                            let app = app_handle.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e) = super::menu::show_tray_menu(app).await {
+                                    eprintln!("显示托盘菜单失败: {}", e);
+                                }
+                            });
+                        }
+                        _ => {}
                     }
                 }
                 TrayIconEvent::Enter { .. } => {
@@ -41,7 +49,6 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 _ => {}
             }
         })
-        .on_menu_event(handle_menu_event)
         .build(app)?;
 
     Ok(())

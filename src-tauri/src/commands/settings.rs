@@ -50,8 +50,6 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
             crate::stop_clipboard_monitor()?;
         }
         
-        update_tray_monitor_label(settings.clipboard_monitor);
-        
         use tauri::Emitter;
         let _ = app.emit("settings-changed", serde_json::json!({
             "clipboardMonitor": settings.clipboard_monitor
@@ -219,19 +217,6 @@ pub fn get_shortcut_statuses() -> Vec<crate::hotkey::ShortcutStatus> {
 #[tauri::command]
 pub fn get_shortcut_status(id: String) -> Option<crate::hotkey::ShortcutStatus> {
     crate::hotkey::get_shortcut_status(&id)
-}
-
-fn update_tray_monitor_label(enabled: bool) {
-    use crate::windows::tray::TOGGLE_MONITOR_ITEM;
-    
-    if let Some(item) = TOGGLE_MONITOR_ITEM.get() {
-        let label = if enabled {
-            "禁用剪贴板监听"
-        } else {
-            "启用剪贴板监听"
-        };
-        let _ = item.set_text(label);
-    }
 }
 
 // 切换剪贴板监听状态

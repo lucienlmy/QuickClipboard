@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, menu::MenuEvent};
-use crate::windows::settings_window::open_settings_window;
+use tauri::{AppHandle, Manager};
 
 pub fn handle_tray_click(app: &AppHandle) {
     if crate::windows::updater_window::is_force_update_mode() {
@@ -30,96 +29,4 @@ pub fn create_click_handler(app_handle: AppHandle) -> impl Fn() + Send + 'static
         
         handle_tray_click(&app_handle);
     }
-}
-
-pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
-    let is_force_update = crate::windows::updater_window::is_force_update_mode();
-    
-    match event.id.as_ref() {
-        "toggle" => {
-            if is_force_update {
-                focus_updater_window(app);
-                return;
-            }
-            crate::toggle_main_window_visibility(app);
-        }
-        "toggle-hotkeys" => {
-            if is_force_update { return; }
-            toggle_hotkeys(app);
-        }
-        "toggle-clipboard-monitor" => {
-            if is_force_update { return; }
-            toggle_clipboard_monitor(app);
-        }
-        "restart" => {
-            restart_app(app);
-        }
-        "quit" => {
-            quit_app(app);
-        }
-        "settings" => {
-            if is_force_update {
-                focus_updater_window(app);
-                return;
-            }
-            let _ = open_settings_window(app);
-        }
-        "screenshot" => {
-            if is_force_update { return; }
-            if let Err(e) = crate::windows::screenshot_window::start_screenshot(app) {
-                eprintln!("启动截图窗口失败: {}", e);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn focus_updater_window(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("updater") {
-        let _ = w.show();
-        let _ = w.set_focus();
-    }
-}
-
-fn toggle_hotkeys(_app: &AppHandle) {
-    let mut settings = crate::get_settings();
-    settings.hotkeys_enabled = !settings.hotkeys_enabled;
-    
-    if let Err(e) = crate::update_settings(settings.clone()) {
-        eprintln!("更新快捷键设置失败: {}", e);
-        return;
-    }
-    
-    // 更新快捷键状态
-    if settings.hotkeys_enabled {
-        if let Err(e) = crate::hotkey::reload_from_settings() {
-            eprintln!("重新加载快捷键失败: {}", e);
-        }
-    } else {
-        crate::hotkey::unregister_all();
-    }
-    
-    // 更新菜单项文本
-    if let Some(item) = super::menu::TOGGLE_HOTKEYS_ITEM.get() {
-        let label = if settings.hotkeys_enabled {
-            "禁用快捷键"
-        } else {
-            "启用快捷键"
-        };
-        let _ = item.set_text(label);
-    }
-}
-
-fn toggle_clipboard_monitor(app: &AppHandle) {
-    if let Err(e) = crate::commands::settings::toggle_clipboard_monitor(app) {
-        eprintln!("切换剪贴板监听状态失败: {}", e);
-    }
-}
-
-fn restart_app(app: &AppHandle) {
-    app.restart();
-}
-
-fn quit_app(app: &AppHandle) {
-    app.exit(0);
 }

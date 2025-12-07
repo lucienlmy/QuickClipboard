@@ -437,12 +437,13 @@ fn handle_click_outside() {
     if crate::is_context_menu_visible() {
         if let Some(main_window) = MAIN_WINDOW.get() {
             if let Some(menu_window) = main_window.app_handle().get_webview_window("context-menu") {
-                if menu_window.is_visible().unwrap_or(false) && is_mouse_outside_window(&menu_window) {
+                let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+                if menu_window.is_visible().unwrap_or(false) && !crate::windows::plugins::context_menu::is_point_in_menu_region(cursor_x, cursor_y) {
                     let _ = menu_window.emit("close-context-menu", ());
-                    return;
                 }
             }
         }
+        return;
     }
     
     // 主窗口

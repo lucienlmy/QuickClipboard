@@ -161,6 +161,8 @@ pub fn run() {
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
                 windows::plugins::context_menu::commands::close_all_context_menus,
+                windows::plugins::context_menu::commands::update_context_menu_regions,
+                windows::plugins::context_menu::commands::resize_context_menu,
                 windows::plugins::input_dialog::commands::show_input,
                 windows::plugins::input_dialog::commands::get_input_dialog_options,
                 windows::plugins::input_dialog::commands::submit_input_dialog,

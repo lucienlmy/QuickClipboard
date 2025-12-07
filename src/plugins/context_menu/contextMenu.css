@@ -9,20 +9,23 @@ body {
     font-size: 14px;
     overflow: hidden;
     background: transparent;
-    padding: 8px; 
+    padding: 8px;
 }
 
 .menu-container {
-    position: relative; 
+    position: absolute;
     background: #ffffff;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     padding: 8px 0;
     box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2);
-    overflow: visible; 
-    width: max-content; 
+    overflow: visible;
+    width: max-content;
     min-width: 200px;
-    max-width: 400px; 
+    max-width: 400px;
+    left: 0;
+    top: 0;
+    visibility: hidden;
 }
 
 .menu-item {
@@ -102,7 +105,7 @@ body {
     box-shadow: 0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2);
     min-width: 160px;
     max-width: 400px;
-    max-height: 400px; 
+    max-height: 400px;
     overflow-y: auto;
     overflow-x: hidden;
     z-index: 1000;
@@ -189,4 +192,3 @@ body.dark-theme .submenu-container::-webkit-scrollbar-thumb:hover {
 body.dark-theme .submenu-container::-webkit-scrollbar-thumb:active {
     background: rgba(255, 255, 255, 0.4);
 }
-

@@ -1,129 +1,92 @@
-// 通用右键菜单前端逻辑
-
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-
-import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-document.addEventListener('contextmenu', event => event.preventDefault());
+
+document.addEventListener('contextmenu', e => e.preventDefault());
+
 const currentWindow = getCurrentWindow();
 const menuContainer = document.getElementById('menuContainer');
-
-let currentOptions = null;
-let initialMenuSize = null;
-let currentThemeSetting = null;
-
+const SAFE_BOTTOM_MARGIN = 50;
 const systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
-function applyThemeClass(isDark) {
-    if (isDark) {
-        document.body.classList.add('dark-theme');
-    } else {
-        document.body.classList.remove('dark-theme');
-    }
-}
+let currentThemeSetting = null;
+let monitorInfo = { x: 0, y: 0, width: 1920, height: 1080 };
+let windowOrigin = { x: 0, y: 0 };
 
 function applyTheme(theme) {
     currentThemeSetting = theme;
-    
-    if (theme === 'dark') {
-        applyThemeClass(true);
-    } else if (theme === 'light') {
-        applyThemeClass(false);
-    } else if (theme === 'auto' || !theme) {
-        applyThemeClass(systemThemeMediaQuery.matches);
-    }
+    const isDark = theme === 'dark' || (theme !== 'light' && systemThemeMediaQuery.matches);
+    document.body.classList.toggle('dark-theme', isDark);
 }
 
-// 监听系统主题变化
-systemThemeMediaQuery.addEventListener('change', (e) => {
-    if (currentThemeSetting === 'auto' || !currentThemeSetting) {
-        applyThemeClass(e.matches);
+systemThemeMediaQuery.addEventListener('change', e => {
+    if (!currentThemeSetting || currentThemeSetting === 'auto') {
+        document.body.classList.toggle('dark-theme', e.matches);
     }
 });
 
-function updateScrollIndicator(element) {
-    if (!element) return;
-
-    const hasScroll = element.scrollHeight > element.clientHeight;
-    if (hasScroll) {
-        element.classList.add('has-scroll');
-    } else {
-        element.classList.remove('has-scroll');
-    }
+function updateScrollIndicator(el) {
+    if (el) el.classList.toggle('has-scroll', el.scrollHeight > el.clientHeight);
 }
 
 function createSubmenu(items) {
     const submenu = document.createElement('div');
     submenu.className = 'submenu-container';
-    submenu.style.maxWidth = '250px';
-
-    items.forEach(item => {
-        const menuItemElement = createMenuItem(item);
-        submenu.appendChild(menuItemElement);
-    });
-
-    submenu.addEventListener('scroll', () => {
-        updateScrollIndicator(submenu);
-    });
-
+    submenu.style.maxWidth = '200px';
+    items.forEach(item => submenu.appendChild(createMenuItem(item)));
+    submenu.addEventListener('scroll', () => updateScrollIndicator(submenu));
     return submenu;
 }
 
-async function restoreWindowSize() {
-    if (!initialMenuSize) return;
+async function resizeWindowToFitMenu() {
+    const padding = 10;
+    const mainRect = menuContainer.getBoundingClientRect();
+    let maxX = mainRect.right, maxY = mainRect.bottom;
+    
+    document.querySelectorAll('.submenu-container.show').forEach(sub => {
+        const rect = sub.getBoundingClientRect();
+        maxX = Math.max(maxX, rect.right);
+        maxY = Math.max(maxY, rect.bottom);
+    });
 
-    try {
-        const size = new LogicalSize(initialMenuSize.width, initialMenuSize.height);
-        await currentWindow.setSize(size);
-    } catch (error) {
-        console.error('恢复窗口大小失败:', error);
-    }
+    await invoke('resize_context_menu', {
+        width: maxX + padding,
+        height: maxY + padding,
+        x: monitorInfo.x + windowOrigin.x,
+        y: monitorInfo.y + windowOrigin.y
+    }).catch(() => {});
 }
 
-async function positionSubmenu(submenu, parentItem) {
-    const parentRect = parentItem.getBoundingClientRect();
+function positionSubmenu(submenu, parentItem) {
     const menuRect = menuContainer.getBoundingClientRect();
-    const bodyPadding = 16;
+    const parentRect = parentItem.getBoundingClientRect();
+    const screenWidth = monitorInfo.width - windowOrigin.x;
+    const screenHeight = monitorInfo.height - SAFE_BOTTOM_MARGIN - windowOrigin.y;
 
-    const relativeTop = parentRect.top - menuRect.top;
+    submenu.style.cssText = 'max-width:200px;max-height:400px;overflow-y:auto;left:' + menuRect.width + 'px;top:0';
+    
+    const submenuRect = submenu.getBoundingClientRect();
+    const spaceRight = screenWidth - (menuRect.left + menuRect.width);
+    const spaceLeft = menuRect.left + windowOrigin.x;
 
-    submenu.style.left = (menuRect.width - 4) + 'px';
-    submenu.style.top = relativeTop + 'px';
-    submenu.style.right = 'auto';
+    if (spaceRight >= submenuRect.width || spaceLeft < submenuRect.width) {
+        submenu.style.left = menuRect.width + 'px';
+        submenu.style.right = 'auto';
+    } else {
+        submenu.style.left = 'auto';
+        submenu.style.right = menuRect.width + 'px';
+    }
 
-    setTimeout(async () => {
-        const submenuRect = submenu.getBoundingClientRect();
+    let top = parentRect.top - menuRect.top;
+    const bottomSpace = screenHeight - (menuRect.top + top + submenuRect.height);
+    if (bottomSpace < 0) top += bottomSpace;
+    const topSpace = menuRect.top + windowOrigin.y + top;
+    if (topSpace < 0) top -= topSpace;
 
-        const scrollbarWidth = 8;
-        const menuWidth = Math.ceil(menuRect.width + submenuRect.width - 4 + scrollbarWidth);
-        const windowWidth = menuWidth + bodyPadding;
-
-        const submenuMaxHeight = 400;
-        const actualSubmenuHeight = Math.min(submenuRect.height, submenuMaxHeight);
-
-        const submenuBottom = relativeTop + actualSubmenuHeight;
-        const menuHeight = Math.ceil(Math.max(menuRect.height, submenuBottom + 8));
-        const windowHeight = menuHeight + bodyPadding;
-
-        try {
-            const size = new LogicalSize(windowWidth, windowHeight);
-            await currentWindow.setSize(size);
-
-            const availableSpace = menuHeight - 8;
-            if (submenuBottom > availableSpace) {
-                const overflow = submenuBottom - availableSpace;
-                const newTop = Math.max(0, relativeTop - overflow);
-                submenu.style.top = newTop + 'px';
-            }
-
-            setTimeout(() => {
-                updateScrollIndicator(submenu);
-            }, 50);
-        } catch (error) {
-            console.error('调整窗口大小失败:', error);
-        }
-    }, 0);
+    submenu.style.top = top + 'px';
+    updateScrollIndicator(submenu);
 }
+
 
 function createMenuItem(item) {
     if (item.separator) {
@@ -134,46 +97,35 @@ function createMenuItem(item) {
 
     const menuItem = document.createElement('div');
     menuItem.className = 'menu-item';
-    if (item.disabled) {
-        menuItem.classList.add('disabled');
-    }
+    if (item.disabled) menuItem.classList.add('disabled');
     menuItem.dataset.itemId = item.id;
 
-    const hasChildren = item.children && item.children.length > 0;
-    if (hasChildren) {
-        menuItem.classList.add('has-submenu');
-    }
+    const hasChildren = item.children?.length > 0;
+    if (hasChildren) menuItem.classList.add('has-submenu');
 
     if (item.favicon) {
         const iconContainer = document.createElement('div');
         iconContainer.className = 'menu-item-icon';
-        const faviconImg = document.createElement('img');
-        faviconImg.src = item.favicon;
-        faviconImg.style.width = '16px';
-        faviconImg.style.height = '16px';
-        faviconImg.style.objectFit = 'contain';
-        iconContainer.appendChild(faviconImg);
+        const img = document.createElement('img');
+        img.src = item.favicon;
+        img.style.cssText = 'width:16px;height:16px;object-fit:contain';
+        iconContainer.appendChild(img);
         menuItem.appendChild(iconContainer);
     } else if (item.icon) {
         const icon = document.createElement('i');
         icon.className = `menu-item-icon ${item.icon}`;
-        if (item.icon_color) {
-            icon.style.color = item.icon_color;
-        }
+        if (item.icon_color) icon.style.color = item.icon_color;
         menuItem.appendChild(icon);
     } else {
-        const iconPlaceholder = document.createElement('div');
-        iconPlaceholder.className = 'menu-item-icon';
-        menuItem.appendChild(iconPlaceholder);
+        const placeholder = document.createElement('div');
+        placeholder.className = 'menu-item-icon';
+        menuItem.appendChild(placeholder);
     }
 
     const label = document.createElement('div');
     label.className = 'menu-item-label';
     label.textContent = item.label;
-    label.style.maxWidth = '200px';
-    label.style.overflow = 'hidden';
-    label.style.textOverflow = 'ellipsis';
-    label.style.whiteSpace = 'nowrap';
+    label.style.cssText = 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
     menuItem.appendChild(label);
 
     if (hasChildren) {
@@ -183,7 +135,6 @@ function createMenuItem(item) {
 
         const submenu = createSubmenu(item.children);
         menuContainer.appendChild(submenu);
-
         menuItem.submenuElement = submenu;
 
         if (!item.disabled) {
@@ -195,131 +146,131 @@ function createMenuItem(item) {
             });
         }
 
-        let showTimeout;
-        menuItem.addEventListener('mouseenter', () => {
-            clearTimeout(showTimeout);
-            showTimeout = setTimeout(() => {
-                document.querySelectorAll('.submenu-container.show').forEach(s => {
-                    if (s !== submenu) {
-                        s.classList.remove('show');
-                    }
-                });
-                submenu.classList.add('show');
-                positionSubmenu(submenu, menuItem);
-            }, 100);
-        });
+        let hideTimeout;
+        const showSubmenu = () => {
+            document.querySelectorAll('.submenu-container.show').forEach(s => {
+                if (s !== submenu) s.classList.remove('show');
+            });
+            submenu.classList.add('show');
+            positionSubmenu(submenu, menuItem);
+            resizeWindowToFitMenu();
+            sendMenuRegionsToBackend();
+        };
+        const hideSubmenu = () => {
+            submenu.classList.remove('show');
+            resizeWindowToFitMenu();
+            sendMenuRegionsToBackend();
+        };
 
+        menuItem.addEventListener('mouseenter', () => {
+            if (item.disabled) return;
+            clearTimeout(hideTimeout);
+            showSubmenu();
+        });
         menuItem.addEventListener('mouseleave', (e) => {
-            clearTimeout(showTimeout);
             if (!submenu.contains(e.relatedTarget)) {
-                setTimeout(async () => {
-                    if (!submenu.matches(':hover') && !menuItem.matches(':hover')) {
-                        submenu.classList.remove('show');
-                        const anySubmenuVisible = document.querySelector('.submenu-container.show');
-                        if (!anySubmenuVisible) {
-                            await restoreWindowSize();
-                        }
-                    }
-                }, 100);
+                hideTimeout = setTimeout(hideSubmenu, 200);
             }
         });
-
+        submenu.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
         submenu.addEventListener('mouseleave', (e) => {
             if (!menuItem.contains(e.relatedTarget)) {
-                setTimeout(async () => {
-                    if (!submenu.matches(':hover') && !menuItem.matches(':hover')) {
-                        submenu.classList.remove('show');
-                        const anySubmenuVisible = document.querySelector('.submenu-container.show');
-                        if (!anySubmenuVisible) {
-                            await restoreWindowSize();
-                        }
-                    }
-                }, 100);
+                hideTimeout = setTimeout(hideSubmenu, 200);
             }
         });
-    } else {
-        if (!item.disabled) {
-            menuItem.addEventListener('click', (e) => {
-                e.stopPropagation();
-                hideMenu(item.id);
-            });
-        }
+        submenu.addEventListener('click', (e) => e.stopPropagation());
+    } else if (!item.disabled) {
+        menuItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideMenu(item.id);
+        });
+    }
+
+    if (item.preview_image) {
+        let timer = null;
+        menuItem.addEventListener('mouseenter', () => {
+            timer = setTimeout(() => {
+                invoke('pin_image_from_file', { filePath: item.preview_image, previewMode: true }).catch(() => {});
+            }, 300);
+        });
+        menuItem.addEventListener('mouseleave', () => {
+            if (timer) { clearTimeout(timer); timer = null; }
+            invoke('close_image_preview').catch(() => {});
+        });
     }
 
     return menuItem;
 }
 
-function renderMenu(options) {
-    currentOptions = options;
 
+function positionMenuAtCursor(options) {
+    const menuRect = menuContainer.getBoundingClientRect();
+    const screenWidth = monitorInfo.width;
+    const screenHeight = monitorInfo.height - SAFE_BOTTOM_MARGIN;
+
+    let left = Math.max(0, Math.min(options.cursor_x, screenWidth - menuRect.width));
+    let top = Math.max(0, Math.min(options.cursor_y, screenHeight - menuRect.height));
+
+    const leftSpace = Math.min(left, 210);
+    const topSpace = Math.min(top, 210);
+    windowOrigin = { x: left - leftSpace, y: top - topSpace };
+    
+    menuContainer.style.left = `${leftSpace}px`;
+    menuContainer.style.top = `${topSpace}px`;
+}
+
+async function renderMenu(options) {
+    monitorInfo = {
+        x: options.monitor_x || 0, y: options.monitor_y || 0,
+        width: options.monitor_width || 1920, height: options.monitor_height || 1080
+    };
+    windowOrigin = { x: 0, y: 0 };
+    
     applyTheme(options.theme);
-
     menuContainer.innerHTML = '';
-
-    options.items.forEach(item => {
-        const menuItemElement = createMenuItem(item);
-        menuContainer.appendChild(menuItemElement);
-    });
+    options.items.forEach(item => menuContainer.appendChild(createMenuItem(item)));
+    positionMenuAtCursor(options);
+    menuContainer.style.visibility = 'visible';
+    
+    await resizeWindowToFitMenu();
+    sendMenuRegionsToBackend();
 }
 
 let isClosing = false;
 
 async function loadAndRenderMenu() {
     isClosing = false;
-
-    try {
-        const options = await invoke('get_context_menu_options');
-        renderMenu(options);
-
-        await new Promise(resolve => setTimeout(resolve, 0));
-        const windowSize = await currentWindow.innerSize();
-        const scaleFactor = await currentWindow.scaleFactor();
-
-        initialMenuSize = {
-            width: Math.round(windowSize.width / scaleFactor),
-            height: Math.round(windowSize.height / scaleFactor)
-        };
-    } catch (error) {
-        console.error('获取菜单配置失败:', error);
-    }
-}
-
-loadAndRenderMenu();
-
-let reloadListenerRegistered = false;
-if (!reloadListenerRegistered) {
-    currentWindow.listen('reload-menu', () => {
-        loadAndRenderMenu();
-    });
-    reloadListenerRegistered = true;
+    const options = await invoke('get_context_menu_options').catch(() => null);
+    if (options) await renderMenu(options);
 }
 
 async function hideMenu(itemId = null) {
     if (isClosing) return;
     isClosing = true;
-
-    try {
-        await invoke('submit_context_menu', { itemId: itemId || null });
-
-        document.querySelectorAll('.submenu-container').forEach(submenu => {
-            submenu.classList.remove('show');
-        });
-
-        await restoreWindowSize();
-
-        await currentWindow.hide();
-    } catch (error) {
-        console.error('隐藏菜单失败:', error);
-    }
+    await invoke('submit_context_menu', { itemId: itemId || null }).catch(() => {});
+    document.querySelectorAll('.submenu-container').forEach(s => s.classList.remove('show'));
+    menuContainer.style.visibility = 'hidden';
+    await currentWindow.hide();
 }
 
-currentWindow.listen('close-context-menu', () => {
-    hideMenu(null);
-});
+loadAndRenderMenu();
+currentWindow.listen('reload-menu', loadAndRenderMenu);
+currentWindow.listen('close-context-menu', () => hideMenu(null));
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        hideMenu(null);
-    }
-});
+async function sendMenuRegionsToBackend() {
+    const scaleFactor = await currentWindow.scaleFactor().catch(() => 1);
+    const toRegion = rect => ({
+        x: Math.round((rect.left + windowOrigin.x + monitorInfo.x) * scaleFactor),
+        y: Math.round((rect.top + windowOrigin.y + monitorInfo.y) * scaleFactor),
+        width: Math.round(rect.width * scaleFactor),
+        height: Math.round(rect.height * scaleFactor)
+    });
 
+    const mainMenu = toRegion(menuContainer.getBoundingClientRect());
+    const submenus = Array.from(document.querySelectorAll('.submenu-container.show'))
+        .map(s => toRegion(s.getBoundingClientRect()));
+
+    await invoke('update_context_menu_regions', { mainMenu, submenus }).catch(() => {});
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(null); });
