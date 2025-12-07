@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
@@ -11,6 +11,10 @@ function ImageContent({
   const settings = useSnapshot(settingsStore);
   const isAutoHeight = settings.rowHeight === 'auto';
   const { t } = useTranslation();
+  
+  const handleDragStart = useCallback(() => {
+    invoke('close_image_preview').catch(() => {});
+  }, []);
 
   const [imageSrc, setImageSrc] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +65,7 @@ function ImageContent({
     }
   };
 
-  const handleDragMouseDown = useDragWithThreshold();
+  const handleDragMouseDown = useDragWithThreshold({ onDragStart: handleDragStart });
 
   if (loading) {
     return <div className="w-full min-h-[80px] bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
