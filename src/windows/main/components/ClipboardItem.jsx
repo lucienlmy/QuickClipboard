@@ -233,22 +233,7 @@ function ClipboardItem({
   };
   const isSmallHeight = settings.rowHeight === 'small';
 
-  // 自适应行高禁用内容滚轮滚动
-  const contentRef = useRef(null);
-  useEffect(() => {
-    const el = contentRef.current;
-    if (settings.rowHeight === 'auto' && el) {
-      const handleWheel = (e) => {
-        e.preventDefault();
-        const scroller = el.closest('.clipboard-list')?.firstElementChild;
-        if (scroller) {
-          scroller.scrollBy({ top: e.deltaY, behavior: 'instant' });
-        }
-      };
-      el.addEventListener('wheel', handleWheel, { passive: false });
-      return () => el.removeEventListener('wheel', handleWheel);
-    }
-  }, [settings.rowHeight]);
+
 
   // 键盘选中样式
   const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border-1.5' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-1.5';
@@ -372,7 +357,7 @@ function ClipboardItem({
           </div>
 
           {/* 内容区 */}
-          <div ref={contentRef} className={`flex-1 min-w-0 w-full ${settings.rowHeight === 'auto' ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+          <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
             {renderContent()}
           </div>
         </>}

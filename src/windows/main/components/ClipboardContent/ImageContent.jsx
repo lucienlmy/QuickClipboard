@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
+import { useSnapshot } from 'valtio';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
+import { settingsStore } from '@shared/store/settingsStore';
 
 function ImageContent({
   item
 }) {
+  const settings = useSnapshot(settingsStore);
+  const isAutoHeight = settings.rowHeight === 'auto';
   const { t } = useTranslation();
 
   const [imageSrc, setImageSrc] = useState(null);
@@ -78,12 +82,12 @@ function ImageContent({
     </div>;
   }
   return <div 
-    className="w-full h-full rounded overflow-hidden flex items-center justify-start bg-transparent cursor-grab active:cursor-grabbing"
+    className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent cursor-grab active:cursor-grabbing ${isAutoHeight ? 'max-h-[280px]' : 'h-full'}`}
     onMouseDown={imagePathRef.current ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
     data-drag-ignore={imagePathRef.current ? "true" : undefined}
     title={imagePathRef.current ? t('clipboard.dragImageToExternal', '拖拽到外部') : undefined}
   >
-    <img src={imageSrc} alt="剪贴板图片" className="max-w-full max-h-full object-contain pointer-events-none" loading="lazy" decoding="async" />
+    <img src={imageSrc} alt="剪贴板图片" className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`} loading="lazy" decoding="async" />
   </div>;
 }
 export default ImageContent;

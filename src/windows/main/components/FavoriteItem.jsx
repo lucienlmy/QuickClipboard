@@ -234,22 +234,7 @@ function FavoriteItem({
   `.trim().replace(/\s+/g, ' ');
   const isSmallHeight = settings.rowHeight === 'small';
 
-  // 自适应行高禁用内容滚轮滚动
-  const contentRef = useRef(null);
-  useEffect(() => {
-    const el = contentRef.current;
-    if (settings.rowHeight === 'auto' && el) {
-      const handleWheel = (e) => {
-        e.preventDefault();
-        const scroller = el.closest('.favorites-list')?.firstElementChild;
-        if (scroller) {
-          scroller.scrollBy({ top: e.deltaY, behavior: 'instant' });
-        }
-      };
-      el.addEventListener('wheel', handleWheel, { passive: false });
-      return () => el.removeEventListener('wheel', handleWheel);
-    }
-  }, [settings.rowHeight]);
+
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
 
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all hover:translate-y-[-3px]  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
@@ -318,7 +303,7 @@ function FavoriteItem({
       </div>}
 
       {/* 内容区域 */}
-      <div ref={contentRef} className={`flex-1 min-w-0 w-full ${settings.rowHeight === 'auto' ? 'overflow-auto' : 'overflow-hidden'} ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+      <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
         {renderContent()}
       </div>
     </>}
