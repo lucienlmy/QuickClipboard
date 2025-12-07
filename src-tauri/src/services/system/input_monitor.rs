@@ -13,7 +13,6 @@ static MONITORING_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(Non
 
 static NAVIGATION_KEYS_ENABLED: AtomicBool = AtomicBool::new(false);
 static MOUSE_MONITORING_ENABLED: AtomicBool = AtomicBool::new(false);
-static TRAY_HOVERED: AtomicBool = AtomicBool::new(false);
 
 // 中键按下时间记录
 static MIDDLE_BUTTON_PRESS_TIME: Mutex<Option<Instant>> = Mutex::new(None);
@@ -97,14 +96,6 @@ pub fn enable_mouse_monitoring() {
 
 pub fn disable_mouse_monitoring() {
     MOUSE_MONITORING_ENABLED.store(false, Ordering::Relaxed);
-}
-
-pub fn set_tray_hovered(hovered: bool) {
-    TRAY_HOVERED.store(hovered, Ordering::Relaxed);
-}
-
-pub fn is_tray_hovered() -> bool {
-    TRAY_HOVERED.load(Ordering::Relaxed)
 }
 
 pub fn is_mouse_monitoring_enabled() -> bool {
@@ -455,10 +446,6 @@ fn handle_click_outside() {
         }
 
         if state.is_pinned {
-            return;
-        }
-
-        if is_tray_hovered() {
             return;
         }
 

@@ -40,12 +40,6 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         _ => {}
                     }
                 }
-                TrayIconEvent::Enter { .. } => {
-                    crate::input_monitor::set_tray_hovered(true);
-                }
-                TrayIconEvent::Leave { .. } => {
-                    crate::input_monitor::set_tray_hovered(false);
-                }
                 _ => {}
             }
         })
