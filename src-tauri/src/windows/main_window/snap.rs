@@ -261,45 +261,92 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
         return Ok(());
     }
     
-    let (x, y) = match settings.edge_snap_position {
+    let (saved_x, saved_y) = match settings.edge_snap_position {
         Some(pos) => pos,
         None => return Ok(()),
     };
     
-    // 根据保存的位置推断贴边的边缘（使用当前显示器边界）
-    let (monitor_x, monitor_y, monitor_w, _) = 
-        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
-    let monitor_right = monitor_x + monitor_w;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let (w, h) = (size.width as i32, size.height as i32);
     
-    let snapped_edge = if x <= monitor_x {
-        SnapEdge::Left
-    } else if x >= monitor_right - 100 {
-        SnapEdge::Right
-    } else if y <= monitor_y {
-        SnapEdge::Top
-    } else {
-        SnapEdge::Bottom
+    let monitors = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(window)?;
+    
+    let find_monitor = |x: i32, y: i32| -> Option<(i32, i32, i32, i32, bool, bool, bool, bool)> {
+        let cx = x + w / 2;
+        let cy = y + h / 2;
+        
+        for m in &monitors {
+            let (mx, my, mw, mh, _, _, _, _) = *m;
+            if cx >= mx && cx < mx + mw && cy >= my && cy < my + mh {
+                return Some(*m);
+            }
+        }
+        
+        for m in &monitors {
+            let (mx, my, mw, mh, _, _, _, _) = *m;
+            let m_right = mx + mw;
+            let m_bottom = my + mh;
+            
+            if x < m_right && x + w > mx && y < m_bottom && y + h > my {
+                return Some(*m);
+            }
+        }
+        
+        None
     };
     
-    // 设置贴边状态
-    set_snap_edge(snapped_edge, Some((x, y)));
+    let monitor = match find_monitor(saved_x, saved_y) {
+        Some(m) => m,
+        None => {
+            let _ = crate::services::settings::update_with(|s| {
+                s.edge_snap_position = None;
+            });
+            return Ok(());
+        }
+    };
+    
+    let (monitor_x, monitor_y, monitor_w, monitor_h, left_edge, right_edge, top_edge, bottom_edge) = monitor;
+    let monitor_right = monitor_x + monitor_w;
+    let monitor_bottom = monitor_y + monitor_h;
+    
+    let snapped_edge = if saved_x <= monitor_x && left_edge {
+        SnapEdge::Left
+    } else if saved_x >= monitor_right - w && right_edge {
+        SnapEdge::Right
+    } else if saved_y <= monitor_y && top_edge {
+        SnapEdge::Top
+    } else if saved_y >= monitor_bottom - h && bottom_edge {
+        SnapEdge::Bottom
+    } else {
+        let _ = crate::services::settings::update_with(|s| {
+            s.edge_snap_position = None;
+        });
+        return Ok(());
+    };
+    
+    let corrected_y = saved_y.max(monitor_y).min(monitor_bottom - h);
+    let corrected_x = saved_x.max(monitor_x - w + FRONTEND_SHADOW_PADDING).min(monitor_right - FRONTEND_SHADOW_PADDING);
+    
+    let (final_x, final_y) = match snapped_edge {
+        SnapEdge::Left | SnapEdge::Right => (saved_x, corrected_y),
+        SnapEdge::Top | SnapEdge::Bottom => (corrected_x, saved_y),
+        SnapEdge::None => (saved_x, saved_y),
+    };
+    
+    set_snap_edge(snapped_edge, Some((final_x, final_y)));
     set_hidden(true);
     
-    // 设置窗口位置
-    window.set_position(tauri::PhysicalPosition::new(x, y))
+    window.set_position(tauri::PhysicalPosition::new(final_x, final_y))
         .map_err(|e| e.to_string())?;
     
-    // 显示窗口
     let _ = window.show();
     let _ = window.set_always_on_top(true);
     
     super::state::set_window_state(super::state::WindowState::Hidden);
     
-    // 禁用输入监听
     crate::input_monitor::disable_mouse_monitoring();
     crate::input_monitor::disable_navigation_keys();
     
-    // 启动边缘监听
     super::edge_monitor::start_edge_monitoring();
     
     Ok(())
