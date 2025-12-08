@@ -57,30 +57,6 @@
 </table>
 </div>
 
-
----
-
-## ⌨️ 快捷键速览
-
-> 以下是 QuickClipboard 的常用快捷键一览表，可在设置中自定义：
-
-| 功能 | 快捷键 | 说明 |
-|------|---------|------|
-| 显示 / 隐藏窗口 | `Win + V` | 打开或关闭剪贴板窗口 |
-| 显示窗口 | `鼠标中键` | 打开剪贴板窗口 |
-| 快速粘贴 | `Ctrl + 1–9` | 直接粘贴对应位置的剪贴板内容 |
-| 预览粘贴 | <code>Ctrl + `</code> | 快速预览或粘贴当前列表内容 |
-| 截图 | `Ctrl + Shift + A` | 启动截图工具 |
-| 搜索 | `Tab` | 聚焦到搜索框 |
-| 切换列表 | `← →` | 左右切换 Tab 列表 |
-| 导航 | `↑ ↓` | 在剪贴板列表中上下移动 |
-| 切换分组 | `Ctrl + ↑ / ↓` | 在常用文本分组间切换 |
-| 执行粘贴 | `Ctrl + Enter` | 粘贴选中项并关闭窗口 |
-| 固定窗口 | `Ctrl + P` | 开启固定后可持久显示剪贴板窗口 |
-| 隐藏窗口 | `Esc` | 直接隐藏剪贴板窗口 |
-
----
-
 ## 🖼 界面预览
 
 
@@ -122,50 +98,47 @@
 
 ---
 
-## 📦 下载方式
+## 📦 下载方式（v0.1.0）
 
-| 类型                                                      |                       说明 |                            下载量                            | 链接                                                         |
-| --------------------------------------------------------- | -------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
-| **🧰 NSIS 安装包**<br>`QuickClipboard_0.0.6_x64-setup.exe` | 推荐安装方式，支持自动卸载 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.0.6_x64-setup.exe?label=) | [![下载 NSIS](https://img.shields.io/badge/⬇_下载-NSIS安装包-blue?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.0.6/QuickClipboard_0.0.6_x64-setup.exe) |
-| **💼 绿色版**<br>`QuickClipboard_0.0.6.exe`                |       免安装，解压即可使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.0.6.exe?label=) | [![下载绿色版](https://img.shields.io/badge/⬇_下载-绿色版-orange?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.0.6/QuickClipboard_0.0.6.exe) |
-| **🌐 网盘下载**                                            |    GitHub 较慢时的备用渠道 |                              —                               | [![网盘下载](https://img.shields.io/badge/🌐_网盘下载-点击进入-red?style=for-the-badge)](https://www.123912.com/s/A9Ckjv-Vu75v?pwd=UhWA#) |
-
----
-
-## 🎬 哔哩哔哩介绍
-
-<div align="center">
-  <a href="https://space.bilibili.com/438982697" target="_blank">
-    <img src="https://img.shields.io/badge/Bilibili-观看演示视频-00A1D6?style=for-the-badge&logo=bilibili" alt="Bilibili">
-  </a>
-  <p style="margin-top:8px;">频道/教程中包含功能演示、安装与常见问题解答。</p>
-</div>
-
+| 类型                                                          |                       说明 |                            下载量                            | 链接                                                         |
+| ------------------------------------------------------------- | -------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| **🧰 NSIS 安装包**<br>`QuickClipboard_0.1.0-beta.6_x64-setup.exe` | 推荐安装方式，支持自动卸载 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.1.0-beta.6_x64-setup.exe?label=) | [![下载 NSIS](https://img.shields.io/badge/⬇_下载-NSIS安装包-blue?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.1.0/QuickClipboard_0.1.0-beta.6_x64-setup.exe) |
+| **💼 绿色版**<br>`QuickClipboard_0.1.0.exe`                    |       免安装，双击即可使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.1.0.exe?label=) | [![下载绿色版](https://img.shields.io/badge/⬇_下载-绿色版-orange?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.1.0/QuickClipboard_0.1.0.exe) |
+| **📁 便携版**<br>`QuickClipboard_0.1.0_portable.exe`          |     更适合放U盘或移动使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.1.0_portable.exe?label=) | [![下载便携版](https://img.shields.io/badge/⬇_下载-便携版-green?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.1.0/QuickClipboard_0.1.0_portable.exe) |
+| **🌐 网盘下载**                                                |    GitHub 较慢时的备用渠道 |                              —                               | [![网盘下载](https://img.shields.io/badge/🌐_网盘下载-点击进入-red?style=for-the-badge)](https://www.123912.com/s/A9Ckjv-Vu75v?pwd=UhWA#) |
 
 ---
 
-## 🌐 官方网站
-
-<div align="center">
-  <a href="https://quickclipboard.cn/" target="_blank">
-    <img src="https://img.shields.io/badge/官方网站-quickclipboard.cn-blue?style=for-the-badge&logo=firefox-browser" alt="官网">
-  </a>
-  <p style="margin-top:8px;">官方网站包含下载镜像、文档。</p>
-</div>
-
-
----
-
-## 💬 加入社区 · 一起交流
+## 🌐 官方网站 · 🎬 视频教程 · 💬 社群交流
 
 <div align="center">
 
-<img src="readme-assets/qG.png" alt="QQ群二维码" width="240" />  
+<!-- Bilibili -->
+<a href="https://space.bilibili.com/438982697" target="_blank">
+  <img src="https://img.shields.io/badge/Bilibili-功能演示视频-00A1D6?style=for-the-badge&logo=bilibili" alt="Bilibili">
+</a>
 
- **QQ群：** 扫码或搜索群号加入交流  
+<p style="margin-top:6px; margin-bottom:18px;">
+  含功能演示、使用教程、安装说明与常见问题
+</p>
+
+<!-- 官方网站 -->
+<a href="https://quickclipboard.cn/" target="_blank">
+  <img src="https://img.shields.io/badge/官方网站-quickclipboard.cn-blue?style=for-the-badge&logo=firefox-browser" alt="官网">
+</a>
+
+<p style="margin-top:6px; margin-bottom:24px;">
+  获取最新版本、下载镜像、文档资料与更多内容
+</p>
+
+<!-- QQ 群 -->
+<img src="readme-assets/qG.png" alt="QQ群二维码" width="240" />
+
+<p style="margin-top:8px;">
+  <strong>QQ群：</strong> 扫码或搜索群号加入交流
+</p>
 
 </div>
-
 
 ---
 
