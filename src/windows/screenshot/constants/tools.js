@@ -23,10 +23,10 @@ export const HISTORY_TOOLS = [
 
 // 确认操作
 export const ACTION_TOOLS = [
-  { id: 'save', icon: 'ti ti-download', title: '保存', actionKey: 'save' },
-  { id: 'pin', icon: 'ti ti-pin', title: '贴图', actionKey: 'pin' },
   { id: 'confirm', icon: 'ti ti-check', title: '确定', actionKey: 'confirm' },
   { id: 'cancel', icon: 'ti ti-x', title: '取消', actionKey: 'cancel' },
+  { id: 'save', icon: 'ti ti-download', title: '保存', actionKey: 'save' },
+  { id: 'pin', icon: 'ti ti-pin', title: '贴图', actionKey: 'pin' },
 ];
 
 export const ALL_TOOLS = [
