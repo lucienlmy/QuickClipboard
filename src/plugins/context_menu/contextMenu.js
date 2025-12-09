@@ -6,12 +6,14 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 
 const currentWindow = getCurrentWindow();
 const menuContainer = document.getElementById('menuContainer');
-const SAFE_BOTTOM_MARGIN = 50;
 const systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 let currentThemeSetting = null;
 let monitorInfo = { x: 0, y: 0, width: 1920, height: 1080 };
 let windowOrigin = { x: 0, y: 0 };
+let scaleFactor = 1;
+let isTrayMenu = false;
+const TRAY_BOTTOM_MARGIN = 50;
 
 function applyTheme(theme) {
     currentThemeSetting = theme;
@@ -49,11 +51,17 @@ async function resizeWindowToFitMenu() {
         maxY = Math.max(maxY, rect.bottom);
     });
 
+    const logicalWidth = Math.ceil(maxX + padding);
+    const logicalHeight = Math.ceil(maxY + padding);
+    
+    const physicalX = monitorInfo.x + windowOrigin.x * scaleFactor;
+    const physicalY = monitorInfo.y + windowOrigin.y * scaleFactor;
+
     await invoke('resize_context_menu', {
-        width: maxX + padding,
-        height: maxY + padding,
-        x: monitorInfo.x + windowOrigin.x,
-        y: monitorInfo.y + windowOrigin.y
+        width: logicalWidth,
+        height: logicalHeight,
+        x: physicalX,
+        y: physicalY
     }).catch(() => {});
 }
 
@@ -61,7 +69,8 @@ function positionSubmenu(submenu, parentItem) {
     const menuRect = menuContainer.getBoundingClientRect();
     const parentRect = parentItem.getBoundingClientRect();
     const screenWidth = monitorInfo.width - windowOrigin.x;
-    const screenHeight = monitorInfo.height - SAFE_BOTTOM_MARGIN - windowOrigin.y;
+    const bottomMargin = isTrayMenu ? TRAY_BOTTOM_MARGIN : 0;
+    const screenHeight = monitorInfo.height - bottomMargin - windowOrigin.y;
 
     submenu.style.cssText = 'max-width:200px;max-height:400px;overflow-y:auto;left:' + menuRect.width + 'px;top:0';
     
@@ -206,7 +215,8 @@ function createMenuItem(item) {
 function positionMenuAtCursor(options) {
     const menuRect = menuContainer.getBoundingClientRect();
     const screenWidth = monitorInfo.width;
-    const screenHeight = monitorInfo.height - SAFE_BOTTOM_MARGIN;
+    const bottomMargin = isTrayMenu ? TRAY_BOTTOM_MARGIN : 0;
+    const screenHeight = monitorInfo.height - bottomMargin;
 
     let left = Math.max(0, Math.min(options.cursor_x, screenWidth - menuRect.width));
     let top = Math.max(0, Math.min(options.cursor_y, screenHeight - menuRect.height));
@@ -215,11 +225,14 @@ function positionMenuAtCursor(options) {
     const topSpace = Math.min(top, 210);
     windowOrigin = { x: left - leftSpace, y: top - topSpace };
     
-    menuContainer.style.left = `${leftSpace}px`;
-    menuContainer.style.top = `${topSpace}px`;
+    menuContainer.style.left = `${Math.round(leftSpace)}px`;
+    menuContainer.style.top = `${Math.round(topSpace)}px`;
 }
 
 async function renderMenu(options) {
+    scaleFactor = await currentWindow.scaleFactor().catch(() => 1);
+    isTrayMenu = options.is_tray_menu || false;
+    
     monitorInfo = {
         x: options.monitor_x || 0, y: options.monitor_y || 0,
         width: options.monitor_width || 1920, height: options.monitor_height || 1080
@@ -258,12 +271,12 @@ currentWindow.listen('reload-menu', loadAndRenderMenu);
 currentWindow.listen('close-context-menu', () => hideMenu(null));
 
 async function sendMenuRegionsToBackend() {
-    const scaleFactor = await currentWindow.scaleFactor().catch(() => 1);
+    const sf = scaleFactor || await currentWindow.scaleFactor().catch(() => 1);
     const toRegion = rect => ({
-        x: Math.round((rect.left + windowOrigin.x + monitorInfo.x) * scaleFactor),
-        y: Math.round((rect.top + windowOrigin.y + monitorInfo.y) * scaleFactor),
-        width: Math.round(rect.width * scaleFactor),
-        height: Math.round(rect.height * scaleFactor)
+        x: Math.round(monitorInfo.x + (windowOrigin.x + rect.left) * sf),
+        y: Math.round(monitorInfo.y + (windowOrigin.y + rect.top) * sf),
+        width: Math.round(rect.width * sf),
+        height: Math.round(rect.height * sf)
     });
 
     const mainMenu = toRegion(menuContainer.getBoundingClientRect());

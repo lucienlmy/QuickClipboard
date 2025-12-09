@@ -203,6 +203,7 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
         monitor_y: 0.0,
         monitor_width: 0.0,
         monitor_height: 0.0,
+        is_tray_menu: true,
     };
     
     if let Ok(Some(selected_id)) = show_menu(app.clone(), options).await {

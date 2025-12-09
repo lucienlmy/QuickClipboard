@@ -1,5 +1,5 @@
 use super::window::{ContextMenuOptions, MenuItem, show_menu};
-use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager};
+use tauri::{AppHandle, LogicalSize, PhysicalPosition, Manager};
 
 #[tauri::command]
 pub fn get_context_menu_options() -> Result<ContextMenuOptions, String> {
@@ -27,6 +27,7 @@ pub async fn show_context_menu(app: AppHandle, items: Vec<MenuItem>, x: i32, y: 
     show_menu(app, ContextMenuOptions {
         items, x, y, cursor_x: 0, cursor_y: 0, width, theme, session_id: 0,
         monitor_x: 0.0, monitor_y: 0.0, monitor_width: 0.0, monitor_height: 0.0,
+        is_tray_menu: false,
     }).await
 }
 
@@ -46,7 +47,7 @@ pub fn close_all_context_menus(app: AppHandle) {
 #[tauri::command]
 pub fn resize_context_menu(app: AppHandle, width: f64, height: f64, x: f64, y: f64) {
     if let Some(w) = app.get_webview_window("context-menu") {
+        let _ = w.set_position(PhysicalPosition::new(x as i32, y as i32));
         let _ = w.set_size(LogicalSize::new(width, height));
-        let _ = w.set_position(LogicalPosition::new(x, y));
     }
 }

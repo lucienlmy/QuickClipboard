@@ -58,6 +58,8 @@ pub struct ContextMenuOptions {
     pub monitor_width: f64,
     #[serde(default)]
     pub monitor_height: f64,
+    #[serde(default)]
+    pub is_tray_menu: bool,
 }
 
 pub async fn show_menu(
@@ -73,47 +75,56 @@ pub async fn show_menu(
     options.session_id = session_id;
     super::set_active_menu_session(session_id);
 
-    let (mx, my, mw, mh, scale) = crate::screen::ScreenUtils::get_monitor_at_cursor(&app)
-        .map(|m| {
-            let pos = m.position();
-            let size = m.size();
-            (pos.x as f64, pos.y as f64, size.width as f64, size.height as f64, m.scale_factor())
-        })
-        .unwrap_or((0.0, 0.0, 1920.0, 1080.0, 1.0));
+    let (cursor_phys_x, cursor_phys_y) = crate::mouse::get_cursor_position();
+    
+    let (monitor_phys_x, monitor_phys_y, monitor_phys_w, monitor_phys_h, scale) = 
+        crate::screen::ScreenUtils::get_monitor_at_cursor(&app)
+            .map(|m| {
+                let pos = m.position();
+                let size = m.size();
+                (pos.x as f64, pos.y as f64, size.width as f64, size.height as f64, m.scale_factor())
+            })
+            .unwrap_or((0.0, 0.0, 1920.0, 1080.0, 1.0));
 
-    options.cursor_x = options.x - (mx / scale) as i32;
-    options.cursor_y = options.y - (my / scale) as i32;
-    options.monitor_x = mx / scale;
-    options.monitor_y = my / scale;
-    options.monitor_width = mw / scale;
-    options.monitor_height = mh / scale;
+    let cursor_rel_x = (cursor_phys_x as f64 - monitor_phys_x) / scale;
+    let cursor_rel_y = (cursor_phys_y as f64 - monitor_phys_y) / scale;
+    
+    let monitor_logical_w = monitor_phys_w / scale;
+    let monitor_logical_h = monitor_phys_h / scale;
+
+    options.cursor_x = cursor_rel_x as i32;
+    options.cursor_y = cursor_rel_y as i32;
+    options.monitor_x = monitor_phys_x;
+    options.monitor_y = monitor_phys_y;
+    options.monitor_width = monitor_logical_w;
+    options.monitor_height = monitor_logical_h;
 
     super::set_options(options.clone());
 
     let (width, height) = (300.0, 400.0);
     
-    let (cursor_phys_x, cursor_phys_y) = crate::mouse::get_cursor_position();
-    let physical_x = cursor_phys_x - 10;
-    let physical_y = cursor_phys_y - 10;
+    let init_phys_x = cursor_phys_x - 10;
+    let init_phys_y = cursor_phys_y - 10;
 
     let window = if let Some(w) = app.get_webview_window(LABEL) {
         let _ = w.hide();
         let _ = w.set_always_on_top(false);
+        let _ = w.set_position(tauri::PhysicalPosition::new(init_phys_x, init_phys_y));
         let _ = w.set_size(LogicalSize::new(width, height));
-        let _ = w.set_position(tauri::PhysicalPosition::new(physical_x, physical_y));
         let _ = w.set_focusable(false);
         let _ = w.set_ignore_cursor_events(false);
         w
     } else {
-        let init_x = options.x as f64 - 10.0;
-        let init_y = options.y as f64 - 10.0;
+        let init_logical_x = init_phys_x as f64 / scale;
+        let init_logical_y = init_phys_y as f64 / scale;
         let w = WebviewWindowBuilder::new(&app, LABEL, tauri::WebviewUrl::App("plugins/context_menu/contextMenu.html".into()))
-            .title("菜单").inner_size(width, height).position(init_x, init_y)
+            .title("菜单").inner_size(width, height).position(init_logical_x, init_logical_y)
             .resizable(false).maximizable(false).minimizable(false)
             .decorations(false).transparent(true).shadow(false)
             .always_on_top(true).focused(false).focusable(false).visible(false).skip_taskbar(true)
             .build().map_err(|e| format!("创建菜单窗口失败: {}", e))?;
         let _ = w.set_ignore_cursor_events(false);
+        let _ = w.set_position(tauri::PhysicalPosition::new(init_phys_x, init_phys_y));
         w
     };
     let _ = window.emit("reload-menu", ());
