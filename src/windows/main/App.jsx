@@ -74,7 +74,14 @@ function App() {
   }, [activeTab]);
   useEffect(() => {
     const setupListeners = async () => {
-      const handleWindowShow = () => {
+      const handleWindowShow = async () => {
+        try {
+          const { saveCurrentFocus } = await import('@shared/api/window');
+          await saveCurrentFocus();
+        } catch (err) {
+          console.warn('保存焦点失败:', err);
+        }
+        
         if (settingsStore.autoClearSearch) {
           setSearchQuery('');
         }
@@ -284,16 +291,6 @@ function App() {
     }
   };
 
-  // 鼠标进入窗口时保存焦点
-  const handleMouseEnter = async () => {
-    try {
-      const { saveCurrentFocus } = await import('@shared/api/window');
-      await saveCurrentFocus();
-    } catch (err) {
-      console.warn('保存焦点失败:', err);
-    }
-  };
-
   // 设置全局键盘导航
   useNavigationKeyboard({
     onNavigateUp: handleNavigateUp,
@@ -379,7 +376,7 @@ function App() {
   };
   return <div className={outerContainerClasses} style={{
     padding: '5px'
-  }} onMouseEnter={handleMouseEnter}>
+  }}>
       <div className={containerClasses} style={{
       borderRadius: '8px',
       boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'

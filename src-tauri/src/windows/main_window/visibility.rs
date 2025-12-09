@@ -57,6 +57,10 @@ fn show_normal_window(window: &WebviewWindow) {
     let state = super::state::get_window_state();
     let was_visible = state.state == WindowState::Visible;
 
+    if let Err(e) = crate::services::paste::keyboard::release_modifier_keys() {
+        eprintln!("释放修饰键失败: {}", e);
+    }
+
     // 根据配置定位窗口
     let settings = crate::get_settings();
     match settings.window_position_mode.as_str() {

@@ -140,6 +140,10 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         return Ok(());
     }
     
+    if let Err(e) = crate::services::paste::keyboard::release_modifier_keys() {
+        eprintln!("释放修饰键失败: {}", e);
+    }
+    
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     
