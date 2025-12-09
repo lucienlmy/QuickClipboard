@@ -13,6 +13,14 @@ import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
 
+const closeImagePreview = (previewTimerRef) => {
+  if (previewTimerRef.current) {
+    clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = null;
+  }
+  invoke('close_image_preview').catch(() => {});
+};
+
 function ClipboardItem({
   item,
   index,
@@ -48,6 +56,13 @@ function ClipboardItem({
       return false;
     }
   })();
+
+  // 拖拽开始时关闭预览
+  useEffect(() => {
+    if (isDragActive && isImageType) {
+      closeImagePreview(previewTimerRef);
+    }
+  }, [isDragActive, isImageType]);
 
   // 拖拽功能
   const {
@@ -123,14 +138,8 @@ function ClipboardItem({
   
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    
-    // 关闭预览窗口
     if (isImageType) {
-      invoke('close_image_preview').catch(() => {});
+      closeImagePreview(previewTimerRef);
     }
   }, [isImageType]);
 
@@ -193,11 +202,7 @@ function ClipboardItem({
     e.stopPropagation();
     
     if (isImageType) {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
-      invoke('close_image_preview').catch(() => {});
+      closeImagePreview(previewTimerRef);
     }
     
     try {

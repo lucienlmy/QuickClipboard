@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import { pasteClipboardItem } from '@shared/store/clipboardStore';
 import { pasteFavorite } from '@shared/store/favoritesStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
@@ -13,6 +12,14 @@ import { useTranslation } from 'react-i18next';
 import { deleteFavorite } from '@shared/store/favoritesStore';
 import { openEditorForFavorite } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
+
+const closeImagePreview = (previewTimerRef) => {
+  if (previewTimerRef.current) {
+    clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = null;
+  }
+  invoke('close_image_preview').catch(() => {});
+};
 
 function FavoriteItem({
   item,
@@ -50,6 +57,13 @@ function FavoriteItem({
   })();
 
   const isPasted = item.paste_count > 0;
+
+  // 拖拽开始时关闭预览
+  useEffect(() => {
+    if (isDragActive && isImageType) {
+      closeImagePreview(previewTimerRef);
+    }
+  }, [isDragActive, isImageType]);
 
   const groups = useSnapshot(groupsStore);
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部';
@@ -123,13 +137,8 @@ function FavoriteItem({
   
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    
     if (isImageType) {
-      invoke('close_image_preview').catch(() => {});
+      closeImagePreview(previewTimerRef);
     }
   }, [isImageType]);
 
@@ -159,11 +168,7 @@ function FavoriteItem({
     e.stopPropagation();
     
     if (isImageType) {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
-      invoke('close_image_preview').catch(() => {});
+      closeImagePreview(previewTimerRef);
     }
     
     try {
