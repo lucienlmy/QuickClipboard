@@ -99,6 +99,11 @@ import {
                 img.src = assetUrl;
             });
             
+            if (data.preview_mode) {
+                document.body.classList.add('preview-mode');
+                return;
+            }
+            
             const physicalWidth = img.naturalWidth;
             const physicalHeight = img.naturalHeight;
             
@@ -120,12 +125,6 @@ import {
                     logicalHeight + SHADOW_PADDING
                 ));
             }
-        }
-
-        // 预览模式
-        if (data && data.preview_mode) {
-            document.body.classList.add('preview-mode');
-            return;
         }
 
         if (savedSettings.alwaysOnTop) {

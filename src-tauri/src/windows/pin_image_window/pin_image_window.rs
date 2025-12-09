@@ -51,15 +51,9 @@ pub async fn pin_image_from_file(
         let (w, h) = reader.into_dimensions()
             .map_err(|e| format!("读取图片尺寸失败: {}", e))?;
         
-        let scale_factor = if let Ok(monitors) = app.primary_monitor() {
-            if let Some(monitor) = monitors {
-                monitor.scale_factor()
-            } else {
-                1.0
-            }
-        } else {
-            1.0
-        };
+        let scale_factor = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)
+            .map(|m| m.scale_factor())
+            .unwrap_or(1.0);
         
         let logical_width = (w as f64 / scale_factor) as u32;
         let logical_height = (h as f64 / scale_factor) as u32;
@@ -141,25 +135,25 @@ pub async fn pin_image_from_file(
     } else if let (Some(px), Some(py)) = (x, y) {
         (px, py)
     } else {
-        // 获取主屏幕尺寸并居中显示
-        if let Ok(monitors) = app.primary_monitor() {
-            if let Some(monitor) = monitors {
-                let screen_size = monitor.size();
-                let screen_width = screen_size.width as f64 / monitor.scale_factor();
-                let screen_height = screen_size.height as f64 / monitor.scale_factor();
-                
-                let x = ((screen_width - img_width as f64) / 2.0).max(0.0) as i32;
-                let y = ((screen_height - img_height as f64) / 2.0).max(0.0) as i32;
-                (x, y)
-            } else {
-                (100, 100)
-            }
+        if let Ok(monitor) = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app) {
+            let screen_pos = monitor.position();
+            let screen_size = monitor.size();
+            let scale_factor = monitor.scale_factor();
+            
+            let window_physical_width = ((img_width as f64 + 10.0) * scale_factor).round() as i32;
+            let window_physical_height = ((img_height as f64 + 10.0) * scale_factor).round() as i32;
+            
+            let center_x = screen_pos.x + (screen_size.width as i32 - window_physical_width) / 2;
+            let center_y = screen_pos.y + (screen_size.height as i32 - window_physical_height) / 2;
+            
+            (center_x.max(screen_pos.x), center_y.max(screen_pos.y))
         } else {
             (100, 100)
         }
     };
     
-    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y, is_preview).await?;
+    let from_screenshot = x.is_some() && y.is_some();
+    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y, is_preview, from_screenshot).await?;
     
     // 预览模式：鼠标穿透
     if is_preview {
@@ -186,32 +180,35 @@ async fn create_pin_image_window(
     x: i32,
     y: i32,
     preview_mode: bool,
+    from_screenshot: bool,
 ) -> Result<WebviewWindow, String> {
     const SHADOW_PADDING: f64 = 10.0;
 
     let window_width = width as f64 + SHADOW_PADDING;
     let window_height = height as f64 + SHADOW_PADDING;
 
-    let scale_factor = app.available_monitors()
-        .ok()
-        .and_then(|monitors| {
-            monitors.into_iter().find(|m| {
-                let pos = m.position();
-                let size = m.size();
-                x >= pos.x && x < pos.x + size.width as i32 &&
-                y >= pos.y && y < pos.y + size.height as i32
-            })
-        })
-        .map(|m| m.scale_factor())
-        .unwrap_or(1.0);
-
     let (physical_x, physical_y) = if preview_mode {
         (x, y)
-    } else {
+    } else if from_screenshot {
+        let scale_factor = app.available_monitors()
+            .ok()
+            .and_then(|monitors| {
+                monitors.into_iter().find(|m| {
+                    let pos = m.position();
+                    let size = m.size();
+                    x >= pos.x && x < pos.x + size.width as i32 &&
+                    y >= pos.y && y < pos.y + size.height as i32
+                })
+            })
+            .map(|m| m.scale_factor())
+            .unwrap_or(1.0);
+        
         let padding_physical = (5.0 * scale_factor).round() as i32;
         let lx = (x - padding_physical).max(0);
         let ly = (y - padding_physical).max(0);
         (lx, ly)
+    } else {
+        (x, y)
     };
 
     let window = WebviewWindowBuilder::new(
