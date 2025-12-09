@@ -375,7 +375,7 @@ pub fn update_clipboard_item(id: i64, content: String) -> Result<(), String> {
     } else { e })
 }
 
-// 切换剪贴板项的置顶状态（取消置顶时移到非置顶区第一位）
+// 切换剪贴板项的置顶状态（置顶时放到置顶区第一位，取消置顶时移到非置顶区第一位）
 pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
     with_connection(|conn| {
         let current_pinned: i64 = conn.query_row(
@@ -384,7 +384,10 @@ pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
         
         let now = chrono::Local::now().timestamp();
         if current_pinned == 0 {
-            conn.execute("UPDATE clipboard SET is_pinned = 1, updated_at = ?1 WHERE id = ?2", params![now, id])?;
+            let max_pinned_order: i64 = conn.query_row(
+                "SELECT COALESCE(MAX(item_order), 0) FROM clipboard WHERE is_pinned = 1", [], |row| row.get(0)
+            ).unwrap_or(0);
+            conn.execute("UPDATE clipboard SET is_pinned = 1, item_order = ?1, updated_at = ?2 WHERE id = ?3", params![max_pinned_order + 1, now, id])?;
             Ok(true)
         } else {
             let max_order: i64 = conn.query_row(
