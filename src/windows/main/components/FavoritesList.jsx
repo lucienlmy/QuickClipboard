@@ -8,7 +8,7 @@ import { favoritesStore, loadFavoritesRange, pasteFavorite } from '@shared/store
 import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
-import { moveFavoriteItem } from '@shared/api';
+import { moveFavoriteItemById } from '@shared/api';
 import FavoriteItem from './FavoriteItem';
 const FavoritesList = forwardRef(({
   onScrollStateChange
@@ -47,8 +47,17 @@ const FavoritesList = forwardRef(({
 
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
+    
+    const fromItem = itemsWithId[oldIndex];
+    const toItem = itemsWithId[newIndex];
+    
+    if (!fromItem?.id || !toItem?.id) {
+      console.error('无法移动：项目不存在或未加载');
+      return;
+    }
+    
     try {
-      await moveFavoriteItem(groupsSnap.currentGroup, oldIndex, newIndex);
+      await moveFavoriteItemById(groupsSnap.currentGroup, fromItem.id, toItem.id);
     } catch (error) {
       console.error('移动收藏项失败:', error);
     } finally {

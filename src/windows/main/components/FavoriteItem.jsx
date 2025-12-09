@@ -17,6 +17,7 @@ import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 function FavoriteItem({
   item,
   index,
+  sortId,
   isDraggable = true,
   isSelected = false,
   onHover,
@@ -69,7 +70,7 @@ function FavoriteItem({
     transition,
     isDragging
   } = useSortable({
-    id: item.id,
+    id: sortId,
     disabled: !isDraggable
   });
   const style = {

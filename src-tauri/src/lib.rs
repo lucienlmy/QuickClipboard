@@ -86,7 +86,7 @@ pub fn run() {
                 commands::get_favorite_item_by_id_cmd,
                 commands::add_quick_text,
                 commands::update_quick_text,
-                commands::move_favorite_item,
+                commands::move_favorite_item_by_id,
                 commands::add_clipboard_to_favorites,
                 commands::move_quick_text_to_group,
                 commands::delete_quick_text,

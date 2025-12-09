@@ -1,5 +1,5 @@
 use crate::services::database::{
-    query_favorites, get_favorites_count, move_favorite_by_index, 
+    query_favorites, get_favorites_count,move_favorite_by_id,
     add_clipboard_to_favorites as db_add_clipboard_to_favorites,
     move_favorite_to_group as db_move_favorite_to_group,
     delete_favorite as db_delete_favorite,
@@ -94,12 +94,12 @@ pub fn get_favorites_total_count(group_name: Option<String>) -> Result<i64, Stri
 
 // 移动收藏项（拖拽排序）
 #[tauri::command]
-pub fn move_favorite_item(
+pub fn move_favorite_item_by_id(
     group_name: Option<String>,
-    from_index: i64,
-    to_index: i64,
+    from_id: String,
+    to_id: String,
 ) -> Result<(), String> {
-    move_favorite_by_index(group_name, from_index, to_index)
+    move_favorite_by_id(group_name, from_id, to_id)
 }
 
 // 从剪贴板历史添加到收藏

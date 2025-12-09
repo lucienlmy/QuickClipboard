@@ -54,7 +54,7 @@ export function useSortableList({ items, onDragEnd }) {
 
   // 获取项目
   const getItem = useCallback((id) => {
-    return items.find((item) => item.id === id || item._sortId === id)
+    return items.find((item) => item._sortId === id)
   }, [items])
 
   const customCollisionDetection = useCallback((args) => {
@@ -80,12 +80,12 @@ export function useSortableList({ items, onDragEnd }) {
     setActiveId(null)
 
     if (over && active.id !== over.id) {
-      const oldIndex = items.findIndex((item) => 
-        item.id === active.id || item._sortId === active.id
-      )
-      const newIndex = items.findIndex((item) => 
-        item.id === over.id || item._sortId === over.id
-      )
+      const oldIndex = items.findIndex((item) =>
+         item._sortId === active.id
+    )
+      const newIndex = items.findIndex((item) =>
+         item._sortId === over.id
+    )
 
       if (oldIndex !== -1 && newIndex !== -1 && onDragEnd) {
         onDragEnd(oldIndex, newIndex)
@@ -99,7 +99,7 @@ export function useSortableList({ items, onDragEnd }) {
   
   // 获取当前拖拽的项
   const activeItem = activeId 
-    ? items.find((item) => item.id === activeId || item._sortId === activeId)
+    ? items.find((item) => item._sortId === activeId)
     : null
 
   return {

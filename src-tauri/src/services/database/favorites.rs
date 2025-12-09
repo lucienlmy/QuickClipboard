@@ -216,59 +216,54 @@ pub fn increment_favorite_paste_count(id: &str) -> Result<(), String> {
     })
 }
 
-// 移动收藏项（拖拽排序）
-pub fn move_favorite_by_index(group_name: Option<String>, from_index: i64, to_index: i64) -> Result<(), String> {
-    if from_index == to_index {
-        return Ok(());
+// 排序逻辑
+fn reorder_favorite_items(conn: &rusqlite::Connection, from_idx: usize, to_idx: usize, items: &[(String, i64)]) -> Result<(), rusqlite::Error> {
+    if from_idx == to_idx { return Ok(()); }
+    
+    let tx = conn.unchecked_transaction()?;
+    let now = chrono::Local::now().timestamp();
+    let moved_id = &items[from_idx].0;
+    let target_order = items[to_idx].1;
+
+    if from_idx < to_idx {
+        for i in (from_idx + 1)..=to_idx {
+            tx.execute("UPDATE favorites SET item_order = item_order + 1 WHERE id = ?1", params![items[i].0])?;
+        }
+    } else {
+        for i in to_idx..from_idx {
+            tx.execute("UPDATE favorites SET item_order = item_order - 1 WHERE id = ?1", params![items[i].0])?;
+        }
     }
+    tx.execute("UPDATE favorites SET item_order = ?1, updated_at = ?2 WHERE id = ?3", params![target_order, now, moved_id])?;
+    tx.commit()
+}
+
+// 移动收藏项
+pub fn move_favorite_by_id(group_name: Option<String>, from_id: String, to_id: String) -> Result<(), String> {
+    if from_id == to_id { return Ok(()); }
 
     with_connection(|conn| {
-        let (sql, params): (String, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(group) = group_name {
-            if group == "全部" {
-                ("SELECT id FROM favorites ORDER BY item_order DESC, updated_at DESC".to_string(), vec![])
-            } else {
-                ("SELECT id FROM favorites WHERE group_name = ? ORDER BY item_order DESC, updated_at DESC".to_string(), vec![Box::new(group)])
-            }
-        } else {
-            ("SELECT id FROM favorites ORDER BY item_order DESC, updated_at DESC".to_string(), vec![])
+        let (sql, params): (String, Vec<Box<dyn rusqlite::ToSql>>) = match &group_name {
+            Some(group) if group != "全部" => (
+                "SELECT id, item_order FROM favorites WHERE group_name = ? ORDER BY item_order DESC, updated_at DESC".to_string(),
+                vec![Box::new(group.clone()) as Box<dyn rusqlite::ToSql>]
+            ),
+            _ => (
+                "SELECT id, item_order FROM favorites ORDER BY item_order DESC, updated_at DESC".to_string(),
+                vec![]
+            ),
         };
 
-        let mut stmt = conn.prepare(&sql)?;
-        
-        let item_ids: Vec<String> = stmt
-            .query_map(rusqlite::params_from_iter(params), |row| row.get(0))?
-            .collect::<Result<Vec<String>, _>>()?;
+        let items: Vec<(String, i64)> = conn.prepare(&sql)?
+            .query_map(rusqlite::params_from_iter(params), |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
 
-        drop(stmt);
+        let from_idx = items.iter().position(|(id, _)| id == &from_id)
+            .ok_or_else(|| rusqlite::Error::InvalidParameterName(format!("ID {} 不存在", from_id)))?;
+        let to_idx = items.iter().position(|(id, _)| id == &to_id)
+            .ok_or_else(|| rusqlite::Error::InvalidParameterName(format!("ID {} 不存在", to_id)))?;
 
-        let len = item_ids.len() as i64;
-        if from_index < 0 || from_index >= len {
-            return Err(rusqlite::Error::InvalidParameterName(
-                format!("源索引 {} 超出范围 (0-{})", from_index, len - 1)
-            ));
-        }
-        if to_index < 0 || to_index >= len {
-            return Err(rusqlite::Error::InvalidParameterName(
-                format!("目标索引 {} 超出范围 (0-{})", to_index, len - 1)
-            ));
-        }
-
-        let mut reordered_ids = item_ids;
-        let moved_id = reordered_ids.remove(from_index as usize);
-        reordered_ids.insert(to_index as usize, moved_id);
-
-        let tx = conn.unchecked_transaction()?;
-        let now = chrono::Local::now().timestamp();
-
-        for (index, id) in reordered_ids.iter().enumerate() {
-            tx.execute(
-                "UPDATE favorites SET item_order = ?1, updated_at = ?2 WHERE id = ?3",
-                params![index as i64, now, id],
-            )?;
-        }
-
-        tx.commit()?;
-        Ok(())
+        reorder_favorite_items(conn, from_idx, to_idx, &items)
     })
 }
 
