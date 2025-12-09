@@ -23,15 +23,17 @@ body,
 html,
 body {
     background: transparent;
+    overflow: hidden;
 }
 
 body {
     margin: 0;
-    padding: 5px;
+    padding: 0;
     overflow: hidden;
     background: transparent;
     position: relative;
     border: none !important;
+    box-sizing: border-box;
 }
 
 
@@ -84,8 +86,8 @@ body.thumbnail-mode .image-clip{
 /* 裁剪容器 */
 .image-clip {
     position: absolute;
-    top: 2.5px;
-    left: 3px;
+    top: 5px;
+    left: 5px;
     overflow: hidden;
     box-shadow: none;
     transition: box-shadow 0.2s ease;

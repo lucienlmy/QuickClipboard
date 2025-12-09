@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { writeFile, mkdir, BaseDirectory } from '@tauri-apps/plugin-fs';
+import { writeFile, mkdir } from '@tauri-apps/plugin-fs';
 import { save } from '@tauri-apps/plugin-dialog';
 import { cancelScreenshotSession } from '@shared/api/system';
 import { compositeSelectionImage } from './imageCompositor';
@@ -17,6 +17,8 @@ function applyCornerRadius(canvas, cornerRadius, pixelRatio) {
   newCanvas.width = canvas.width;
   newCanvas.height = canvas.height;
   const ctx = newCanvas.getContext('2d');
+  
+  ctx.imageSmoothingEnabled = false;
 
   ctx.beginPath();
   if (ctx.roundRect) {
@@ -106,23 +108,21 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     const { x, y, width, height } = selection;
     const windowScale = window.devicePixelRatio || 1;
     
-    let minPhysicalX = 0;
-    let minPhysicalY = 0;
-    if (screens.length > 0) {
-      minPhysicalX = Math.min(...screens.map(s => s.physicalX));
-      minPhysicalY = Math.min(...screens.map(s => s.physicalY));
-    }
+    const x1 = Math.round(x);
+    const y1 = Math.round(y);
+    const x2 = Math.round(x + width);
+    const y2 = Math.round(y + height);
+    const safeWidth = Math.max(1, x2 - x1);
+    const safeHeight = Math.max(1, y2 - y1);
     
     const centerX = x + width / 2;
     const centerY = y + height / 2;
-    const physicalCenterX = centerX * windowScale + minPhysicalX;
-    const physicalCenterY = centerY * windowScale + minPhysicalY;
     
     let targetScreen = screens.find(s => {
-      return physicalCenterX >= s.physicalX && 
-             physicalCenterX < s.physicalX + s.physicalWidth &&
-             physicalCenterY >= s.physicalY && 
-             physicalCenterY < s.physicalY + s.physicalHeight;
+      return centerX >= s.x && 
+             centerX < s.x + s.width &&
+             centerY >= s.y && 
+             centerY < s.y + s.height;
     });
     
     if (!targetScreen && screens.length > 0) {
@@ -131,10 +131,32 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     
     const targetScaleFactor = targetScreen?.scaleFactor || windowScale;
     
-    const physicalX = Math.round(x * windowScale + minPhysicalX);
-    const physicalY = Math.round(y * windowScale + minPhysicalY);
-    const logicalWidth = Math.round(width * windowScale / targetScaleFactor);
-    const logicalHeight = Math.round(height * windowScale / targetScaleFactor);
+    const physicalWidth = safeWidth * windowScale;
+    const physicalHeight = safeHeight * windowScale;
+    
+    let physicalX, physicalY;
+    
+    if (targetScreen) {
+      const relativeX = x1 - targetScreen.x;
+      const relativeY = y1 - targetScreen.y;
+      
+      const scaleX = targetScreen.physicalWidth / targetScreen.width;
+      const scaleY = targetScreen.physicalHeight / targetScreen.height;
+      
+      const physicalOffsetX = Math.floor(relativeX * scaleX);
+      const physicalOffsetY = Math.floor(relativeY * scaleY);
+      
+      physicalX = targetScreen.physicalX + physicalOffsetX;
+      physicalY = targetScreen.physicalY + physicalOffsetY;
+    } else {
+      const minPhysicalX = screens.length > 0 ? Math.min(...screens.map(s => s.physicalX)) : 0;
+      const minPhysicalY = screens.length > 0 ? Math.min(...screens.map(s => s.physicalY)) : 0;
+      physicalX = Math.floor(x1 * windowScale + minPhysicalX);
+      physicalY = Math.floor(y1 * windowScale + minPhysicalY);
+    }
+    
+    const logicalWidth = Math.round(physicalWidth / targetScaleFactor);
+    const logicalHeight = Math.round(physicalHeight / targetScaleFactor);
     
     await invoke('pin_image_from_file', {
       filePath,

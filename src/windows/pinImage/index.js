@@ -92,12 +92,34 @@ import {
         console.log(data)
         if (data && data.file_path) {
             const assetUrl = convertFileSrc(data.file_path, 'asset');
-            img.src = assetUrl;
-
-            img.width = data.width;
-            img.height = data.height;
-            states.originalImageSize = { width: data.width, height: data.height };
-            states.initialSize = { width: data.width, height: data.height };
+            
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = assetUrl;
+            });
+            
+            const physicalWidth = img.naturalWidth;
+            const physicalHeight = img.naturalHeight;
+            
+            const dpr = window.devicePixelRatio || 1;
+            const logicalWidth = Math.round(physicalWidth / dpr);
+            const logicalHeight = Math.round(physicalHeight / dpr);
+            
+            img.width = logicalWidth;
+            img.height = logicalHeight;
+            
+            states.originalImageSize = { width: logicalWidth, height: logicalHeight };
+            states.initialSize = { width: logicalWidth, height: logicalHeight };
+            
+            const SHADOW_PADDING = 10;
+            if (logicalWidth !== data.width || logicalHeight !== data.height) {
+                const { LogicalSize } = await import('@tauri-apps/api/window');
+                await currentWindow.setSize(new LogicalSize(
+                    logicalWidth + SHADOW_PADDING,
+                    logicalHeight + SHADOW_PADDING
+                ));
+            }
         }
 
         // 预览模式

@@ -24,15 +24,15 @@ export function drawBackgroundFromScreens(ctx, screens, rect, pixelRatio = 1) {
     const scaleX = screen.image.width / screen.width;
     const scaleY = screen.image.height / screen.height;
     
-    const srcX = (intersectX - screen.x) * scaleX;
-    const srcY = (intersectY - screen.y) * scaleY;
-    const srcW = (intersectX2 - intersectX) * scaleX;
-    const srcH = (intersectY2 - intersectY) * scaleY;
+    const srcX = Math.floor((intersectX - screen.x) * scaleX);
+    const srcY = Math.floor((intersectY - screen.y) * scaleY);
+    const srcW = Math.floor((intersectX2 - intersectX) * scaleX);
+    const srcH = Math.floor((intersectY2 - intersectY) * scaleY);
     
-    const destX = (intersectX - safeX) * pixelRatio;
-    const destY = (intersectY - safeY) * pixelRatio;
-    const destW = (intersectX2 - intersectX) * pixelRatio;
-    const destH = (intersectY2 - intersectY) * pixelRatio;
+    const destX = Math.floor((intersectX - safeX) * pixelRatio);
+    const destY = Math.floor((intersectY - safeY) * pixelRatio);
+    const destW = Math.floor((intersectX2 - intersectX) * pixelRatio);
+    const destH = Math.floor((intersectY2 - intersectY) * pixelRatio);
     
     ctx.drawImage(
       screen.image,
@@ -92,6 +92,8 @@ export async function compositeSelectionImage({ stage, selection, screens, pixel
   canvas.width = exportWidth;
   canvas.height = exportHeight;
   const ctx = canvas.getContext('2d');
+  
+  ctx.imageSmoothingEnabled = false;
 
   drawBackgroundFromScreens(ctx, screens, { x: safeX, y: safeY, width: safeWidth, height: safeHeight }, stagePixelRatio);
 
@@ -126,6 +128,8 @@ export function getBackgroundRegion(screens, rect, pixelRatio = 1) {
   canvas.width = safeWidth * pixelRatio;
   canvas.height = safeHeight * pixelRatio;
   const ctx = canvas.getContext('2d');
+  
+  ctx.imageSmoothingEnabled = false;
   
   drawBackgroundFromScreens(ctx, screens, { 
     x: Math.round(x), 

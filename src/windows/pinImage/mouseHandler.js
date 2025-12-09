@@ -121,7 +121,6 @@ export function setupWheel(img, sizeIndicator, window, state) {
                 if (width && height) {
                     img.width = Math.round(width);
                     img.height = Math.round(height);
-                    state.originalImageSize = { width: Math.round(width), height: Math.round(height) };
                 }
                 showSizeIndicator(sizeIndicator, width, height, state.scaleLevel, false, e.clientX, e.clientY);
 

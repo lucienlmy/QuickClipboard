@@ -192,11 +192,25 @@ async fn create_pin_image_window(
     let window_width = width as f64 + SHADOW_PADDING;
     let window_height = height as f64 + SHADOW_PADDING;
 
+    let scale_factor = app.available_monitors()
+        .ok()
+        .and_then(|monitors| {
+            monitors.into_iter().find(|m| {
+                let pos = m.position();
+                let size = m.size();
+                x >= pos.x && x < pos.x + size.width as i32 &&
+                y >= pos.y && y < pos.y + size.height as i32
+            })
+        })
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+
     let (physical_x, physical_y) = if preview_mode {
         (x, y)
     } else {
-        let lx = (x as f64 - SHADOW_PADDING / 2.0).max(0.0) as i32;
-        let ly = (y as f64 - SHADOW_PADDING / 2.0).max(0.0) as i32;
+        let padding_physical = (5.0 * scale_factor).round() as i32;
+        let lx = (x - padding_physical).max(0);
+        let ly = (y - padding_physical).max(0);
         (lx, ly)
     };
 
