@@ -91,17 +91,22 @@ pub async fn show_menu(
     super::set_options(options.clone());
 
     let (width, height) = (300.0, 400.0);
-    let (init_x, init_y) = (options.x as f64 - 10.0, options.y as f64 - 10.0);
+    
+    let (cursor_phys_x, cursor_phys_y) = crate::mouse::get_cursor_position();
+    let physical_x = cursor_phys_x - 10;
+    let physical_y = cursor_phys_y - 10;
 
     let window = if let Some(w) = app.get_webview_window(LABEL) {
         let _ = w.hide();
         let _ = w.set_always_on_top(false);
         let _ = w.set_size(LogicalSize::new(width, height));
-        let _ = w.set_position(tauri::LogicalPosition::new(init_x, init_y));
+        let _ = w.set_position(tauri::PhysicalPosition::new(physical_x, physical_y));
         let _ = w.set_focusable(false);
         let _ = w.set_ignore_cursor_events(false);
         w
     } else {
+        let init_x = options.x as f64 - 10.0;
+        let init_y = options.y as f64 - 10.0;
         let w = WebviewWindowBuilder::new(&app, LABEL, tauri::WebviewUrl::App("plugins/context_menu/contextMenu.html".into()))
             .title("菜单").inner_size(width, height).position(init_x, init_y)
             .resizable(false).maximizable(false).minimizable(false)
