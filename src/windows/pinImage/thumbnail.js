@@ -13,8 +13,9 @@ export async function enterThumbnailMode(window, state) {
         const scaleFactor = await window.scaleFactor();
         
         state.savedWindowSize = {
-            width: currentSize.width / scaleFactor,
-            height: currentSize.height / scaleFactor,
+            physicalWidth: currentSize.width,
+            physicalHeight: currentSize.height,
+            scaleFactor: scaleFactor,
             x: currentPosition.x,
             y: currentPosition.y
         };
@@ -23,16 +24,17 @@ export async function enterThumbnailMode(window, state) {
         const centerY = currentPosition.y + currentSize.height / 2;
         state.savedWindowCenter = { x: centerX, y: centerY };
         
-        const thumbnailPhysicalSize = THUMBNAIL_SIZE * scaleFactor;
-        
-        let newX, newY;
-        
         const restoreMode = state.thumbnailRestoreMode || 'follow';
         
+        let newX, newY, thumbnailPhysicalSize;
+        
         if (restoreMode === 'keep' && state.savedThumbnailPosition) {
+            const targetScaleFactor = state.savedThumbnailPosition.scaleFactor || scaleFactor;
+            thumbnailPhysicalSize = THUMBNAIL_SIZE * targetScaleFactor;
             newX = state.savedThumbnailPosition.x;
             newY = state.savedThumbnailPosition.y;
         } else {
+            thumbnailPhysicalSize = THUMBNAIL_SIZE * scaleFactor;
             newX = Math.round(centerX - thumbnailPhysicalSize / 2);
             newY = Math.round(centerY - thumbnailPhysicalSize / 2);
         }
@@ -71,7 +73,8 @@ export async function exitThumbnailMode(window, state) {
             
             state.savedThumbnailPosition = {
                 x: currentPosition.x,
-                y: currentPosition.y
+                y: currentPosition.y,
+                scaleFactor: scaleFactor
             };
 
             const settings = loadSettings();
@@ -90,8 +93,8 @@ export async function exitThumbnailMode(window, state) {
                 centerY = currentPosition.y + currentSize.height / 2;
             }
             
-            const endWidth = state.savedWindowSize.width * scaleFactor;
-            const endHeight = state.savedWindowSize.height * scaleFactor;
+            const endWidth = state.savedWindowSize.physicalWidth;
+            const endHeight = state.savedWindowSize.physicalHeight;
             const endX = Math.round(centerX - endWidth / 2);
             const endY = Math.round(centerY - endHeight / 2);
             
@@ -107,8 +110,9 @@ export async function exitThumbnailMode(window, state) {
                 durationMs: 300
             });
             
+            const savedLogicalWidth = state.savedWindowSize.physicalWidth / state.savedWindowSize.scaleFactor;
             if (state.initialSize) {
-                state.scaleLevel = Math.round((state.savedWindowSize.width / state.initialSize.width) * 10);
+                state.scaleLevel = Math.round((savedLogicalWidth / state.initialSize.width) * 10);
             }
 
             state.imageScale = 1;
