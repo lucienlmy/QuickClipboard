@@ -69,18 +69,14 @@ pub async fn pin_image_from_file(
     
     // 预览模式：按比例缩放，最长边为屏幕高度的一半
     let (img_width, img_height) = if is_preview {
-        let preview_size = if let Some(main_window) = app.get_webview_window("main") {
-            crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&main_window)
-                .map(|m| {
-                    let size = m.size();
-                    let scale_factor = m.scale_factor();
-                    let half_height = (size.height as f64 / scale_factor / 2.0) as u32;
-                    half_height.min(DEFAULT_PREVIEW_SIZE)
-                })
-                .unwrap_or(DEFAULT_PREVIEW_SIZE)
-        } else {
-            DEFAULT_PREVIEW_SIZE
-        };
+        let preview_size = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)
+            .map(|m| {
+                let size = m.size();
+                let scale_factor = m.scale_factor();
+                let half_height = (size.height as f64 / scale_factor / 2.0) as u32;
+                half_height.min(DEFAULT_PREVIEW_SIZE)
+            })
+            .unwrap_or(DEFAULT_PREVIEW_SIZE);
         
         let max_side = orig_width.max(orig_height);
         if max_side == 0 {
@@ -127,17 +123,13 @@ pub async fn pin_image_from_file(
     
     let (pos_x, pos_y) = if is_preview {
         let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
-        let (mon_x, mon_y, mon_right, mon_bottom, scale_factor) = if let Some(main_window) = app.get_webview_window("main") {
-            crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&main_window)
-                .map(|m| {
-                    let pos = m.position();
-                    let size = m.size();
-                    (pos.x, pos.y, pos.x + size.width as i32, pos.y + size.height as i32, m.scale_factor())
-                })
-                .unwrap_or((0, 0, 1920, 1080, 1.0))
-        } else {
-            (0, 0, 1920, 1080, 1.0)
-        };
+        let (mon_x, mon_y, mon_right, mon_bottom, scale_factor) = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)
+            .map(|m| {
+                let pos = m.position();
+                let size = m.size();
+                (pos.x, pos.y, pos.x + size.width as i32, pos.y + size.height as i32, m.scale_factor())
+            })
+            .unwrap_or((0, 0, 1920, 1080, 1.0));
         
         let window_w = ((img_width as f64 + 10.0) * scale_factor).round() as i32;
         let window_h = ((img_height as f64 + 10.0) * scale_factor).round() as i32;

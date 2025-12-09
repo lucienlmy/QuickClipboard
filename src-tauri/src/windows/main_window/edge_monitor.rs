@@ -1,7 +1,7 @@
 use once_cell::sync::OnceCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use tauri::WebviewWindow;
+use tauri::{WebviewWindow, Manager};
 
 static MAIN_WINDOW: OnceCell<WebviewWindow> = OnceCell::new();
 static MONITORING_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -95,7 +95,7 @@ fn check_mouse_near_edge(
     let (win_x, win_y, win_width, win_height) = crate::get_window_bounds(window)?;
     
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), win_x, win_y)?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     

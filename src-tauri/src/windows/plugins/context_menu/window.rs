@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, LogicalSize, Manager, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, LogicalSize, WebviewWindowBuilder, Manager};
 
 fn enable_passthrough(window: tauri::WebviewWindow, session_id: u64) {
     std::thread::spawn(move || {
@@ -73,15 +73,13 @@ pub async fn show_menu(
     options.session_id = session_id;
     super::set_active_menu_session(session_id);
 
-    let (mx, my, mw, mh, scale) = crate::screen::ScreenUtils::get_monitor_at_cursor(
-        &app.get_webview_window("main").unwrap_or_else(|| app.get_webview_window("quickpaste").unwrap()),
-    )
-    .map(|m| {
-        let pos = m.position();
-        let size = m.size();
-        (pos.x as f64, pos.y as f64, size.width as f64, size.height as f64, m.scale_factor())
-    })
-    .unwrap_or((0.0, 0.0, 1920.0, 1080.0, 1.0));
+    let (mx, my, mw, mh, scale) = crate::screen::ScreenUtils::get_monitor_at_cursor(&app)
+        .map(|m| {
+            let pos = m.position();
+            let size = m.size();
+            (pos.x as f64, pos.y as f64, size.width as f64, size.height as f64, m.scale_factor())
+        })
+        .unwrap_or((0.0, 0.0, 1920.0, 1080.0, 1.0));
 
     options.cursor_x = options.x - (mx / scale) as i32;
     options.cursor_y = options.y - (my / scale) as i32;

@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use crate::windows::plugins::context_menu::window::{MenuItem as CtxMenuItem, ContextMenuOptions, show_menu};
 
 fn get_pin_images_dir() -> Result<PathBuf, String> {
@@ -174,14 +174,21 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
     let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let theme = if settings.theme.is_empty() { "auto".to_string() } else { settings.theme };
     
-    let scale_factor = if let Ok(monitor) = crate::screen::ScreenUtils::get_monitor_at_cursor(&app.get_webview_window("main").unwrap_or_else(|| app.get_webview_window("quickpaste").unwrap())) {
-        monitor.scale_factor() as f64
+    let (logical_x, logical_y) = if let Ok(monitor) = crate::screen::ScreenUtils::get_monitor_at_cursor(&app) {
+        let scale = monitor.scale_factor();
+        let pos = monitor.position();
+        let monitor_x = pos.x as f64;
+        let monitor_y = pos.y as f64;
+        
+        let relative_x = cursor_x as f64 - monitor_x;
+        let relative_y = cursor_y as f64 - monitor_y;
+        (
+            (monitor_x / scale + relative_x / scale) as i32,
+            (monitor_y / scale + relative_y / scale) as i32,
+        )
     } else {
-        1.0
+        (cursor_x, cursor_y)
     };
-    
-    let logical_x = (cursor_x as f64 / scale_factor) as i32;
-    let logical_y = (cursor_y as f64 / scale_factor) as i32;
     
     let options = ContextMenuOptions {
         items,

@@ -1,4 +1,4 @@
-use tauri::{WebviewWindow, Emitter};
+use tauri::{WebviewWindow, Emitter, Manager};
 use super::state::{SnapEdge, set_snap_edge, set_hidden, clear_snap, is_snapped};
 use std::time::Duration;
 
@@ -14,13 +14,14 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     
     let (x, y, w, h) = crate::utils::positioning::get_window_bounds(window)?;
     
+    let app = window.app_handle();
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(app, x, y)?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
     let (left_is_edge, right_is_edge, top_is_edge, bottom_is_edge) = 
-        crate::utils::screen::ScreenUtils::get_real_edges(window)?;
+        crate::utils::screen::ScreenUtils::get_real_edges_at_point(app, x, y)?;
     
     let edge = if left_is_edge && (x - monitor_x).abs() <= SNAP_THRESHOLD {
         Some(SnapEdge::Left)
@@ -52,7 +53,7 @@ pub fn snap_to_edge(window: &WebviewWindow, edge: SnapEdge) -> Result<(), String
     
     // 使用当前显示器边界
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), x, y)?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
@@ -86,7 +87,7 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     // 使用当前显示器边界
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), x, y)?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
@@ -149,7 +150,7 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     // 使用当前显示器边界
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_bounds(window)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), x, y)?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
@@ -273,7 +274,7 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (w, h) = (size.width as i32, size.height as i32);
     
-    let monitors = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(window)?;
+    let monitors = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(window.app_handle())?;
     
     let find_monitor = |x: i32, y: i32| -> Option<(i32, i32, i32, i32, bool, bool, bool, bool)> {
         let cx = x + w / 2;

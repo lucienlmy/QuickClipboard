@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, Ordering};
 use std::time::Duration;
-use tauri::{Emitter, WebviewWindow};
+use tauri::{Emitter, WebviewWindow, Manager};
 
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HWND;
@@ -104,11 +104,12 @@ pub fn start_drag(window: &WebviewWindow, _: i32, _: i32) -> Result<(), String> 
     let (w, h) = (size.width as i32, size.height as i32);
     *platform::WINDOW_SIZE.lock() = (w, h);
 
-    let monitors_with_edges = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(window)
+    let app = window.app_handle();
+    let monitors_with_edges = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(app)
         .unwrap_or_default();
     *platform::MONITORS.lock() = monitors_with_edges;
 
-    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size_from_window(window)
+    let (vx, vy, vw, vh) = crate::utils::screen::ScreenUtils::get_virtual_screen_size_by_app(app)
         .unwrap_or((0, 0, 1920, 1080));
 
     platform::BOUND_LEFT.store(vx - BOUNDARY_MARGIN, Ordering::SeqCst);
