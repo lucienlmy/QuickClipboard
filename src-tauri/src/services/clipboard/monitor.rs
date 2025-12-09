@@ -66,6 +66,10 @@ pub fn start_clipboard_monitor() -> Result<(), String> {
         return Ok(());
     }
     
+    // 启动剪贴板来源监控
+    #[cfg(target_os = "windows")]
+    crate::services::system::start_clipboard_source_monitor();
+    
     let new_generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     
     let mut state = MONITOR_STATE.lock();
@@ -85,6 +89,10 @@ pub fn start_clipboard_monitor() -> Result<(), String> {
 
 pub fn stop_clipboard_monitor() -> Result<(), String> {
     if IS_RUNNING.swap(false, Ordering::SeqCst) {
+        // 停止剪贴板来源监控
+        #[cfg(target_os = "windows")]
+        crate::services::system::stop_clipboard_source_monitor();
+        
         let mut state = MONITOR_STATE.lock();
         state.watcher_handle = None;
     }
