@@ -113,10 +113,28 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
       minPhysicalY = Math.min(...screens.map(s => s.physicalY));
     }
     
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    const physicalCenterX = centerX * windowScale + minPhysicalX;
+    const physicalCenterY = centerY * windowScale + minPhysicalY;
+    
+    let targetScreen = screens.find(s => {
+      return physicalCenterX >= s.physicalX && 
+             physicalCenterX < s.physicalX + s.physicalWidth &&
+             physicalCenterY >= s.physicalY && 
+             physicalCenterY < s.physicalY + s.physicalHeight;
+    });
+    
+    if (!targetScreen && screens.length > 0) {
+      targetScreen = screens[0];
+    }
+    
+    const targetScaleFactor = targetScreen?.scaleFactor || windowScale;
+    
     const physicalX = Math.round(x * windowScale + minPhysicalX);
     const physicalY = Math.round(y * windowScale + minPhysicalY);
-    const logicalWidth = Math.round(width);
-    const logicalHeight = Math.round(height);
+    const logicalWidth = Math.round(width * windowScale / targetScaleFactor);
+    const logicalHeight = Math.round(height * windowScale / targetScaleFactor);
     
     await invoke('pin_image_from_file', {
       filePath,
