@@ -148,6 +148,18 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
                 <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">C</kbd>
                 <span>复制颜色</span>
               </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Enter</kbd>
+                <span>确认并复制</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Ctrl+P</kbd>
+                <span>创建贴图</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Ctrl+S</kbd>
+                <span>保存为文件</span>
+              </div>
             </>
           ) : (
             <>

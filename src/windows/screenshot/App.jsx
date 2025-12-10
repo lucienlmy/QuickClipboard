@@ -69,6 +69,7 @@ function App() {
     canClearCanvas: editing.canClearCanvas,
     longScreenshotMode: longScreenshot.isActive,
     hasValidSelection: session.hasValidSelection,
+    hasAutoSelection: session.hasAutoSelection,
     editingTextIndex: editing.editingTextIndex,
   });
 

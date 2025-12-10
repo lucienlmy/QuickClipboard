@@ -114,32 +114,48 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     }
   }, []);
 
+  const getEffectiveSelection = useCallback(() => {
+    if (selection) return selection;
+    if (autoSelectionRect) {
+      return {
+        x: autoSelectionRect.x,
+        y: autoSelectionRect.y,
+        width: autoSelectionRect.width,
+        height: autoSelectionRect.height,
+      };
+    }
+    return null;
+  }, [selection, autoSelectionRect]);
+
   const handleConfirmSelection = useCallback(async () => {
-    if (!selection) return;
+    const effectiveSelection = getEffectiveSelection();
+    if (!effectiveSelection) return;
     try {
-      await exportToClipboard(stageRef, selection, cornerRadius, { screens });
+      await exportToClipboard(stageRef, effectiveSelection, cornerRadius, { screens });
     } catch (err) {
       console.error('复制选区到剪贴板失败:', err);
     }
-  }, [selection, stageRef, cornerRadius, screens]);
+  }, [getEffectiveSelection, stageRef, cornerRadius, screens]);
 
   const handlePinSelection = useCallback(async () => {
-    if (!selection) return;
+    const effectiveSelection = getEffectiveSelection();
+    if (!effectiveSelection) return;
     try {
-      await exportToPin(stageRef, selection, cornerRadius, { screens });
+      await exportToPin(stageRef, effectiveSelection, cornerRadius, { screens });
     } catch (err) {
       console.error('创建贴图失败:', err);
     }
-  }, [selection, stageRef, cornerRadius, screens]);
+  }, [getEffectiveSelection, stageRef, cornerRadius, screens]);
 
   const handleSaveSelection = useCallback(async () => {
-    if (!selection) return;
+    const effectiveSelection = getEffectiveSelection();
+    if (!effectiveSelection) return;
     try {
-      await exportToFile(stageRef, selection, cornerRadius, { screens });
+      await exportToFile(stageRef, effectiveSelection, cornerRadius, { screens });
     } catch (err) {
       console.error('保存文件失败:', err);
     }
-  }, [selection, stageRef, cornerRadius, screens]);
+  }, [getEffectiveSelection, stageRef, cornerRadius, screens]);
 
   return {
     selection,

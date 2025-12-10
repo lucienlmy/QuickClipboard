@@ -20,6 +20,7 @@ export default function useKeyboardShortcuts({
   canClearCanvas = false,
   longScreenshotMode = false,
   hasValidSelection = false,
+  hasAutoSelection = false,
   editingTextIndex = null,
 }) {
   const enabledRef = useRef(true);
@@ -126,9 +127,11 @@ export default function useKeyboardShortcuts({
       return;
     }
 
+    const canPerformAction = hasValidSelection || hasAutoSelection;
+
     // 保存
     if (matchAnyShortcut(event, KEYBOARD_SHORTCUTS.confirm.save.keys)) {
-      if (hasValidSelection && onSave) {
+      if (canPerformAction && onSave) {
         onSave();
       }
       return;
@@ -136,7 +139,7 @@ export default function useKeyboardShortcuts({
 
     // 确认
     if (matchAnyShortcut(event, KEYBOARD_SHORTCUTS.confirm.confirm.keys)) {
-      if (hasValidSelection && onConfirm) {
+      if (canPerformAction && onConfirm) {
         onConfirm();
       }
       return;
@@ -144,7 +147,7 @@ export default function useKeyboardShortcuts({
 
     // 贴图
     if (matchAnyShortcut(event, KEYBOARD_SHORTCUTS.confirm.pin.keys)) {
-      if (hasValidSelection && onPin) {
+      if (canPerformAction && onPin) {
         onPin();
       }
       return;
