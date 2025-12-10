@@ -5,12 +5,7 @@ description = "一个功能强大的剪贴板管理工具，帮助您更高效�
 authors = ["MoSheng"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "quickclipboard_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -68,7 +63,6 @@ windows = { version = "0.62.2", features = [
     "Win32_System_ProcessStatus",
     "Win32_System_DataExchange",
     "Win32_Foundation",
-    "Win32_System_Registry",
     "Win32_Security",
 ] }
 uiautomation = "0.24.0"
