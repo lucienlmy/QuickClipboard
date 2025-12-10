@@ -101,6 +101,22 @@ function App() {
     let cleanup = setupListeners();
     return () => cleanup.then(fn => fn());
   }, []);
+
+  useEffect(() => {
+    const handleMouseEnter = async () => {
+      try {
+        const { saveCurrentFocus } = await import('@shared/api/window');
+        await saveCurrentFocus();
+      } catch (err) {
+        console.warn('鼠标进入时保存焦点失败:', err);
+      }
+    };
+
+    document.addEventListener('mouseenter', handleMouseEnter);
+    return () => {
+      document.removeEventListener('mouseenter', handleMouseEnter);
+    };
+  }, []);
   useEffect(() => {
     let resizeTimer = null;
     let moveTimer = null;
