@@ -16,8 +16,15 @@ export function constrainImagePosition(state) {
     
     const containerWidth = window.innerWidth;
     const containerHeight = window.innerHeight;
-    const maxOffsetX = Math.max(0, (containerWidth * state.imageScale - containerWidth) / 2);
-    const maxOffsetY = Math.max(0, (containerHeight * state.imageScale - containerHeight) / 2);
+    
+    const imgWidth = state.originalImageSize?.width || containerWidth;
+    const imgHeight = state.originalImageSize?.height || containerHeight;
+    
+    const scaledWidth = imgWidth * state.imageScale;
+    const scaledHeight = imgHeight * state.imageScale;
+    
+    const maxOffsetX = Math.max(0, (scaledWidth - containerWidth) / 2);
+    const maxOffsetY = Math.max(0, (scaledHeight - containerHeight) / 2);
     
     state.imageX = Math.max(-maxOffsetX, Math.min(maxOffsetX, state.imageX));
     state.imageY = Math.max(-maxOffsetY, Math.min(maxOffsetY, state.imageY));
