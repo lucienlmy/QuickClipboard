@@ -15,6 +15,58 @@ fn is_prerelease(version: &str) -> bool {
     v.contains("alpha") || v.contains("beta") || v.contains("rc") || v.contains("dev")
 }
 
+// 检测当前运行的程序是否为安装版
+fn is_installed_version() -> bool {
+    use winreg::enums::*;
+    use winreg::RegKey;
+    use std::path::Path;
+    
+    let current_exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    let current_dir = match current_exe.parent() {
+        Some(p) => p.to_string_lossy().to_lowercase(),
+        None => return false,
+    };
+    
+    let reg_paths = [
+        (HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\QuickClipboard"),
+        (HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\QuickClipboard"),
+    ];
+    
+    for (hkey, path) in reg_paths {
+        if let Ok(key) = RegKey::predef(hkey).open_subkey(path) {
+            if let Ok(loc) = key.get_value::<String, _>("InstallLocation") {
+                let install_path = loc.trim_end_matches('\\').to_lowercase();
+                if !install_path.is_empty() && current_dir == install_path {
+                    return true;
+                }
+            }
+            if let Ok(uninstall) = key.get_value::<String, _>("UninstallString") {
+                let uninstall_clean = uninstall.trim_matches('"');
+                if let Some(parent) = Path::new(uninstall_clean).parent() {
+                    let install_path = parent.to_string_lossy().to_lowercase();
+                    if current_dir == install_path {
+                        return true;
+                    }
+                }
+            }
+            if let Ok(icon) = key.get_value::<String, _>("DisplayIcon") {
+                let icon_clean = icon.split(',').next().unwrap_or("").trim_matches('"');
+                if let Some(parent) = Path::new(icon_clean).parent() {
+                    let install_path = parent.to_string_lossy().to_lowercase();
+                    if current_dir == install_path {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    
+    false
+}
+
 pub fn start_update_checker(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let _ = check_updates_and_open_window(&app).await;
@@ -120,10 +172,19 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
                 open_updater_window(app, force_update)?
             };
 
+            // 检测是否为便携版/免安装版（不自动更新）
+            let is_portable = crate::services::is_portable_build() 
+                || std::env::current_exe()
+                    .ok()
+                    .and_then(|e| e.parent().map(|p| p.join("portable.txt").exists() || p.join("portable.flag").exists()))
+                    .unwrap_or(false)
+                || !is_installed_version();
+            
             let payload = serde_json::json!({
-                "forceUpdate": force_update,
+                "forceUpdate": if is_portable { false } else { force_update },
                 "version": new_version,
                 "notes": notes,
+                "isPortable": is_portable,
             });
             
             let _ = window.emit("update-config", payload.clone());

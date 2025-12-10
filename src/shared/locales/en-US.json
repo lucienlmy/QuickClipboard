@@ -731,7 +731,9 @@
     "exitApp": "Exit App",
     "updateFailed": "Update Failed",
     "manualDownload": "Manual Download",
-    "newVersionAvailable": "New version available"
+    "newVersionAvailable": "New version available",
+    "portableNotice": "Portable Version Notice",
+    "portableNoAutoUpdate": "Portable/standalone version does not support auto-update. Please download the new version manually and replace the current file."
   }
 }
 

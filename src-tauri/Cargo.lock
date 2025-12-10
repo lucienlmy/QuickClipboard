@@ -46,6 +46,7 @@ dependencies = [
  "uiautomation",
  "uuid",
  "windows 0.62.2",
+ "winreg 0.55.0",
  "xcap",
  "zip 2.4.2",
 ]

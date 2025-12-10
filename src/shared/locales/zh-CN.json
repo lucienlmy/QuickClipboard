@@ -733,7 +733,9 @@
     "exitApp": "退出程序",
     "updateFailed": "更新失败",
     "manualDownload": "手动下载",
-    "newVersionAvailable": "发现新版本"
+    "newVersionAvailable": "发现新版本",
+    "portableNotice": "便携版提示",
+    "portableNoAutoUpdate": "便携版/绿色版不支持自动更新，请手动下载新版本替换当前文件。"
   }
 }
 

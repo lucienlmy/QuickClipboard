@@ -19,6 +19,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 function App() {
   const { t, i18n } = useTranslation()
   const [forceUpdate, setForceUpdate] = useState(false)
+  const [isPortable, setIsPortable] = useState(false)
   const [status, setStatus] = useState('checking')
   const [progress, setProgress] = useState({ downloaded: 0, total: 0 })
   const [message, setMessage] = useState(t('updater.checking', { defaultValue: '正在检查更新...' }))
@@ -60,14 +61,16 @@ function App() {
       try {
         const cfg = e?.payload || {}
         const isForceUpdate = typeof cfg.forceUpdate === 'boolean' ? cfg.forceUpdate : false
+        const portable = typeof cfg.isPortable === 'boolean' ? cfg.isPortable : false
         setForceUpdate(isForceUpdate)
+        setIsPortable(portable)
         const v = cfg.version || null
         const n = cfg.notes || null
         setVersionInfo(v ? { version: v, date: undefined, notes: n } : null)
         if (n) await loadNotes(n)
         setStatus('available')
         
-        if (isForceUpdate) {
+        if (isForceUpdate && !portable) {
           const waitForUpdate = async () => {
             for (let i = 0; i < 20; i++) {
               if (updateInstanceRef.current) {
@@ -290,6 +293,18 @@ function App() {
               </div>
             )}
 
+            {isPortable && status === 'available' && (
+              <div className="w-full max-w-[520px] mt-1 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                  <i className="ti ti-info-circle" />
+                  <span className="text-sm font-medium">{t('updater.portableNotice', { defaultValue: '便携版提示' })}</span>
+                </div>
+                <div className="text-xs mt-1 text-amber-600 dark:text-amber-400">
+                  {t('updater.portableNoAutoUpdate', { defaultValue: '便携版/绿色版不支持自动更新，请手动下载新版本替换当前文件。' })}
+                </div>
+              </div>
+            )}
+
             {status === 'error' && (
               <div className="w-full max-w-[520px] mt-1 p-3 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800">
                 <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
@@ -315,14 +330,23 @@ function App() {
         <div className="flex gap-3 mt-2">
           {status === 'available' && (
             <>
-              <button onClick={() => startDownload()} className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
-                <i className="ti ti-download" /> {t('updater.downloadAndInstall', { defaultValue: '下载并安装' })}
-              </button>
-              {!forceUpdate && (
-                <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
-                  {t('updater.later', { defaultValue: '稍后' })}
+              {isPortable ? (
+                <a 
+                  href={releaseUrl || 'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2 no-underline"
+                >
+                  <i className="ti ti-external-link" /> {t('updater.manualDownload', { defaultValue: '手动下载' })}
+                </a>
+              ) : (
+                <button onClick={() => startDownload()} className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
+                  <i className="ti ti-download" /> {t('updater.downloadAndInstall', { defaultValue: '下载并安装' })}
                 </button>
               )}
+              <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
+                {t('updater.later', { defaultValue: '稍后' })}
+              </button>
             </>
           )}
           {status === 'downloading' && !forceUpdate && (
