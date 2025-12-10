@@ -44,11 +44,7 @@ pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
     let _ = crate::services::system::save_current_focus(app.clone());
-    
-    if let Err(e) = crate::services::paste::keyboard::release_modifier_keys() {
-        eprintln!("释放修饰键失败: {}", e);
-    }
-    
+
     let window = get_or_create_window(app)?;
     position_at_cursor(&window)?;
     let _ = window.show();
