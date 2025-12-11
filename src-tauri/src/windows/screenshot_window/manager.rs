@@ -55,8 +55,8 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
 
     crate::services::screenshot::capture_and_store_last(app)?;
     let _ = window.emit("screenshot:new-session", ());
-    let _ = window.show();
     resize_window_to_virtual_screen(&window);
+    let _ = window.show();
     let _ = window.set_focus();
 
     if let Err(e) = crate::windows::screenshot_window::auto_selection::start_auto_selection(app.clone()) {
@@ -79,8 +79,8 @@ pub fn start_pin_edit_mode(app: &AppHandle, image_path: String, x: i32, y: i32, 
     set_pin_edit_data(edit_data)?;
 
     let _ = window.emit("screenshot:pin-edit-mode", ());
-    let _ = window.show();
     resize_window_to_virtual_screen(&window);
+    let _ = window.show();
     let _ = window.set_focus();
 
     Ok(())

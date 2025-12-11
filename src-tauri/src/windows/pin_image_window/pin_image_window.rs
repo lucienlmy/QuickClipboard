@@ -305,6 +305,7 @@ pub fn close_image_preview(app: AppHandle) -> Result<(), String> {
         if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
             data_map.lock().unwrap().remove(label);
         }
+        let _ = window.set_size(Size::Logical(LogicalSize::new(1.0, 1.0)));
         window.close().map_err(|e| format!("关闭预览窗口失败: {}", e))?;
     }
     Ok(())
@@ -320,6 +321,7 @@ pub fn close_pin_image_window_by_self(window: WebviewWindow) -> Result<(), Strin
         map.remove(&label);
     }
     
+    let _ = window.set_size(Size::Logical(LogicalSize::new(1.0, 1.0)));
     window.close().map_err(|e| format!("关闭窗口失败: {}", e))?;
     
     Ok(())
@@ -367,6 +369,7 @@ pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Resul
         let mut map = data_map.lock().unwrap();
         map.remove(&label);
     }
+    let _ = window.set_size(Size::Logical(LogicalSize::new(1.0, 1.0)));
     window.close().map_err(|e| format!("关闭窗口失败: {}", e))?;
 
     crate::windows::screenshot_window::start_pin_edit_mode(
