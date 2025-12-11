@@ -1,6 +1,7 @@
 //窗口缩放模块
 
 import { LogicalSize } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 
 const SHADOW_PADDING = 10;
 
@@ -42,7 +43,8 @@ export async function handleWindowResize(delta, isShiftKey, window, state) {
     const newWidth = contentWidth + SHADOW_PADDING;
     const newHeight = contentHeight + SHADOW_PADDING;
     
-    await window.setSize(new LogicalSize(newWidth, newHeight));
+    const textScale = await invoke('get_system_text_scale');
+    await window.setSize(new LogicalSize(newWidth * textScale, newHeight * textScale));
 
     if (state.imageScale > 1) {
         state.imageScale = 1;

@@ -120,9 +120,10 @@ import {
             const SHADOW_PADDING = 10;
             if (logicalWidth !== data.width || logicalHeight !== data.height) {
                 const { LogicalSize } = await import('@tauri-apps/api/window');
+                const textScale = await invoke('get_system_text_scale');
                 await currentWindow.setSize(new LogicalSize(
-                    logicalWidth + SHADOW_PADDING,
-                    logicalHeight + SHADOW_PADDING
+                    (logicalWidth + SHADOW_PADDING) * textScale,
+                    (logicalHeight + SHADOW_PADDING) * textScale
                 ));
             }
         }
