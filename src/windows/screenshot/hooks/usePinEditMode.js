@@ -1,6 +1,6 @@
 // 贴图编辑模式 Hook
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
@@ -70,6 +70,67 @@ export function usePinEditMode() {
     };
   }, []);
 
+  const passthroughIntervalRef = useRef(null);
+
+  // 启动穿透控制
+  const startPassthrough = useCallback(async (selection) => {
+    if (!selection) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    
+    const updateRects = async () => {
+      const rects = [];
+      
+      rects.push([
+        selection.x * dpr,
+        selection.y * dpr,
+        selection.width * dpr,
+        selection.height * dpr,
+      ]);
+      
+      const toolbar = document.querySelector('[data-toolbar="selection"]');
+      if (toolbar) {
+        const rect = toolbar.getBoundingClientRect();
+        rects.push([rect.left * dpr, rect.top * dpr, rect.width * dpr, rect.height * dpr]);
+      }
+      
+      const paramPanel = document.querySelector('[data-panel="tool-parameter"]');
+      if (paramPanel) {
+        const rect = paramPanel.getBoundingClientRect();
+        rects.push([rect.left * dpr, rect.top * dpr, rect.width * dpr, rect.height * dpr]);
+      }
+      
+      try {
+        await invoke('update_pin_edit_passthrough_rects', { rects });
+      } catch (error) {
+        console.error('更新穿透区域失败:', error);
+      }
+    };
+    
+    const initRects = [[
+      selection.x * dpr,
+      selection.y * dpr,
+      selection.width * dpr,
+      selection.height * dpr,
+    ]];
+    
+    try {
+      await invoke('enable_pin_edit_passthrough', { rects: initRects });
+    } catch (error) {
+      console.error('启用穿透控制失败:', error);
+    }
+    
+    passthroughIntervalRef.current = setInterval(updateRects, 100);
+  }, []);
+
+  // 停止穿透控制
+  const stopPassthrough = useCallback(() => {
+    if (passthroughIntervalRef.current) {
+      clearInterval(passthroughIntervalRef.current);
+      passthroughIntervalRef.current = null;
+    }
+  }, []);
+
   // 监听编辑模式事件
   useEffect(() => {
     let unlisten;
@@ -132,5 +193,7 @@ export function usePinEditMode() {
     screenInfos,
     calculateSelection,
     exitPinEditMode,
+    startPassthrough,
+    stopPassthrough,
   };
 }

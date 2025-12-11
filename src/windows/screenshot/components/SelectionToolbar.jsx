@@ -202,6 +202,7 @@ function SelectionToolbar({
 
   return (
     <div
+      data-toolbar="selection"
       className="flex flex-row-reverse items-center gap-1 px-2 py-[5px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none"
       style={{
         position: 'absolute',

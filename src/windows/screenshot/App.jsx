@@ -257,6 +257,13 @@ function App() {
     return () => unlisten?.();
   }, [reloadFromLastCapture, isPinEdit, pinEditMode.isChecking, initializePosition]);
 
+  // 贴图编辑模式穿透控制
+  useEffect(() => {
+    if (!isPinEdit || !pinEditSelection) return;
+    pinEditMode.startPassthrough(pinEditSelection);
+    return () => pinEditMode.stopPassthrough();
+  }, [isPinEdit, pinEditSelection, pinEditMode]);
+
   return (
     <div className={`w-screen h-screen bg-transparent relative ${isDark ? 'dark' : ''}`}>
       {/* 背景层 */}

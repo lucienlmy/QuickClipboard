@@ -334,6 +334,7 @@ export default function ToolParameterPanel({
   return (
     <div
       ref={panelRef}
+      data-panel="tool-parameter"
       className="absolute z-20 select-none"
       style={{ 
         left: position.x, 

@@ -1,5 +1,22 @@
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Size,LogicalSize,Position,PhysicalPosition,};
 use crate::utils::image_http_server::{PinEditData, set_pin_edit_data, clear_pin_edit_data, get_pin_edit_data};
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::Duration;
+
+#[derive(Debug, Clone, Copy)]
+struct PhysicalRect {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+static PIN_EDIT_PASSTHROUGH_ACTIVE: AtomicBool = AtomicBool::new(false);
+static PIN_EDIT_WINDOW: Lazy<Mutex<Option<WebviewWindow>>> = Lazy::new(|| Mutex::new(None));
+static PIN_EDIT_RECTS: Lazy<Mutex<Vec<PhysicalRect>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     let is_dev = cfg!(debug_assertions);
@@ -95,5 +112,65 @@ pub fn get_pin_edit_mode_data() -> Result<Option<PinEditData>, String> {
 // 清除贴图编辑数据
 #[tauri::command]
 pub fn clear_pin_edit_mode() {
+    disable_pin_edit_passthrough();
     clear_pin_edit_data();
+}
+
+#[tauri::command]
+pub fn enable_pin_edit_passthrough(
+    app: AppHandle,
+    rects: Vec<[f64; 4]>, 
+) -> Result<(), String> {
+    let window = app.get_webview_window("screenshot")
+        .ok_or("未找到截屏窗口")?;
+    
+    *PIN_EDIT_WINDOW.lock() = Some(window);
+    *PIN_EDIT_RECTS.lock() = rects.iter()
+        .map(|r| PhysicalRect { x: r[0], y: r[1], width: r[2], height: r[3] })
+        .collect();
+    
+    if !PIN_EDIT_PASSTHROUGH_ACTIVE.load(Ordering::Relaxed) {
+        PIN_EDIT_PASSTHROUGH_ACTIVE.store(true, Ordering::Relaxed);
+        thread::spawn(|| pin_edit_passthrough_loop());
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub fn disable_pin_edit_passthrough() {
+    PIN_EDIT_PASSTHROUGH_ACTIVE.store(false, Ordering::Relaxed);
+    
+    if let Some(window) = PIN_EDIT_WINDOW.lock().as_ref() {
+        let _ = window.set_ignore_cursor_events(false);
+    }
+    
+    *PIN_EDIT_WINDOW.lock() = None;
+    *PIN_EDIT_RECTS.lock() = Vec::new();
+}
+
+#[tauri::command]
+pub fn update_pin_edit_passthrough_rects(rects: Vec<[f64; 4]>) {
+    *PIN_EDIT_RECTS.lock() = rects.iter()
+        .map(|r| PhysicalRect { x: r[0], y: r[1], width: r[2], height: r[3] })
+        .collect();
+}
+
+fn pin_edit_passthrough_loop() {
+    while PIN_EDIT_PASSTHROUGH_ACTIVE.load(Ordering::Relaxed) {
+        if let Some(window) = PIN_EDIT_WINDOW.lock().as_ref() {
+            let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+            let x = cursor_x as f64;
+            let y = cursor_y as f64;
+
+            let is_in_rect = PIN_EDIT_RECTS.lock().iter().any(|rect| {
+                x >= rect.x && x <= rect.x + rect.width &&
+                y >= rect.y && y <= rect.y + rect.height
+            });
+
+            let _ = window.set_ignore_cursor_events(!is_in_rect);
+        }
+        
+        thread::sleep(Duration::from_millis(16));
+    }
 }
