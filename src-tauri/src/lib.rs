@@ -185,6 +185,7 @@ pub fn run() {
                 windows::screenshot_window::disable_pin_edit_passthrough,
                 windows::screenshot_window::update_pin_edit_passthrough_rects,
                 utils::screen::get_all_screens,
+                utils::system::get_system_text_scale,
                 commands::il_init,
                 commands::il_save_image,
                 commands::il_get_image_list,

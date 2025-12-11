@@ -8,12 +8,20 @@ const currentWindow = getCurrentWindow();
 const menuContainer = document.getElementById('menuContainer');
 const systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
+const TRAY_BOTTOM_MARGIN = 50;
+const BODY_PADDING = 8;
+const SHADOW_MARGIN = 5;
+const MAX_SPACE = 210;
+
 let currentThemeSetting = null;
 let monitorInfo = { x: 0, y: 0, width: 1920, height: 1080 };
 let windowOrigin = { x: 0, y: 0 };
 let scaleFactor = 1;
+let textScale = 1;
 let isTrayMenu = false;
-const TRAY_BOTTOM_MARGIN = 50;
+
+const cssToLogical = v => v * textScale;
+const logicalToCss = v => v / textScale;
 
 function applyTheme(theme) {
     currentThemeSetting = theme;
@@ -51,17 +59,11 @@ async function resizeWindowToFitMenu() {
         maxY = Math.max(maxY, rect.bottom);
     });
 
-    const logicalWidth = Math.ceil(maxX + padding);
-    const logicalHeight = Math.ceil(maxY + padding);
-    
-    const physicalX = monitorInfo.x + windowOrigin.x * scaleFactor;
-    const physicalY = monitorInfo.y + windowOrigin.y * scaleFactor;
-
     await invoke('resize_context_menu', {
-        width: logicalWidth,
-        height: logicalHeight,
-        x: physicalX,
-        y: physicalY
+        width: Math.ceil(maxX + padding),
+        height: Math.ceil(maxY + padding),
+        x: monitorInfo.x + windowOrigin.x * scaleFactor,
+        y: monitorInfo.y + windowOrigin.y * scaleFactor
     }).catch(() => {});
 }
 
@@ -72,13 +74,13 @@ function positionSubmenu(submenu, parentItem) {
     const bottomMargin = isTrayMenu ? TRAY_BOTTOM_MARGIN : 0;
     const screenHeight = monitorInfo.height - bottomMargin - windowOrigin.y;
 
-    submenu.style.cssText = 'max-width:200px;max-height:400px;overflow-y:auto;left:' + menuRect.width + 'px;top:0';
+    submenu.style.cssText = `max-width:200px;max-height:400px;overflow-y:auto;left:${menuRect.width}px;top:0`;
     
     const submenuRect = submenu.getBoundingClientRect();
-    const spaceRight = screenWidth - (menuRect.left + menuRect.width);
-    const spaceLeft = menuRect.left + windowOrigin.x;
+    const spaceRight = screenWidth - cssToLogical(menuRect.left + menuRect.width);
+    const spaceLeft = cssToLogical(menuRect.left) + windowOrigin.x;
 
-    if (spaceRight >= submenuRect.width || spaceLeft < submenuRect.width) {
+    if (spaceRight >= cssToLogical(submenuRect.width) || spaceLeft < cssToLogical(submenuRect.width)) {
         submenu.style.left = menuRect.width + 'px';
         submenu.style.right = 'auto';
     } else {
@@ -87,10 +89,10 @@ function positionSubmenu(submenu, parentItem) {
     }
 
     let top = parentRect.top - menuRect.top;
-    const bottomSpace = screenHeight - (menuRect.top + top + submenuRect.height);
-    if (bottomSpace < 0) top += bottomSpace;
-    const topSpace = menuRect.top + windowOrigin.y + top;
-    if (topSpace < 0) top -= topSpace;
+    const bottomSpace = screenHeight - cssToLogical(menuRect.top + top + submenuRect.height);
+    if (bottomSpace < 0) top += logicalToCss(bottomSpace);
+    const topSpace = cssToLogical(menuRect.top) + windowOrigin.y + cssToLogical(top);
+    if (topSpace < 0) top -= logicalToCss(topSpace);
 
     submenu.style.top = top + 'px';
     updateScrollIndicator(submenu);
@@ -177,15 +179,11 @@ function createMenuItem(item) {
             showSubmenu();
         });
         menuItem.addEventListener('mouseleave', (e) => {
-            if (!submenu.contains(e.relatedTarget)) {
-                hideTimeout = setTimeout(hideSubmenu, 200);
-            }
+            if (!submenu.contains(e.relatedTarget)) hideTimeout = setTimeout(hideSubmenu, 200);
         });
         submenu.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
         submenu.addEventListener('mouseleave', (e) => {
-            if (!menuItem.contains(e.relatedTarget)) {
-                hideTimeout = setTimeout(hideSubmenu, 200);
-            }
+            if (!menuItem.contains(e.relatedTarget)) hideTimeout = setTimeout(hideSubmenu, 200);
         });
         submenu.addEventListener('click', (e) => e.stopPropagation());
     } else if (!item.disabled) {
@@ -215,15 +213,25 @@ function createMenuItem(item) {
 function positionMenuAtCursor(options) {
     const menuRect = menuContainer.getBoundingClientRect();
     const screenWidth = monitorInfo.width;
-    const bottomMargin = isTrayMenu ? TRAY_BOTTOM_MARGIN : 0;
-    const screenHeight = monitorInfo.height - bottomMargin;
+    const screenHeight = monitorInfo.height - (isTrayMenu ? TRAY_BOTTOM_MARGIN : 0);
 
-    let left = Math.max(0, Math.min(options.cursor_x, screenWidth - menuRect.width));
-    let top = Math.max(0, Math.min(options.cursor_y, screenHeight - menuRect.height));
+    const menuCssWidth = menuRect.width + BODY_PADDING * 2 + SHADOW_MARGIN;
+    const menuCssHeight = menuRect.height + BODY_PADDING * 2 + SHADOW_MARGIN;
+    const menuLogicalW = cssToLogical(menuCssWidth);
+    const menuLogicalH = cssToLogical(menuCssHeight);
 
-    const leftSpace = Math.min(left, 210);
-    const topSpace = Math.min(top, 210);
-    windowOrigin = { x: left - leftSpace, y: top - topSpace };
+    let left = Math.max(0, Math.min(options.cursor_x, screenWidth - menuLogicalW));
+    let top = isTrayMenu 
+        ? Math.max(0, options.cursor_y - menuLogicalH)
+        : Math.max(0, Math.min(options.cursor_y, screenHeight - menuLogicalH));
+
+    const leftSpace = Math.min(logicalToCss(left), MAX_SPACE);
+    const topSpace = Math.min(logicalToCss(top), MAX_SPACE);
+    
+    windowOrigin = { 
+        x: left - cssToLogical(leftSpace), 
+        y: top - cssToLogical(topSpace) 
+    };
     
     menuContainer.style.left = `${Math.round(leftSpace)}px`;
     menuContainer.style.top = `${Math.round(topSpace)}px`;
@@ -231,11 +239,14 @@ function positionMenuAtCursor(options) {
 
 async function renderMenu(options) {
     scaleFactor = await currentWindow.scaleFactor().catch(() => 1);
+    textScale = await invoke('get_system_text_scale').catch(() => 1);
     isTrayMenu = options.is_tray_menu || false;
     
     monitorInfo = {
-        x: options.monitor_x || 0, y: options.monitor_y || 0,
-        width: options.monitor_width || 1920, height: options.monitor_height || 1080
+        x: options.monitor_x || 0, 
+        y: options.monitor_y || 0,
+        width: options.monitor_width || 1920, 
+        height: options.monitor_height || 1080
     };
     windowOrigin = { x: 0, y: 0 };
     
@@ -271,12 +282,15 @@ currentWindow.listen('reload-menu', loadAndRenderMenu);
 currentWindow.listen('close-context-menu', () => hideMenu(null));
 
 async function sendMenuRegionsToBackend() {
-    const sf = scaleFactor || await currentWindow.scaleFactor().catch(() => 1);
+    const totalScale = scaleFactor * textScale;
+    const windowPhysX = monitorInfo.x + windowOrigin.x * scaleFactor;
+    const windowPhysY = monitorInfo.y + windowOrigin.y * scaleFactor;
+    
     const toRegion = rect => ({
-        x: Math.round(monitorInfo.x + (windowOrigin.x + rect.left) * sf),
-        y: Math.round(monitorInfo.y + (windowOrigin.y + rect.top) * sf),
-        width: Math.round(rect.width * sf),
-        height: Math.round(rect.height * sf)
+        x: Math.round(windowPhysX + rect.left * totalScale),
+        y: Math.round(windowPhysY + rect.top * totalScale),
+        width: Math.round(rect.width * totalScale),
+        height: Math.round(rect.height * totalScale)
     });
 
     const mainMenu = toRegion(menuContainer.getBoundingClientRect());
