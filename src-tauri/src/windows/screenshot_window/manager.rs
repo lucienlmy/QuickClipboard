@@ -1,5 +1,6 @@
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Size,LogicalSize,Position,PhysicalPosition,};
 use crate::utils::image_http_server::{PinEditData, set_pin_edit_data, clear_pin_edit_data, get_pin_edit_data};
+use serde_json::json;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -83,15 +84,26 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
 }
 
 // 启动贴图编辑模式
-pub fn start_pin_edit_mode(app: &AppHandle, image_path: String, x: i32, y: i32, width: u32, height: u32, scale_factor: f64) -> Result<(), String> {
+#[allow(clippy::too_many_arguments)]
+pub fn start_pin_edit_mode(
+    app: &AppHandle,
+    image_path: String,
+    x: i32, y: i32,
+    width: u32, height: u32,
+    scale_factor: f64,
+    window_label: String,
+    window_x: i32, window_y: i32,
+    window_width: f64, window_height: f64,
+) -> Result<(), String> {
     let window = get_or_create_window(app)?;
     let edit_data = PinEditData {
         image_path,
-        x,
-        y,
-        width,
-        height,
+        x, y,
+        width, height,
         scale_factor,
+        window_label,
+        window_x, window_y,
+        window_width, window_height,
     };
     set_pin_edit_data(edit_data)?;
 
@@ -114,6 +126,34 @@ pub fn get_pin_edit_mode_data() -> Result<Option<PinEditData>, String> {
 pub fn clear_pin_edit_mode() {
     disable_pin_edit_passthrough();
     clear_pin_edit_data();
+}
+
+// 更新贴图图片并恢复显示
+#[tauri::command]
+pub fn confirm_pin_edit(app: AppHandle, new_file_path: String) -> Result<(), String> {
+    if let Some(data) = get_pin_edit_data() {
+        if let Some(window) = app.get_webview_window(&data.window_label) {
+            crate::windows::pin_image_window::update_pin_image_file(&data.window_label, new_file_path.clone());
+            let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(data.window_width, data.window_height)));
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(data.window_x, data.window_y)));
+            let _ = window.emit("pin-image:refresh", json!({ "file_path": new_file_path }));
+            let _ = window.show();
+        }
+    }
+    Ok(())
+}
+
+// 恢复显示原贴图窗口
+#[tauri::command]
+pub fn cancel_pin_edit(app: AppHandle) -> Result<(), String> {
+    if let Some(data) = get_pin_edit_data() {
+        if let Some(window) = app.get_webview_window(&data.window_label) {
+            let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(data.window_width, data.window_height)));
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(data.window_x, data.window_y)));
+            let _ = window.show();
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

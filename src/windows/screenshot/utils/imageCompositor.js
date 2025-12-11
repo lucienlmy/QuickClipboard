@@ -152,3 +152,48 @@ export function getBackgroundRegion(screens, rect, pixelRatio = 1) {
   
   return canvas;
 }
+
+// 贴图编辑模式使用
+export function compositePinEditImage({ stage, selection, originalImage }) {
+  if (!stage || !selection || !originalImage) return null;
+
+  const physicalWidth = originalImage.naturalWidth;
+  const physicalHeight = originalImage.naturalHeight;
+
+  const pixelRatio = physicalWidth / selection.width;
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = physicalWidth;
+  canvas.height = physicalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  ctx.drawImage(originalImage, 0, 0, physicalWidth, physicalHeight);
+
+  const editingLayer = stage.findOne?.('#screenshot-editing-layer');
+  if (editingLayer && editingLayer.visible()) {
+    const transformers = stage.find?.('Transformer') || [];
+    const selectionHandles = stage.find?.('.selection-handle') || [];
+    const hiddenNodes = [...transformers, ...selectionHandles];
+    const nodeStates = hiddenNodes.map(node => ({ node, visible: node.visible() }));
+    hiddenNodes.forEach(node => node.visible(false));
+    
+    try {
+      const layerCanvas = editingLayer.toCanvas({
+        x: selection.x,
+        y: selection.y,
+        width: selection.width,
+        height: selection.height,
+        pixelRatio,
+      });
+      
+      if (layerCanvas) {
+        ctx.drawImage(layerCanvas, 0, 0);
+      }
+    } finally {
+      nodeStates.forEach(({ node, visible }) => node.visible(visible));
+    }
+  }
+  
+  return canvas;
+}

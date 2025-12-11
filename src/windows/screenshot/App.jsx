@@ -44,7 +44,7 @@ function App() {
   const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
 
   const pinEditSelection = isPinEdit && pinEditMode.pinEditData
-    ? pinEditMode.calculateSelection(pinEditMode.pinEditData, pinEditMode.pinImage)
+    ? pinEditMode.calculateSelection(pinEditMode.pinEditData)
     : null;
 
   const pinImageAsScreen = useMemo(() => {
@@ -86,22 +86,21 @@ function App() {
   const handleConfirm = useCallback(async () => {
     if (!effectiveSelection) return;
     try {
-      const { exportToPin } = await import('./utils/exportUtils');
-      await exportToPin(stageRef, effectiveSelection, isPinEdit ? 0 : session.cornerRadius, { 
-        screens: effectiveScreens,
-        pinEditData: isPinEdit ? pinEditMode.pinEditData : null,
+      const { exportPinEditImage } = await import('./utils/exportUtils');
+      const newFilePath = await exportPinEditImage(stageRef, effectiveSelection, { 
+        originalImage: pinEditMode.pinImage,
       });
+      if (newFilePath) {
+        await pinEditMode.confirmPinEdit(newFilePath);
+      }
     } catch (err) {
-      console.error('创建贴图失败:', err);
+      console.error('确认贴图编辑失败:', err);
     }
-    if (isPinEdit) {
-      await pinEditMode.exitPinEditMode(false);
-    }
-  }, [effectiveSelection, effectiveScreens, isPinEdit, pinEditMode, session.cornerRadius, stageRef]);
+  }, [effectiveSelection, pinEditMode, stageRef]);
 
   const handleCancel = useCallback(() => {
     if (isPinEdit) {
-      pinEditMode.exitPinEditMode(true);
+      pinEditMode.exitPinEditMode();
     } else {
       session.handleCancelSelection();
     }

@@ -24,6 +24,11 @@ pub struct PinEditData {
     pub width: u32,
     pub height: u32,
     pub scale_factor: f64,
+    pub window_label: String,
+    pub window_x: i32,
+    pub window_y: i32,
+    pub window_width: f64,
+    pub window_height: f64,
 }
 
 static PIN_EDIT_DATA: Lazy<Mutex<Option<PinEditData>>> =

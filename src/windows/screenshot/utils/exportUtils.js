@@ -88,83 +88,102 @@ export async function exportToClipboard(stageRef, selection, cornerRadius = 0, {
   }
 }
 
-// 导出为贴图
-export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [], pinEditData = null } = {}) {
+// 保存图片到贴图目录
+async function savePinImage(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  
+  const dataDir = await invoke('get_data_directory');
+  const hash = await calculateImageHash(uint8Array);
+  const filename = `${hash}.png`;
+  const filePath = `${dataDir}\\pin_images\\${filename}`;
+  
+  await mkdir(`${dataDir}\\pin_images`, { recursive: true });
+  await writeFile(filePath, uint8Array);
+  
+  return filePath;
+}
+
+// 导出为贴图（普通截图模式）
+export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [] } = {}) {
   const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius, { screens });
   if (!blob) return;
 
-  const arrayBuffer = await blob.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-
   try {
-    const dataDir = await invoke('get_data_directory');
-    const hash = await calculateImageHash(uint8Array);
-    const filename = `${hash}.png`;
-    const filePath = `${dataDir}\\pin_images\\${filename}`;
+    const filePath = await savePinImage(blob);
     
-    await mkdir(`${dataDir}\\pin_images`, { recursive: true });
-    await writeFile(filePath, uint8Array);
+    const { x, y, width, height } = selection;
+    const windowScale = window.devicePixelRatio || 1;
     
-    let physicalX, physicalY, logicalWidth, logicalHeight;
+    const x1 = Math.round(x);
+    const y1 = Math.round(y);
+    const x2 = Math.round(x + width);
+    const y2 = Math.round(y + height);
+    const safeWidth = Math.max(1, x2 - x1);
+    const safeHeight = Math.max(1, y2 - y1);
     
-    if (pinEditData) {
-      const scaleFactor = pinEditData.scale_factor || 1;
-      physicalX = pinEditData.x;
-      physicalY = pinEditData.y;
-      logicalWidth = Math.round(pinEditData.width / scaleFactor);
-      logicalHeight = Math.round(pinEditData.height / scaleFactor);
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    
+    let targetScreen = screens.find(s => 
+      centerX >= s.x && centerX < s.x + s.width &&
+      centerY >= s.y && centerY < s.y + s.height
+    ) || screens[0];
+    
+    const targetScaleFactor = targetScreen?.scaleFactor || windowScale;
+    const physicalWidth = safeWidth * windowScale;
+    const physicalHeight = safeHeight * windowScale;
+    
+    let physicalX, physicalY;
+    if (targetScreen) {
+      const scaleX = targetScreen.physicalWidth / targetScreen.width;
+      const scaleY = targetScreen.physicalHeight / targetScreen.height;
+      physicalX = targetScreen.physicalX + Math.floor((x1 - targetScreen.x) * scaleX);
+      physicalY = targetScreen.physicalY + Math.floor((y1 - targetScreen.y) * scaleY);
     } else {
-      const { x, y, width, height } = selection;
-      const windowScale = window.devicePixelRatio || 1;
-      
-      const x1 = Math.round(x);
-      const y1 = Math.round(y);
-      const x2 = Math.round(x + width);
-      const y2 = Math.round(y + height);
-      const safeWidth = Math.max(1, x2 - x1);
-      const safeHeight = Math.max(1, y2 - y1);
-      
-      const centerX = x + width / 2;
-      const centerY = y + height / 2;
-      
-      let targetScreen = screens.find(s => 
-        centerX >= s.x && centerX < s.x + s.width &&
-        centerY >= s.y && centerY < s.y + s.height
-      ) || screens[0];
-      
-      const targetScaleFactor = targetScreen?.scaleFactor || windowScale;
-      const physicalWidth = safeWidth * windowScale;
-      const physicalHeight = safeHeight * windowScale;
-      
-      if (targetScreen) {
-        const scaleX = targetScreen.physicalWidth / targetScreen.width;
-        const scaleY = targetScreen.physicalHeight / targetScreen.height;
-        physicalX = targetScreen.physicalX + Math.floor((x1 - targetScreen.x) * scaleX);
-        physicalY = targetScreen.physicalY + Math.floor((y1 - targetScreen.y) * scaleY);
-      } else {
-        const minPhysicalX = screens.length > 0 ? Math.min(...screens.map(s => s.physicalX)) : 0;
-        const minPhysicalY = screens.length > 0 ? Math.min(...screens.map(s => s.physicalY)) : 0;
-        physicalX = Math.floor(x1 * windowScale + minPhysicalX);
-        physicalY = Math.floor(y1 * windowScale + minPhysicalY);
-      }
-      
-      logicalWidth = Math.round(physicalWidth / targetScaleFactor);
-      logicalHeight = Math.round(physicalHeight / targetScaleFactor);
+      const minPhysicalX = screens.length > 0 ? Math.min(...screens.map(s => s.physicalX)) : 0;
+      const minPhysicalY = screens.length > 0 ? Math.min(...screens.map(s => s.physicalY)) : 0;
+      physicalX = Math.floor(x1 * windowScale + minPhysicalX);
+      physicalY = Math.floor(y1 * windowScale + minPhysicalY);
     }
+    
+    const logicalWidth = Math.round(physicalWidth / targetScaleFactor);
+    const logicalHeight = Math.round(physicalHeight / targetScaleFactor);
     
     await invoke('pin_image_from_file', {
       filePath,
       x: physicalX,
       y: physicalY,
       width: logicalWidth,
-      height: logicalHeight
+      height: logicalHeight,
+      fromScreenshot: true,
     });
 
-    if (!pinEditData) {
-      await cancelScreenshotSession();
-    }
+    await cancelScreenshotSession();
   } catch (error) {
     console.error('创建贴图失败:', error);
+    throw error;
+  }
+}
+
+// 导出编辑后的贴图图片
+export async function exportPinEditImage(stageRef, selection, { originalImage } = {}) {
+  if (!selection || !stageRef?.current || !originalImage) return null;
+
+  const stage = stageRef.current.getStage ? stageRef.current.getStage() : stageRef.current;
+  if (!stage) return null;
+
+  try {
+    const { compositePinEditImage } = await import('./imageCompositor');
+    const canvas = compositePinEditImage({ stage, selection, originalImage });
+    if (!canvas) return null;
+    
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) return null;
+    
+    return await savePinImage(blob);
+  } catch (error) {
+    console.error('保存编辑图片失败:', error);
     throw error;
   }
 }

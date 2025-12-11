@@ -25,24 +25,10 @@ export function usePinEditMode() {
   }, []);
 
   // 退出编辑模式
-  const exitPinEditMode = useCallback(async (restorePin = true) => {
-    const data = pinEditData;
+  const exitPinEditMode = useCallback(async () => {
     try {
+      await invoke('cancel_pin_edit');
       await invoke('clear_pin_edit_mode');
-
-      if (restorePin && data) {
-        const scaleFactor = data.scale_factor || 1;
-        const logicalWidth = Math.round(data.width / scaleFactor);
-        const logicalHeight = Math.round(data.height / scaleFactor);
-        
-        await invoke('pin_image_from_file', {
-          filePath: data.image_path,
-          x: data.x,
-          y: data.y,
-          width: logicalWidth,
-          height: logicalHeight,
-        });
-      }
       
       const { cancelScreenshotSession } = await import('@shared/api/system');
       await cancelScreenshotSession();
@@ -52,21 +38,34 @@ export function usePinEditMode() {
     setIsPinEditMode(false);
     setPinEditData(null);
     setPinImage(null);
-  }, [pinEditData]);
+  }, []);
 
-  const calculateSelection = useCallback((data, image) => {
+  // 确认编辑
+  const confirmPinEdit = useCallback(async (newFilePath) => {
+    try {
+      await invoke('confirm_pin_edit', { newFilePath });
+      await invoke('clear_pin_edit_mode');
+      
+      const { cancelScreenshotSession } = await import('@shared/api/system');
+      await cancelScreenshotSession();
+    } catch (error) {
+      console.error('确认贴图编辑失败:', error);
+    }
+    setIsPinEditMode(false);
+    setPinEditData(null);
+    setPinImage(null);
+  }, []);
+
+  const calculateSelection = useCallback((data) => {
     if (!data) return null;
     
     const dpr = window.devicePixelRatio || 1;
     
-    const imgWidth = image?.naturalWidth || data.width;
-    const imgHeight = image?.naturalHeight || data.height;
-    
     return {
       x: data.x / dpr,
       y: data.y / dpr,
-      width: imgWidth / dpr,
-      height: imgHeight / dpr,
+      width: data.width / dpr,
+      height: data.height / dpr,
     };
   }, []);
 
@@ -193,6 +192,7 @@ export function usePinEditMode() {
     screenInfos,
     calculateSelection,
     exitPinEditMode,
+    confirmPinEdit,
     startPassthrough,
     stopPassthrough,
   };

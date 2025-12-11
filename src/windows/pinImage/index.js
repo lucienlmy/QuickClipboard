@@ -150,6 +150,14 @@ import {
             resetSettings.thumbnailMode = false;
             saveSettings(resetSettings);
         }
+        
+        currentWindow.listen('pin-image:refresh', async (event) => {
+            const { file_path } = event.payload;
+            if (file_path) {
+                const assetUrl = convertFileSrc(file_path, 'asset');
+                img.src = assetUrl + '?t=' + Date.now();
+            }
+        });
     } catch (error) {
         console.error('加载图片失败:', error);
     }

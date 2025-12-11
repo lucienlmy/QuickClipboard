@@ -179,6 +179,8 @@ pub fn run() {
                 windows::pin_image_window::start_pin_edit_mode,
                 windows::screenshot_window::get_pin_edit_mode_data,
                 windows::screenshot_window::clear_pin_edit_mode,
+                windows::screenshot_window::confirm_pin_edit,
+                windows::screenshot_window::cancel_pin_edit,
                 windows::screenshot_window::enable_pin_edit_passthrough,
                 windows::screenshot_window::disable_pin_edit_passthrough,
                 windows::screenshot_window::update_pin_edit_passthrough_rects,

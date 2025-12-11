@@ -25,6 +25,16 @@ pub fn init_pin_image_window() {
     PIN_IMAGE_DATA_MAP.get_or_init(|| Mutex::new(HashMap::new()));
 }
 
+// 更新贴图图片文件路径
+pub fn update_pin_image_file(label: &str, new_file_path: String) {
+    if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
+        let mut map = data_map.lock().unwrap();
+        if let Some(data) = map.get_mut(label) {
+            data.file_path = new_file_path;
+        }
+    }
+}
+
 
 // 从文件路径创建贴图窗口
 #[tauri::command]
@@ -36,6 +46,7 @@ pub async fn pin_image_from_file(
     width: Option<u32>,
     height: Option<u32>,
     preview_mode: Option<bool>,
+    from_screenshot: Option<bool>,
 ) -> Result<(), String> {
     let is_preview = preview_mode.unwrap_or(false);
     
@@ -152,8 +163,8 @@ pub async fn pin_image_from_file(
         }
     };
     
-    let from_screenshot = x.is_some() && y.is_some();
-    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y, is_preview, from_screenshot).await?;
+    let is_from_screenshot = from_screenshot.unwrap_or(false);
+    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y, is_preview, is_from_screenshot).await?;
     
     // 预览模式：鼠标穿透
     if is_preview {
@@ -330,10 +341,10 @@ pub fn close_pin_image_window_by_self(window: WebviewWindow) -> Result<(), Strin
 // 启动贴图编辑模式
 #[tauri::command]
 pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
-    let (file_path, logical_width, logical_height) = if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
+    let file_path = if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
         let map = data_map.lock().unwrap();
         if let Some(data) = map.get(window.label()) {
-            (data.file_path.clone(), data.width, data.height)
+            data.file_path.clone()
         } else {
             return Err("未找到图片数据".to_string());
         }
@@ -343,43 +354,40 @@ pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Resul
 
     let position = window.outer_position()
         .map_err(|e| format!("获取窗口位置失败: {}", e))?;
-
-    let scale_factor = app.available_monitors()
-        .ok()
-        .and_then(|monitors| {
-            monitors.into_iter().find(|m| {
-                let pos = m.position();
-                let size = m.size();
-                position.x >= pos.x && position.x < pos.x + size.width as i32 &&
-                position.y >= pos.y && position.y < pos.y + size.height as i32
-            })
-        })
-        .map(|m| m.scale_factor())
-        .unwrap_or(1.0);
+    let inner_size = window.inner_size()
+        .map_err(|e| format!("获取窗口尺寸失败: {}", e))?;
+    let scale_factor = window.scale_factor()
+        .map_err(|e| format!("获取缩放因子失败: {}", e))?;
 
     let padding_physical = (5.0 * scale_factor).round() as i32;
-    let x = position.x + padding_physical;
-    let y = position.y + padding_physical;
-    
-    let physical_width = (logical_width as f64 * scale_factor).round() as u32;
-    let physical_height = (logical_height as f64 * scale_factor).round() as u32;
+    let image_x = position.x + padding_physical;
+    let image_y = position.y + padding_physical;
+    let shadow_padding_physical = (10.0 * scale_factor).round() as u32;
+    let image_physical_width = inner_size.width.saturating_sub(shadow_padding_physical);
+    let image_physical_height = inner_size.height.saturating_sub(shadow_padding_physical);
+
+    let window_x = position.x;
+    let window_y = position.y;
+    let window_width = inner_size.width as f64 / scale_factor;
+    let window_height = inner_size.height as f64 / scale_factor;
 
     let label = window.label().to_string();
-    if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
-        let mut map = data_map.lock().unwrap();
-        map.remove(&label);
-    }
     let _ = window.set_size(Size::Logical(LogicalSize::new(1.0, 1.0)));
-    window.close().map_err(|e| format!("关闭窗口失败: {}", e))?;
+    let _ = window.hide();
 
     crate::windows::screenshot_window::start_pin_edit_mode(
         &app,
         file_path,
-        x,
-        y,
-        physical_width,
-        physical_height,
+        image_x,
+        image_y,
+        image_physical_width,
+        image_physical_height,
         scale_factor,
+        label,
+        window_x,
+        window_y,
+        window_width,
+        window_height,
     )?;
 
     Ok(())
