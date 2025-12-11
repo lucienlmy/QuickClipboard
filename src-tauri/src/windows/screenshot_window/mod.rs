@@ -7,4 +7,4 @@ pub mod auto_selection;
 pub mod long_screenshot;
 mod image_stitcher;
 
-pub use manager::start_screenshot;
+pub use manager::*;

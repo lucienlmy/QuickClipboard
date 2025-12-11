@@ -226,3 +226,10 @@ impl ScreenUtils {
         }
     }
 }
+
+// 获取所有屏幕信息
+#[tauri::command]
+pub fn get_all_screens() -> Result<Vec<(i32, i32, i32, i32, f64)>, String> {
+    let app = APP_HANDLE.get().ok_or("APP_HANDLE 未初始化")?;
+    ScreenUtils::get_all_monitors(app)
+}

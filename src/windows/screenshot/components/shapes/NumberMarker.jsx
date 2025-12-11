@@ -285,6 +285,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
       {/* 选中状态的高亮边框 */}
       {isSelected && (
         <Rect
+          name="selection-handle"
           x={-2}
           y={-2}
           width={size + 4}

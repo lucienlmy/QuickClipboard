@@ -31,7 +31,8 @@ function SelectionOverlay({
   handleWheel,
   activeToolId = null,
   toolStyle = {},
-  longScreenshotMode = false
+  longScreenshotMode = false,
+  pinEditMode = false
 }) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
@@ -44,32 +45,34 @@ function SelectionOverlay({
   return (
     <Layer id="screenshot-overlay-layer" listening={listening}>
       {/* 遮罩层 */}
-      <Rect
-        x={0}
-        y={0}
-        width={stageWidth}
-        height={stageHeight}
-        fill={OVERLAY_COLOR}
-        opacity={OVERLAY_OPACITY}
-        listening={listening}
-        onMouseDown={listening ? handleMouseDown : undefined}
-        onMouseMove={listening ? handleMouseMove : undefined}
-        onMouseUp={listening ? handleMouseUp : undefined}
-        onMouseLeave={listening ? handleMouseUp : undefined}
-        onContextMenu={listening ? handleRightClick : undefined}
-        onWheel={listening ? handleWheel : undefined}
-      />
+      {!pinEditMode && (
+        <Rect
+          x={0}
+          y={0}
+          width={stageWidth}
+          height={stageHeight}
+          fill={OVERLAY_COLOR}
+          opacity={OVERLAY_OPACITY}
+          listening={listening}
+          onMouseDown={listening ? handleMouseDown : undefined}
+          onMouseMove={listening ? handleMouseMove : undefined}
+          onMouseUp={listening ? handleMouseUp : undefined}
+          onMouseLeave={listening ? handleMouseUp : undefined}
+          onContextMenu={listening ? handleRightClick : undefined}
+          onWheel={listening ? handleWheel : undefined}
+        />
+      )}
 
       {/* 自动选择矩形 */}
-      {hasAutoSelection && !hasValidSelection && (
+      {hasAutoSelection && !hasValidSelection && !pinEditMode && (
         <AutoSelectionRect rect={displayAutoSelectionRect} />
       )}
 
       {/* 选区矩形 */}
       {hasValidSelection && <SelectionRect selection={selection} cornerRadius={cornerRadius} />}
 
-      {/* 选区控制手柄 - 长截屏模式下隐藏 */}
-      {hasValidSelection && !longScreenshotMode && (
+      {/* 选区控制手柄 */}
+      {hasValidSelection && !longScreenshotMode && !pinEditMode && (
         <SelectionHandles selection={selection} visible={!isDrawing && !isMoving} />
       )}
 

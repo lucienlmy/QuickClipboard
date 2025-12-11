@@ -17,6 +17,8 @@ function SelectionToolbar({
   onLongScreenshotCopy,
   onLongScreenshotSave,
   onLongScreenshotCancel,
+  // 贴图编辑模式
+  pinEditMode = false,
 }) {
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
@@ -150,7 +152,14 @@ function SelectionToolbar({
   // 普通模式的按钮
   const actionCallbacks = { confirm: onConfirm, cancel: onCancel, pin: onPin, save: onSave };
   const actionVariants = { confirm: 'primary', cancel: 'ghost' };
-  const actionTools = [
+  
+  // 贴图编辑模式
+  const pinEditActionTools = [
+    { id: 'confirm', icon: 'ti ti-check', title: '确定', actionKey: 'confirm', onClick: onConfirm, variant: 'primary' },
+    { id: 'cancel', icon: 'ti ti-x', title: '取消', actionKey: 'cancel', onClick: onCancel, variant: 'ghost' },
+  ];
+  
+  const actionTools = pinEditMode ? pinEditActionTools : [
     ...ACTION_TOOLS.map(t => ({
       ...t,
       onClick: actionCallbacks[t.actionKey],

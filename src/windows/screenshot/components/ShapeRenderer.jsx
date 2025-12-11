@@ -95,6 +95,7 @@ export const ShapeRenderer = ({
             {[0, 2, 4].map((offset, i) => (
               <Circle
                 key={i}
+                name="selection-handle"
                 x={shape.points[offset]}
                 y={shape.points[offset + 1]}
                 radius={5}
@@ -183,6 +184,7 @@ export const ShapeRenderer = ({
               return (
                 <Circle
                   key={i}
+                  name="selection-handle"
                   x={shape.points[offset]}
                   y={shape.points[offset + 1]}
                   radius={5}

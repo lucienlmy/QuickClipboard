@@ -1,4 +1,5 @@
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Size,LogicalSize,Position,PhysicalPosition,};
+use crate::utils::image_http_server::{PinEditData, set_pin_edit_data, clear_pin_edit_data, get_pin_edit_data};
 
 fn create_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     let is_dev = cfg!(debug_assertions);
@@ -62,4 +63,37 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
         eprintln!("无法启动自动选区: {}", e);
     }
     Ok(())
+}
+
+// 启动贴图编辑模式
+pub fn start_pin_edit_mode(app: &AppHandle, image_path: String, x: i32, y: i32, width: u32, height: u32, scale_factor: f64) -> Result<(), String> {
+    let window = get_or_create_window(app)?;
+    let edit_data = PinEditData {
+        image_path,
+        x,
+        y,
+        width,
+        height,
+        scale_factor,
+    };
+    set_pin_edit_data(edit_data)?;
+
+    let _ = window.emit("screenshot:pin-edit-mode", ());
+    let _ = window.show();
+    resize_window_to_virtual_screen(&window);
+    let _ = window.set_focus();
+
+    Ok(())
+}
+
+// 获取贴图编辑数据的命令
+#[tauri::command]
+pub fn get_pin_edit_mode_data() -> Result<Option<PinEditData>, String> {
+    Ok(get_pin_edit_data())
+}
+
+// 清除贴图编辑数据
+#[tauri::command]
+pub fn clear_pin_edit_mode() {
+    clear_pin_edit_data();
 }

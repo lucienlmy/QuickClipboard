@@ -65,6 +65,9 @@ export async function createContextMenu(window, states, onThumbnailToggle) {
                 children: opacityMenuItems
             }),
             createSeparator(),
+            createMenuItem('edit', '编辑贴图', {
+                icon: 'ti ti-edit'
+            }),
             createMenuItem('copy', '复制到剪贴板', {
                 icon: 'ti ti-copy'
             }),
@@ -189,6 +192,10 @@ async function handleMenuAction(action, window, states, onThumbnailToggle, img) 
                 opacitySettings.opacity = opacity;
                 saveSettings(opacitySettings);
             }
+            break;
+
+        case 'edit':
+            await invoke('start_pin_edit_mode');
             break;
 
         case 'copy':

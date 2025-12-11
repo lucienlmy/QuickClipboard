@@ -15,6 +15,20 @@ static IMAGE_STORE: Lazy<Mutex<Option<HttpImageStore>>> =
 static LONG_SCREENSHOT_PREVIEW: Lazy<Mutex<Option<Vec<u8>>>> =
     Lazy::new(|| Mutex::new(None));
 
+// 贴图编辑模式数据
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct PinEditData {
+    pub image_path: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub scale_factor: f64,
+}
+
+static PIN_EDIT_DATA: Lazy<Mutex<Option<PinEditData>>> =
+    Lazy::new(|| Mutex::new(None));
+
 static SERVER_PORT: Lazy<Mutex<Option<u16>>> =
     Lazy::new(|| Mutex::new(None));
 
@@ -156,5 +170,25 @@ pub fn update_long_screenshot_preview(png_data: Vec<u8>) -> Result<u16, String> 
 // 清除长截屏预览图
 pub fn clear_long_screenshot_preview() {
     let mut guard = LONG_SCREENSHOT_PREVIEW.lock();
+    *guard = None;
+}
+
+// 设置贴图编辑数据
+pub fn set_pin_edit_data(data: PinEditData) -> Result<u16, String> {
+    let port = ensure_http_server_started()?;
+    let mut guard = PIN_EDIT_DATA.lock();
+    *guard = Some(data);
+    Ok(port)
+}
+
+// 获取贴图编辑数据
+pub fn get_pin_edit_data() -> Option<PinEditData> {
+    let guard = PIN_EDIT_DATA.lock();
+    guard.clone()
+}
+
+// 清除贴图编辑数据
+pub fn clear_pin_edit_data() {
+    let mut guard = PIN_EDIT_DATA.lock();
     *guard = None;
 }

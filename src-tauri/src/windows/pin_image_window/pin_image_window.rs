@@ -43,7 +43,7 @@ pub async fn pin_image_from_file(
     let (orig_width, orig_height) = if let (Some(w), Some(h)) = (width, height) {
         (w, h)
     } else {
-        let reader = image::io::Reader::open(&file_path)
+        let reader = image::ImageReader::open(&file_path)
             .map_err(|e| format!("打开图片文件失败: {}", e))?
             .with_guessed_format()
             .map_err(|e| format!("识别图片格式失败: {}", e))?;
@@ -166,10 +166,6 @@ pub async fn pin_image_from_file(
     Ok(())
 }
 
-// 保存图片到应用数据目录
-fn save_pin_image_to_temp(image_data: &[u8], _counter: usize) -> Result<String, String> {
-    Err("未找到图片数据".to_string())
-}
 
 // 创建贴图窗口
 async fn create_pin_image_window(
@@ -326,6 +322,63 @@ pub fn close_pin_image_window_by_self(window: WebviewWindow) -> Result<(), Strin
     
     window.close().map_err(|e| format!("关闭窗口失败: {}", e))?;
     
+    Ok(())
+}
+
+// 启动贴图编辑模式
+#[tauri::command]
+pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    let (file_path, logical_width, logical_height) = if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
+        let map = data_map.lock().unwrap();
+        if let Some(data) = map.get(window.label()) {
+            (data.file_path.clone(), data.width, data.height)
+        } else {
+            return Err("未找到图片数据".to_string());
+        }
+    } else {
+        return Err("未找到图片数据".to_string());
+    };
+
+    let position = window.outer_position()
+        .map_err(|e| format!("获取窗口位置失败: {}", e))?;
+
+    let scale_factor = app.available_monitors()
+        .ok()
+        .and_then(|monitors| {
+            monitors.into_iter().find(|m| {
+                let pos = m.position();
+                let size = m.size();
+                position.x >= pos.x && position.x < pos.x + size.width as i32 &&
+                position.y >= pos.y && position.y < pos.y + size.height as i32
+            })
+        })
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+
+    let padding_physical = (5.0 * scale_factor).round() as i32;
+    let x = position.x + padding_physical;
+    let y = position.y + padding_physical;
+    
+    let physical_width = (logical_width as f64 * scale_factor).round() as u32;
+    let physical_height = (logical_height as f64 * scale_factor).round() as u32;
+
+    let label = window.label().to_string();
+    if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
+        let mut map = data_map.lock().unwrap();
+        map.remove(&label);
+    }
+    window.close().map_err(|e| format!("关闭窗口失败: {}", e))?;
+
+    crate::windows::screenshot_window::start_pin_edit_mode(
+        &app,
+        file_path,
+        x,
+        y,
+        physical_width,
+        physical_height,
+        scale_factor,
+    )?;
+
     Ok(())
 }
 

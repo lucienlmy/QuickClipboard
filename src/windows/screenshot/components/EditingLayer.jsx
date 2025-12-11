@@ -1,10 +1,10 @@
-import React, { useRef, useEffect } from 'react';
-import { Layer, Transformer, Rect } from 'react-konva';
+import React, { useRef, useEffect, useMemo } from 'react';
+import { Layer, Transformer, Rect, Group } from 'react-konva';
 import { ShapeRenderer } from './ShapeRenderer';
 import TextEditor from './TextEditor';
 import WatermarkRenderer from './WatermarkRenderer';
 
-const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose, watermarkConfig, selection, stageSize }) => {
+const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose, watermarkConfig, selection, stageSize, pinEditMode }) => {
   const transformerRef = useRef(null);
   const shapeRefs = useRef([]);
   const layerRef = useRef(null);
@@ -63,6 +63,42 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
     }
   };
 
+  const clipFunc = useMemo(() => {
+    if (!pinEditMode || !selection) return null;
+    return (ctx) => {
+      ctx.rect(selection.x, selection.y, selection.width, selection.height);
+    };
+  }, [pinEditMode, selection]);
+
+  const renderShapes = () => (
+    shapes
+      .map((shape, i) => ({ shape, originalIndex: i }))
+      .sort((a, b) => {
+        const aIsBackgroundMosaic = a.shape.tool === 'mosaic' && a.shape.processedImage && a.shape.coverageMode === 'background';
+        const bIsBackgroundMosaic = b.shape.tool === 'mosaic' && b.shape.processedImage && b.shape.coverageMode === 'background';
+        
+        if (aIsBackgroundMosaic && !bIsBackgroundMosaic) return -1;
+        if (!aIsBackgroundMosaic && bIsBackgroundMosaic) return 1;
+        
+        return a.originalIndex - b.originalIndex;
+      })
+      .map(({ shape, originalIndex }) => (
+        <ShapeRenderer
+          key={originalIndex}
+          shape={shape}
+          index={originalIndex}
+          shapeRef={(node) => { shapeRefs.current[originalIndex] = node; }}
+          isSelected={selectedShapeIndices.includes(originalIndex)}
+          isSelectMode={isSelectMode}
+          shapeListening={listening && isSelectMode}
+          onSelectShape={onSelectShape}
+          onShapeTransform={onShapeTransform}
+          onTextEdit={onTextEdit}
+          isEditing={editingTextIndex === originalIndex}
+        />
+      ))
+  );
+
   return (
     <Layer 
       ref={layerRef}
@@ -85,35 +121,13 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
         />
       )}
       {/* 按层级顺序渲染：背景模式马赛克在最底层 */}
-      {shapes
-        .map((shape, i) => ({ shape, originalIndex: i }))
-        .sort((a, b) => {
-          // 只有背景模式马赛克放在最底层
-          const aIsBackgroundMosaic = a.shape.tool === 'mosaic' && a.shape.processedImage && a.shape.coverageMode === 'background';
-          const bIsBackgroundMosaic = b.shape.tool === 'mosaic' && b.shape.processedImage && b.shape.coverageMode === 'background';
-          
-          if (aIsBackgroundMosaic && !bIsBackgroundMosaic) return -1;
-          if (!aIsBackgroundMosaic && bIsBackgroundMosaic) return 1;
-          
-          // 其他所有形状（包括全局马赛克）保持原有时间顺序
-          return a.originalIndex - b.originalIndex;
-        })
-        .map(({ shape, originalIndex }) => (
-          <ShapeRenderer
-            key={originalIndex}
-            shape={shape}
-            index={originalIndex}
-            shapeRef={(node) => { shapeRefs.current[originalIndex] = node; }}
-            isSelected={selectedShapeIndices.includes(originalIndex)}
-            isSelectMode={isSelectMode}
-            shapeListening={listening && isSelectMode}
-            onSelectShape={onSelectShape}
-            onShapeTransform={onShapeTransform}
-            onTextEdit={onTextEdit}
-            isEditing={editingTextIndex === originalIndex}
-          />
-        ))
-      }
+      {clipFunc ? (
+        <Group clipFunc={clipFunc}>
+          {renderShapes()}
+        </Group>
+      ) : (
+        renderShapes()
+      )}
       {isSelectMode && selectedShapeIndices.length > 0 && editingTextIndex === null && (
         <Transformer
           ref={transformerRef}

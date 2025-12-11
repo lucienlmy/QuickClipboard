@@ -21,8 +21,10 @@ export function drawBackgroundFromScreens(ctx, screens, rect, pixelRatio = 1) {
     const intersectX2 = Math.min(selX2, screenX2);
     const intersectY2 = Math.min(selY2, screenY2);
     
-    const scaleX = screen.image.width / screen.width;
-    const scaleY = screen.image.height / screen.height;
+    const imgWidth = screen.image.naturalWidth || screen.image.width;
+    const imgHeight = screen.image.naturalHeight || screen.image.height;
+    const scaleX = imgWidth / screen.width;
+    const scaleY = imgHeight / screen.height;
     
     const srcX = Math.floor((intersectX - screen.x) * scaleX);
     const srcY = Math.floor((intersectY - screen.y) * scaleY);
@@ -50,26 +52,36 @@ const DEFAULT_EXCLUDED_LAYER_IDS = new Set([
 function drawStageLayers(ctx, stage, rect, pixelRatio, options = {}) {
   const { excludeLayerIds = DEFAULT_EXCLUDED_LAYER_IDS } = options;
 
-  const layers = stage.getChildren?.() || [];
-  layers.forEach((layer) => {
-    if (!layer?.visible?.()) return;
-    const layerId = layer.id?.();
-    if (layerId && excludeLayerIds.has(layerId)) return;
+  const transformers = stage.find?.('Transformer') || [];
+  const selectionHandles = stage.find?.('.selection-handle') || [];
+  const hiddenNodes = [...transformers, ...selectionHandles];
+  const nodeStates = hiddenNodes.map(node => ({ node, visible: node.visible() }));
+  hiddenNodes.forEach(node => node.visible(false));
 
-    if (typeof layer.toCanvas !== 'function') return;
+  try {
+    const layers = stage.getChildren?.() || [];
+    layers.forEach((layer) => {
+      if (!layer?.visible?.()) return;
+      const layerId = layer.id?.();
+      if (layerId && excludeLayerIds.has(layerId)) return;
 
-    const layerCanvas = layer.toCanvas({
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
-      pixelRatio,
+      if (typeof layer.toCanvas !== 'function') return;
+
+      const layerCanvas = layer.toCanvas({
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        pixelRatio,
+      });
+
+      if (layerCanvas) {
+        ctx.drawImage(layerCanvas, 0, 0);
+      }
     });
-
-    if (layerCanvas) {
-      ctx.drawImage(layerCanvas, 0, 0);
-    }
-  });
+  } finally {
+    nodeStates.forEach(({ node, visible }) => node.visible(visible));
+  }
 }
 
 export async function compositeSelectionImage({ stage, selection, screens, pixelRatio }) {

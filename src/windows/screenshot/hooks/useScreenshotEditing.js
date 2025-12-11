@@ -123,7 +123,16 @@ const checkShapeInBox = (shape, box) => {
   return false;
 };
 
-export default function useScreenshotEditing(screens = [], stageRef = null) {
+const clampToBounds = (pos, bounds) => {
+  if (!bounds) return pos;
+  return {
+    x: Math.max(bounds.x, Math.min(bounds.x + bounds.width, pos.x)),
+    y: Math.max(bounds.y, Math.min(bounds.y + bounds.height, pos.y)),
+  };
+};
+
+export default function useScreenshotEditing(screens = [], stageRef = null, options = {}) {
+  const { clipBounds = null } = options;
   const [shapes, setShapes] = useState([]);
   const [history, setHistory] = useState([[]]);
   const [historyStep, setHistoryStep] = useState(0);
@@ -350,6 +359,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
 
   const handleMouseDown = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
+    const clampedPos = clampToBounds(relativePos, clipBounds);
     
     if (editingTextIndex !== null) {
       return true;
@@ -365,8 +375,8 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
       if (isBackground) {
         isSelectingRef.current = true;
         setSelectionBox({
-          x: relativePos.x,
-          y: relativePos.y,
+          x: clampedPos.x,
+          y: clampedPos.y,
           width: 0,
           height: 0,
         });
@@ -380,12 +390,12 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     if (activeToolId === 'polyline') {
       const now = Date.now();
       const last = lastClickRef.current;
-      const dist = Math.sqrt((relativePos.x - last.x) ** 2 + (relativePos.y - last.y) ** 2);
+      const dist = Math.sqrt((clampedPos.x - last.x) ** 2 + (clampedPos.y - last.y) ** 2);
       const timeDiff = now - last.time;
       
       const isDoubleClick = timeDiff < 300 && dist < 20;
       
-      lastClickRef.current = { x: relativePos.x, y: relativePos.y, time: now };
+      lastClickRef.current = { x: clampedPos.x, y: clampedPos.y, time: now };
       
       if (currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
         if (isDoubleClick) {
@@ -398,7 +408,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
           setCurrentShape(null);
           isDrawingRef.current = false;
         } else {
-          const updatedShape = tool.addPoint(currentShape, relativePos);
+          const updatedShape = tool.addPoint(currentShape, clampedPos);
           setCurrentShape(updatedShape);
         }
         return true;
@@ -407,20 +417,21 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
 
     isDrawingRef.current = true;
     
-    const newShape = tool.createShape(relativePos, activeToolStyle);
+    const newShape = tool.createShape(clampedPos, activeToolStyle);
     setCurrentShape(newShape);
     
     return true;
-  }, [activeToolId, activeToolStyle, editingTextIndex, currentShape, shapes, historyStep]);
+  }, [activeToolId, activeToolStyle, editingTextIndex, currentShape, shapes, historyStep, clipBounds]);
 
   const handleMouseMove = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
+    const clampedPos = clampToBounds(relativePos, clipBounds);
     
     if (activeToolId === 'select' && isSelectingRef.current && selectionBox) {
       const startX = selectionBox.x;
       const startY = selectionBox.y;
-      const width = relativePos.x - startX;
-      const height = relativePos.y - startY;
+      const width = clampedPos.x - startX;
+      const height = clampedPos.y - startY;
       
       setSelectionBox({
         x: startX,
@@ -433,7 +444,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     
     if (activeToolId === 'polyline' && currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
       const tool = tools.current[activeToolId];
-      const updatedShape = tool.updateShape(currentShape, relativePos);
+      const updatedShape = tool.updateShape(currentShape, clampedPos);
       setCurrentShape(updatedShape);
       return true;
     }
@@ -443,11 +454,11 @@ export default function useScreenshotEditing(screens = [], stageRef = null) {
     const tool = tools.current[activeToolId];
     if (!tool) return false;
 
-    const updatedShape = tool.updateShape(currentShape, relativePos);
+    const updatedShape = tool.updateShape(currentShape, clampedPos);
     setCurrentShape(updatedShape);
     
     return true;
-  }, [activeToolId, currentShape, selectionBox]);
+  }, [activeToolId, currentShape, selectionBox, clipBounds]);
 
   const handleMouseUp = useCallback(async (e) => {
     if (!activeToolId) return false;
