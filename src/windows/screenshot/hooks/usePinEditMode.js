@@ -56,16 +56,17 @@ export function usePinEditMode() {
     setPinImage(null);
   }, []);
 
-  const calculateSelection = useCallback((data) => {
-    if (!data) return null;
+  const calculateSelection = useCallback((data, image) => {
+    if (!data || !image) return null;
     
-    const dpr = window.devicePixelRatio || 1;
+    const windowDpr = window.devicePixelRatio || 1;
+    const pinScaleFactor = data.scale_factor || 1;
     
     return {
-      x: data.x / dpr,
-      y: data.y / dpr,
-      width: data.width / dpr,
-      height: data.height / dpr,
+      x: data.x / windowDpr,
+      y: data.y / windowDpr,
+      width: data.logical_width * pinScaleFactor / windowDpr,
+      height: data.logical_height * pinScaleFactor / windowDpr,
     };
   }, []);
 

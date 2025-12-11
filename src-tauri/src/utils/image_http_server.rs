@@ -19,10 +19,12 @@ static LONG_SCREENSHOT_PREVIEW: Lazy<Mutex<Option<Vec<u8>>>> =
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct PinEditData {
     pub image_path: String,
-    pub x: i32,
-    pub y: i32,
-    pub width: u32,
-    pub height: u32,
+    pub x: i32,              
+    pub y: i32,              
+    pub width: u32,          
+    pub height: u32,         
+    pub logical_width: u32,  
+    pub logical_height: u32, 
     pub scale_factor: f64,
     pub window_label: String,
     pub window_x: i32,

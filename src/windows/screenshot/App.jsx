@@ -43,8 +43,8 @@ function App() {
   const [ocrResult, setOcrResult] = useState(null);
   const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
 
-  const pinEditSelection = isPinEdit && pinEditMode.pinEditData
-    ? pinEditMode.calculateSelection(pinEditMode.pinEditData)
+  const pinEditSelection = isPinEdit && pinEditMode.pinEditData && pinEditMode.pinImage
+    ? pinEditMode.calculateSelection(pinEditMode.pinEditData, pinEditMode.pinImage)
     : null;
 
   const pinImageAsScreen = useMemo(() => {

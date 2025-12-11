@@ -66,8 +66,8 @@ pub async fn pin_image_from_file(
             .map(|m| m.scale_factor())
             .unwrap_or(1.0);
         
-        let logical_width = (w as f64 / scale_factor) as u32;
-        let logical_height = (h as f64 / scale_factor) as u32;
+        let logical_width = (w as f64 / scale_factor).round() as u32;
+        let logical_height = (h as f64 / scale_factor).round() as u32;
         
         (logical_width, logical_height)
     };
@@ -362,9 +362,13 @@ pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Resul
     let padding_physical = (5.0 * scale_factor).round() as i32;
     let image_x = position.x + padding_physical;
     let image_y = position.y + padding_physical;
+    
     let shadow_padding_physical = (10.0 * scale_factor).round() as u32;
     let image_physical_width = inner_size.width.saturating_sub(shadow_padding_physical);
     let image_physical_height = inner_size.height.saturating_sub(shadow_padding_physical);
+    
+    let logical_width = (image_physical_width as f64 / scale_factor).round() as u32;
+    let logical_height = (image_physical_height as f64 / scale_factor).round() as u32;
 
     let window_x = position.x;
     let window_y = position.y;
@@ -382,6 +386,8 @@ pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Resul
         image_y,
         image_physical_width,
         image_physical_height,
+        logical_width,
+        logical_height,
         scale_factor,
         label,
         window_x,
