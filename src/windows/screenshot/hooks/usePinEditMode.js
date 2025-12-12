@@ -60,13 +60,17 @@ export function usePinEditMode() {
     if (!data || !image) return null;
     
     const windowDpr = window.devicePixelRatio || 1;
-    const pinScaleFactor = data.scale_factor || 1;
+    
+    const imagePhysicalWidth = image.naturalWidth || image.width;
+    const imagePhysicalHeight = image.naturalHeight || image.height;
     
     return {
       x: data.x / windowDpr,
       y: data.y / windowDpr,
-      width: data.logical_width * pinScaleFactor / windowDpr,
-      height: data.logical_height * pinScaleFactor / windowDpr,
+      width: imagePhysicalWidth / windowDpr,
+      height: imagePhysicalHeight / windowDpr,
+      physicalWidth: imagePhysicalWidth,
+      physicalHeight: imagePhysicalHeight,
     };
   }, []);
 

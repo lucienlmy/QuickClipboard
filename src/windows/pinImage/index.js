@@ -108,11 +108,16 @@ import {
             const physicalHeight = img.naturalHeight;
             
             const dpr = window.devicePixelRatio || 1;
-            const logicalWidth = Math.round(physicalWidth / dpr);
-            const logicalHeight = Math.round(physicalHeight / dpr);
+            const textScale = await invoke('get_system_text_scale');
+            const exactWidth = physicalWidth / dpr;
+            const exactHeight = physicalHeight / dpr;
+            const logicalWidth = Math.round(exactWidth);
+            const logicalHeight = Math.round(exactHeight);
             
-            img.width = logicalWidth;
-            img.height = logicalHeight;
+            img.style.width = `${exactWidth}px`;
+            img.style.height = `${exactHeight}px`;
+            img.removeAttribute('width');
+            img.removeAttribute('height');
             
             states.originalImageSize = { width: logicalWidth, height: logicalHeight };
             states.initialSize = { width: logicalWidth, height: logicalHeight };
@@ -120,7 +125,6 @@ import {
             const SHADOW_PADDING = 10;
             if (logicalWidth !== data.width || logicalHeight !== data.height) {
                 const { LogicalSize } = await import('@tauri-apps/api/window');
-                const textScale = await invoke('get_system_text_scale');
                 await currentWindow.setSize(new LogicalSize(
                     (logicalWidth + SHADOW_PADDING) * textScale,
                     (logicalHeight + SHADOW_PADDING) * textScale

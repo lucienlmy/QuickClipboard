@@ -55,6 +55,8 @@ function App() {
       y: pinEditSelection.y,
       width: pinEditSelection.width,
       height: pinEditSelection.height,
+      physicalWidth: pinEditSelection.physicalWidth,
+      physicalHeight: pinEditSelection.physicalHeight,
     };
   }, [isPinEdit, pinEditMode.pinImage, pinEditSelection]);
 

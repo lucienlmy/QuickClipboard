@@ -54,10 +54,11 @@ function WebGLBackgroundLayer({ screens, stageWidth, stageHeight }) {
         position: 'absolute',
         top: 0,
         left: 0,
-        width: stageWidth,
-        height: stageHeight,
+        width: `${stageWidth}px`,
+        height: `${stageHeight}px`,
         pointerEvents: 'none',
         zIndex: -1,
+        imageRendering: 'crisp-edges',
       }}
     />
   );

@@ -47,6 +47,7 @@ pub async fn pin_image_from_file(
     height: Option<u32>,
     preview_mode: Option<bool>,
     from_screenshot: Option<bool>,
+    position_ready: Option<bool>,
 ) -> Result<(), String> {
     let is_preview = preview_mode.unwrap_or(false);
     
@@ -164,7 +165,8 @@ pub async fn pin_image_from_file(
     };
     
     let is_from_screenshot = from_screenshot.unwrap_or(false);
-    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y, is_preview, is_from_screenshot).await?;
+    let is_position_ready = position_ready.unwrap_or(false);
+    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y, is_preview, is_from_screenshot, is_position_ready).await?;
     
     // 预览模式：鼠标穿透
     if is_preview {
@@ -188,6 +190,7 @@ async fn create_pin_image_window(
     y: i32,
     preview_mode: bool,
     from_screenshot: bool,
+    position_ready: bool,
 ) -> Result<WebviewWindow, String> {
     const SHADOW_PADDING: f64 = 10.0;
 
@@ -195,6 +198,8 @@ async fn create_pin_image_window(
     let window_height = height as f64 + SHADOW_PADDING;
 
     let (physical_x, physical_y) = if preview_mode {
+        (x, y)
+    } else if position_ready {
         (x, y)
     } else if from_screenshot {
         let scale_factor = app.available_monitors()
@@ -358,12 +363,13 @@ pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Resul
         .map_err(|e| format!("获取窗口尺寸失败: {}", e))?;
     let scale_factor = window.scale_factor()
         .map_err(|e| format!("获取缩放因子失败: {}", e))?;
+    let text_scale = crate::utils::get_text_scale_factor();
 
-    let padding_physical = (5.0 * scale_factor).round() as i32;
+    let padding_physical = (5.0 * scale_factor * text_scale).round() as i32;
     let image_x = position.x + padding_physical;
     let image_y = position.y + padding_physical;
     
-    let shadow_padding_physical = (10.0 * scale_factor).round() as u32;
+    let shadow_padding_physical = (10.0 * scale_factor * text_scale).round() as u32;
     let image_physical_width = inner_size.width.saturating_sub(shadow_padding_physical);
     let image_physical_height = inner_size.height.saturating_sub(shadow_padding_physical);
     

@@ -26,15 +26,15 @@ export function drawBackgroundFromScreens(ctx, screens, rect, pixelRatio = 1) {
     const scaleX = imgWidth / screen.width;
     const scaleY = imgHeight / screen.height;
     
-    const srcX = Math.floor((intersectX - screen.x) * scaleX);
-    const srcY = Math.floor((intersectY - screen.y) * scaleY);
-    const srcW = Math.floor((intersectX2 - intersectX) * scaleX);
-    const srcH = Math.floor((intersectY2 - intersectY) * scaleY);
+    const srcX = (intersectX - screen.x) * scaleX;
+    const srcY = (intersectY - screen.y) * scaleY;
+    const srcW = (intersectX2 - intersectX) * scaleX;
+    const srcH = (intersectY2 - intersectY) * scaleY;
     
-    const destX = Math.floor((intersectX - safeX) * pixelRatio);
-    const destY = Math.floor((intersectY - safeY) * pixelRatio);
-    const destW = Math.floor((intersectX2 - intersectX) * pixelRatio);
-    const destH = Math.floor((intersectY2 - intersectY) * pixelRatio);
+    const destX = (intersectX - safeX) * pixelRatio;
+    const destY = (intersectY - safeY) * pixelRatio;
+    const destW = (intersectX2 - intersectX) * pixelRatio;
+    const destH = (intersectY2 - intersectY) * pixelRatio;
     
     ctx.drawImage(
       screen.image,

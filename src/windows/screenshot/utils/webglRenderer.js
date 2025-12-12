@@ -101,12 +101,15 @@ export class WebGLRenderer {
     this.width = width;
     this.height = height;
 
-    this.canvas.width = width * pixelRatio;
-    this.canvas.height = height * pixelRatio;
+    const physicalWidth = Math.round(width * pixelRatio);
+    const physicalHeight = Math.round(height * pixelRatio);
+    
+    this.canvas.width = physicalWidth;
+    this.canvas.height = physicalHeight;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
 
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.gl.viewport(0, 0, physicalWidth, physicalHeight);
   }
 
   _cleanupScreens() {
