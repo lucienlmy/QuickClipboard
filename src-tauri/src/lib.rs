@@ -11,6 +11,7 @@ mod windows;
 pub use utils::{mouse, screen};
 pub use services::{AppSettings, get_settings, update_settings, get_data_directory, hotkey, SoundPlayer, AppSounds};
 pub use services::system::input_monitor;
+pub use services::system::focus;
 pub use services::clipboard::{
     start_clipboard_monitor, stop_clipboard_monitor,
     is_monitor_running as is_clipboard_monitor_running,
@@ -274,6 +275,7 @@ pub fn run() {
                 set_clipboard_app_handle(app.handle().clone());
 
                 windows::pin_image_window::init_pin_image_window();
+                focus::start_focus_listener(app.handle().clone());
 
                 if settings.clipboard_monitor {
                     let _ = start_clipboard_monitor();
