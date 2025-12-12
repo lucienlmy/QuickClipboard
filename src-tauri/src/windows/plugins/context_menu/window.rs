@@ -106,12 +106,14 @@ pub async fn show_menu(
     let init_phys_x = cursor_phys_x - 10;
     let init_phys_y = cursor_phys_y - 10;
 
+    let is_tray = options.is_tray_menu;
+    
     let window = if let Some(w) = app.get_webview_window(LABEL) {
         let _ = w.hide();
         let _ = w.set_always_on_top(false);
         let _ = w.set_position(tauri::PhysicalPosition::new(init_phys_x, init_phys_y));
         let _ = w.set_size(LogicalSize::new(width, height));
-        let _ = w.set_focusable(false);
+        let _ = w.set_focusable(is_tray);
         let _ = w.set_ignore_cursor_events(false);
         w
     } else {
@@ -121,7 +123,7 @@ pub async fn show_menu(
             .title("菜单").inner_size(width, height).position(init_logical_x, init_logical_y)
             .resizable(false).maximizable(false).minimizable(false)
             .decorations(false).transparent(true).shadow(false)
-            .always_on_top(true).focused(false).focusable(false).visible(false).skip_taskbar(true)
+            .always_on_top(true).focused(is_tray).focusable(is_tray).visible(false).skip_taskbar(true)
             .build().map_err(|e| format!("创建菜单窗口失败: {}", e))?;
         let _ = w.set_ignore_cursor_events(false);
         let _ = w.set_position(tauri::PhysicalPosition::new(init_phys_x, init_phys_y));
@@ -131,6 +133,9 @@ pub async fn show_menu(
     std::thread::sleep(std::time::Duration::from_millis(100));
     let _ = window.set_always_on_top(true);
     let _ = window.show();
+    if is_tray {
+        let _ = window.set_focus();
+    }
     let _ = window.set_always_on_top(true);
 
     enable_passthrough(window.clone(), session_id);
