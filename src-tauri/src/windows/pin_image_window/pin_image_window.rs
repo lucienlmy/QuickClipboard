@@ -193,9 +193,10 @@ async fn create_pin_image_window(
     position_ready: bool,
 ) -> Result<WebviewWindow, String> {
     const SHADOW_PADDING: f64 = 10.0;
-
-    let window_width = width as f64 + SHADOW_PADDING;
-    let window_height = height as f64 + SHADOW_PADDING;
+    
+    let text_scale = crate::utils::get_text_scale_factor();
+    let window_width = (width as f64 + SHADOW_PADDING) * text_scale;
+    let window_height = (height as f64 + SHADOW_PADDING) * text_scale;
 
     let (physical_x, physical_y) = if preview_mode {
         (x, y)
@@ -242,9 +243,6 @@ async fn create_pin_image_window(
     .visible(false)
     .build()
     .map_err(|e| format!("创建贴图窗口失败: {}", e))?;
-    
-    window.set_size(Size::Logical(LogicalSize::new(window_width, window_height)))
-        .map_err(|e| format!("设置窗口尺寸失败: {}", e))?;
     
     window.set_position(PhysicalPosition::new(physical_x, physical_y))
         .map_err(|e| format!("设置窗口位置失败: {}", e))?;

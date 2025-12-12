@@ -118,6 +118,15 @@ body.thumbnail-mode #pinImage {
     visibility: hidden;
 }
 
+#pinImage {
+    opacity: 0;
+    transition: none;
+}
+
+#pinImage.ready {
+    opacity: 1;
+}
+
 
 .size-indicator {
     position: fixed;

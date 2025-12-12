@@ -101,6 +101,7 @@ import {
             
             if (data.preview_mode) {
                 document.body.classList.add('preview-mode');
+                img.classList.add('ready');
                 return;
             }
             
@@ -128,14 +129,7 @@ import {
             states.originalImageSize = { width: logicalWidth, height: logicalHeight };
             states.initialSize = { width: logicalWidth, height: logicalHeight };
             
-            const SHADOW_PADDING = 10;
-            if (logicalWidth !== data.width || logicalHeight !== data.height) {
-                const { LogicalSize } = await import('@tauri-apps/api/window');
-                await currentWindow.setSize(new LogicalSize(
-                    (logicalWidth + SHADOW_PADDING) * textScale,
-                    (logicalHeight + SHADOW_PADDING) * textScale
-                ));
-            }
+            img.classList.add('ready');
         }
 
         if (savedSettings.alwaysOnTop) {
