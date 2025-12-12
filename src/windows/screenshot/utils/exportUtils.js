@@ -125,38 +125,34 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     const physicalWidth = safeWidth * windowScale;
     const physicalHeight = safeHeight * windowScale;
     
-    let originScreen = screens.find(s => 
-      x1 >= s.x && x1 < s.x + s.width &&
-      y1 >= s.y && y1 < s.y + s.height
-    ) || screens[0];
-    
     const centerX = x + width / 2;
     const centerY = y + height / 2;
     let targetScreen = screens.find(s => 
       centerX >= s.x && centerX < s.x + s.width &&
       centerY >= s.y && centerY < s.y + s.height
-    ) || originScreen;
+    ) || screens[0];
     
     const targetScaleFactor = targetScreen?.scaleFactor || windowScale;
     
     let physicalX, physicalY;
-    if (originScreen) {
-      const scaleX = originScreen.physicalWidth / originScreen.width;
-      const scaleY = originScreen.physicalHeight / originScreen.height;
-      physicalX = originScreen.physicalX + Math.round((x1 - originScreen.x) * scaleX);
-      physicalY = originScreen.physicalY + Math.round((y1 - originScreen.y) * scaleY);
+    if (targetScreen) {
+      const scaleX = targetScreen.physicalWidth / targetScreen.width;
+      const scaleY = targetScreen.physicalHeight / targetScreen.height;
+      physicalX = targetScreen.physicalX + Math.floor((x1 - targetScreen.x) * scaleX);
+      physicalY = targetScreen.physicalY + Math.floor((y1 - targetScreen.y) * scaleY);
     } else {
       const minPhysicalX = screens.length > 0 ? Math.min(...screens.map(s => s.physicalX)) : 0;
       const minPhysicalY = screens.length > 0 ? Math.min(...screens.map(s => s.physicalY)) : 0;
-      physicalX = Math.round(x1 * windowScale + minPhysicalX);
-      physicalY = Math.round(y1 * windowScale + minPhysicalY);
+      physicalX = Math.floor(x1 * windowScale + minPhysicalX);
+      physicalY = Math.floor(y1 * windowScale + minPhysicalY);
     }
     
     const logicalWidth = Math.round(physicalWidth / targetScaleFactor);
     const logicalHeight = Math.round(physicalHeight / targetScaleFactor);
     
     const textScale = await invoke('get_system_text_scale');
-    const paddingPhysical = Math.round(5 * targetScaleFactor * textScale);
+    const targetDpr = targetScaleFactor * textScale;
+    const paddingPhysical = Math.round(5 * targetDpr);
     const windowX = physicalX - paddingPhysical;
     const windowY = physicalY - paddingPhysical;
     

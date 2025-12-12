@@ -3,14 +3,25 @@ export function drawBackgroundFromScreens(ctx, screens, rect, pixelRatio = 1) {
   if (!screens || screens.length === 0) return;
 
   const { x: safeX, y: safeY, width: safeWidth, height: safeHeight } = rect;
+  const selX2 = safeX + safeWidth;
+  const selY2 = safeY + safeHeight;
+  
+  let intersectingScreens = 0;
+  for (const screen of screens) {
+    if (!screen.image) continue;
+    const screenX2 = screen.x + screen.width;
+    const screenY2 = screen.y + screen.height;
+    if (!(safeX >= screenX2 || selX2 <= screen.x || safeY >= screenY2 || selY2 <= screen.y)) {
+      intersectingScreens++;
+    }
+  }
+  const isCrossScreen = intersectingScreens > 1;
 
   for (const screen of screens) {
     if (!screen.image) continue;
     
     const screenX2 = screen.x + screen.width;
     const screenY2 = screen.y + screen.height;
-    const selX2 = safeX + safeWidth;
-    const selY2 = safeY + safeHeight;
     
     if (safeX >= screenX2 || selX2 <= screen.x || safeY >= screenY2 || selY2 <= screen.y) {
       continue;
@@ -26,15 +37,29 @@ export function drawBackgroundFromScreens(ctx, screens, rect, pixelRatio = 1) {
     const scaleX = imgWidth / screen.width;
     const scaleY = imgHeight / screen.height;
     
-    const srcX = (intersectX - screen.x) * scaleX;
-    const srcY = (intersectY - screen.y) * scaleY;
-    const srcW = (intersectX2 - intersectX) * scaleX;
-    const srcH = (intersectY2 - intersectY) * scaleY;
+    let srcX, srcY, srcW, srcH, destX, destY, destW, destH;
     
-    const destX = (intersectX - safeX) * pixelRatio;
-    const destY = (intersectY - safeY) * pixelRatio;
-    const destW = (intersectX2 - intersectX) * pixelRatio;
-    const destH = (intersectY2 - intersectY) * pixelRatio;
+    if (isCrossScreen) {
+      srcX = (intersectX - screen.x) * scaleX;
+      srcY = (intersectY - screen.y) * scaleY;
+      srcW = (intersectX2 - intersectX) * scaleX;
+      srcH = (intersectY2 - intersectY) * scaleY;
+      
+      destX = (intersectX - safeX) * pixelRatio;
+      destY = (intersectY - safeY) * pixelRatio;
+      destW = (intersectX2 - intersectX) * pixelRatio;
+      destH = (intersectY2 - intersectY) * pixelRatio;
+    } else {
+      srcX = Math.floor((intersectX - screen.x) * scaleX);
+      srcY = Math.floor((intersectY - screen.y) * scaleY);
+      srcW = Math.floor((intersectX2 - intersectX) * scaleX);
+      srcH = Math.floor((intersectY2 - intersectY) * scaleY);
+      
+      destX = Math.floor((intersectX - safeX) * pixelRatio);
+      destY = Math.floor((intersectY - safeY) * pixelRatio);
+      destW = Math.floor((intersectX2 - intersectX) * pixelRatio);
+      destH = Math.floor((intersectY2 - intersectY) * pixelRatio);
+    }
     
     ctx.drawImage(
       screen.image,

@@ -119,6 +119,12 @@ import {
             img.removeAttribute('width');
             img.removeAttribute('height');
             
+            const paddingPhysical = Math.round(5 * dpr);
+            const paddingCss = paddingPhysical / dpr;
+            const imageClip = document.querySelector('.image-clip');
+            imageClip.style.top = `${paddingCss}px`;
+            imageClip.style.left = `${paddingCss}px`;
+            
             states.originalImageSize = { width: logicalWidth, height: logicalHeight };
             states.initialSize = { width: logicalWidth, height: logicalHeight };
             
