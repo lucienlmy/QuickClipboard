@@ -119,8 +119,8 @@ export function setupWheel(img, sizeIndicator, window, state) {
             } else {
                 const { width, height } = await handleWindowResize(e.deltaY, e.shiftKey, window, state);
                 if (width && height) {
-                    img.width = Math.round(width);
-                    img.height = Math.round(height);
+                    img.style.width = `${width}px`;
+                    img.style.height = `${height}px`;
                 }
                 showSizeIndicator(sizeIndicator, width, height, state.scaleLevel, false, e.clientX, e.clientY);
 

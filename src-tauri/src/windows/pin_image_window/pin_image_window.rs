@@ -194,9 +194,8 @@ async fn create_pin_image_window(
 ) -> Result<WebviewWindow, String> {
     const SHADOW_PADDING: f64 = 10.0;
     
-    let text_scale = crate::utils::get_text_scale_factor();
-    let window_width = (width as f64 + SHADOW_PADDING) * text_scale;
-    let window_height = (height as f64 + SHADOW_PADDING) * text_scale;
+    let window_width = width as f64 + SHADOW_PADDING;
+    let window_height = height as f64 + SHADOW_PADDING;
 
     let (physical_x, physical_y) = if preview_mode {
         (x, y)
@@ -343,7 +342,14 @@ pub fn close_pin_image_window_by_self(window: WebviewWindow) -> Result<(), Strin
 
 // 启动贴图编辑模式
 #[tauri::command]
-pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+pub async fn start_pin_edit_mode(
+    app: AppHandle,
+    window: WebviewWindow,
+    img_offset_x_physical: i32,
+    img_offset_y_physical: i32,
+    img_width_physical: u32,
+    img_height_physical: u32,
+) -> Result<(), String> {
     let file_path = if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
         let map = data_map.lock().unwrap();
         if let Some(data) = map.get(window.label()) {
@@ -361,15 +367,10 @@ pub async fn start_pin_edit_mode(app: AppHandle, window: WebviewWindow) -> Resul
         .map_err(|e| format!("获取窗口尺寸失败: {}", e))?;
     let scale_factor = window.scale_factor()
         .map_err(|e| format!("获取缩放因子失败: {}", e))?;
-    let text_scale = crate::utils::get_text_scale_factor();
-
-    let padding_physical = (5.0 * scale_factor * text_scale).round() as i32;
-    let image_x = position.x + padding_physical;
-    let image_y = position.y + padding_physical;
-    
-    let shadow_padding_physical = (10.0 * scale_factor * text_scale).round() as u32;
-    let image_physical_width = inner_size.width.saturating_sub(shadow_padding_physical);
-    let image_physical_height = inner_size.height.saturating_sub(shadow_padding_physical);
+    let image_x = position.x + img_offset_x_physical;
+    let image_y = position.y + img_offset_y_physical;
+    let image_physical_width = img_width_physical;
+    let image_physical_height = img_height_physical;
     
     let logical_width = (image_physical_width as f64 / scale_factor).round() as u32;
     let logical_height = (image_physical_height as f64 / scale_factor).round() as u32;

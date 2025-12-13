@@ -61,8 +61,8 @@ export function usePinEditMode() {
     
     const windowDpr = window.devicePixelRatio || 1;
     
-    const imagePhysicalWidth = image.naturalWidth || image.width;
-    const imagePhysicalHeight = image.naturalHeight || image.height;
+    const imagePhysicalWidth = data.width;
+    const imagePhysicalHeight = data.height;
     
     return {
       x: data.x / windowDpr,
@@ -71,6 +71,7 @@ export function usePinEditMode() {
       height: imagePhysicalHeight / windowDpr,
       physicalWidth: imagePhysicalWidth,
       physicalHeight: imagePhysicalHeight,
+      scaleFactor: data.scale_factor || 1,
     };
   }, []);
 
