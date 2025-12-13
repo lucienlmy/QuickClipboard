@@ -33,10 +33,14 @@ pub struct ProcessedContent {
     pub html_content: Option<String>, 
     pub content_type: String,         
     pub image_id: Option<String>,
+    pub source_app: Option<String>,      
+    pub source_icon_hash: Option<String>,
 }
 
 // 处理剪贴板内容，将原始数据转换为可存储的格式
 pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, String> {
+    let (source_app, source_icon_hash) = get_source_info();
+    
     match content.content_type {
         // 纯文本处理
         CaptureType::Text => {
@@ -55,6 +59,8 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 html_content: None,
                 content_type: ct.to_db_string(),
                 image_id: None,
+                source_app,
+                source_icon_hash,
             })
         }
         
@@ -79,6 +85,8 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                     html_content: Some(processed_html),
                     content_type: ct.to_db_string(),
                     image_id,
+                    source_app,
+                    source_icon_hash,
                 })
             }
         
@@ -112,8 +120,34 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 html_content: None,
                 content_type: ct.to_db_string(),
                 image_id,
+                source_app,
+                source_icon_hash,
             })
         }
+    }
+}
+
+// 获取剪贴板来源信息
+fn get_source_info() -> (Option<String>, Option<String>) {
+    #[cfg(target_os = "windows")]
+    {
+        let source = crate::services::system::get_clipboard_source();
+        if source.process_name.is_empty() {
+            return (None, None);
+        }
+
+        let icon_hash = if !source.process_path.is_empty() {
+            crate::utils::icon::save_app_icon(&source.process_path)
+        } else {
+            None
+        };
+        
+        (Some(source.process_name), icon_hash)
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        (None, None)
     }
 }
 

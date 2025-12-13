@@ -150,6 +150,34 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         ).map_err(|e| format!("添加收藏粘贴次数字段失败: {}", e))?;
     }
 
+    let source_app_exists = conn
+        .prepare("PRAGMA table_info(clipboard)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "source_app"))
+        })
+        .unwrap_or(false);
+    
+    if !source_app_exists {
+        conn.execute("ALTER TABLE clipboard ADD COLUMN source_app TEXT", [])
+            .map_err(|e| format!("添加来源应用字段失败: {}", e))?;
+    }
+
+    let source_icon_hash_exists = conn
+        .prepare("PRAGMA table_info(clipboard)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "source_icon_hash"))
+        })
+        .unwrap_or(false);
+    
+    if !source_icon_hash_exists {
+        conn.execute("ALTER TABLE clipboard ADD COLUMN source_icon_hash TEXT", [])
+            .map_err(|e| format!("添加来源图标哈希字段失败: {}", e))?;
+    }
+
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_clipboard_order_updated ON clipboard(item_order DESC, updated_at DESC)",
         [],

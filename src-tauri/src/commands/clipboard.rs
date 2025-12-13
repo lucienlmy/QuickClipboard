@@ -191,6 +191,8 @@ pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), S
             item_order: favorite.item_order,
             is_pinned: false,
             paste_count: 0,
+            source_app: None,
+            source_icon_hash: None,
             created_at: favorite.created_at,
             updated_at: favorite.updated_at,
         };

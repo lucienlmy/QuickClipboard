@@ -1,5 +1,5 @@
-import { useRef, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteClipboardItem, clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
@@ -12,6 +12,8 @@ import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
+import { useSnapshot } from 'valtio';
+import { settingsStore } from '@shared/store/settingsStore';
 
 const closeImagePreview = (previewTimerRef) => {
   if (previewTimerRef.current) {
@@ -33,6 +35,8 @@ function ClipboardItem({
   const {
     t
   } = useTranslation();
+  const { theme, systemIsDark } = useSnapshot(settingsStore);
+  const isDark = theme === 'dark' || (theme === 'auto' && systemIsDark);
   const isPasted = item.paste_count > 0;
   const {
     settings,
@@ -45,6 +49,24 @@ function ClipboardItem({
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const previewTimerRef = useRef(null);
+  
+  const [sourceIconUrl, setSourceIconUrl] = useState(null);
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
+  
+  useEffect(() => {
+    if (item.source_icon_hash) {
+      setIconLoadFailed(false);
+      invoke('get_data_directory').then(dataDir => {
+        const iconPath = `${dataDir}/app_icons/${item.source_icon_hash}.png`;
+        setSourceIconUrl(convertFileSrc(iconPath, 'asset'));
+      }).catch(() => {
+        setIconLoadFailed(true);
+      });
+    } else {
+      setSourceIconUrl(null);
+      setIconLoadFailed(false);
+    }
+  }, [item.source_icon_hash]);
 
   const hasFileMissing = (() => {
     if (!isFileType && !isImageType) return false;
@@ -274,6 +296,15 @@ function ClipboardItem({
     font-semibold
   `.trim().replace(/\s+/g, ' ');
 
+  const iconBadgeClasses = `
+    relative flex items-center justify-center
+    w-5 h-5
+    rounded-md overflow-hidden
+    border border-gray-200 dark:border-gray-600
+    bg-white/60 dark:bg-gray-900/60
+    backdrop-blur-md
+  `.trim().replace(/\s+/g, ' ');
+
   // 快捷键样式
   const shortcutClasses = `
     flex items-center justify-center
@@ -340,9 +371,30 @@ function ClipboardItem({
             {getShortcut()}
           </span>}
         {/* 序号 */}
-        <span className={`${numberBadgeClasses} pointer-events-none`}>
-          {index + 1}
-        </span>
+        {sourceIconUrl && !iconLoadFailed ? (
+          <span className={`${iconBadgeClasses} pointer-events-none`} title={item.source_app || ''}>
+            <img 
+              src={sourceIconUrl} 
+              alt="" 
+              className="w-full h-full object-cover"
+              onError={() => setIconLoadFailed(true)}
+            />
+            <span 
+              className="absolute inset-0 flex items-center justify-center text-xs font-bold"
+              style={{ 
+                color: !isDark ? '#fff' : '#000',
+                WebkitTextStroke: !isDark ? '2px #000' : '2px #fff',
+                paintOrder: 'stroke fill'
+              }}
+            >
+              {index + 1}
+            </span>
+          </span>
+        ) : (
+          <span className={`${numberBadgeClasses} pointer-events-none`}>
+            {index + 1}
+          </span>
+        )}
       </div>
 
       {isSmallHeight ?

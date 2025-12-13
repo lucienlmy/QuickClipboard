@@ -115,6 +115,7 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
 fn backup_full_zip(dir: &Path) -> Result<Option<PathBuf>, String> {
     let db = dir.join("quickclipboard.db");
     let images_dir = dir.join("clipboard_images");
+    let app_icons_dir = dir.join("app_icons");
     if !db.exists() && !images_dir.exists() { return Ok(None); }
     
     let backups = dir.join("backups");
@@ -140,6 +141,20 @@ fn backup_full_zip(dir: &Path) -> Result<Option<PathBuf>, String> {
             if path.is_file() {
                 if let Some(fname) = path.file_name().and_then(|s| s.to_str()) {
                     let zip_path = format!("clipboard_images/{}", fname);
+                    let mut f = fs::File::open(&path).map_err(|e| e.to_string())?;
+                    zip.start_file(&zip_path, options).map_err(|e| e.to_string())?;
+                    std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+    }
+
+    if app_icons_dir.exists() {
+        for entry in fs::read_dir(&app_icons_dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(fname) = path.file_name().and_then(|s| s.to_str()) {
+                    let zip_path = format!("app_icons/{}", fname);
                     let mut f = fs::File::open(&path).map_err(|e| e.to_string())?;
                     zip.start_file(&zip_path, options).map_err(|e| e.to_string())?;
                     std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
@@ -234,6 +249,8 @@ pub fn reset_all_data() -> Result<String, String> {
         if images.exists() { let _ = fs::remove_dir_all(&images); }
         let image_library = dir.join("image_library");
         if image_library.exists() { let _ = fs::remove_dir_all(&image_library); }
+        let app_icons = dir.join("app_icons");
+        if app_icons.exists() { let _ = fs::remove_dir_all(&app_icons); }
         for name in ["quickclipboard.db", "quickclipboard.db-shm", "quickclipboard.db-wal"] {
             let p = dir.join(name);
             if p.exists() { let _ = fs::remove_file(&p); }
@@ -286,6 +303,7 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
     let imported_db = temp_root.join("quickclipboard.db");
     let imported_images = temp_root.join("clipboard_images");
     let imported_image_library = temp_root.join("image_library");
+    let imported_app_icons = temp_root.join("app_icons");
     let imported_settings = temp_root.join("settings.json");
 
     match mode {
@@ -331,6 +349,9 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             let target_image_library = target_dir.join("image_library");
             if target_image_library.exists() { fs::remove_dir_all(&target_image_library).map_err(|e| e.to_string())?; }
             if imported_image_library.exists() { copy_dir_all(&imported_image_library, &target_image_library)?; }
+            let target_app_icons = target_dir.join("app_icons");
+            if target_app_icons.exists() { fs::remove_dir_all(&target_app_icons).map_err(|e| e.to_string())?; }
+            if imported_app_icons.exists() { copy_dir_all(&imported_app_icons, &target_app_icons)?; }
 
             let src_db = temp_root.join("quickclipboard.db");
             let dst_db = target_dir.join("quickclipboard.db");
@@ -367,6 +388,12 @@ pub fn import_data_zip(zip_path: PathBuf, mode: &str) -> Result<String, String> 
             if imported_image_library.exists() {
                 if !target_image_library.exists() { fs::create_dir_all(&target_image_library).map_err(|e| e.to_string())?; }
                 merge_dir_overwrite(&imported_image_library, &target_image_library)?;
+            }
+
+            let target_app_icons = current_dir.join("app_icons");
+            if imported_app_icons.exists() {
+                if !target_app_icons.exists() { fs::create_dir_all(&target_app_icons).map_err(|e| e.to_string())?; }
+                merge_dir_overwrite(&imported_app_icons, &target_app_icons)?;
             }
 
             if imported_db.exists() {
@@ -554,6 +581,8 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
     let dst_pin_images = dst_dir.join("pin_images");
     let src_image_library = src_dir.join("image_library");
     let dst_image_library = dst_dir.join("image_library");
+    let src_app_icons = src_dir.join("app_icons");
+    let dst_app_icons = dst_dir.join("app_icons");
     let src_db = src_dir.join("quickclipboard.db");
     let dst_db = dst_dir.join("quickclipboard.db");
 
@@ -568,6 +597,9 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
             if dst_image_library.exists() {
                 fs::remove_dir_all(&dst_image_library).map_err(|e| format!("删除目标图库目录失败: {}", e))?;
             }
+            if dst_app_icons.exists() {
+                fs::remove_dir_all(&dst_app_icons).map_err(|e| format!("删除目标图标目录失败: {}", e))?;
+            }
             if dst_db.exists() {
                 fs::remove_file(&dst_db).map_err(|e| format!("删除目标数据库失败: {}", e))?;
             }
@@ -579,6 +611,9 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
             }
             if src_image_library.exists() {
                 safe_move_item(&src_image_library, &dst_image_library)?;
+            }
+            if src_app_icons.exists() {
+                safe_move_item(&src_app_icons, &dst_app_icons)?;
             }
             if src_db.exists() {
                 safe_move_item(&src_db, &dst_db)?;
@@ -593,6 +628,9 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
             }
             if src_image_library.exists() {
                 fs::remove_dir_all(&src_image_library).map_err(|e| format!("删除源图库目录失败: {}", e))?;
+            }
+            if src_app_icons.exists() {
+                fs::remove_dir_all(&src_app_icons).map_err(|e| format!("删除源图标目录失败: {}", e))?;
             }
             if src_db.exists() {
                 fs::remove_file(&src_db).map_err(|e| format!("删除源数据库失败: {}", e))?;
@@ -617,6 +655,12 @@ fn change_storage_dir_internal(src_dir: &Path, dst_dir: &Path, mode: &str) -> Re
                 if dst_image_library.exists() { merge_dir_no_overwrite(&dst_image_library, &src_image_library)?; }
                 if dst_image_library.exists() { fs::remove_dir_all(&dst_image_library).map_err(|e| format!("删除目标图库目录失败: {}", e))?; }
                 safe_move_item(&src_image_library, &dst_image_library)?;
+            }
+            if src_app_icons.exists() {
+                if !dst_app_icons.exists() { fs::create_dir_all(&dst_app_icons).map_err(|e| e.to_string())?; }
+                if dst_app_icons.exists() { merge_dir_no_overwrite(&dst_app_icons, &src_app_icons)?; }
+                if dst_app_icons.exists() { fs::remove_dir_all(&dst_app_icons).map_err(|e| format!("删除目标图标目录失败: {}", e))?; }
+                safe_move_item(&src_app_icons, &dst_app_icons)?;
             }
             if src_db.exists() {
                 if dst_db.exists() {
@@ -652,6 +696,7 @@ pub fn export_data_zip(target_path: PathBuf) -> Result<PathBuf, String> {
 
     let images_dir = current_dir.join("clipboard_images");
     let image_library_dir = current_dir.join("image_library");
+    let app_icons_dir = current_dir.join("app_icons");
     let db_files = [
         "quickclipboard.db",
     ];
@@ -697,6 +742,10 @@ pub fn export_data_zip(target_path: PathBuf) -> Result<PathBuf, String> {
 
     if image_library_dir.exists() {
         add_dir_to_zip(&image_library_dir, &image_library_dir, "image_library", &mut zip, options)?;
+    }
+
+    if app_icons_dir.exists() {
+        add_dir_to_zip(&app_icons_dir, &app_icons_dir, "app_icons", &mut zip, options)?;
     }
 
     if settings_path.exists() {

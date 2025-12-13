@@ -1,6 +1,7 @@
 use file_icon_provider::get_file_icon;
 use image::{RgbaImage, ImageFormat};
 use std::io::Cursor;
+use sha2::{Sha256, Digest};
 
 // 获取文件图标并转换为 Base64 Data URL
 pub fn get_file_icon_base64(path: &str) -> Option<String> {
@@ -61,4 +62,48 @@ fn read_image_thumbnail(path: &str, size: u32) -> Result<String, String> {
     
     let base64_str = general_purpose::STANDARD.encode(&png_data);
     Ok(format!("data:image/png;base64,{}", base64_str))
+}
+
+// 计算图标哈希
+fn calculate_icon_hash(data: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let hash = format!("{:x}", hasher.finalize());
+    hash[..16].to_string()
+}
+
+// 保存应用图标到 app_icons 目录
+pub fn save_app_icon(exe_path: &str) -> Option<String> {
+    let icon = match get_file_icon(exe_path, 32) {
+        Ok(icon) => icon,
+        Err(_) => return None,
+    };
+    
+    let png_data = match icon_to_png(&icon) {
+        Ok(data) => data,
+        Err(_) => return None,
+    };
+
+    let hash = calculate_icon_hash(&png_data);
+
+    let data_dir = match crate::services::get_data_directory() {
+        Ok(dir) => dir,
+        Err(_) => return None,
+    };
+
+    let icons_dir = data_dir.join("app_icons");
+    if !icons_dir.exists() {
+        if std::fs::create_dir_all(&icons_dir).is_err() {
+            return None;
+        }
+    }
+
+    let icon_path = icons_dir.join(format!("{}.png", hash));
+    if !icon_path.exists() {
+        if std::fs::write(&icon_path, &png_data).is_err() {
+            return None;
+        }
+    }
+    
+    Some(hash)
 }

@@ -32,14 +32,16 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
         let new_order = max_order + 1;
         
         conn.execute(
-            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, source_app, source_icon_hash, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 content.content,
                 content.html_content,
                 content.content_type,
                 content.image_id,
                 new_order,
+                content.source_app,
+                content.source_icon_hash,
                 now,
                 now
             ],
