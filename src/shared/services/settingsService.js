@@ -65,6 +65,7 @@ export const defaultSettings = {
   pasteWithFormat: true,
   pasteToTop: false,
   showBadges: true,
+  showSourceIcon: true,
   
   // 音效设置
   soundEnabled: true,

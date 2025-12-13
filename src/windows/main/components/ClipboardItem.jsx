@@ -371,7 +371,7 @@ function ClipboardItem({
             {getShortcut()}
           </span>}
         {/* 序号 */}
-        {sourceIconUrl && !iconLoadFailed ? (
+        {settings.showSourceIcon !== false && sourceIconUrl && !iconLoadFailed ? (
           <span className={`${iconBadgeClasses} pointer-events-none`} title={item.source_app || ''}>
             <img 
               src={sourceIconUrl} 

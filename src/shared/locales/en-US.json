@@ -350,6 +350,8 @@
       "pasteToTopDesc": "After pasting, move the item to the top of the clipboard list",
       "showBadges": "Show Status Badges",
       "showBadgesDesc": "Show badges in top-left corner for pasted, pinned, or missing file status",
+      "showSourceIcon": "Show Source Icon",
+      "showSourceIconDesc": "Display the source application icon at the index position",
       "contentFilterTitle": "Content Filter",
       "contentFilterDesc": "Filter specific types or formats of clipboard content",
       "ignoreEmpty": "Ignore Empty Content",

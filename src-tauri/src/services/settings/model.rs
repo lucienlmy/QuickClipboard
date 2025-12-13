@@ -101,6 +101,7 @@ pub struct AppSettings {
     
     pub paste_to_top: bool,
     pub show_badges: bool,
+    pub show_source_icon: bool,
 
     // 快捷键设置
     pub hotkeys_enabled: bool,
@@ -209,6 +210,7 @@ impl Default for AppSettings {
             paste_with_format: true,
             paste_to_top: false,
             show_badges: true,
+            show_source_icon: true,
 
             hotkeys_enabled: true,
             navigate_up_shortcut: "ArrowUp".to_string(),

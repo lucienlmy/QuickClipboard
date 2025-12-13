@@ -85,6 +85,10 @@ function ClipboardSection({
         <SettingItem label={t('settings.clipboard.showBadges')} description={t('settings.clipboard.showBadgesDesc')}>
           <Toggle checked={settings.showBadges !== false} onChange={checked => onSettingChange('showBadges', checked)} />
         </SettingItem>
+
+        <SettingItem label={t('settings.clipboard.showSourceIcon')} description={t('settings.clipboard.showSourceIconDesc')}>
+          <Toggle checked={settings.showSourceIcon !== false} onChange={checked => onSettingChange('showSourceIcon', checked)} />
+        </SettingItem>
       </SettingsSection>
     </>;
 }
