@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use once_cell::sync::OnceCell;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, Size, LogicalSize, PhysicalPosition, PhysicalSize};
+use tauri::{AppHandle, Listener, Manager, WebviewWindow, WebviewWindowBuilder, Size, LogicalSize, PhysicalPosition, PhysicalSize};
 
 static PIN_IMAGE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PIN_IMAGE_DATA_MAP: OnceCell<Mutex<HashMap<String, PinImageData>>> = OnceCell::new();
@@ -381,8 +381,13 @@ pub async fn start_pin_edit_mode(
     let window_height = inner_size.height as f64 / scale_factor;
 
     let label = window.label().to_string();
-    let _ = window.set_size(Size::Logical(LogicalSize::new(1.0, 1.0)));
-    let _ = window.hide();
+    let window_clone = window.clone();
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    let _unlisten = app.once("pin-edit-ready", move |_| {
+        let _ = window_clone.set_size(Size::Logical(LogicalSize::new(1.0, 1.0)));
+        let _ = window_clone.hide();
+        let _ = tx.send(());
+    });
 
     crate::windows::screenshot_window::start_pin_edit_mode(
         &app,
@@ -400,6 +405,7 @@ pub async fn start_pin_edit_mode(
         window_width,
         window_height,
     )?;
+    let _ = rx.recv_timeout(Duration::from_secs(1));
 
     Ok(())
 }

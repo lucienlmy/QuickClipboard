@@ -43,9 +43,10 @@ function App() {
   const [ocrResult, setOcrResult] = useState(null);
   const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
 
-  const pinEditSelection = isPinEdit && pinEditMode.pinEditData && pinEditMode.pinImage
-    ? pinEditMode.calculateSelection(pinEditMode.pinEditData, pinEditMode.pinImage)
-    : null;
+  const pinEditSelection = useMemo(() => {
+    if (!isPinEdit || !pinEditMode.pinEditData || !pinEditMode.pinImage) return null;
+    return pinEditMode.calculateSelection(pinEditMode.pinEditData, pinEditMode.pinImage);
+  }, [isPinEdit, pinEditMode.pinEditData, pinEditMode.pinImage, pinEditMode.calculateSelection]);
 
   const pinImageAsScreen = useMemo(() => {
     if (!isPinEdit || !pinEditMode.pinImage || !pinEditSelection) return null;
@@ -60,8 +61,24 @@ function App() {
     };
   }, [isPinEdit, pinEditMode.pinImage, pinEditSelection]);
 
-  const effectiveScreens = isPinEdit && pinImageAsScreen ? [pinImageAsScreen] : screens;
-  const stageSize = isPinEdit ? { width: window.innerWidth, height: window.innerHeight } : screenshotStageSize;
+  const effectiveScreens = useMemo(() => {
+    return isPinEdit && pinImageAsScreen ? [pinImageAsScreen] : screens;
+  }, [isPinEdit, pinImageAsScreen, screens]);
+
+  const stageSize = useMemo(() => {
+    if (isPinEdit && pinEditMode.screenInfos?.length) {
+      const dpr = window.devicePixelRatio || 1;
+      const logicalScreens = pinEditMode.screenInfos.map(([px, py, pw, ph]) => ({
+        x: px / dpr, y: py / dpr, width: pw / dpr, height: ph / dpr,
+      }));
+      const minX = Math.min(...logicalScreens.map(s => s.x));
+      const minY = Math.min(...logicalScreens.map(s => s.y));
+      const maxX = Math.max(...logicalScreens.map(s => s.x + s.width));
+      const maxY = Math.max(...logicalScreens.map(s => s.y + s.height));
+      return { width: maxX - minX, height: maxY - minY };
+    }
+    return screenshotStageSize;
+  }, [isPinEdit, pinEditMode.screenInfos, screenshotStageSize]);
 
   const pinEditStageRegionManager = useMemo(() => {
     if (!isPinEdit || !pinEditMode.screenInfos?.length) return null;

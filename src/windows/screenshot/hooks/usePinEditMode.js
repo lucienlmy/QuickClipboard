@@ -154,6 +154,9 @@ export function usePinEditMode() {
             setPinImage(image);
             setScreenInfos(screens);
             setIsPinEditMode(true);
+            const { emit } = await import('@tauri-apps/api/event');
+            await new Promise(r => setTimeout(r, 50));
+            await emit('pin-edit-ready');
           }
         }
       } catch (error) {
