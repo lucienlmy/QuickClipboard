@@ -76,6 +76,12 @@ function App() {
   const stageRegionManager = isPinEdit ? pinEditStageRegionManager : screenshotStageRegionManager;
 
   const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager);
+  
+  const initializePositionRef = useRef(initializePosition);
+  useEffect(() => {
+    initializePositionRef.current = initializePosition;
+  }, [initializePosition]);
+  
   const session = useScreenshotSession(stageRef, stageRegionManager, { screens });
   const longScreenshot = useLongScreenshot(session.selection, screens, stageRegionManager);
   const editing = useScreenshotEditing(effectiveScreens, stageRef, {
@@ -241,7 +247,7 @@ function App() {
         const stage = stageRef.current;
         const pos = stage?.getPointerPosition?.();
         if (pos) {
-          initializePosition(pos);
+          initializePositionRef.current?.(pos);
           setTimeout(() => magnifierUpdateRef.current?.(pos), 50);
         }
       }, 0);
@@ -256,7 +262,7 @@ function App() {
       }
     })();
     return () => unlisten?.();
-  }, [reloadFromLastCapture, isPinEdit, pinEditMode.isChecking, initializePosition]);
+  }, [reloadFromLastCapture, isPinEdit, pinEditMode.isChecking]);
 
   // 贴图编辑模式穿透控制
   useEffect(() => {
