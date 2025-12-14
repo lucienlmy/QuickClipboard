@@ -103,8 +103,8 @@ pub async fn show_menu(
 
     let (width, height) = (300.0, 400.0);
     
-    let init_phys_x = cursor_phys_x - 10;
-    let init_phys_y = cursor_phys_y - 10;
+    let init_phys_x = monitor_phys_x as i32;
+    let init_phys_y = monitor_phys_y as i32;
 
     let is_tray = options.is_tray_menu;
     

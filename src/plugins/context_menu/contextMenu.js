@@ -59,11 +59,14 @@ async function resizeWindowToFitMenu() {
         maxY = Math.max(maxY, rect.bottom);
     });
 
+    const windowPhysX = monitorInfo.x + windowOrigin.x * scaleFactor;
+    const windowPhysY = monitorInfo.y + windowOrigin.y * scaleFactor;
+
     await invoke('resize_context_menu', {
         width: Math.ceil(maxX + padding),
         height: Math.ceil(maxY + padding),
-        x: monitorInfo.x + windowOrigin.x * scaleFactor,
-        y: monitorInfo.y + windowOrigin.y * scaleFactor
+        x: windowPhysX,
+        y: windowPhysY
     }).catch(() => {});
 }
 
