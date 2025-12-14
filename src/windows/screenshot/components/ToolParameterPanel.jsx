@@ -151,29 +151,41 @@ export default function ToolParameterPanel({
     }
   }, [effectiveParameters, values, activeTool?.id]);
 
+  const getScreenBoundsForPosition = useCallback((x, y) => {
+    const screen = stageRegionManager?.getNearestScreen(x, y);
+    if (screen) {
+      return {
+        left: screen.x,
+        right: screen.x + screen.width,
+        top: screen.y,
+        bottom: screen.y + screen.height,
+      };
+    }
+    return {
+      left: 0,
+      right: window.innerWidth || 1920,
+      top: 0,
+      bottom: window.innerHeight || 1080,
+    };
+  }, [stageRegionManager]);
+
   useEffect(() => {
     if (!selection || !activeTool || !panelSize) return;
-    if (lockedPosition) return;
 
     const padding = 12;
     const centerX = selection.x + selection.width / 2;
     const centerY = selection.y + selection.height / 2;
-    const screen = stageRegionManager?.getNearestScreen(centerX, centerY);
-    const screenBounds = screen || {
-      x: 0,
-      y: 0,
-      width: window.innerWidth || 1920,
-      height: window.innerHeight || 1080,
-    };
+    
+    const within = getScreenBoundsForPosition(centerX, centerY);
 
-    const within = {
-      left: screenBounds.x,
-      right: screenBounds.x + screenBounds.width,
-      top: screenBounds.y,
-      bottom: screenBounds.y + screenBounds.height,
-    };
+    if (lockedPosition) {
+      const lockedWithin = getScreenBoundsForPosition(lockedPosition.x + panelSize.width / 2, lockedPosition.y);
+      const availableHeight = lockedWithin.bottom - lockedPosition.y;
+      setMaxPanelHeight(Math.max(200, availableHeight));
+      return;
+    }
 
-    const maxAvailableHeight = screenBounds.height - 40;
+    const maxAvailableHeight = (within.bottom - within.top) - 40;
     const effectivePanelHeight = Math.min(panelSize.height, maxAvailableHeight);
 
     const attemptPositions = [
@@ -225,9 +237,10 @@ export default function ToolParameterPanel({
 
     setPosition({ x, y });
 
-    const availableHeight = within.bottom - y - 20;
+    const finalWithin = getScreenBoundsForPosition(x + panelSize.width / 2, y);
+    const availableHeight = finalWithin.bottom - y;
     setMaxPanelHeight(Math.max(200, availableHeight));
-  }, [selection, activeTool, panelSize, stageRegionManager, lockedPosition]);
+  }, [selection, activeTool, panelSize, stageRegionManager, lockedPosition, getScreenBoundsForPosition]);
 
   const handleDragMove = useCallback((event) => {
     if (!dragStateRef.current.isDragging) return;
@@ -239,13 +252,19 @@ export default function ToolParameterPanel({
     let nextX = event.clientX - offset.x;
     let nextY = event.clientY - offset.y;
 
+    const actualWidth = panelSize.width;
+    
+    const screenWithin = getScreenBoundsForPosition(nextX + actualWidth / 2, nextY);
+    const availableHeight = screenWithin.bottom - nextY;
+    const effectiveHeight = Math.min(panelSize.height, Math.max(200, availableHeight));
+
     if (stageRegionManager) {
       const constrained = stageRegionManager.constrainRect(
         {
           x: nextX,
           y: nextY,
-          width: panelSize.width,
-          height: panelSize.height,
+          width: actualWidth,
+          height: effectiveHeight,
         },
         'move'
       );
@@ -253,14 +272,18 @@ export default function ToolParameterPanel({
       nextY = constrained.y;
     } else {
       const bounds = getFallbackBounds();
-      nextX = clamp(nextX, bounds.left, bounds.right - panelSize.width);
-      nextY = clamp(nextY, bounds.top, bounds.bottom - panelSize.height);
+      nextX = clamp(nextX, bounds.left, bounds.right - actualWidth);
+      nextY = clamp(nextY, bounds.top, bounds.bottom - effectiveHeight);
     }
 
     const nextPosition = { x: nextX, y: nextY };
     setPosition(nextPosition);
     setLockedPosition(nextPosition);
-  }, [panelSize, stageRegionManager]);
+
+    const finalScreenWithin = getScreenBoundsForPosition(nextX + actualWidth / 2, nextY);
+    const finalAvailableHeight = finalScreenWithin.bottom - nextY;
+    setMaxPanelHeight(Math.max(200, finalAvailableHeight));
+  }, [panelSize, stageRegionManager, getScreenBoundsForPosition]);
 
   const stopDragging = useCallback(() => {
     if (!dragStateRef.current.isDragging) return;
