@@ -22,6 +22,57 @@ const getFallbackBounds = () => ({
   bottom: window.innerHeight || 1080,
 });
 
+// 按钮组件
+function ActionButton({ param, onAction }) {
+  const [status, setStatus] = useState('idle'); 
+  
+  const handleClick = async () => {
+    try {
+      await onAction?.(param.action);
+      setStatus('success');
+      setTimeout(() => setStatus('idle'), 1500);
+    } catch {
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 1500);
+    }
+  };
+  
+  const getButtonStyle = () => {
+    if (status === 'success') return 'bg-green-500 text-white';
+    if (status === 'error') return 'bg-red-500 text-white';
+    if (param.variant === 'danger') return 'bg-red-500 hover:bg-red-600 text-white';
+    return 'bg-blue-500 hover:bg-blue-600 text-white';
+  };
+  
+  const getIcon = () => {
+    if (status === 'success') return 'ti ti-check';
+    if (status === 'error') return 'ti ti-x';
+    return param.icon;
+  };
+  
+  const getLabel = () => {
+    if (status === 'success') return '已复制';
+    if (status === 'error') return '失败';
+    return param.label;
+  };
+  
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={status !== 'idle'}
+      className={[
+        'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+        'active:scale-95 active:brightness-90',
+        getButtonStyle(),
+      ].join(' ')}
+    >
+      {getIcon() && <i className={`${getIcon()} mr-2`}></i>}
+      {getLabel()}
+    </button>
+  );
+}
+
 function renderControl(param, value, onChange, onAction, isFirstColor = false) {
   switch (param.type) {
     case 'slider':
@@ -35,21 +86,7 @@ function renderControl(param, value, onChange, onAction, isFirstColor = false) {
     case 'select':
       return <SelectControl param={param} value={value} onChange={onChange} />;
     case 'button':
-      return (
-        <button
-          type="button"
-          onClick={() => onAction?.(param.action)}
-          className={[
-            'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-            param.variant === 'danger'
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-blue-500 hover:bg-blue-600 text-white',
-          ].join(' ')}
-        >
-          {param.icon && <i className={`${param.icon} mr-2`}></i>}
-          {param.label}
-        </button>
-      );
+      return <ActionButton param={param} onAction={onAction} />;
     case 'textarea':
       return (
         <div className="flex flex-col gap-1">
