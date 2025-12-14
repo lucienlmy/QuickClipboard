@@ -56,8 +56,11 @@ function App() {
       y: pinEditSelection.y,
       width: pinEditSelection.width,
       height: pinEditSelection.height,
+      physicalX: 0,
+      physicalY: 0,
       physicalWidth: pinEditSelection.physicalWidth,
       physicalHeight: pinEditSelection.physicalHeight,
+      scaleFactor: pinEditSelection.physicalWidth / pinEditSelection.width,
     };
   }, [isPinEdit, pinEditMode.pinImage, pinEditSelection]);
 
@@ -248,8 +251,7 @@ function App() {
         editing.handleToolParameterChange('recognizedText', result.text);
       } catch (error) {
         console.error('OCR识别失败:', error);
-        alert(`OCR识别失败: ${error.message}`);
-        editing.setActiveToolId(null);
+        editing.handleToolParameterChange('recognizedText', `识别失败: ${error.message}`);
       }
     })();
   }, [editing.activeToolId, effectiveSelection, ocrResult, editing, effectiveScreens]);
