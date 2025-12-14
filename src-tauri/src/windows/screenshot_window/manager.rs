@@ -1,4 +1,4 @@
-use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Size,LogicalSize,Position,PhysicalPosition,};
+use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Position,PhysicalPosition,};
 use crate::utils::image_http_server::{PinEditData, set_pin_edit_data, clear_pin_edit_data, get_pin_edit_data};
 use serde_json::json;
 use once_cell::sync::Lazy;
@@ -55,7 +55,7 @@ fn resize_window_to_virtual_screen(window: &WebviewWindow) {
     let (x, y, width, height) =
         crate::screen::ScreenUtils::get_virtual_screen_size().unwrap_or((0, 0, 1920, 1080));
 
-    let _ = window.set_size(Size::Logical(LogicalSize::new(width as f64, height as f64)));
+    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(width as u32, height as u32)));
     let _ = window.set_position(Position::Physical(PhysicalPosition::new(x, y)));
 }
 

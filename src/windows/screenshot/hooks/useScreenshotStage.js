@@ -165,55 +165,47 @@ export default function useScreenshotStage() {
         return;
       }
 
-      const windowScale = window.devicePixelRatio || 1;
+      const dpr = window.devicePixelRatio || 1;
 
-      const meta = infos.map((m, index) => {
-        const logicalWidth = m.physical_width / windowScale;
-        const logicalHeight = m.physical_height / windowScale;
-        const logicalX = m.physical_x / windowScale;
-        const logicalY = m.physical_y / windowScale;
-        return {
-          index,
-          filePath: m.file_path,
-          logicalX,
-          logicalY,
-          logicalWidth,
-          logicalHeight,
-          physicalX: m.physical_x,
-          physicalY: m.physical_y,
-          physicalWidth: m.physical_width,
-          physicalHeight: m.physical_height,
-          scaleFactor: m.scale_factor,
-        };
-      });
+      const physicalMinX = Math.min(...infos.map((m) => m.physical_x));
+      const physicalMinY = Math.min(...infos.map((m) => m.physical_y));
+      const physicalMaxX = Math.max(...infos.map((m) => m.physical_x + m.physical_width));
+      const physicalMaxY = Math.max(...infos.map((m) => m.physical_y + m.physical_height));
 
-      const minX = Math.min(...meta.map((m) => m.logicalX));
-      const minY = Math.min(...meta.map((m) => m.logicalY));
-      const maxX = Math.max(...meta.map((m) => m.logicalX + m.logicalWidth));
-      const maxY = Math.max(...meta.map((m) => m.logicalY + m.logicalHeight));
+      const physicalOffsetX = isFinite(physicalMinX) ? physicalMinX : 0;
+      const physicalOffsetY = isFinite(physicalMinY) ? physicalMinY : 0;
+      const physicalWidth = physicalMaxX - physicalOffsetX;
+      const physicalHeight = physicalMaxY - physicalOffsetY;
 
-      const offsetX = isFinite(minX) ? minX : 0;
-      const offsetY = isFinite(minY) ? minY : 0;
-
-      const stageWidth = maxX - offsetX;
-      const stageHeight = maxY - offsetY;
+      const stageWidth = physicalWidth / dpr;
+      const stageHeight = physicalHeight / dpr;
 
       setStageSize({ width: stageWidth, height: stageHeight });
 
       const loadedScreens = await Promise.all(
-        meta.map(async (m) => {
-          const imageSource = await loadScreenBitmap(m.filePath);
+        infos.map(async (m) => {
+          const imageSource = await loadScreenBitmap(m.file_path);
+          const cssX = (m.physical_x - physicalOffsetX) / dpr;
+          const cssY = (m.physical_y - physicalOffsetY) / dpr;
+          const cssWidth = m.physical_width / dpr;
+          const cssHeight = m.physical_height / dpr;
+          
           return {
             image: imageSource,
-            x: m.logicalX - offsetX,
-            y: m.logicalY - offsetY,
-            width: m.logicalWidth,
-            height: m.logicalHeight,
-            physicalX: m.physicalX,
-            physicalY: m.physicalY,
-            physicalWidth: m.physicalWidth,
-            physicalHeight: m.physicalHeight,
-            scaleFactor: m.scaleFactor,
+            // CSS坐标（用于Konva渲染）
+            x: cssX,
+            y: cssY,
+            width: cssWidth,
+            height: cssHeight,
+            // 物理坐标（用于坐标显示、导出等）
+            physicalX: m.physical_x,
+            physicalY: m.physical_y,
+            physicalWidth: m.physical_width,
+            physicalHeight: m.physical_height,
+            // 物理偏移（用于坐标转换）
+            physicalOffsetX,
+            physicalOffsetY,
+            scaleFactor: m.scale_factor,
           };
         })
       );

@@ -112,8 +112,8 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
   try {
     const filePath = await savePinImage(blob);
     
+    const dpr = window.devicePixelRatio || 1;
     const { x, y, width, height } = selection;
-    const windowScale = window.devicePixelRatio || 1;
     
     const x1 = Math.round(x);
     const y1 = Math.round(y);
@@ -122,8 +122,8 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     const safeWidth = Math.max(1, x2 - x1);
     const safeHeight = Math.max(1, y2 - y1);
     
-    const physicalWidth = safeWidth * windowScale;
-    const physicalHeight = safeHeight * windowScale;
+    const physicalWidth = safeWidth * dpr;
+    const physicalHeight = safeHeight * dpr;
     
     const centerX = x + width / 2;
     const centerY = y + height / 2;
@@ -132,7 +132,7 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
       centerY >= s.y && centerY < s.y + s.height
     ) || screens[0];
     
-    const targetScaleFactor = targetScreen?.scaleFactor || windowScale;
+    const targetScaleFactor = targetScreen?.scaleFactor || dpr;
     
     let physicalX, physicalY;
     if (targetScreen) {
@@ -143,8 +143,8 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     } else {
       const minPhysicalX = screens.length > 0 ? Math.min(...screens.map(s => s.physicalX)) : 0;
       const minPhysicalY = screens.length > 0 ? Math.min(...screens.map(s => s.physicalY)) : 0;
-      physicalX = Math.floor(x1 * windowScale + minPhysicalX);
-      physicalY = Math.floor(y1 * windowScale + minPhysicalY);
+      physicalX = Math.floor(x1 * dpr + minPhysicalX);
+      physicalY = Math.floor(y1 * dpr + minPhysicalY);
     }
     
     const logicalWidth = Math.round(physicalWidth / targetScaleFactor);

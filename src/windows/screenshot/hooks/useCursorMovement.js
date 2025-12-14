@@ -13,29 +13,29 @@ export default function useCursorMovement(screens, magnifierUpdateRef, stageRegi
   const isKeyboardActiveRef = useRef(false);
   const ignoreMouseMoveUntilRef = useRef(0);
 
-  // 计算逻辑与物理坐标偏移量
   const stageOffset = useMemo(() => {
-    if (!screens || screens.length === 0) return { x: 0, y: 0 };
+    if (!screens || screens.length === 0) return { x: 0, y: 0, scale: 1 };
     const scale = window.devicePixelRatio || 1;
     return {
-      x: screens[0].physicalX / scale - screens[0].x,
-      y: screens[0].physicalY / scale - screens[0].y
+      x: screens[0].physicalX - screens[0].x * scale,
+      y: screens[0].physicalY - screens[0].y * scale,
+      scale
     };
   }, [screens]);
 
   const currentPosRef = useRef(null);
 
-  // 更新光标位置（基于物理坐标）
+  // 更新光标位置（基于物理像素）
   const updateCursorPosition = (dx, dy, forceSync = false) => {
     const prev = currentPosRef.current;
     if (!prev) return;
-      
-      const scale = window.devicePixelRatio || 1;
+
+      const { x: offsetX, y: offsetY, scale } = stageOffset;
 
       if (physicalPositionRef.current === null || forceSync) {
         physicalPositionRef.current = {
-          x: Math.round((prev.x + stageOffset.x) * scale),
-          y: Math.round((prev.y + stageOffset.y) * scale)
+          x: Math.round(prev.x * scale + offsetX),
+          y: Math.round(prev.y * scale + offsetY)
         };
       }
       
@@ -45,17 +45,16 @@ export default function useCursorMovement(screens, magnifierUpdateRef, stageRegi
 
       // 应用边界限制
       if (stageRegionManager) {
-        const tempLx = newPhysX / scale - stageOffset.x;
-        const tempLy = newPhysY / scale - stageOffset.y;
+        const tempX = (newPhysX - offsetX) / scale;
+        const tempY = (newPhysY - offsetY) / scale;
 
-        // 使用 0x0 矩形进行点限制
         const constrainedRect = stageRegionManager.constrainRect({
-          x: tempLx, y: tempLy, width: 0, height: 0
+          x: tempX, y: tempY, width: 0, height: 0
         });
 
-        if (constrainedRect.x !== tempLx || constrainedRect.y !== tempLy) {
-           newPhysX = Math.round((constrainedRect.x + stageOffset.x) * scale);
-           newPhysY = Math.round((constrainedRect.y + stageOffset.y) * scale);
+        if (constrainedRect.x !== tempX || constrainedRect.y !== tempY) {
+           newPhysX = Math.round(constrainedRect.x * scale + offsetX);
+           newPhysY = Math.round(constrainedRect.y * scale + offsetY);
         }
       }
       
@@ -67,9 +66,9 @@ export default function useCursorMovement(screens, magnifierUpdateRef, stageRegi
       isKeyboardActiveRef.current = true;
       ignoreMouseMoveUntilRef.current = performance.now() + 100;
 
-      const newLx = newPhysX / scale - stageOffset.x;
-      const newLy = newPhysY / scale - stageOffset.y;
-      const newPos = { x: newLx, y: newLy };
+      const newX = (newPhysX - offsetX) / scale;
+      const newY = (newPhysY - offsetY) / scale;
+      const newPos = { x: newX, y: newY };
       
       currentPosRef.current = newPos;
       updateMousePosition(newPos);
@@ -80,10 +79,10 @@ export default function useCursorMovement(screens, magnifierUpdateRef, stageRegi
   const initializePosition = useCallback((pos) => {
     if (!pos) return;
     
-    const scale = window.devicePixelRatio || 1;
+    const { x: offsetX, y: offsetY, scale } = stageOffset;
     physicalPositionRef.current = {
-      x: Math.round((pos.x + stageOffset.x) * scale),
-      y: Math.round((pos.y + stageOffset.y) * scale)
+      x: Math.round(pos.x * scale + offsetX),
+      y: Math.round(pos.y * scale + offsetY)
     };
     currentPosRef.current = pos;
     updateMousePosition(pos);
@@ -100,11 +99,10 @@ export default function useCursorMovement(screens, magnifierUpdateRef, stageRegi
       return;
     }
 
-    // 同步物理坐标引用
-    const scale = window.devicePixelRatio || 1;
+    const { x: offsetX, y: offsetY, scale } = stageOffset;
     physicalPositionRef.current = {
-      x: Math.round((pos.x + stageOffset.x) * scale),
-      y: Math.round((pos.y + stageOffset.y) * scale)
+      x: Math.round(pos.x * scale + offsetX),
+      y: Math.round(pos.y * scale + offsetY)
     };
 
     currentPosRef.current = pos;

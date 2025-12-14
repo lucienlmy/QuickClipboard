@@ -20,23 +20,25 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     // 启用后端鼠标穿透控制
     if (selection && toolbarPosition && screens && screens.length > 0) {
       try {
-        const scale = window.devicePixelRatio || 1;
-        const stageOffsetX = screens[0].physicalX / scale - screens[0].x;
-        const stageOffsetY = screens[0].physicalY / scale - screens[0].y;
+        const dpr = window.devicePixelRatio || 1;
+        // CSS坐标转物理坐标的偏移
+        const stageOffsetX = screens[0].physicalX - screens[0].x * dpr;
+        const stageOffsetY = screens[0].physicalY - screens[0].y * dpr;
         
         const centerX = selection.x + selection.width / 2;
         const centerY = selection.y + selection.height / 2;
         const selectionScaleFactor = stageRegionManager?.getNearestScreen(centerX, centerY)?.scaleFactor || 1.0;
         
-        const physicalX = (selection.x + stageOffsetX) * scale;
-        const physicalY = (selection.y + stageOffsetY) * scale;
-        const physicalWidth = selection.width * scale;
-        const physicalHeight = selection.height * scale;
+        // CSS坐标转物理坐标
+        const physicalX = selection.x * dpr + stageOffsetX;
+        const physicalY = selection.y * dpr + stageOffsetY;
+        const physicalWidth = selection.width * dpr;
+        const physicalHeight = selection.height * dpr;
         
-        const physicalToolbarX = (toolbarPosition.x + stageOffsetX) * scale;
-        const physicalToolbarY = (toolbarPosition.y + stageOffsetY) * scale;
-        const physicalToolbarWidth = toolbarPosition.width * scale;
-        const physicalToolbarHeight = toolbarPosition.height * scale;
+        const physicalToolbarX = toolbarPosition.x * dpr + stageOffsetX;
+        const physicalToolbarY = toolbarPosition.y * dpr + stageOffsetY;
+        const physicalToolbarWidth = toolbarPosition.width * dpr;
+        const physicalToolbarHeight = toolbarPosition.height * dpr;
         
         await invoke('enable_long_screenshot_passthrough', {
           physicalX,

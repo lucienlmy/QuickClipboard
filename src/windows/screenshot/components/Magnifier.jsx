@@ -80,7 +80,8 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     const centerRow = Math.floor(GRID_ROWS / 2), centerCol = Math.floor(GRID_COLS / 2);
     let centerColor = { r: 0, g: 0, b: 0 };
     
-    const step = 1 / (window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+    const step = 1 / dpr;
 
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
@@ -136,8 +137,9 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     centerColorRef.current = centerColor;
     gridImageRef.current.getLayer()?.batchDraw();
 
-    let physicalX = Math.floor(pos.x);
-    let physicalY = Math.floor(pos.y);
+    const dpr = window.devicePixelRatio || 1;
+    let physicalX = Math.floor(pos.x * dpr);
+    let physicalY = Math.floor(pos.y * dpr);
     for (const [, data] of screenImageDataRef.current) {
       const { bounds, scaleX, scaleY, screen } = data;
       if (pos.x >= bounds.x1 && pos.x < bounds.x2 && pos.y >= bounds.y1 && pos.y < bounds.y2) {

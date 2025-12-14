@@ -68,13 +68,13 @@ function App() {
   const stageSize = useMemo(() => {
     if (isPinEdit && pinEditMode.screenInfos?.length) {
       const dpr = window.devicePixelRatio || 1;
-      const logicalScreens = pinEditMode.screenInfos.map(([px, py, pw, ph]) => ({
+      const cssScreens = pinEditMode.screenInfos.map(([px, py, pw, ph]) => ({
         x: px / dpr, y: py / dpr, width: pw / dpr, height: ph / dpr,
       }));
-      const minX = Math.min(...logicalScreens.map(s => s.x));
-      const minY = Math.min(...logicalScreens.map(s => s.y));
-      const maxX = Math.max(...logicalScreens.map(s => s.x + s.width));
-      const maxY = Math.max(...logicalScreens.map(s => s.y + s.height));
+      const minX = Math.min(...cssScreens.map(s => s.x));
+      const minY = Math.min(...cssScreens.map(s => s.y));
+      const maxX = Math.max(...cssScreens.map(s => s.x + s.width));
+      const maxY = Math.max(...cssScreens.map(s => s.y + s.height));
       return { width: maxX - minX, height: maxY - minY };
     }
     return screenshotStageSize;
@@ -83,11 +83,11 @@ function App() {
   const pinEditStageRegionManager = useMemo(() => {
     if (!isPinEdit || !pinEditMode.screenInfos?.length) return null;
     const dpr = window.devicePixelRatio || 1;
-    const logicalScreens = pinEditMode.screenInfos.map(([px, py, pw, ph, scaleFactor]) => ({
+    const screens = pinEditMode.screenInfos.map(([px, py, pw, ph, scaleFactor]) => ({
       x: px / dpr, y: py / dpr, width: pw / dpr, height: ph / dpr,
       physicalX: px, physicalY: py, physicalWidth: pw, physicalHeight: ph, scaleFactor,
     }));
-    return createStageRegionManager(logicalScreens);
+    return createStageRegionManager(screens);
   }, [isPinEdit, pinEditMode.screenInfos]);
 
   const stageRegionManager = isPinEdit ? pinEditStageRegionManager : screenshotStageRegionManager;

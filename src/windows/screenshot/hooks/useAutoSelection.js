@@ -56,12 +56,12 @@ export function useAutoSelection(isInteracting) {
     const b = hierarchy[currentIndex];
     if (!b || b.width <= 0 || b.height <= 0) return null;
 
-    const scale = window.devicePixelRatio || 1;
+    const dpr = window.devicePixelRatio || 1;
     return {
-      x: b.x / scale,
-      y: b.y / scale,
-      width: b.width / scale,
-      height: b.height / scale,
+      x: b.x / dpr,
+      y: b.y / dpr,
+      width: b.width / dpr,
+      height: b.height / dpr,
     };
   }, [hierarchy, currentIndex]);
 

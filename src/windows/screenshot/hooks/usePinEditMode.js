@@ -59,18 +59,14 @@ export function usePinEditMode() {
   const calculateSelection = useCallback((data, image) => {
     if (!data || !image) return null;
     
-    const windowDpr = window.devicePixelRatio || 1;
-    
-    const imagePhysicalWidth = data.width;
-    const imagePhysicalHeight = data.height;
-    
+    const dpr = window.devicePixelRatio || 1;
     return {
-      x: data.x / windowDpr,
-      y: data.y / windowDpr,
-      width: imagePhysicalWidth / windowDpr,
-      height: imagePhysicalHeight / windowDpr,
-      physicalWidth: imagePhysicalWidth,
-      physicalHeight: imagePhysicalHeight,
+      x: data.x / dpr,
+      y: data.y / dpr,
+      width: data.width / dpr,
+      height: data.height / dpr,
+      physicalWidth: data.width,
+      physicalHeight: data.height,
       scaleFactor: data.scale_factor || 1,
     };
   }, []);
