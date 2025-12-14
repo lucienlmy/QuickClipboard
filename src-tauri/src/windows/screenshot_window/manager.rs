@@ -134,11 +134,16 @@ pub fn clear_pin_edit_mode() {
 #[tauri::command]
 pub fn confirm_pin_edit(app: AppHandle, new_file_path: String) -> Result<(), String> {
     if let Some(data) = get_pin_edit_data() {
+        let old_file_path = data.image_path.clone();
+        if old_file_path != new_file_path {
+            let _ = std::fs::remove_file(&old_file_path);
+        }
+        
         if let Some(window) = app.get_webview_window(&data.window_label) {
             crate::windows::pin_image_window::update_pin_image_file(&data.window_label, new_file_path.clone());
             let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(data.window_width, data.window_height)));
             let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(data.window_x, data.window_y)));
-            let _ = window.emit("pin-image:refresh", json!({ "file_path": new_file_path }));
+            let _ = app.emit_to(&data.window_label, "pin-image:refresh", json!({ "file_path": new_file_path }));
             let _ = window.show();
         }
     }
