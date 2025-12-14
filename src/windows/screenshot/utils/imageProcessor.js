@@ -124,8 +124,6 @@ export async function processMosaicShape(shape, stageRef, screens, existingShape
     return null;
   }
   
-  console.log('[processMosaicShape] coverageMode:', shape.coverageMode, 'existingShapes:', existingShapes.length);
-  
   const stage = stageRef.current;
   
   try {
@@ -143,8 +141,6 @@ export async function processMosaicShape(shape, stageRef, screens, existingShape
     
     // 如果是全局模式，使用 Stage 的完整渲染（包括背景 + 所有编辑层内容）
     if (shape.coverageMode === 'global') {
-      console.log('[全局模式] 使用 Stage 编辑层，形状数量:', existingShapes.length);
-      
       try {
         const overlayLayer = stage.findOne('#screenshot-overlay-layer');
         const uiLayer = stage.findOne('#screenshot-ui-layer');
@@ -161,7 +157,6 @@ export async function processMosaicShape(shape, stageRef, screens, existingShape
         
         tempCtx.drawImage(stageCanvas, 0, 0);
         
-        console.log('[全局模式] Stage 内容已合并到处理源');
       } catch (error) {
         console.error('[全局模式] Stage 渲染失败:', error);
       }

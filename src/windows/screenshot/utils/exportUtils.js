@@ -106,64 +106,36 @@ async function savePinImage(blob) {
 
 // 导出为贴图（普通截图模式）
 export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [] } = {}) {
-  const blob = await captureSelectionToBlob(stageRef, selection, cornerRadius, { screens });
-  if (!blob) return;
+  if (!selection || !stageRef || !stageRef.current) return;
+
+  const stage = stageRef.current.getStage ? stageRef.current.getStage() : stageRef.current;
+  if (!stage) return;
 
   try {
-    const filePath = await savePinImage(blob);
+    let canvas = await compositeSelectionImage({ stage, selection, screens });
+    if (!canvas) return;
     
-    const dpr = window.devicePixelRatio || 1;
-    const { x, y, width, height } = selection;
+    const imagePhysicalX = canvas._physicalOffsetX;
+    const imagePhysicalY = canvas._physicalOffsetY;
+    const imagePhysicalWidth = canvas.width;
+    const imagePhysicalHeight = canvas.height;
     
-    const x1 = Math.round(x);
-    const y1 = Math.round(y);
-    const x2 = Math.round(x + width);
-    const y2 = Math.round(y + height);
-    const safeWidth = Math.max(1, x2 - x1);
-    const safeHeight = Math.max(1, y2 - y1);
-    
-    const physicalWidth = safeWidth * dpr;
-    const physicalHeight = safeHeight * dpr;
-    
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    let targetScreen = screens.find(s => 
-      centerX >= s.x && centerX < s.x + s.width &&
-      centerY >= s.y && centerY < s.y + s.height
-    ) || screens[0];
-    
-    const targetScaleFactor = targetScreen?.scaleFactor || dpr;
-    
-    let physicalX, physicalY;
-    if (targetScreen) {
-      const scaleX = targetScreen.physicalWidth / targetScreen.width;
-      const scaleY = targetScreen.physicalHeight / targetScreen.height;
-      physicalX = targetScreen.physicalX + Math.floor((x1 - targetScreen.x) * scaleX);
-      physicalY = targetScreen.physicalY + Math.floor((y1 - targetScreen.y) * scaleY);
-    } else {
-      const minPhysicalX = screens.length > 0 ? Math.min(...screens.map(s => s.physicalX)) : 0;
-      const minPhysicalY = screens.length > 0 ? Math.min(...screens.map(s => s.physicalY)) : 0;
-      physicalX = Math.floor(x1 * dpr + minPhysicalX);
-      physicalY = Math.floor(y1 * dpr + minPhysicalY);
+    if (cornerRadius > 0) {
+      const pixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
+      canvas = applyCornerRadius(canvas, cornerRadius, pixelRatio);
     }
     
-    const logicalWidth = Math.round(physicalWidth / targetScaleFactor);
-    const logicalHeight = Math.round(physicalHeight / targetScaleFactor);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) return;
     
-    const textScale = await invoke('get_system_text_scale');
-    const targetDpr = targetScaleFactor * textScale;
-    const paddingPhysical = Math.round(5 * targetDpr);
-    const windowX = physicalX - paddingPhysical;
-    const windowY = physicalY - paddingPhysical;
+    const filePath = await savePinImage(blob);
     
     await invoke('pin_image_from_file', {
       filePath,
-      x: windowX,
-      y: windowY,
-      width: logicalWidth,
-      height: logicalHeight,
-      fromScreenshot: true,
-      positionReady: true, 
+      imagePhysicalX,
+      imagePhysicalY,
+      imagePhysicalWidth,
+      imagePhysicalHeight,
     });
 
     await cancelScreenshotSession();

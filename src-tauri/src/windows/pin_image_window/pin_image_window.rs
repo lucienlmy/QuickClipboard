@@ -9,7 +9,6 @@ use tauri::{AppHandle, Listener, Manager, WebviewWindow, WebviewWindowBuilder, S
 static PIN_IMAGE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PIN_IMAGE_DATA_MAP: OnceCell<Mutex<HashMap<String, PinImageData>>> = OnceCell::new();
 
-// 预览窗口最大边默认值
 const DEFAULT_PREVIEW_SIZE: u32 = 600;
 
 #[derive(Clone, Debug)]
@@ -18,6 +17,8 @@ struct PinImageData {
     width: u32,
     height: u32,
     preview_mode: bool,
+    image_physical_x: Option<i32>,
+    image_physical_y: Option<i32>,
 }
 
 pub fn init_pin_image_window() {
@@ -46,64 +47,69 @@ pub async fn pin_image_from_file(
     width: Option<u32>,
     height: Option<u32>,
     preview_mode: Option<bool>,
-    from_screenshot: Option<bool>,
-    position_ready: Option<bool>,
+    image_physical_x: Option<i32>,
+    image_physical_y: Option<i32>,
+    image_physical_width: Option<u32>,
+    image_physical_height: Option<u32>,
 ) -> Result<(), String> {
     let is_preview = preview_mode.unwrap_or(false);
+    let use_physical_coords = image_physical_x.is_some() && image_physical_y.is_some();
     
-    // 读取图片尺寸
-    let (orig_width, orig_height) = if let (Some(w), Some(h)) = (width, height) {
-        (w, h)
-    } else {
-        let reader = image::ImageReader::open(&file_path)
-            .map_err(|e| format!("打开图片文件失败: {}", e))?
-            .with_guessed_format()
-            .map_err(|e| format!("识别图片格式失败: {}", e))?;
+    let (img_width, img_height, pos_x, pos_y) = if is_preview {
+        let (orig_w, orig_h) = read_image_logical_size(&file_path, &app)?;
+        let (img_w, img_h) = scale_for_preview(orig_w, orig_h, &app);
         
-        let (w, h) = reader.into_dimensions()
-            .map_err(|e| format!("读取图片尺寸失败: {}", e))?;
-        
-        let scale_factor = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)
-            .map(|m| m.scale_factor())
-            .unwrap_or(1.0);
-        
-        let logical_width = (w as f64 / scale_factor).round() as u32;
-        let logical_height = (h as f64 / scale_factor).round() as u32;
-        
-        (logical_width, logical_height)
-    };
-    
-    // 预览模式：按比例缩放，最长边为屏幕高度的一半
-    let (img_width, img_height) = if is_preview {
-        let preview_size = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)
+        let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+        let (mon_x, mon_y, mon_right, mon_bottom, scale_factor) = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)
             .map(|m| {
+                let pos = m.position();
                 let size = m.size();
-                let scale_factor = m.scale_factor();
-                let half_height = (size.height as f64 / scale_factor / 2.0) as u32;
-                half_height.min(DEFAULT_PREVIEW_SIZE)
+                (pos.x, pos.y, pos.x + size.width as i32, pos.y + size.height as i32, m.scale_factor())
             })
-            .unwrap_or(DEFAULT_PREVIEW_SIZE);
+            .unwrap_or((0, 0, 1920, 1080, 1.0));
         
-        let max_side = orig_width.max(orig_height);
-        if max_side == 0 {
-            (preview_size, preview_size)
+        let window_w = ((img_w as f64 + 10.0) * scale_factor).round() as i32;
+        let window_h = ((img_h as f64 + 10.0) * scale_factor).round() as i32;
+        let px = if mon_right - cursor_x >= window_w { cursor_x } else { cursor_x - window_w };
+        let py = if mon_bottom - cursor_y >= window_h { cursor_y } else { cursor_y - window_h };
+        
+        (img_w, img_h, px.max(mon_x), py.max(mon_y))
+    } else if use_physical_coords {
+        let img_x = image_physical_x.unwrap();
+        let img_y = image_physical_y.unwrap();
+        let img_phys_w = image_physical_width.unwrap_or(100);
+        let img_phys_h = image_physical_height.unwrap_or(100);
+        
+        let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(&app, img_x, img_y);
+        let padding = (5.0 * scale_factor).round() as i32;
+        let logical_w = (img_phys_w as f64 / scale_factor).round() as u32;
+        let logical_h = (img_phys_h as f64 / scale_factor).round() as u32;
+        
+        (logical_w.max(1), logical_h.max(1), img_x - padding, img_y - padding)
+    } else if let (Some(px), Some(py)) = (x, y) {
+        let (w, h) = if let (Some(w), Some(h)) = (width, height) {
+            (w, h)
         } else {
-            let scale = preview_size as f64 / max_side as f64;
-            let new_w = (orig_width as f64 * scale).round() as u32;
-            let new_h = (orig_height as f64 * scale).round() as u32;
-            (new_w.max(1), new_h.max(1))
-        }
+            read_image_logical_size(&file_path, &app)?
+        };
+        (w, h, px, py)
     } else {
-        (orig_width, orig_height)
+        let (w, h) = if let (Some(w), Some(h)) = (width, height) {
+            (w, h)
+        } else {
+            read_image_logical_size(&file_path, &app)?
+        };
+        let (cx, cy) = center_position(&app, w, h);
+        (w, h, cx, cy)
     };
     
+    // 生成窗口标签
     let window_label = if is_preview {
         "image-preview".to_string()
     } else {
-        let counter = PIN_IMAGE_COUNTER.fetch_add(1, Ordering::SeqCst);
-        format!("pin-image-{}", counter)
+        format!("pin-image-{}", PIN_IMAGE_COUNTER.fetch_add(1, Ordering::SeqCst))
     };
-    
+
     if is_preview {
         if let Some(existing) = app.get_webview_window(&window_label) {
             let _ = existing.close();
@@ -115,121 +121,95 @@ pub async fn pin_image_from_file(
     
     // 存储图片数据
     if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
-        let mut map = data_map.lock().unwrap();
-        map.insert(
+        data_map.lock().unwrap().insert(
             window_label.clone(),
             PinImageData {
                 file_path,
                 width: img_width,
                 height: img_height,
                 preview_mode: is_preview,
+                image_physical_x,
+                image_physical_y,
             },
         );
     }
     
-    let (pos_x, pos_y) = if is_preview {
-        let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
-        let (mon_x, mon_y, mon_right, mon_bottom, scale_factor) = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)
-            .map(|m| {
-                let pos = m.position();
-                let size = m.size();
-                (pos.x, pos.y, pos.x + size.width as i32, pos.y + size.height as i32, m.scale_factor())
-            })
-            .unwrap_or((0, 0, 1920, 1080, 1.0));
-        
-        let window_w = ((img_width as f64 + 10.0) * scale_factor).round() as i32;
-        let window_h = ((img_height as f64 + 10.0) * scale_factor).round() as i32;
-        
-        let pos_x = if mon_right - cursor_x >= window_w { cursor_x } else { cursor_x - window_w };
-        let pos_y = if mon_bottom - cursor_y >= window_h { cursor_y } else { cursor_y - window_h };
-        
-        (pos_x.max(mon_x), pos_y.max(mon_y))
-    } else if let (Some(px), Some(py)) = (x, y) {
-        (px, py)
-    } else {
-        if let Ok(monitor) = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app) {
-            let screen_pos = monitor.position();
-            let screen_size = monitor.size();
-            let scale_factor = monitor.scale_factor();
-            
-            let window_physical_width = ((img_width as f64 + 10.0) * scale_factor).round() as i32;
-            let window_physical_height = ((img_height as f64 + 10.0) * scale_factor).round() as i32;
-            
-            let center_x = screen_pos.x + (screen_size.width as i32 - window_physical_width) / 2;
-            let center_y = screen_pos.y + (screen_size.height as i32 - window_physical_height) / 2;
-            
-            (center_x.max(screen_pos.x), center_y.max(screen_pos.y))
-        } else {
-            (100, 100)
-        }
-    };
+    let window = create_pin_image_window(&app, &window_label, img_width, img_height, pos_x, pos_y).await?;
     
-    let is_from_screenshot = from_screenshot.unwrap_or(false);
-    let is_position_ready = position_ready.unwrap_or(false);
-    let window = create_pin_image_window(app, &window_label, img_width, img_height, pos_x, pos_y, is_preview, is_from_screenshot, is_position_ready).await?;
-    
-    // 预览模式：鼠标穿透
     if is_preview {
-        window.set_ignore_cursor_events(true)
-            .map_err(|e| format!("设置鼠标穿透失败: {}", e))?;
+        window.set_ignore_cursor_events(true).map_err(|e| format!("设置鼠标穿透失败: {}", e))?;
     }
     
     window.show().map_err(|e| format!("显示贴图窗口失败: {}", e))?;
-    
     Ok(())
+}
+
+// 读取图片逻辑尺寸
+fn read_image_logical_size(file_path: &str, app: &AppHandle) -> Result<(u32, u32), String> {
+    let reader = image::ImageReader::open(file_path)
+        .map_err(|e| format!("打开图片文件失败: {}", e))?
+        .with_guessed_format()
+        .map_err(|e| format!("识别图片格式失败: {}", e))?;
+    
+    let (w, h) = reader.into_dimensions()
+        .map_err(|e| format!("读取图片尺寸失败: {}", e))?;
+    
+    let scale_factor = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(app)
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+    
+    Ok(((w as f64 / scale_factor).round() as u32, (h as f64 / scale_factor).round() as u32))
+}
+
+// 预览模式缩放
+fn scale_for_preview(width: u32, height: u32, app: &AppHandle) -> (u32, u32) {
+    let preview_size = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(app)
+        .map(|m| {
+            let size = m.size();
+            let sf = m.scale_factor();
+            ((size.height as f64 / sf / 2.0) as u32).min(DEFAULT_PREVIEW_SIZE)
+        })
+        .unwrap_or(DEFAULT_PREVIEW_SIZE);
+    
+    let max_side = width.max(height);
+    if max_side == 0 {
+        (preview_size, preview_size)
+    } else {
+        let scale = preview_size as f64 / max_side as f64;
+        (((width as f64 * scale).round() as u32).max(1), ((height as f64 * scale).round() as u32).max(1))
+    }
+}
+
+// 计算屏幕中心位置
+fn center_position(app: &AppHandle, width: u32, height: u32) -> (i32, i32) {
+    if let Ok(monitor) = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(app) {
+        let pos = monitor.position();
+        let size = monitor.size();
+        let sf = monitor.scale_factor();
+        let win_w = ((width as f64 + 10.0) * sf).round() as i32;
+        let win_h = ((height as f64 + 10.0) * sf).round() as i32;
+        (pos.x + (size.width as i32 - win_w) / 2, pos.y + (size.height as i32 - win_h) / 2)
+    } else {
+        (100, 100)
+    }
 }
 
 
 // 创建贴图窗口
 async fn create_pin_image_window(
-    app: AppHandle,
+    app: &AppHandle,
     label: &str,
     width: u32,
     height: u32,
-    x: i32,
-    y: i32,
-    preview_mode: bool,
-    from_screenshot: bool,
-    position_ready: bool,
+    physical_x: i32,
+    physical_y: i32,
 ) -> Result<WebviewWindow, String> {
-    const SHADOW_PADDING: f64 = 10.0;
-    
-    let window_width = width as f64 + SHADOW_PADDING;
-    let window_height = height as f64 + SHADOW_PADDING;
-
-    let (physical_x, physical_y) = if preview_mode {
-        (x, y)
-    } else if position_ready {
-        (x, y)
-    } else if from_screenshot {
-        let scale_factor = app.available_monitors()
-            .ok()
-            .and_then(|monitors| {
-                monitors.into_iter().find(|m| {
-                    let pos = m.position();
-                    let size = m.size();
-                    x >= pos.x && x < pos.x + size.width as i32 &&
-                    y >= pos.y && y < pos.y + size.height as i32
-                })
-            })
-            .map(|m| m.scale_factor())
-            .unwrap_or(1.0);
-        
-        let padding_physical = (5.0 * scale_factor).round() as i32;
-        let lx = (x - padding_physical).max(0);
-        let ly = (y - padding_physical).max(0);
-        (lx, ly)
-    } else {
-        (x, y)
-    };
-
     let window = WebviewWindowBuilder::new(
-        &app,
-        label,
+        app, label,
         tauri::WebviewUrl::App("windows/pinImage/pinImage.html".into()),
     )
     .title("贴图")
-    .inner_size(window_width, window_height)
+    .inner_size(width as f64 + 10.0, height as f64 + 10.0)
     .min_inner_size(1.0, 1.0)
     .resizable(false)
     .maximizable(false)
@@ -259,7 +239,9 @@ pub fn get_pin_image_data(window: WebviewWindow) -> Result<serde_json::Value, St
                 "file_path": data.file_path,
                 "width": data.width,
                 "height": data.height,
-                "preview_mode": data.preview_mode
+                "preview_mode": data.preview_mode,
+                "image_physical_x": data.image_physical_x,
+                "image_physical_y": data.image_physical_y
             }));
         }
     }

@@ -1,71 +1,127 @@
 // 图像合成工具
-export function drawBackgroundFromScreens(ctx, screens, rect, pixelRatio = 1) {
-  if (!screens || screens.length === 0) return;
 
-  const { x: safeX, y: safeY, width: safeWidth, height: safeHeight } = rect;
-  const selX2 = safeX + safeWidth;
-  const selY2 = safeY + safeHeight;
+// 计算选区与各屏幕的交集区域
+function calculateSelectionRegions(selection, screens) {
+  const { x, y, width, height } = selection;
+  const selX2 = x + width;
+  const selY2 = y + height;
   
-  let intersectingScreens = 0;
-  for (const screen of screens) {
-    if (!screen.image) continue;
-    const screenX2 = screen.x + screen.width;
-    const screenY2 = screen.y + screen.height;
-    if (!(safeX >= screenX2 || selX2 <= screen.x || safeY >= screenY2 || selY2 <= screen.y)) {
-      intersectingScreens++;
-    }
-  }
-  const isCrossScreen = intersectingScreens > 1;
-
+  const regions = [];
+  
   for (const screen of screens) {
     if (!screen.image) continue;
     
     const screenX2 = screen.x + screen.width;
     const screenY2 = screen.y + screen.height;
     
-    if (safeX >= screenX2 || selX2 <= screen.x || safeY >= screenY2 || selY2 <= screen.y) {
+    // 检查是否有交集
+    if (x >= screenX2 || selX2 <= screen.x || y >= screenY2 || selY2 <= screen.y) {
       continue;
     }
     
-    const intersectX = Math.max(safeX, screen.x);
-    const intersectY = Math.max(safeY, screen.y);
+    // 计算CSS坐标交集
+    const intersectX = Math.max(x, screen.x);
+    const intersectY = Math.max(y, screen.y);
     const intersectX2 = Math.min(selX2, screenX2);
     const intersectY2 = Math.min(selY2, screenY2);
     
-    const imgWidth = screen.image.naturalWidth || screen.image.width;
-    const imgHeight = screen.image.naturalHeight || screen.image.height;
-    const scaleX = imgWidth / screen.width;
-    const scaleY = imgHeight / screen.height;
+    const scaleX = screen.physicalWidth / screen.width;
+    const scaleY = screen.physicalHeight / screen.height;
     
-    let srcX, srcY, srcW, srcH, destX, destY, destW, destH;
+    const relativeX = intersectX - screen.x;
+    const relativeY = intersectY - screen.y;
+    const relativeWidth = intersectX2 - intersectX;
+    const relativeHeight = intersectY2 - intersectY;
     
-    if (isCrossScreen) {
-      srcX = (intersectX - screen.x) * scaleX;
-      srcY = (intersectY - screen.y) * scaleY;
-      srcW = (intersectX2 - intersectX) * scaleX;
-      srcH = (intersectY2 - intersectY) * scaleY;
-      
-      destX = (intersectX - safeX) * pixelRatio;
-      destY = (intersectY - safeY) * pixelRatio;
-      destW = (intersectX2 - intersectX) * pixelRatio;
-      destH = (intersectY2 - intersectY) * pixelRatio;
-    } else {
-      srcX = Math.floor((intersectX - screen.x) * scaleX);
-      srcY = Math.floor((intersectY - screen.y) * scaleY);
-      srcW = Math.floor((intersectX2 - intersectX) * scaleX);
-      srcH = Math.floor((intersectY2 - intersectY) * scaleY);
-      
-      destX = Math.floor((intersectX - safeX) * pixelRatio);
-      destY = Math.floor((intersectY - safeY) * pixelRatio);
-      destW = Math.floor((intersectX2 - intersectX) * pixelRatio);
-      destH = Math.floor((intersectY2 - intersectY) * pixelRatio);
+    const srcPhysicalX = Math.round(relativeX * scaleX);
+    const srcPhysicalY = Math.round(relativeY * scaleY);
+    const srcPhysicalWidth = Math.round(relativeWidth * scaleX);
+    const srcPhysicalHeight = Math.round(relativeHeight * scaleY);
+    
+    const globalPhysicalX = screen.physicalX + srcPhysicalX;
+    const globalPhysicalY = screen.physicalY + srcPhysicalY;
+    
+    regions.push({
+      screen,
+      srcX: srcPhysicalX,
+      srcY: srcPhysicalY,
+      srcWidth: srcPhysicalWidth,
+      srcHeight: srcPhysicalHeight,
+      globalPhysicalX,
+      globalPhysicalY,
+      cssX: intersectX,
+      cssY: intersectY,
+      scaleX,
+      scaleY,
+    });
+  }
+  
+  if (regions.length === 0) {
+    return { regions: [], totalPhysicalWidth: 0, totalPhysicalHeight: 0, physicalOffsetX: 0, physicalOffsetY: 0 };
+  }
+  
+  const minPhysicalX = Math.min(...regions.map(r => r.globalPhysicalX));
+  const minPhysicalY = Math.min(...regions.map(r => r.globalPhysicalY));
+  const maxPhysicalX = Math.max(...regions.map(r => r.globalPhysicalX + r.srcWidth));
+  const maxPhysicalY = Math.max(...regions.map(r => r.globalPhysicalY + r.srcHeight));
+  
+  const totalPhysicalWidth = maxPhysicalX - minPhysicalX;
+  const totalPhysicalHeight = maxPhysicalY - minPhysicalY;
+  
+  for (const region of regions) {
+    region.destX = region.globalPhysicalX - minPhysicalX;
+    region.destY = region.globalPhysicalY - minPhysicalY;
+  }
+  
+  return {
+    regions,
+    totalPhysicalWidth,
+    totalPhysicalHeight,
+    physicalOffsetX: minPhysicalX,
+    physicalOffsetY: minPhysicalY,
+  };
+}
+
+function drawRegionsToCanvas(ctx, regions) {
+  for (const { screen, srcX, srcY, srcWidth, srcHeight, destX, destY } of regions) {
+    ctx.drawImage(screen.image, srcX, srcY, srcWidth, srcHeight, destX, destY, srcWidth, srcHeight);
+  }
+}
+
+export function drawBackgroundFromScreens(ctx, screens, rect) {
+  if (!screens || screens.length === 0) return;
+  
+  const { x, y, width, height } = rect;
+  
+  for (const screen of screens) {
+    if (!screen.image) continue;
+    
+    const screenX2 = screen.x + screen.width;
+    const screenY2 = screen.y + screen.height;
+
+    if (x >= screenX2 || x + width <= screen.x || y >= screenY2 || y + height <= screen.y) {
+      continue;
     }
-    
-    ctx.drawImage(
-      screen.image,
-      srcX, srcY, srcW, srcH,
-      destX, destY, destW, destH
-    );
+
+    const intersectX = Math.max(x, screen.x);
+    const intersectY = Math.max(y, screen.y);
+    const intersectX2 = Math.min(x + width, screenX2);
+    const intersectY2 = Math.min(y + height, screenY2);
+
+    const scaleX = screen.physicalWidth / screen.width;
+    const scaleY = screen.physicalHeight / screen.height;
+
+    const srcX = Math.round((intersectX - screen.x) * scaleX);
+    const srcY = Math.round((intersectY - screen.y) * scaleY);
+    const srcW = Math.round((intersectX2 - intersectX) * scaleX);
+    const srcH = Math.round((intersectY2 - intersectY) * scaleY);
+
+    const destX = intersectX - x;
+    const destY = intersectY - y;
+    const destW = intersectX2 - intersectX;
+    const destH = intersectY2 - intersectY;
+
+    ctx.drawImage(screen.image, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
   }
 }
 
@@ -75,7 +131,7 @@ const DEFAULT_EXCLUDED_LAYER_IDS = new Set([
 ]);
 
 function drawStageLayers(ctx, stage, rect, pixelRatio, options = {}) {
-  const { excludeLayerIds = DEFAULT_EXCLUDED_LAYER_IDS } = options;
+  const { excludeLayerIds = DEFAULT_EXCLUDED_LAYER_IDS, targetWidth, targetHeight } = options;
 
   const transformers = stage.find?.('Transformer') || [];
   const selectionHandles = stage.find?.('.selection-handle') || [];
@@ -101,7 +157,11 @@ function drawStageLayers(ctx, stage, rect, pixelRatio, options = {}) {
       });
 
       if (layerCanvas) {
-        ctx.drawImage(layerCanvas, 0, 0);
+        if (targetWidth && targetHeight) {
+          ctx.drawImage(layerCanvas, 0, 0, targetWidth, targetHeight);
+        } else {
+          ctx.drawImage(layerCanvas, 0, 0);
+        }
       }
     });
   } finally {
@@ -111,35 +171,33 @@ function drawStageLayers(ctx, stage, rect, pixelRatio, options = {}) {
 
 export async function compositeSelectionImage({ stage, selection, screens, pixelRatio }) {
   const { x, y, width, height } = selection;
-  const x1 = Math.round(x);
-  const y1 = Math.round(y);
-  const x2 = Math.round(x + width);
-  const y2 = Math.round(y + height);
-
-  const safeX = x1;
-  const safeY = y1;
-  const safeWidth = Math.max(1, x2 - x1);
-  const safeHeight = Math.max(1, y2 - y1);
-
-  const stagePixelRatio = pixelRatio ?? stage.pixelRatio?.() ?? window.devicePixelRatio ?? 1;
-  const exportWidth = safeWidth * stagePixelRatio;
-  const exportHeight = safeHeight * stagePixelRatio;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = exportWidth;
-  canvas.height = exportHeight;
-  const ctx = canvas.getContext('2d');
+  const { regions, totalPhysicalWidth, totalPhysicalHeight, physicalOffsetX, physicalOffsetY } = 
+    calculateSelectionRegions(selection, screens);
   
+  if (regions.length === 0 || totalPhysicalWidth === 0) {
+    const pr = pixelRatio ?? stage.pixelRatio?.() ?? window.devicePixelRatio ?? 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * pr));
+    canvas.height = Math.max(1, Math.round(height * pr));
+    return canvas;
+  }
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = totalPhysicalWidth;
+  canvas.height = totalPhysicalHeight;
+  const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
-  drawBackgroundFromScreens(ctx, screens, { x: safeX, y: safeY, width: safeWidth, height: safeHeight }, stagePixelRatio);
+  drawRegionsToCanvas(ctx, regions);
 
-  drawStageLayers(
-    ctx,
-    stage,
-    { x: safeX, y: safeY, width: safeWidth, height: safeHeight },
-    stagePixelRatio,
-  );
+  const primaryScaleFactor = regions[0]?.screen?.scaleFactor || window.devicePixelRatio || 1;
+  drawStageLayers(ctx, stage, { x, y, width, height }, primaryScaleFactor, { 
+    targetWidth: totalPhysicalWidth,
+    targetHeight: totalPhysicalHeight,
+  });
+
+  canvas._physicalOffsetX = physicalOffsetX;
+  canvas._physicalOffsetY = physicalOffsetY;
 
   return canvas;
 }
@@ -157,23 +215,22 @@ export async function compositeSelectionToDataURL(options) {
 }
 
 export function getBackgroundRegion(screens, rect, pixelRatio = 1) {
-  const { x, y, width, height } = rect;
-  const safeWidth = Math.max(1, Math.round(width));
-  const safeHeight = Math.max(1, Math.round(height));
+  const { width, height } = rect;
+  const { regions, totalPhysicalWidth, totalPhysicalHeight } = calculateSelectionRegions(rect, screens);
+  
+  if (regions.length === 0 || totalPhysicalWidth === 0) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width)) * pixelRatio;
+    canvas.height = Math.max(1, Math.round(height)) * pixelRatio;
+    return canvas;
+  }
   
   const canvas = document.createElement('canvas');
-  canvas.width = safeWidth * pixelRatio;
-  canvas.height = safeHeight * pixelRatio;
+  canvas.width = totalPhysicalWidth;
+  canvas.height = totalPhysicalHeight;
   const ctx = canvas.getContext('2d');
-  
   ctx.imageSmoothingEnabled = false;
-  
-  drawBackgroundFromScreens(ctx, screens, { 
-    x: Math.round(x), 
-    y: Math.round(y), 
-    width: safeWidth, 
-    height: safeHeight 
-  }, pixelRatio);
+  drawRegionsToCanvas(ctx, regions);
   
   return canvas;
 }

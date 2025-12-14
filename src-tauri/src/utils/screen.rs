@@ -99,6 +99,22 @@ impl ScreenUtils {
             .ok_or_else(|| "没有可用的显示器".to_string())
     }
 
+    // 根据坐标点获取所在显示器的 scaleFactor
+    pub fn get_scale_factor_at_point(app: &AppHandle, x: i32, y: i32) -> f64 {
+        app.available_monitors()
+            .ok()
+            .and_then(|monitors| {
+                monitors.into_iter().find(|m| {
+                    let pos = m.position();
+                    let size = m.size();
+                    x >= pos.x && x < pos.x + size.width as i32 &&
+                    y >= pos.y && y < pos.y + size.height as i32
+                })
+            })
+            .map(|m| m.scale_factor())
+            .unwrap_or(1.0)
+    }
+
     // 获取指定坐标点所在显示器的真实边缘 (left, right, top, bottom)
     pub fn get_real_edges_at_point(app: &AppHandle, x: i32, y: i32) -> Result<(bool, bool, bool, bool), String> {
         let all_monitors = Self::get_all_monitors_with_edges(app)?;

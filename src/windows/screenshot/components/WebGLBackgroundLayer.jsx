@@ -18,7 +18,6 @@ function WebGLBackgroundLayer({ screens, stageWidth, stageHeight }) {
       renderer.resize(stageWidth, stageHeight, dpr);
       rendererRef.current = renderer;
       setError(null);
-      console.log('[WebGL] 渲染器初始化成功');
     } catch (err) {
       console.error('[WebGL] 初始化失败:', err);
       setError(err.message || 'WebGL 初始化失败');
@@ -40,7 +39,6 @@ function WebGLBackgroundLayer({ screens, stageWidth, stageHeight }) {
     renderer.resize(stageWidth, stageHeight, dpr);
     renderer.setScreens(screens, stageWidth, stageHeight);
     renderer.render();
-    console.log(`[WebGL] 已渲染 ${screens.length} 个屏幕`);
   }, [screens, stageWidth, stageHeight, error]);
 
   if (error) {

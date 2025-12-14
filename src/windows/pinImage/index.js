@@ -89,7 +89,6 @@ import {
 
     try {
         const data = await invoke('get_pin_image_data', { window: currentWindow });
-        console.log(data)
         if (data && data.file_path) {
             const assetUrl = convertFileSrc(data.file_path, 'asset');
             
@@ -128,6 +127,18 @@ import {
             
             states.originalImageSize = { width: logicalWidth, height: logicalHeight };
             states.initialSize = { width: logicalWidth, height: logicalHeight };
+            
+            const SHADOW_PADDING = 10;
+            const windowWidth = logicalWidth + SHADOW_PADDING;
+            const windowHeight = logicalHeight + SHADOW_PADDING;
+            const { LogicalSize, PhysicalPosition } = await import('@tauri-apps/api/window');
+            await currentWindow.setSize(new LogicalSize(windowWidth * textScale, windowHeight * textScale));
+            
+            if (data.image_physical_x != null && data.image_physical_y != null) {
+                const windowX = data.image_physical_x - paddingPhysical;
+                const windowY = data.image_physical_y - paddingPhysical;
+                await currentWindow.setPosition(new PhysicalPosition(windowX, windowY));
+            }
             
             img.classList.add('ready');
         }
