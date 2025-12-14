@@ -95,6 +95,7 @@ export default function ToolParameterPanel({
   const dragStateRef = useRef({ isDragging: false, offset: { x: 0, y: 0 } });
   const [isDragging, setIsDragging] = useState(false);
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [maxPanelHeight, setMaxPanelHeight] = useState(window.innerHeight - 40);
 
   const effectiveParameters = useMemo(() => parameters?.filter(Boolean) || [], [parameters]);
   const defaultStyle = useMemo(() => {
@@ -172,30 +173,33 @@ export default function ToolParameterPanel({
       bottom: screenBounds.y + screenBounds.height,
     };
 
+    const maxAvailableHeight = screenBounds.height - 40;
+    const effectivePanelHeight = Math.min(panelSize.height, maxAvailableHeight);
+
     const attemptPositions = [
       {
         key: 'right',
         x: selection.x + selection.width + padding,
-        y: centerY - panelSize.height / 2,
+        y: centerY - effectivePanelHeight / 2,
         fits: (selection.x + selection.width + padding + panelSize.width) <= within.right,
       },
       {
         key: 'left',
         x: selection.x - panelSize.width - padding,
-        y: centerY - panelSize.height / 2,
+        y: centerY - effectivePanelHeight / 2,
         fits: (selection.x - padding - panelSize.width) >= within.left,
       },
       {
         key: 'bottom',
         x: centerX - panelSize.width / 2,
         y: selection.y + selection.height + padding,
-        fits: (selection.y + selection.height + padding + panelSize.height) <= within.bottom,
+        fits: (selection.y + selection.height + padding + effectivePanelHeight) <= within.bottom,
       },
       {
         key: 'top',
         x: centerX - panelSize.width / 2,
-        y: selection.y - panelSize.height - padding,
-        fits: (selection.y - padding - panelSize.height) >= within.top,
+        y: selection.y - effectivePanelHeight - padding,
+        fits: (selection.y - padding - effectivePanelHeight) >= within.top,
       },
     ];
 
@@ -204,14 +208,14 @@ export default function ToolParameterPanel({
 
     if (!stageRegionManager) {
       x = clamp(x, within.left + 4, within.right - panelSize.width - 4);
-      y = clamp(y, within.top + 4, within.bottom - panelSize.height - 4);
+      y = clamp(y, within.top + 4, within.bottom - effectivePanelHeight - 4);
     } else {
       const constrained = stageRegionManager.constrainRect(
         {
           x,
           y,
           width: panelSize.width,
-          height: panelSize.height,
+          height: effectivePanelHeight,
         },
         'move'
       );
@@ -220,6 +224,9 @@ export default function ToolParameterPanel({
     }
 
     setPosition({ x, y });
+
+    const availableHeight = within.bottom - y - 20;
+    setMaxPanelHeight(Math.max(200, availableHeight));
   }, [selection, activeTool, panelSize, stageRegionManager, lockedPosition]);
 
   const handleDragMove = useCallback((event) => {
@@ -346,9 +353,13 @@ export default function ToolParameterPanel({
           : 'opacity 300ms ease-out', 
       }}
     >
-      <div ref={contentRef} className="w-[220px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 flex flex-col gap-3 overflow-hidden">
+      <div 
+        ref={contentRef} 
+        className="w-[220px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 flex flex-col gap-3 overflow-hidden"
+        style={{ maxHeight: maxPanelHeight }}
+      >
         <div
-          className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide cursor-grab active:cursor-grabbing rounded-lg px-1"
+          className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide cursor-grab active:cursor-grabbing rounded-lg px-1 flex-shrink-0"
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           onPointerDown={handleDragStart}
         >
@@ -365,7 +376,7 @@ export default function ToolParameterPanel({
         {/* 持久化开关 - 不在选择模式下显示 */}
         {!isSelectMode && activeTool.id !== 'select' && (
           <div 
-            className="flex items-center justify-between px-2 py-1.5 -mx-1 -mt-1 mb-0.5 rounded-lg bg-gray-50/80 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-100/80 dark:hover:bg-gray-800/80 transition-colors"
+            className="flex items-center justify-between px-2 py-1.5 -mx-1 -mt-1 mb-0.5 rounded-lg bg-gray-50/80 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-100/80 dark:hover:bg-gray-800/80 transition-colors flex-shrink-0"
             onClick={(e) => {
               e.stopPropagation();
               handleTogglePersistence();
@@ -399,8 +410,29 @@ export default function ToolParameterPanel({
           </div>
         )}
 
-        <div className="flex flex-col gap-3">
+        <div 
+          className="tool-param-scroll flex flex-col gap-3 overflow-y-auto overflow-x-hidden flex-1 min-h-0 -mr-2 pr-2"
+        >
           {panelControls}
+          <style>{`
+            .tool-param-scroll {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+            }
+            .tool-param-scroll::-webkit-scrollbar {
+              width: 5px;
+            }
+            .tool-param-scroll::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .tool-param-scroll::-webkit-scrollbar-thumb {
+              background: rgba(156, 163, 175, 0.4);
+              border-radius: 3px;
+            }
+            .tool-param-scroll::-webkit-scrollbar-thumb:hover {
+              background: rgba(156, 163, 175, 0.6);
+            }
+          `}</style>
         </div>
       </div>
     </div>
