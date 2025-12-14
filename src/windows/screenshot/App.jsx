@@ -471,6 +471,7 @@ function App() {
           hasValidSelection={session.hasValidSelection}
           isDrawing={session.isDrawing}
           isInteracting={session.isInteracting}
+          selection={session.selection}
         />
       )}
 

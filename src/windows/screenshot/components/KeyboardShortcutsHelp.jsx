@@ -4,7 +4,7 @@ import { KEYBOARD_SHORTCUTS, getToolShortcuts } from '../constants/keyboardShort
 import { DRAWING_TOOLS } from '../constants/tools';
 import { mouseStore } from '../store/mouseStore';
 
-export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape, hasValidSelection, isDrawing, isInteracting }) {
+export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape, hasValidSelection, selection }) {
   const { position: mousePos } = useSnapshot(mouseStore);
   const [visible, setVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -12,6 +12,22 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
   const hintRef = useRef(null);
 
   const disablePointerEvents = isDrawingShape;
+
+  // 检测提示面板是否被选区覆盖
+  const checkOverlap = () => {
+    if (!selection || !hintRef.current) return false;
+    
+    const rect = hintRef.current.getBoundingClientRect();
+    const selRight = selection.x + selection.width;
+    const selBottom = selection.y + selection.height;
+
+    return !(
+      selection.x >= rect.right ||
+      selRight <= rect.left ||
+      selection.y >= rect.bottom ||
+      selBottom <= rect.top
+    );
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -118,7 +134,7 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
       return null;
     }
 
-    const hintBaseOpacity = isHintHovered ? 0 : 1;
+    const hintBaseOpacity = isHintHovered || checkOverlap() ? 0 : 1;
     const hintFinalOpacity = disablePointerEvents ? hintBaseOpacity * 0.5 : hintBaseOpacity;
 
     return (

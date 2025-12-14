@@ -118,10 +118,14 @@ export default function ToolParameterPanel({
     onTogglePersistence?.(activeTool.id, newEnabled);
   }, [activeTool?.id, persistenceEnabled, onTogglePersistence]);
 
+  const panelSizeRef = useRef(panelSize);
+  panelSizeRef.current = panelSize;
+
   useLayoutEffect(() => {
     if (!contentRef.current) return;
     
     const container = contentRef.current;
+    const currentPanelSize = panelSizeRef.current;
     
     container.style.transition = 'none';
     container.style.height = 'auto';
@@ -130,8 +134,8 @@ export default function ToolParameterPanel({
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
 
-    if (panelSize.height > 0 && Math.abs(height - panelSize.height) > 2) {
-      container.style.height = `${panelSize.height}px`;
+    if (currentPanelSize.height > 0 && Math.abs(height - currentPanelSize.height) > 2) {
+      container.style.height = `${currentPanelSize.height}px`;
       void container.offsetHeight;
       container.style.transition = 'height 200ms cubic-bezier(0.4, 0, 0.2, 1)';
       container.style.height = `${height}px`;
@@ -145,7 +149,7 @@ export default function ToolParameterPanel({
       return () => clearTimeout(timer);
     } else {
       container.style.height = 'auto';
-      if (Math.abs(width - panelSize.width) > 2 || Math.abs(height - panelSize.height) > 2) {
+      if (Math.abs(width - currentPanelSize.width) > 2 || Math.abs(height - currentPanelSize.height) > 2) {
         setPanelSize({ width, height });
       }
     }
@@ -179,9 +183,6 @@ export default function ToolParameterPanel({
     const within = getScreenBoundsForPosition(centerX, centerY);
 
     if (lockedPosition) {
-      const lockedWithin = getScreenBoundsForPosition(lockedPosition.x + panelSize.width / 2, lockedPosition.y);
-      const availableHeight = lockedWithin.bottom - lockedPosition.y;
-      setMaxPanelHeight(Math.max(200, availableHeight));
       return;
     }
 
@@ -240,7 +241,7 @@ export default function ToolParameterPanel({
     const finalWithin = getScreenBoundsForPosition(x + panelSize.width / 2, y);
     const availableHeight = finalWithin.bottom - y;
     setMaxPanelHeight(Math.max(200, availableHeight));
-  }, [selection, activeTool, panelSize, stageRegionManager, lockedPosition, getScreenBoundsForPosition]);
+  }, [selection, activeTool, panelSize.width, panelSize.height, stageRegionManager, lockedPosition, getScreenBoundsForPosition]);
 
   const handleDragMove = useCallback((event) => {
     if (!dragStateRef.current.isDragging) return;
@@ -283,7 +284,7 @@ export default function ToolParameterPanel({
     const finalScreenWithin = getScreenBoundsForPosition(nextX + actualWidth / 2, nextY);
     const finalAvailableHeight = finalScreenWithin.bottom - nextY;
     setMaxPanelHeight(Math.max(200, finalAvailableHeight));
-  }, [panelSize, stageRegionManager, getScreenBoundsForPosition]);
+  }, [panelSize.width, panelSize.height, stageRegionManager, getScreenBoundsForPosition]);
 
   const stopDragging = useCallback(() => {
     if (!dragStateRef.current.isDragging) return;
