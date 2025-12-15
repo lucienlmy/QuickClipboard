@@ -119,25 +119,41 @@ export function applyBlur(canvas, x, y, width, height, radius = 10) {
 
 // 处理马赛克形状（根据路径或区域）
 
-export async function processMosaicShape(shape, stageRef, screens, existingShapes = []) {
+export async function processMosaicShape(shape, stageRef, screens, _existingShapes = [], clipBounds = null) {
   if (!stageRef?.current || !screens?.length) {
     return null;
   }
   
   const stage = stageRef.current;
   
+  const hasPhysicalSize = clipBounds?.physicalWidth && clipBounds?.physicalHeight;
+  const canvasWidth = hasPhysicalSize ? clipBounds.physicalWidth : (clipBounds ? Math.round(clipBounds.width) : stage.width());
+  const canvasHeight = hasPhysicalSize ? clipBounds.physicalHeight : (clipBounds ? Math.round(clipBounds.height) : stage.height());
+  const cssWidth = clipBounds ? clipBounds.width : stage.width();
+  const cssHeight = clipBounds ? clipBounds.height : stage.height();
+  const offsetX = clipBounds ? clipBounds.x : 0;
+  const offsetY = clipBounds ? clipBounds.y : 0;
+  
+  const scaleX = canvasWidth / cssWidth;
+  const scaleY = canvasHeight / cssHeight;
+  
   try {
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = stage.width();
-    tempCanvas.height = stage.height();
+    tempCanvas.width = canvasWidth;
+    tempCanvas.height = canvasHeight;
     const tempCtx = tempCanvas.getContext('2d');
     
-    drawBackgroundFromScreens(tempCtx, screens, { 
-      x: 0, 
-      y: 0, 
-      width: stage.width(), 
-      height: stage.height() 
-    }, 1);
+    // 绘制背景
+    if (clipBounds && screens[0]?.image) {
+      tempCtx.drawImage(screens[0].image, 0, 0, canvasWidth, canvasHeight);
+    } else {
+      drawBackgroundFromScreens(tempCtx, screens, { 
+        x: offsetX, 
+        y: offsetY, 
+        width: canvasWidth, 
+        height: canvasHeight 
+      });
+    }
     
     // 如果是全局模式，使用 Stage 的完整渲染（包括背景 + 所有编辑层内容）
     if (shape.coverageMode === 'global') {
@@ -150,12 +166,22 @@ export async function processMosaicShape(shape, stageRef, screens, existingShape
         if (overlayLayer) overlayLayer.visible(false);
         if (uiLayer) uiLayer.visible(false);
         
-        const stageCanvas = stage.toCanvas();
+        const dpr = window.devicePixelRatio || 1;
+        const stageCanvas = stage.toCanvas({ pixelRatio: dpr });
         
         if (overlayLayer && overlayVisible !== undefined) overlayLayer.visible(overlayVisible);
         if (uiLayer && uiVisible !== undefined) uiLayer.visible(uiVisible);
         
-        tempCtx.drawImage(stageCanvas, 0, 0);
+        if (clipBounds) {
+          const srcX = offsetX * dpr;
+          const srcY = offsetY * dpr;
+          const srcW = cssWidth * dpr;
+          const srcH = cssHeight * dpr;
+          
+          tempCtx.drawImage(stageCanvas, srcX, srcY, srcW, srcH, 0, 0, canvasWidth, canvasHeight);
+        } else {
+          tempCtx.drawImage(stageCanvas, 0, 0, stageCanvas.width, stageCanvas.height, 0, 0, canvasWidth, canvasHeight);
+        }
         
       } catch (error) {
         console.error('[全局模式] Stage 渲染失败:', error);
@@ -165,10 +191,10 @@ export async function processMosaicShape(shape, stageRef, screens, existingShape
     //根据绘画模式处理
     if (shape.drawMode === 'brush') {
       // 画笔模式：创建遮罩并处理路径区域
-      return processBrushMosaic(shape, tempCanvas);
+      return processBrushMosaic(shape, tempCanvas, offsetX, offsetY, scaleX, scaleY);
     } else if (shape.drawMode === 'region') {
       // 区域模式：直接处理矩形区域
-      return processRegionMosaic(shape, tempCanvas);
+      return processRegionMosaic(shape, tempCanvas, offsetX, offsetY, scaleX, scaleY);
     }
   } catch (error) {
     console.error('处理马赛克失败:', error);
@@ -180,7 +206,7 @@ export async function processMosaicShape(shape, stageRef, screens, existingShape
 
 // 处理画笔模式的马赛克
 
-function processBrushMosaic(shape, sourceCanvas) {
+function processBrushMosaic(shape, sourceCanvas, canvasOffsetX = 0, canvasOffsetY = 0, scaleX = 1, scaleY = 1) {
   const { points, brushSize, renderMode, mosaicSize, blurRadius } = shape;
   
   if (!points || points.length < 2) return null;
@@ -206,21 +232,26 @@ function processBrushMosaic(shape, sourceCanvas) {
   
   if (width <= 0 || height <= 0) return null;
   
+  const physicalWidth = Math.round(width * scaleX);
+  const physicalHeight = Math.round(height * scaleY);
+  const avgScale = (scaleX + scaleY) / 2;
+  const physicalBrushSize = brushSize * avgScale;
+  
   const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = width;
-  maskCanvas.height = height;
+  maskCanvas.width = physicalWidth;
+  maskCanvas.height = physicalHeight;
   const maskCtx = maskCanvas.getContext('2d');
   
   maskCtx.fillStyle = 'white';
   maskCtx.strokeStyle = 'white';
-  maskCtx.lineWidth = brushSize;
+  maskCtx.lineWidth = physicalBrushSize;
   maskCtx.lineCap = 'round';
   maskCtx.lineJoin = 'round';
   
   maskCtx.beginPath();
   for (let i = 0; i < points.length; i += 2) {
-    const x = points[i] - minX;
-    const y = points[i + 1] - minY;
+    const x = (points[i] - minX) * scaleX;
+    const y = (points[i + 1] - minY) * scaleY;
     if (i === 0) {
       maskCtx.moveTo(x, y);
     } else {
@@ -230,24 +261,29 @@ function processBrushMosaic(shape, sourceCanvas) {
   maskCtx.stroke();
   
   const resultCanvas = document.createElement('canvas');
-  resultCanvas.width = width;
-  resultCanvas.height = height;
+  resultCanvas.width = physicalWidth;
+  resultCanvas.height = physicalHeight;
   const resultCtx = resultCanvas.getContext('2d');
+  
+  const srcX = Math.round((minX - canvasOffsetX) * scaleX);
+  const srcY = Math.round((minY - canvasOffsetY) * scaleY);
   
   resultCtx.drawImage(
     sourceCanvas,
-    minX, minY, width, height,
-    0, 0, width, height
+    srcX, srcY, physicalWidth, physicalHeight,
+    0, 0, physicalWidth, physicalHeight
   );
   
   if (renderMode === 'mosaic') {
-    applyMosaic(resultCanvas, 0, 0, width, height, mosaicSize || 10);
+    const effectiveMosaicSize = Math.max(1, Math.round((mosaicSize || 10) * avgScale));
+    applyMosaic(resultCanvas, 0, 0, physicalWidth, physicalHeight, effectiveMosaicSize);
   } else {
-    applyBlur(resultCanvas, 0, 0, width, height, blurRadius || 10);
+    const effectiveBlurRadius = Math.max(1, Math.round((blurRadius || 10) * avgScale));
+    applyBlur(resultCanvas, 0, 0, physicalWidth, physicalHeight, effectiveBlurRadius);
   }
   
-  const maskData = maskCtx.getImageData(0, 0, width, height);
-  const resultData = resultCtx.getImageData(0, 0, width, height);
+  const maskData = maskCtx.getImageData(0, 0, physicalWidth, physicalHeight);
+  const resultData = resultCtx.getImageData(0, 0, physicalWidth, physicalHeight);
   
   for (let i = 0; i < maskData.data.length; i += 4) {
     const alpha = maskData.data[i] / 255; 
@@ -278,28 +314,35 @@ function processBrushMosaic(shape, sourceCanvas) {
 }
 
 // 处理区域模式的马赛克
-
-function processRegionMosaic(shape, sourceCanvas) {
+function processRegionMosaic(shape, sourceCanvas, canvasOffsetX = 0, canvasOffsetY = 0, scaleX = 1, scaleY = 1) {
   const { x, y, width, height, renderMode, mosaicSize, blurRadius } = shape;
   
   if (width <= 0 || height <= 0) return null;
   
-  // 创建与区域完全相同大小的 canvas
+  const physicalWidth = Math.round(width * scaleX);
+  const physicalHeight = Math.round(height * scaleY);
+  
   const resultCanvas = document.createElement('canvas');
-  resultCanvas.width = width;
-  resultCanvas.height = height;
+  resultCanvas.width = physicalWidth;
+  resultCanvas.height = physicalHeight;
   const resultCtx = resultCanvas.getContext('2d');
+  
+  const srcX = Math.round((x - canvasOffsetX) * scaleX);
+  const srcY = Math.round((y - canvasOffsetY) * scaleY);
   
   resultCtx.drawImage(
     sourceCanvas,
-    x, y, width, height,
-    0, 0, width, height
+    srcX, srcY, physicalWidth, physicalHeight,
+    0, 0, physicalWidth, physicalHeight
   );
   
+  const avgScale = (scaleX + scaleY) / 2;
   if (renderMode === 'mosaic') {
-    applyMosaic(resultCanvas, 0, 0, width, height, mosaicSize || 10);
+    const effectiveMosaicSize = Math.max(1, Math.round((mosaicSize || 10) * avgScale));
+    applyMosaic(resultCanvas, 0, 0, physicalWidth, physicalHeight, effectiveMosaicSize);
   } else {
-    applyBlur(resultCanvas, 0, 0, width, height, blurRadius || 10);
+    const effectiveBlurRadius = Math.max(1, Math.round((blurRadius || 10) * avgScale));
+    applyBlur(resultCanvas, 0, 0, physicalWidth, physicalHeight, effectiveBlurRadius);
   }
   
   return new Promise((resolve) => {

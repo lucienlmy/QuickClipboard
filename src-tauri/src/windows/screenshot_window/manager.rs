@@ -95,6 +95,8 @@ pub fn start_pin_edit_mode(
     window_label: String,
     window_x: i32, window_y: i32,
     window_width: f64, window_height: f64,
+    original_image_path: Option<String>,
+    edit_data_json: Option<String>,
 ) -> Result<(), String> {
     let window = get_or_create_window(app)?;
     let edit_data = PinEditData {
@@ -106,6 +108,8 @@ pub fn start_pin_edit_mode(
         window_label,
         window_x, window_y,
         window_width, window_height,
+        original_image_path,
+        edit_data: edit_data_json,
     };
     set_pin_edit_data(edit_data)?;
 
@@ -132,18 +136,40 @@ pub fn clear_pin_edit_mode() {
 
 // 更新贴图图片并恢复显示
 #[tauri::command]
-pub fn confirm_pin_edit(app: AppHandle, new_file_path: String) -> Result<(), String> {
+pub fn confirm_pin_edit(
+    app: AppHandle,
+    new_file_path: String,
+    edit_data_json: Option<String>,
+) -> Result<(), String> {
     if let Some(data) = get_pin_edit_data() {
         let old_file_path = data.image_path.clone();
-        if old_file_path != new_file_path {
+        let is_old_same_as_original = data.original_image_path.as_ref() == Some(&old_file_path);
+        if old_file_path != new_file_path && !is_old_same_as_original {
             let _ = std::fs::remove_file(&old_file_path);
         }
-        
+
+        let original_image_path = data.original_image_path.clone();
+
         if let Some(window) = app.get_webview_window(&data.window_label) {
-            crate::windows::pin_image_window::update_pin_image_file(&data.window_label, new_file_path.clone());
-            let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(data.window_width, data.window_height)));
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(data.window_x, data.window_y)));
-            let _ = app.emit_to(&data.window_label, "pin-image:refresh", json!({ "file_path": new_file_path }));
+            crate::windows::pin_image_window::update_pin_image_data(
+                &data.window_label,
+                new_file_path.clone(),
+                original_image_path,
+                edit_data_json,
+            );
+            let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(
+                data.window_width,
+                data.window_height,
+            )));
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(
+                data.window_x,
+                data.window_y,
+            )));
+            let _ = app.emit_to(
+                &data.window_label,
+                "pin-image:refresh",
+                json!({ "file_path": new_file_path }),
+            );
             let _ = window.show();
         }
     }

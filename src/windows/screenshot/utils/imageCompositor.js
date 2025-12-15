@@ -216,22 +216,26 @@ export async function compositeSelectionToDataURL(options) {
 
 export function getBackgroundRegion(screens, rect, pixelRatio = 1) {
   const { width, height } = rect;
-  const { regions, totalPhysicalWidth, totalPhysicalHeight } = calculateSelectionRegions(rect, screens);
-  
+  const { regions, totalPhysicalWidth, totalPhysicalHeight, physicalOffsetX, physicalOffsetY } =
+    calculateSelectionRegions(rect, screens);
+
   if (regions.length === 0 || totalPhysicalWidth === 0) {
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(width)) * pixelRatio;
     canvas.height = Math.max(1, Math.round(height)) * pixelRatio;
     return canvas;
   }
-  
+
   const canvas = document.createElement('canvas');
   canvas.width = totalPhysicalWidth;
   canvas.height = totalPhysicalHeight;
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   drawRegionsToCanvas(ctx, regions);
-  
+
+  canvas._physicalOffsetX = physicalOffsetX;
+  canvas._physicalOffsetY = physicalOffsetY;
+
   return canvas;
 }
 

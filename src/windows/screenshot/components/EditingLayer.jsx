@@ -4,7 +4,7 @@ import { ShapeRenderer } from './ShapeRenderer';
 import TextEditor from './TextEditor';
 import WatermarkRenderer from './WatermarkRenderer';
 
-const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose, watermarkConfig, selection, stageSize, pinEditMode }) => {
+const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, onShapeTransformByIndex, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose, watermarkConfig, selection, stageSize, pinEditMode }) => {
   const transformerRef = useRef(null);
   const shapeRefs = useRef([]);
   const layerRef = useRef(null);
@@ -93,6 +93,7 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
           shapeListening={listening && isSelectMode}
           onSelectShape={onSelectShape}
           onShapeTransform={onShapeTransform}
+          onShapeTransformByIndex={onShapeTransformByIndex}
           onTextEdit={onTextEdit}
           isEditing={editingTextIndex === originalIndex}
         />

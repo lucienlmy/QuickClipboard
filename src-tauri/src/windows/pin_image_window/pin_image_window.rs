@@ -19,6 +19,8 @@ struct PinImageData {
     preview_mode: bool,
     image_physical_x: Option<i32>,
     image_physical_y: Option<i32>,
+    original_image_path: Option<String>, 
+    edit_data: Option<String>,           
 }
 
 pub fn init_pin_image_window() {
@@ -32,6 +34,23 @@ pub fn update_pin_image_file(label: &str, new_file_path: String) {
         let mut map = data_map.lock().unwrap();
         if let Some(data) = map.get_mut(label) {
             data.file_path = new_file_path;
+        }
+    }
+}
+
+// 更新贴图图片数据
+pub fn update_pin_image_data(
+    label: &str, 
+    new_file_path: String,
+    original_image_path: Option<String>,
+    edit_data: Option<String>,
+) {
+    if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
+        let mut map = data_map.lock().unwrap();
+        if let Some(data) = map.get_mut(label) {
+            data.file_path = new_file_path;
+            data.original_image_path = original_image_path;
+            data.edit_data = edit_data;
         }
     }
 }
@@ -51,6 +70,8 @@ pub async fn pin_image_from_file(
     image_physical_y: Option<i32>,
     image_physical_width: Option<u32>,
     image_physical_height: Option<u32>,
+    original_image_path: Option<String>,
+    edit_data: Option<String>,
 ) -> Result<(), String> {
     let is_preview = preview_mode.unwrap_or(false);
     let use_physical_coords = image_physical_x.is_some() && image_physical_y.is_some();
@@ -130,6 +151,8 @@ pub async fn pin_image_from_file(
                 preview_mode: is_preview,
                 image_physical_x,
                 image_physical_y,
+                original_image_path,
+                edit_data,
             },
         );
     }
@@ -241,7 +264,9 @@ pub fn get_pin_image_data(window: WebviewWindow) -> Result<serde_json::Value, St
                 "height": data.height,
                 "preview_mode": data.preview_mode,
                 "image_physical_x": data.image_physical_x,
-                "image_physical_y": data.image_physical_y
+                "image_physical_y": data.image_physical_y,
+                "original_image_path": data.original_image_path,
+                "edit_data": data.edit_data
             }));
         }
     }
@@ -332,10 +357,10 @@ pub async fn start_pin_edit_mode(
     img_width_physical: u32,
     img_height_physical: u32,
 ) -> Result<(), String> {
-    let file_path = if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
+    let (file_path, original_image_path, edit_data) = if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
         let map = data_map.lock().unwrap();
         if let Some(data) = map.get(window.label()) {
-            data.file_path.clone()
+            (data.file_path.clone(), data.original_image_path.clone(), data.edit_data.clone())
         } else {
             return Err("未找到图片数据".to_string());
         }
@@ -386,6 +411,8 @@ pub async fn start_pin_edit_mode(
         window_y,
         window_width,
         window_height,
+        original_image_path,
+        edit_data,
     )?;
     let _ = rx.recv_timeout(Duration::from_secs(1));
 

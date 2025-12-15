@@ -253,7 +253,7 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
                         let file_path = file_path.clone();
                         tauri::async_runtime::spawn(async move {
                             if let Err(e) = crate::windows::pin_image_window::pin_image_from_file(
-                                app, file_path, None, None, None, None, None, None, None, None, None,
+                                app, file_path, None, None, None, None, None, None, None, None, None, None, None,
                             ).await {
                                 eprintln!("创建贴图窗口失败: {}", e);
                             }

@@ -106,6 +106,7 @@ function App() {
   const longScreenshot = useLongScreenshot(session.selection, screens, stageRegionManager);
   const editing = useScreenshotEditing(effectiveScreens, stageRef, {
     clipBounds: isPinEdit ? pinEditSelection : null,
+    initialShapes: isPinEdit ? pinEditMode.initialShapes : null,
   });
 
   const effectiveSelection = isPinEdit ? pinEditSelection : session.selection;
@@ -115,16 +116,21 @@ function App() {
     if (!effectiveSelection) return;
     try {
       const { exportPinEditImage } = await import('./utils/exportUtils');
-      const newFilePath = await exportPinEditImage(stageRef, effectiveSelection, { 
+      const editShapes = editing.getSerializableShapes();
+      const hasEdits = editShapes.length > 0;
+      const result = await exportPinEditImage(stageRef, effectiveSelection, {
         originalImage: pinEditMode.pinImage,
       });
-      if (newFilePath) {
-        await pinEditMode.confirmPinEdit(newFilePath);
+
+      if (result) {
+        const editDataJson = hasEdits ? JSON.stringify(editShapes) : null;
+
+        await pinEditMode.confirmPinEdit(result.compositeFilePath, editDataJson);
       }
     } catch (err) {
       console.error('确认贴图编辑失败:', err);
     }
-  }, [effectiveSelection, pinEditMode, stageRef]);
+  }, [effectiveSelection, pinEditMode, stageRef, editing]);
 
   const handleCancel = useCallback(() => {
     if (isPinEdit) {
@@ -133,6 +139,22 @@ function App() {
       session.handleCancelSelection();
     }
   }, [isPinEdit, pinEditMode, session]);
+  const handlePinSelection = useCallback(async () => {
+    if (!session.selection) return;
+    try {
+      const { exportToPin } = await import('./utils/exportUtils');
+      const editShapes = editing.getSerializableShapes(session.selection);
+      const hasEdits = editShapes.length > 0;
+      const editDataJson = hasEdits ? JSON.stringify(editShapes) : null;
+
+      await exportToPin(stageRef, session.selection, session.cornerRadius, {
+        screens,
+        editData: editDataJson,
+      });
+    } catch (err) {
+      console.error('创建贴图失败:', err);
+    }
+  }, [session.selection, session.cornerRadius, stageRef, screens, editing]);
 
   // 快捷键管理
   useKeyboardShortcuts({
@@ -145,7 +167,7 @@ function App() {
     onCancel: handleCancel,
     onSave: isPinEdit ? undefined : session.handleSaveSelection,
     onConfirm: isPinEdit ? handleConfirm : session.handleConfirmSelection,
-    onPin: isPinEdit ? undefined : session.handlePinSelection,
+    onPin: isPinEdit ? undefined : handlePinSelection,
     onSelectAll: () => {
       if (editing.shapes.length > 0) {
         editing.setSelectedShapeIndices?.(editing.shapes.map((_, i) => i));
@@ -318,6 +340,7 @@ function App() {
             selectedShapeIndices={editing.selectedShapeIndices}
             onSelectShape={editing.toggleSelectShape}
             onShapeTransform={editing.updateSelectedShape}
+            onShapeTransformByIndex={editing.updateShapeByIndex}
             isSelectMode={editing.activeToolId === 'select'}
             selectionBox={editing.selectionBox}
             onTextEdit={editing.startEditingText}
@@ -394,7 +417,7 @@ function App() {
         stageRegionManager={stageRegionManager}
         onCancel={handleCancel}
         onConfirm={isPinEdit ? handleConfirm : session.handleConfirmSelection}
-        onPin={session.handlePinSelection}
+        onPin={handlePinSelection}
         onSave={session.handleSaveSelection}
         activeToolId={editing.activeToolId}
         onToolChange={editing.setActiveToolId}
@@ -487,7 +510,7 @@ function App() {
             redo: editing.redo,
             clear: editing.clearCanvas,
             save: session.handleSaveSelection,
-            pin: session.handlePinSelection,
+            pin: handlePinSelection,
             confirm: session.handleConfirmSelection,
             cancel: session.handleCancelSelection,
           }}

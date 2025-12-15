@@ -105,37 +105,48 @@ async function savePinImage(blob) {
 }
 
 // 导出为贴图（普通截图模式）
-export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [] } = {}) {
+export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [], editData = null } = {}) {
   if (!selection || !stageRef || !stageRef.current) return;
 
   const stage = stageRef.current.getStage ? stageRef.current.getStage() : stageRef.current;
   if (!stage) return;
 
   try {
-    let canvas = await compositeSelectionImage({ stage, selection, screens });
-    if (!canvas) return;
-    
-    const imagePhysicalX = canvas._physicalOffsetX;
-    const imagePhysicalY = canvas._physicalOffsetY;
-    const imagePhysicalWidth = canvas.width;
-    const imagePhysicalHeight = canvas.height;
-    
-    if (cornerRadius > 0) {
-      const pixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
-      canvas = applyCornerRadius(canvas, cornerRadius, pixelRatio);
+    const { getBackgroundRegion } = await import('./imageCompositor');
+    const backgroundCanvas = getBackgroundRegion(screens, selection);
+    const imagePhysicalX = backgroundCanvas._physicalOffsetX ?? 0;
+    const imagePhysicalY = backgroundCanvas._physicalOffsetY ?? 0;
+    const imagePhysicalWidth = backgroundCanvas.width;
+    const imagePhysicalHeight = backgroundCanvas.height;
+    const originalBlob = await new Promise((resolve) => backgroundCanvas.toBlob(resolve, 'image/png'));
+    if (!originalBlob) return;
+    const originalFilePath = await savePinImage(originalBlob);
+
+    const hasEdits = !!editData;
+    let effectFilePath = originalFilePath; 
+
+    if (hasEdits) {
+      let canvas = await compositeSelectionImage({ stage, selection, screens });
+      if (!canvas) return;
+
+      if (cornerRadius > 0) {
+        const pixelRatio = stage.pixelRatio?.() || window.devicePixelRatio || 1;
+        canvas = applyCornerRadius(canvas, cornerRadius, pixelRatio);
+      }
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) return;
+      effectFilePath = await savePinImage(blob);
     }
-    
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) return;
-    
-    const filePath = await savePinImage(blob);
-    
+
     await invoke('pin_image_from_file', {
-      filePath,
+      filePath: effectFilePath,
       imagePhysicalX,
       imagePhysicalY,
       imagePhysicalWidth,
       imagePhysicalHeight,
+      originalImagePath: originalFilePath,
+      editData: editData,
     });
 
     await cancelScreenshotSession();
@@ -156,11 +167,13 @@ export async function exportPinEditImage(stageRef, selection, { originalImage } 
     const { compositePinEditImage } = await import('./imageCompositor');
     const canvas = compositePinEditImage({ stage, selection, originalImage });
     if (!canvas) return null;
-    
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!blob) return null;
-    
-    return await savePinImage(blob);
+
+    const compositeFilePath = await savePinImage(blob);
+
+    return { compositeFilePath };
   } catch (error) {
     console.error('保存编辑图片失败:', error);
     throw error;

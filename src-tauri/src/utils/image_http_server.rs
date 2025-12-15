@@ -31,6 +31,8 @@ pub struct PinEditData {
     pub window_y: i32,
     pub window_width: f64,
     pub window_height: f64,
+    pub original_image_path: Option<String>, 
+    pub edit_data: Option<String>,           
 }
 
 static PIN_EDIT_DATA: Lazy<Mutex<Option<PinEditData>>> =

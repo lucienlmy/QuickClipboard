@@ -12,6 +12,7 @@ import { createOcrTool } from '../tools/ocrTool';
 import { recordColorHistory } from '../utils/colorHistory';
 import { processMosaicShape } from '../utils/imageProcessor';
 import { createPersistenceManager } from '../utils/toolParameterPersistence';
+import { shapeToRelative, shapeToAbsolute } from '../utils/shapeCoordinates';
 
 // 检查形状是否在框选范围内
 const checkShapeInBox = (shape, box) => {
@@ -132,10 +133,11 @@ const clampToBounds = (pos, bounds) => {
 };
 
 export default function useScreenshotEditing(screens = [], stageRef = null, options = {}) {
-  const { clipBounds = null } = options;
+  const { clipBounds = null, initialShapes = null } = options;
   const [shapes, setShapes] = useState([]);
   const [history, setHistory] = useState([[]]);
   const [historyStep, setHistoryStep] = useState(0);
+  const initializedRef = useRef(false);
   const [activeToolId, setActiveToolId] = useState(null);
   const [currentShape, setCurrentShape] = useState(null);
   const [selectedShapeIndices, setSelectedShapeIndices] = useState([]);
@@ -257,6 +259,91 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
   }, [activeToolId, selectedShapeIndices, shapes, toolStyles]);
 
   const { tool: activeTool, style: activeToolStyle, isSelectMode } = getActiveToolInfo();
+
+  // 初始化编辑数据
+  useEffect(() => {
+    if (initializedRef.current || !initialShapes || !Array.isArray(initialShapes)) return;
+    if (!clipBounds) return;
+    initializedRef.current = true;
+
+    const processInitialShapes = async () => {
+
+      const allShapes = initialShapes.map((shape) => shapeToAbsolute(shape, clipBounds));
+      const globalMosaicIndices = []; 
+      const shapesWithoutGlobalMosaic = [];
+      
+      allShapes.forEach((shape, index) => {
+
+        if (shape.tool === 'mosaic' && !shape.processedImage && shape.coverageMode === 'global') {
+          globalMosaicIndices.push(index);
+          shapesWithoutGlobalMosaic.push(null);
+        } else if (shape.tool === 'mosaic' && !shape.processedImage) {
+          shapesWithoutGlobalMosaic.push(shape);
+        } else {
+          shapesWithoutGlobalMosaic.push(shape);
+        }
+      });
+
+      const processedShapes = await Promise.all(
+        shapesWithoutGlobalMosaic.map(async (shape) => {
+          if (!shape) return null;
+          if (shape.tool === 'mosaic' && !shape.processedImage) {
+            try {
+              const processed = await processMosaicShape(shape, stageRef, screens, [], clipBounds);
+              return processed || shape;
+            } catch (error) {
+              console.error('处理马赛克失败:', error);
+              return shape;
+            }
+          }
+          return shape;
+        })
+      );
+
+      if (globalMosaicIndices.length === 0) {
+        setShapes(processedShapes);
+        setHistory([[], processedShapes]);
+        setHistoryStep(1);
+      } else {
+        const tempShapes = processedShapes.filter(s => s !== null);
+        setShapes(tempShapes);
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const finalShapes = [...processedShapes];
+        for (const index of globalMosaicIndices) {
+          const mosaicShape = allShapes[index];
+          try {
+            const processed = await processMosaicShape(mosaicShape, stageRef, screens, tempShapes, clipBounds);
+            if (processed) {
+              finalShapes[index] = processed;
+            } else {
+              finalShapes[index] = mosaicShape;
+            }
+          } catch (error) {
+            console.error('处理全局模式马赛克失败:', error);
+            finalShapes[index] = mosaicShape;
+          }
+        }
+        
+        setShapes(finalShapes.filter(s => s !== null));
+        setHistory([[], finalShapes.filter(s => s !== null)]);
+        setHistoryStep(1);
+      }
+
+      const numberShapes = allShapes.filter((s) => s.tool === 'number');
+      if (numberShapes.length > 0) {
+        const maxNumber = Math.max(...numberShapes.map((s) => s.number || 0));
+        setToolStyles((prev) => ({
+          ...prev,
+          number: {
+            ...(prev.number || tools.current.number.getDefaultStyle()),
+            currentNumber: maxNumber + 1,
+          },
+        }));
+      }
+    };
+
+    setTimeout(processInitialShapes, 100);
+  }, [initialShapes, screens, stageRef, clipBounds]);
 
   useEffect(() => {
     if (!activeToolId) return;
@@ -517,7 +604,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
           
           await new Promise(resolve => setTimeout(resolve, 0));
           
-          const processed = await processMosaicShape(finalizedShape, stageRef, screens, shapes);
+          const processed = await processMosaicShape(finalizedShape, stageRef, screens, shapes, clipBounds);
           if (processed) {
             finalizedShape = processed;
           }
@@ -599,12 +686,21 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
 
   const updateSelectedShape = useCallback((updatedAttrs) => {
     if (selectedShapeIndices.length !== 1) return;
-    const newShapes = shapes.map((shape, i) => 
+    const newShapes = shapes.map((shape, i) =>
       i === selectedShapeIndices[0] ? { ...shape, ...updatedAttrs } : shape
     );
     setShapes(newShapes);
     pushToHistory(newShapes);
   }, [selectedShapeIndices, shapes, pushToHistory]);
+
+  const updateShapeByIndex = useCallback((index, updatedAttrs) => {
+    if (index < 0 || index >= shapes.length) return;
+    const newShapes = shapes.map((shape, i) =>
+      i === index ? { ...shape, ...updatedAttrs } : shape
+    );
+    setShapes(newShapes);
+    pushToHistory(newShapes);
+  }, [shapes, pushToHistory]);
 
   useEffect(() => {
     if (activeToolId !== 'select') {
@@ -666,11 +762,19 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     toggleSelectShape,
     deleteSelectedShapes,
     updateSelectedShape,
+    updateShapeByIndex,
     selectionBox,
     editingTextIndex,
     updateTextContent,
     startEditingText,
     stopEditingText,
     watermarkConfig: toolStyles.watermark,
+    getSerializableShapes: useCallback((bounds = null) => {
+      const effectiveBounds = bounds || clipBounds;
+      return shapes.map((shape) => {
+        const { processedImage, _meta, _isNew, ...rest } = shape;
+        return shapeToRelative(rest, effectiveBounds);
+      });
+    }, [shapes, clipBounds]),
   };
 }

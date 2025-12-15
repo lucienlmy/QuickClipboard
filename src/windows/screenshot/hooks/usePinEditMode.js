@@ -7,7 +7,9 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 export function usePinEditMode() {
   const [isPinEditMode, setIsPinEditMode] = useState(false);
   const [pinEditData, setPinEditData] = useState(null);
-  const [pinImage, setPinImage] = useState(null);
+  const [pinImage, setPinImage] = useState(null);          
+  const [originalImage, setOriginalImage] = useState(null);
+  const [initialShapes, setInitialShapes] = useState(null);
   const [screenInfos, setScreenInfos] = useState([]);
   const [isChecking, setIsChecking] = useState(true); 
 
@@ -38,14 +40,19 @@ export function usePinEditMode() {
     setIsPinEditMode(false);
     setPinEditData(null);
     setPinImage(null);
+    setOriginalImage(null);
+    setInitialShapes(null);
   }, []);
 
   // 确认编辑
-  const confirmPinEdit = useCallback(async (newFilePath) => {
+  const confirmPinEdit = useCallback(async (newFilePath, editDataJson) => {
     try {
-      await invoke('confirm_pin_edit', { newFilePath });
+      await invoke('confirm_pin_edit', {
+        newFilePath,
+        editDataJson: editDataJson || null,
+      });
       await invoke('clear_pin_edit_mode');
-      
+
       const { cancelScreenshotSession } = await import('@shared/api/system');
       await cancelScreenshotSession();
     } catch (error) {
@@ -54,6 +61,8 @@ export function usePinEditMode() {
     setIsPinEditMode(false);
     setPinEditData(null);
     setPinImage(null);
+    setOriginalImage(null);
+    setInitialShapes(null);
   }, []);
 
   const calculateSelection = useCallback((data, image) => {
@@ -141,13 +150,34 @@ export function usePinEditMode() {
       try {
         const data = await invoke('get_pin_edit_mode_data');
         if (data && mounted) {
+          const hasOriginalImage = !!data.original_image_path;
+          
+          const imageToLoad = hasOriginalImage ? data.original_image_path : data.image_path;
+          
           const [image, screens] = await Promise.all([
-            loadPinImage(data.image_path),
+            loadPinImage(imageToLoad),
             invoke('get_all_screens'),
           ]);
+          
+          let origImage = null;
+          if (hasOriginalImage) {
+            origImage = image;
+          }
+          
+          let shapes = null;
+          if (data.edit_data) {
+            try {
+              shapes = JSON.parse(data.edit_data);
+            } catch (e) {
+              console.error('解析编辑数据失败:', e);
+            }
+          }
+          
           if (mounted) {
             setPinEditData(data);
             setPinImage(image);
+            setOriginalImage(origImage);
+            setInitialShapes(shapes);
             setScreenInfos(screens);
             setIsPinEditMode(true);
             const { emit } = await import('@tauri-apps/api/event');
@@ -194,6 +224,8 @@ export function usePinEditMode() {
     isChecking,
     pinEditData,
     pinImage,
+    originalImage,    
+    initialShapes,    
     screenInfos,
     calculateSelection,
     exitPinEditMode,

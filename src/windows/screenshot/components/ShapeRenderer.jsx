@@ -55,6 +55,7 @@ export const ShapeRenderer = ({
   shapeListening,
   onSelectShape,
   onShapeTransform,
+  onShapeTransformByIndex,
   onTextEdit,
   isEditing
 }) => {
@@ -265,8 +266,8 @@ export const ShapeRenderer = ({
           }
         }}
         onTransform={(updatedShape) => {
-          if (isSelectMode && onShapeTransform) {
-            onShapeTransform(updatedShape);
+          if (onShapeTransformByIndex) {
+            onShapeTransformByIndex(index, updatedShape);
           }
         }}
       />
