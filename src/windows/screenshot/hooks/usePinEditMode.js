@@ -83,7 +83,7 @@ export function usePinEditMode() {
   const passthroughIntervalRef = useRef(null);
 
   // 启动穿透控制
-  const startPassthrough = useCallback(async (selection) => {
+  const startPassthrough = useCallback(async (selection, offset = { x: 0, y: 0 }) => {
     if (!selection) return;
     
     const dpr = window.devicePixelRatio || 1;
@@ -92,8 +92,8 @@ export function usePinEditMode() {
       const rects = [];
       
       rects.push([
-        selection.x * dpr,
-        selection.y * dpr,
+        selection.x * dpr + offset.x,
+        selection.y * dpr + offset.y,
         selection.width * dpr,
         selection.height * dpr,
       ]);
@@ -101,13 +101,13 @@ export function usePinEditMode() {
       const toolbar = document.querySelector('[data-toolbar="selection"]');
       if (toolbar) {
         const rect = toolbar.getBoundingClientRect();
-        rects.push([rect.left * dpr, rect.top * dpr, rect.width * dpr, rect.height * dpr]);
+        rects.push([rect.left * dpr + offset.x, rect.top * dpr + offset.y, rect.width * dpr, rect.height * dpr]);
       }
       
       const paramPanel = document.querySelector('[data-panel="tool-parameter"]');
       if (paramPanel) {
         const rect = paramPanel.getBoundingClientRect();
-        rects.push([rect.left * dpr, rect.top * dpr, rect.width * dpr, rect.height * dpr]);
+        rects.push([rect.left * dpr + offset.x, rect.top * dpr + offset.y, rect.width * dpr, rect.height * dpr]);
       }
       
       try {
@@ -118,8 +118,8 @@ export function usePinEditMode() {
     };
     
     const initRects = [[
-      selection.x * dpr,
-      selection.y * dpr,
+      selection.x * dpr + offset.x,
+      selection.y * dpr + offset.y,
       selection.width * dpr,
       selection.height * dpr,
     ]];

@@ -338,7 +338,16 @@ pub fn close_pin_image_window_by_self(window: WebviewWindow) -> Result<(), Strin
     
     if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
         let mut map = data_map.lock().unwrap();
-        map.remove(&label);
+        if let Some(data) = map.remove(&label) {
+            if let Some(ref original_path) = data.original_image_path {
+                if data.file_path != *original_path {
+                    let file_in_use = map.values().any(|d| d.file_path == data.file_path);
+                    if !file_in_use {
+                        let _ = std::fs::remove_file(&data.file_path);
+                    }
+                }
+            }
+        }
     }
     
     let _ = window.set_size(Size::Logical(LogicalSize::new(1.0, 1.0)));

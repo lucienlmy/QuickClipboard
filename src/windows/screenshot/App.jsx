@@ -43,10 +43,25 @@ function App() {
   const [ocrResult, setOcrResult] = useState(null);
   const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
 
+  const virtualScreenOffset = useMemo(() => {
+    if (!isPinEdit || !pinEditMode.screenInfos?.length) return { x: 0, y: 0 };
+    const minX = Math.min(...pinEditMode.screenInfos.map(([px]) => px));
+    const minY = Math.min(...pinEditMode.screenInfos.map(([, py]) => py));
+    return { x: minX, y: minY };
+  }, [isPinEdit, pinEditMode.screenInfos]);
+
   const pinEditSelection = useMemo(() => {
     if (!isPinEdit || !pinEditMode.pinEditData || !pinEditMode.pinImage) return null;
-    return pinEditMode.calculateSelection(pinEditMode.pinEditData, pinEditMode.pinImage);
-  }, [isPinEdit, pinEditMode.pinEditData, pinEditMode.pinImage, pinEditMode.calculateSelection]);
+    const baseSelection = pinEditMode.calculateSelection(pinEditMode.pinEditData, pinEditMode.pinImage);
+    if (!baseSelection) return null;
+    
+    const dpr = window.devicePixelRatio || 1;
+    return {
+      ...baseSelection,
+      x: (pinEditMode.pinEditData.x - virtualScreenOffset.x) / dpr,
+      y: (pinEditMode.pinEditData.y - virtualScreenOffset.y) / dpr,
+    };
+  }, [isPinEdit, pinEditMode.pinEditData, pinEditMode.pinImage, pinEditMode.calculateSelection, virtualScreenOffset]);
 
   const pinImageAsScreen = useMemo(() => {
     if (!isPinEdit || !pinEditMode.pinImage || !pinEditSelection) return null;
@@ -87,11 +102,18 @@ function App() {
     if (!isPinEdit || !pinEditMode.screenInfos?.length) return null;
     const dpr = window.devicePixelRatio || 1;
     const screens = pinEditMode.screenInfos.map(([px, py, pw, ph, scaleFactor]) => ({
-      x: px / dpr, y: py / dpr, width: pw / dpr, height: ph / dpr,
-      physicalX: px, physicalY: py, physicalWidth: pw, physicalHeight: ph, scaleFactor,
+      x: (px - virtualScreenOffset.x) / dpr,
+      y: (py - virtualScreenOffset.y) / dpr,
+      width: pw / dpr,
+      height: ph / dpr,
+      physicalX: px - virtualScreenOffset.x,
+      physicalY: py - virtualScreenOffset.y,
+      physicalWidth: pw,
+      physicalHeight: ph,
+      scaleFactor,
     }));
     return createStageRegionManager(screens);
-  }, [isPinEdit, pinEditMode.screenInfos]);
+  }, [isPinEdit, pinEditMode.screenInfos, virtualScreenOffset]);
 
   const stageRegionManager = isPinEdit ? pinEditStageRegionManager : screenshotStageRegionManager;
 
@@ -308,9 +330,9 @@ function App() {
   // 贴图编辑模式穿透控制
   useEffect(() => {
     if (!isPinEdit || !pinEditSelection) return;
-    pinEditMode.startPassthrough(pinEditSelection);
+    pinEditMode.startPassthrough(pinEditSelection, virtualScreenOffset);
     return () => pinEditMode.stopPassthrough();
-  }, [isPinEdit, pinEditSelection, pinEditMode]);
+  }, [isPinEdit, pinEditSelection, pinEditMode, virtualScreenOffset]);
 
   return (
     <div className={`w-screen h-screen bg-transparent relative ${isDark ? 'dark' : ''}`}>
