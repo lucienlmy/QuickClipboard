@@ -31,7 +31,13 @@ export default defineConfig({
       mode: 'global',
       inspector: false,
     }),
-    react(),
+    react({
+      babel: {
+        plugins: [
+          ['babel-plugin-react-compiler', {}],
+        ],
+      },
+    }),
   ],
 
   build: {

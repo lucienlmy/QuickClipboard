@@ -190,8 +190,8 @@ export async function compositeSelectionImage({ stage, selection, screens, pixel
 
   drawRegionsToCanvas(ctx, regions);
 
-  const primaryScaleFactor = regions[0]?.screen?.scaleFactor || window.devicePixelRatio || 1;
-  drawStageLayers(ctx, stage, { x, y, width, height }, primaryScaleFactor, { 
+  const editLayerPixelRatio = totalPhysicalWidth / width;
+  drawStageLayers(ctx, stage, { x, y, width, height }, editLayerPixelRatio, { 
     targetWidth: totalPhysicalWidth,
     targetHeight: totalPhysicalHeight,
   });
