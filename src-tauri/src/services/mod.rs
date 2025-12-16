@@ -8,6 +8,7 @@ pub mod paste;
 pub mod sound;
 pub mod screenshot;
 pub mod image_library;
+pub mod low_memory;
 
 pub use settings::{AppSettings, get_settings, update_settings, get_data_directory};
 pub use notification::show_startup_notification;

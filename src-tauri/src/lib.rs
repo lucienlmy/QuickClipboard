@@ -29,11 +29,17 @@ pub use windows::tray::setup_tray;
 pub use windows::settings_window::open_settings_window;
 pub use windows::quickpaste;
 pub use windows::plugins::context_menu::is_context_menu_visible;
+pub use services::low_memory::{is_low_memory_mode, enter_low_memory_mode, exit_low_memory_mode};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if services::low_memory::is_low_memory_mode() {
+                if let Err(e) = services::low_memory::exit_low_memory_mode(app) {
+                    eprintln!("退出低占用模式失败: {}", e);
+                }
+            }
             if let Some(window) = app.get_webview_window("main") {
                 show_main_window(&window);
             }
@@ -155,6 +161,9 @@ pub fn run() {
                 commands::enable_win_v_hotkey_and_restart,
                 commands::prompt_disable_win_v_hotkey_if_needed,
                 commands::prompt_enable_win_v_hotkey,
+                commands::enter_low_memory_mode,
+                commands::exit_low_memory_mode,
+                commands::is_low_memory_mode,
                 commands::play_sound,
                 commands::play_beep,
                 commands::play_copy_sound,
@@ -291,6 +300,23 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            match event {
+                tauri::RunEvent::ExitRequested { api, .. } => {
+                    if services::low_memory::is_low_memory_mode() 
+                        && !services::low_memory::is_user_requested_exit() 
+                    {
+                        api.prevent_exit();
+                    }
+                }
+                tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } => {
+                    if label == "main" && !services::low_memory::is_low_memory_mode() {
+                        app.exit(0);
+                    }
+                }
+                _ => {}
+            }
+        });
 }

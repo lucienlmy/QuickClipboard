@@ -1,4 +1,4 @@
-use once_cell::sync::{OnceCell, Lazy};
+use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rdev::{grab, Event, EventType, Key};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use std::collections::HashMap;
 use tauri::{Emitter, Manager, WebviewWindow};
 
-static MAIN_WINDOW: OnceCell<WebviewWindow> = OnceCell::new();
+static MAIN_WINDOW: Mutex<Option<WebviewWindow>> = Mutex::new(None);
 static MONITORING_ACTIVE: AtomicBool = AtomicBool::new(false);
 static MONITORING_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
 
@@ -45,7 +45,11 @@ fn get_throttle_delay(action: &str) -> Duration {
 }
 
 pub fn init_input_monitor(window: WebviewWindow) {
-    let _ = MAIN_WINDOW.set(window);
+    *MAIN_WINDOW.lock() = Some(window);
+}
+
+pub fn update_main_window(window: WebviewWindow) {
+    *MAIN_WINDOW.lock() = Some(window);
 }
 
 pub fn start_monitoring() {
@@ -174,7 +178,7 @@ fn update_modifier_key(key: Key, pressed: bool) {
 }
 
 fn handle_navigation_key(key: Key) -> bool {
-    if let Some(window) = MAIN_WINDOW.get() {
+    if let Some(window) = MAIN_WINDOW.lock().as_ref() {
         let settings = crate::get_settings();
         
         let shortcuts = [
@@ -360,7 +364,11 @@ fn handle_mouse_move(x: f64, y: f64) {
 }
 
 fn handle_middle_button_action() {
-    if let Some(window) = MAIN_WINDOW.get() {
+    if crate::services::low_memory::is_low_memory_mode() {
+        return;
+    }
+
+    if let Some(window) = MAIN_WINDOW.lock().as_ref() {
         let settings = crate::get_settings();
         
         if !check_modifier_requirement(&settings.mouse_middle_button_modifier) {
@@ -399,7 +407,7 @@ fn is_mouse_outside_window(window: &WebviewWindow) -> bool {
 fn handle_click_outside() {
     // 右键菜单
     if crate::is_context_menu_visible() {
-        if let Some(main_window) = MAIN_WINDOW.get() {
+        if let Some(main_window) = MAIN_WINDOW.lock().as_ref() {
             if let Some(menu_window) = main_window.app_handle().get_webview_window("context-menu") {
                 let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
                 if menu_window.is_visible().unwrap_or(false) && !crate::windows::plugins::context_menu::is_point_in_menu_region(cursor_x, cursor_y) {
@@ -411,7 +419,7 @@ fn handle_click_outside() {
     }
     
     // 主窗口
-    if let Some(window) = MAIN_WINDOW.get() {
+    if let Some(window) = MAIN_WINDOW.lock().as_ref() {
         let state = crate::get_window_state();
 
         if state.is_hidden {

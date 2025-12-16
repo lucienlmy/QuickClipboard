@@ -104,7 +104,18 @@ pub fn unregister_shortcut(id: &str) {
 
 pub fn register_toggle_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("toggle", shortcut_str, |app| {
-        let _ = crate::toggle_main_window_visibility(app);
+        // 低占用模式下，先退出低占用模式再显示窗口
+        if crate::services::low_memory::is_low_memory_mode() {
+            if let Err(e) = crate::services::low_memory::exit_low_memory_mode(app) {
+                eprintln!("退出低占用模式失败: {}", e);
+                return;
+            }
+            if let Some(window) = app.get_webview_window("main") {
+                crate::show_main_window(&window);
+            }
+        } else {
+            let _ = crate::toggle_main_window_visibility(app);
+        }
     })
 }
 
@@ -118,10 +129,16 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
     app.global_shortcut()
         .on_shortcut(shortcut, move |app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
+                if crate::services::low_memory::is_low_memory_mode() {
+                    return;
+                }
                 if let Err(e) = crate::windows::quickpaste::show_quickpaste_window(&app) {
                     eprintln!("显示便捷粘贴窗口失败: {}", e);
                 }
             } else if event.state == ShortcutState::Released {
+                if crate::services::low_memory::is_low_memory_mode() {
+                    return;
+                }
                 if let Some(window) = app.get_webview_window("quickpaste") {
                     let _ = window.emit("quickpaste-hide", ());
                 }
@@ -145,6 +162,9 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
 
 pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot", shortcut_str, |app| {
+        if crate::services::low_memory::is_low_memory_mode() {
+            return;
+        }
         if let Err(e) = crate::windows::screenshot_window::start_screenshot(app) {
             eprintln!("启动截图窗口失败: {}", e);
         }

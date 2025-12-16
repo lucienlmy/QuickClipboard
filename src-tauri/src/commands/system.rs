@@ -145,3 +145,20 @@ pub fn prompt_enable_win_v_hotkey(app: tauri::AppHandle) -> Result<bool, String>
     Ok(true)
 }
 
+// 进入低占用模式
+#[tauri::command]
+pub fn enter_low_memory_mode(app: tauri::AppHandle) -> Result<(), String> {
+    crate::services::low_memory::enter_low_memory_mode(&app)
+}
+
+// 退出低占用模式
+#[tauri::command]
+pub fn exit_low_memory_mode(app: tauri::AppHandle) -> Result<(), String> {
+    crate::services::low_memory::exit_low_memory_mode(&app)
+}
+
+// 检查是否处于低占用模式
+#[tauri::command]
+pub fn is_low_memory_mode() -> bool {
+    crate::services::low_memory::is_low_memory_mode()
+}

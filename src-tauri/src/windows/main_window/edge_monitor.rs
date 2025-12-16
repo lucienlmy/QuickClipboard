@@ -1,13 +1,13 @@
-use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{WebviewWindow, Manager};
 
-static MAIN_WINDOW: OnceCell<WebviewWindow> = OnceCell::new();
+static MAIN_WINDOW: Mutex<Option<WebviewWindow>> = Mutex::new(None);
 static MONITORING_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 pub fn init_edge_monitor(window: WebviewWindow) {
-    let _ = MAIN_WINDOW.set(window);
+    *MAIN_WINDOW.lock() = Some(window);
 }
 
 pub fn start_edge_monitoring() {
@@ -30,7 +30,7 @@ pub fn start_edge_monitoring() {
                 continue;
             }
             
-            let window = match MAIN_WINDOW.get() {
+            let window = match MAIN_WINDOW.lock().clone() {
                 Some(w) => w,
                 None => {
                     std::thread::sleep(Duration::from_millis(100));
@@ -48,14 +48,14 @@ pub fn start_edge_monitoring() {
  
             if last_hidden_state != state.is_hidden {
                 last_hidden_state = state.is_hidden;
-                if let Ok(is_near) = check_mouse_near_edge(window, &state) {
+                if let Ok(is_near) = check_mouse_near_edge(&window, &state) {
                     last_near_state = is_near;
                 }
                 std::thread::sleep(Duration::from_millis(50));
                 continue;
             }
 
-            let is_near = match check_mouse_near_edge(window, &state) {
+            let is_near = match check_mouse_near_edge(&window, &state) {
                 Ok(near) => near,
                 Err(_) => {
                     std::thread::sleep(Duration::from_millis(100));
@@ -70,11 +70,11 @@ pub fn start_edge_monitoring() {
             }
 
             if is_near && state.is_hidden {
-                let _ = crate::show_snapped_window(window);
+                let _ = crate::show_snapped_window(&window);
             }
 
             else if !is_near && !state.is_hidden && !state.is_pinned {
-                let _ = crate::hide_snapped_window(window);
+                let _ = crate::hide_snapped_window(&window);
             }
             
             last_near_state = is_near;
