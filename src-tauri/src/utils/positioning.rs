@@ -57,6 +57,34 @@ pub fn center_window(window: &WebviewWindow) -> Result<(), String> {
     window.center().map_err(|e| e.to_string())
 }
 
+// 将窗口中心对齐到鼠标位置
+pub fn center_at_cursor(window: &WebviewWindow) -> Result<(), String> {
+    let monitor = crate::screen::ScreenUtils::get_monitor_at_cursor(window.app_handle())?;
+    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+    let window_size = window.outer_size().map_err(|e| e.to_string())?;
+    
+    let monitor_pos = monitor.position();
+    let monitor_size = monitor.size();
+    
+    let w = window_size.width as i32;
+    let h = window_size.height as i32;
+    
+    let work_x = monitor_pos.x;
+    let work_y = monitor_pos.y;
+    let work_w = monitor_size.width as i32;
+    let work_h = monitor_size.height as i32;
+    
+    // 窗口中心对齐鼠标
+    let mut x = cursor_x - w / 2;
+    let mut y = cursor_y - h / 2;
+    
+    // 确保不超出屏幕边界
+    x = x.max(work_x).min(work_x + work_w - w);
+    y = y.max(work_y).min(work_y + work_h - h);
+    
+    window.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())
+}
+
 // 获取窗口边界
 pub fn get_window_bounds(window: &WebviewWindow) -> Result<(i32, i32, u32, u32), String> {
     let pos = window.outer_position().map_err(|e| e.to_string())?;

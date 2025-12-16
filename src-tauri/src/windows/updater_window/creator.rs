@@ -156,7 +156,7 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
             if force_update {
                 FORCE_UPDATE_MODE.store(true, Ordering::Relaxed);
                 if let Some(main_window) = app.get_webview_window("main") {
-                    let _ = main_window.hide();
+                    crate::hide_main_window(&main_window);
                 }
                 if let Some(qp_window) = app.get_webview_window("quickpaste") {
                     let _ = qp_window.hide();

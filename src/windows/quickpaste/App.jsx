@@ -14,6 +14,7 @@ import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { ImageContent, FileContent, HtmlContent, TextContent } from '@windows/main/components/ClipboardContent';
 import { getPrimaryType } from '@shared/utils/contentType';
+import { playScrollSound } from '@shared/api';
 import logoIcon from '@/assets/icon1024.png';
 function QuickPasteWindow() {
   const {
@@ -43,12 +44,17 @@ function QuickPasteWindow() {
   }, (_, i) => currentItems.get(i) || null), [currentItems, totalCount]);
   const title = isClipboardTab ? t('settings.quickpaste.window.clipboardHistory') : groupSnap.currentGroup;
 
-  // 处理点击取消
-  const handleCancelClick = async () => {
-    setIsHoveringCancel(true);
-    const window = getCurrentWebviewWindow();
-    await window.hide();
-  };
+  useEffect(() => {
+    const handleMouseLeave = () => setIsHoveringCancel(true);
+    const handleMouseEnter = () => setIsHoveringCancel(false);
+
+    document.documentElement.addEventListener('mouseleave', handleMouseLeave);
+    document.documentElement.addEventListener('mouseenter', handleMouseEnter);
+    return () => {
+      document.documentElement.removeEventListener('mouseleave', handleMouseLeave);
+      document.documentElement.removeEventListener('mouseenter', handleMouseEnter);
+    };
+  }, []);
   const handleItemClick = useCallback((item, index) => {
     if (!item) return;
     setActiveIndex(index);
@@ -129,13 +135,19 @@ function QuickPasteWindow() {
 
   // 滚轮切换项
   useEffect(() => {
-    const unlisten = listen('quickpaste-scroll', e => {
+    const handleWheel = (e) => {
+      e.preventDefault();
+      playScrollSound();
       setActiveIndex(prev => {
         const max = totalCount - 1;
-        return e.payload.direction === 'up' ? prev > 0 ? prev - 1 : max : prev < max ? prev + 1 : 0;
+        return e.deltaY > 0 
+          ? (prev < max ? prev + 1 : 0)
+          : (prev > 0 ? prev - 1 : max);
       });
-    });
-    return () => unlisten.then(fn => fn());
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
   }, [totalCount]);
   useEffect(() => {
     virtuosoRef.current?.scrollToIndex({
@@ -250,8 +262,9 @@ function QuickPasteWindow() {
   return <div className={outerContainerClasses} style={{
     padding: '5px'
   }}>
-    <div className="quickpaste-container w-full h-full flex flex-col bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl overflow-hidden" style={{
+    <div className={`quickpaste-container w-full h-full flex flex-col bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl overflow-hidden transition-all duration-200`} style={{
       borderRadius: '8px',
+      border: isHoveringCancel ? '3px solid rgba(239, 68, 68, 0.9)' : '3px solid transparent',
       boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
     }}>
       <style>{`
@@ -371,21 +384,6 @@ function QuickPasteWindow() {
         </div>
       )}
 
-      {/* 底部取消按钮 */}
-      <div className={`
-        flex-shrink-0 px-3 py-3 text-center text-[11px] font-semibold transition-all duration-300 overflow-hidden cursor-pointer
-        ${isHoveringCancel
-          ? 'bg-gradient-to-r from-red-500 via-red-600 to-red-500 text-white shadow-2xl shadow-red-500/40 transform scale-[1.02]'
-          : 'bg-gradient-to-t from-red-50/70 dark:from-red-900/20 to-transparent text-red-600 dark:text-red-400 hover:from-red-100/70 dark:hover:from-red-900/30'
-        }
-      `} onMouseEnter={() => setIsHoveringCancel(true)} onMouseLeave={() => setIsHoveringCancel(false)} onClick={handleCancelClick}>
-        <div className="flex items-center justify-center gap-2">
-          <i className={`ti ti-${isHoveringCancel ? 'x' : 'chevron-down'} transition-all duration-200`} />
-          <span className="truncate overflow-hidden font-bold tracking-wide">
-            {isHoveringCancel ? t('settings.quickpaste.window.cancelHover') : t('settings.quickpaste.window.cancelNormal')}
-          </span>
-        </div>
-      </div>
     </div>
   </div>;
 }

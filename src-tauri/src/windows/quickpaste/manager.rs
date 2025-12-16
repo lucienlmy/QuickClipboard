@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Manager, Emitter, WebviewUrl, WebviewWindowBuilder};
 use super::state::set_visible;
-use crate::utils::positioning::position_at_cursor;
+use crate::utils::positioning::center_at_cursor;
 
 fn create_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
     let settings = crate::get_settings();
@@ -46,7 +46,7 @@ pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
     let _ = crate::services::system::save_current_focus(app.clone());
 
     let window = get_or_create_window(app)?;
-    position_at_cursor(&window)?;
+    center_at_cursor(&window)?;
     let _ = window.show();
     let _ = window.set_always_on_top(true);
     set_visible(true);
