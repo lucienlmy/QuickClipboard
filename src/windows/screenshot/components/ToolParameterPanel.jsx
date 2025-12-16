@@ -7,20 +7,9 @@ import MultiToggleControl from './controls/MultiToggleControl';
 import SelectControl from './controls/SelectControl';
 import NumberInputControl from './controls/NumberInputControl';
 import { isToolPersistenceEnabled } from '../utils/toolParameterPersistence';
+import { usePanelDrag } from '../hooks/usePanelDrag';
 
 const DEFAULT_PANEL_SIZE = { width: 240, height: 160 };
-
-const clamp = (value, min, max) => {
-  if (typeof min !== 'number' || typeof max !== 'number') return value;
-  return Math.min(Math.max(value, min), max);
-};
-
-const getFallbackBounds = () => ({
-  left: 0,
-  top: 0,
-  right: window.innerWidth || 1920,
-  bottom: window.innerHeight || 1080,
-});
 
 // 按钮组件
 function ActionButton({ param, onAction }) {
@@ -127,18 +116,25 @@ export default function ToolParameterPanel({
   const panelRef = useRef(null);
   const contentRef = useRef(null);
   const [panelSize, setPanelSize] = useState(DEFAULT_PANEL_SIZE);
-  const [position, setPosition] = useState({ x: -9999, y: -9999 });
-  const [lockedPosition, setLockedPosition] = useState(null);
-  const dragStateRef = useRef({ isDragging: false, offset: { x: 0, y: 0 } });
-  const [isDragging, setIsDragging] = useState(false);
+  const [autoPosition, setAutoPosition] = useState({ x: -9999, y: -9999 });
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [maxPanelHeight, setMaxPanelHeight] = useState(window.innerHeight - 40);
 
   const effectiveParameters = useMemo(() => parameters?.filter(Boolean) || [], [parameters]);
-  const defaultStyle = useMemo(() => {
-    if (!activeTool?.getDefaultStyle) return {};
-    return activeTool.getDefaultStyle();
-  }, [activeTool]);
+
+  const {
+    lockedPosition,
+    isDragging,
+    isSnapped,
+    handleDragStart,
+  } = usePanelDrag({
+    panelRef,
+    panelSize,
+    selection,
+    stageRegionManager,
+    enableSnap: true,
+    onMaxHeightChange: setMaxPanelHeight,
+  });
 
   // 监听工具变化，更新持久化状态
   useEffect(() => {
@@ -212,19 +208,17 @@ export default function ToolParameterPanel({
 
   useEffect(() => {
     if (!selection || !activeTool || !panelSize) return;
+    if (lockedPosition) return;
 
-    const padding = 12;
+    const padding = 8;
     const centerX = selection.x + selection.width / 2;
     const centerY = selection.y + selection.height / 2;
     
     const within = getScreenBoundsForPosition(centerX, centerY);
-
-    if (lockedPosition) {
-      return;
-    }
-
     const maxAvailableHeight = (within.bottom - within.top) - 40;
     const effectivePanelHeight = Math.min(panelSize.height, maxAvailableHeight);
+
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
     const attemptPositions = [
       {
@@ -261,101 +255,19 @@ export default function ToolParameterPanel({
       y = clamp(y, within.top + 4, within.bottom - effectivePanelHeight - 4);
     } else {
       const constrained = stageRegionManager.constrainRect(
-        {
-          x,
-          y,
-          width: panelSize.width,
-          height: effectivePanelHeight,
-        },
+        { x, y, width: panelSize.width, height: effectivePanelHeight },
         'move'
       );
       x = constrained.x;
       y = constrained.y;
     }
 
-    setPosition({ x, y });
+    setAutoPosition({ x, y });
 
     const finalWithin = getScreenBoundsForPosition(x + panelSize.width / 2, y);
     const availableHeight = finalWithin.bottom - y;
     setMaxPanelHeight(Math.max(200, availableHeight));
   }, [selection, activeTool, panelSize.width, panelSize.height, stageRegionManager, lockedPosition, getScreenBoundsForPosition]);
-
-  const handleDragMove = useCallback((event) => {
-    if (!dragStateRef.current.isDragging) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const offset = dragStateRef.current.offset;
-    let nextX = event.clientX - offset.x;
-    let nextY = event.clientY - offset.y;
-
-    const actualWidth = panelSize.width;
-    
-    const screenWithin = getScreenBoundsForPosition(nextX + actualWidth / 2, nextY);
-    const availableHeight = screenWithin.bottom - nextY;
-    const effectiveHeight = Math.min(panelSize.height, Math.max(200, availableHeight));
-
-    if (stageRegionManager) {
-      const constrained = stageRegionManager.constrainRect(
-        {
-          x: nextX,
-          y: nextY,
-          width: actualWidth,
-          height: effectiveHeight,
-        },
-        'move'
-      );
-      nextX = constrained.x;
-      nextY = constrained.y;
-    } else {
-      const bounds = getFallbackBounds();
-      nextX = clamp(nextX, bounds.left, bounds.right - actualWidth);
-      nextY = clamp(nextY, bounds.top, bounds.bottom - effectiveHeight);
-    }
-
-    const nextPosition = { x: nextX, y: nextY };
-    setPosition(nextPosition);
-    setLockedPosition(nextPosition);
-
-    const finalScreenWithin = getScreenBoundsForPosition(nextX + actualWidth / 2, nextY);
-    const finalAvailableHeight = finalScreenWithin.bottom - nextY;
-    setMaxPanelHeight(Math.max(200, finalAvailableHeight));
-  }, [panelSize.width, panelSize.height, stageRegionManager, getScreenBoundsForPosition]);
-
-  const stopDragging = useCallback(() => {
-    if (!dragStateRef.current.isDragging) return;
-    dragStateRef.current.isDragging = false;
-    setIsDragging(false);
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('pointermove', handleDragMove);
-    window.addEventListener('pointerup', stopDragging);
-    window.addEventListener('pointerleave', stopDragging);
-
-    return () => {
-      window.removeEventListener('pointermove', handleDragMove);
-      window.removeEventListener('pointerup', stopDragging);
-      window.removeEventListener('pointerleave', stopDragging);
-    };
-  }, [handleDragMove, stopDragging]);
-
-  const handleDragStart = useCallback((event) => {
-    if (!panelRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    dragStateRef.current = {
-      isDragging: true,
-      offset: {
-        x: event.clientX - position.x,
-        y: event.clientY - position.y,
-      },
-    };
-    setIsDragging(true);
-    setLockedPosition(position);
-  }, [position]);
 
   // 找出第一个颜色参数
   const firstColorParamId = useMemo(() => {
@@ -399,14 +311,19 @@ export default function ToolParameterPanel({
       );
     });
 
+  const finalPosition = lockedPosition || autoPosition;
+
   return (
     <div
       ref={panelRef}
       data-panel="tool-parameter"
-      className="absolute z-20 select-none"
+      className={[
+        'absolute z-20 select-none',
+        (isSnapped.x || isSnapped.y) && '[&>div]:ring-2 [&>div]:ring-blue-400/50',
+      ].filter(Boolean).join(' ')}
       style={{ 
-        left: position.x, 
-        top: position.y,
+        left: finalPosition.x, 
+        top: finalPosition.y,
         pointerEvents: isDrawingShape ? 'none' : 'auto',
         opacity: isDrawingShape ? 0.5 : 1,
         transition: isDrawingShape 

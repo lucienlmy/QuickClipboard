@@ -1,5 +1,7 @@
+import { useRef, useState, useLayoutEffect } from 'react';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { DRAWING_TOOLS, HISTORY_TOOLS, ACTION_TOOLS } from '../constants/tools';
+import { usePanelDrag } from '../hooks/usePanelDrag';
 
 function SelectionToolbar({
   selection, isDrawing, isMoving, isResizing, isDrawingShape, stageRegionManager,
@@ -20,16 +22,40 @@ function SelectionToolbar({
   // 贴图编辑模式
   pinEditMode = false,
 }) {
+  const toolbarRef = useRef(null);
+  const [toolbarSize, setToolbarSize] = useState({ width: 340, height: 35 });
+
+  useLayoutEffect(() => {
+    if (!toolbarRef.current) return;
+    const rect = toolbarRef.current.getBoundingClientRect();
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    if (width !== toolbarSize.width || height !== toolbarSize.height) {
+      setToolbarSize({ width, height });
+    }
+  });
+
+  const {
+    lockedPosition,
+    isDragging,
+    isSnapped,
+    handleDragStart,
+  } = usePanelDrag({
+    panelRef: toolbarRef,
+    panelSize: toolbarSize,
+    selection,
+    stageRegionManager,
+    enableSnap: true,
+  });
+
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;
   if (isDrawing || isMoving || isResizing) return null;
 
   const disablePointerEvents = isDrawingShape;
 
-  const toolbarWidth = 340;
-  const toolbarHeight = 35;
-
   const getToolbarPosition = (isLongScreenshot = longScreenshotMode) => {
     const padding = 8; 
+    const { width: toolbarWidth, height: toolbarHeight } = toolbarSize;
 
     let x = selection.x + selection.width;
     let y = selection.y + selection.height + padding;
@@ -56,11 +82,9 @@ function SelectionToolbar({
       if (yTop >= screenTop) {
         y = yTop;
       } else {
-        // 长截图模式：优先内右上角
         if (isLongScreenshot) {
           y = selection.y + padding;
         } else {
-          // 普通模式：内右下角
           y = selection.y + selection.height - toolbarHeight - padding;
         }
         
@@ -172,10 +196,10 @@ function SelectionToolbar({
       onClick: () => {
         const pos = getToolbarPosition(true);
         onLongScreenshotEnter({
-          x: pos.x - toolbarWidth,
+          x: pos.x - toolbarSize.width,
           y: pos.y,
-          width: toolbarWidth,
-          height: toolbarHeight,
+          width: toolbarSize.width,
+          height: toolbarSize.height,
         });
       },
       variant: 'default'
@@ -198,17 +222,22 @@ function SelectionToolbar({
     variant: 'default',
   }));
 
-  const { x, y } = getToolbarPosition();
+  const autoPosition = getToolbarPosition();
+  const finalPosition = lockedPosition || { x: autoPosition.x - toolbarSize.width, y: autoPosition.y };
 
   return (
     <div
+      ref={toolbarRef}
       data-toolbar="selection"
-      className="flex flex-row-reverse items-center gap-1 px-2 py-[5px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none"
+      className={[
+        'flex flex-row-reverse items-center gap-1 px-2 py-[5px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 select-none',
+        (isSnapped.x || isSnapped.y) && 'ring-2 ring-blue-400/50',
+      ].filter(Boolean).join(' ')}
       style={{
         position: 'absolute',
-        left: x,
-        top: y,
-        transform: 'translateX(-100%)',
+        left: lockedPosition ? finalPosition.x : autoPosition.x,
+        top: finalPosition.y,
+        transform: lockedPosition ? 'none' : 'translateX(-100%)',
         pointerEvents: disablePointerEvents ? 'none' : 'auto',
         opacity: disablePointerEvents ? 0.5 : 1,
         transition: disablePointerEvents 
@@ -217,12 +246,10 @@ function SelectionToolbar({
       }}
     >
       {longScreenshotMode ? (
-        // 长截屏模式：只显示长截屏相关按钮
         <>
           {longScreenshotTools.map(renderButton)}
         </>
       ) : (
-        // 普通模式：显示完整工具栏
         <>
           {actionTools.map(renderButton)}
           <Divider />
@@ -231,6 +258,15 @@ function SelectionToolbar({
           {drawingTools.map(renderButton)}
         </>
       )}
+      {/* 拖拽手柄 */}
+      <div
+        className="flex items-center justify-center w-5 h-6 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        onPointerDown={handleDragStart}
+        title="拖拽移动工具栏"
+      >
+        <i className="ti ti-grip-vertical text-sm"></i>
+      </div>
     </div>
   );
 }

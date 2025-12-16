@@ -4806,7 +4806,7 @@ dependencies = [
 [[package]]
 name = "qcocr"
 version = "0.1.0"
-source = "git+https://github.com/mosheng1/qcocr#f6249accb7d8c719b942ffdf68438ec6c5e2ae0a"
+source = "git+https://github.com/mosheng1/qcocr#a4c67b5ac6b3934176aa3e29719ef79fdb5521b5"
 dependencies = [
  "serde",
  "serde_json",
