@@ -1,11 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { cancelScreenshotSession } from '@shared/api/system';
 import { useSelection } from './useSelection';
 import { useSelectionInteraction } from './useSelectionInteraction';
 import { useAutoSelection } from './useAutoSelection';
 import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUtils';
+import { recognizeSelectionOcr } from '../utils/ocrUtils';
 
 export function useScreenshotSession(stageRef, stageRegionManager, { screens = [] } = {}) {
+  const [quickMode, setQuickMode] = useState(0);
+  const quickModeExecutedRef = useRef(false);
+  
   const {
     selection,
     cornerRadius,
@@ -80,6 +85,39 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     };
     interactionMouseUp(autoSelectionRect, onSelectFromAuto);
   }, [interactionMouseUp, autoSelectionRect, updateSelection, clearAutoSelection]);
+
+  const isSelectionComplete = hasValidSelection && !isDrawing && !isMoving && !isResizing;
+
+  useEffect(() => {
+    let unlisten;
+    let mounted = true;
+    
+    (async () => {
+      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const win = getCurrentWebviewWindow();
+      unlisten = await win.listen('screenshot:new-session', (event) => {
+        if (!mounted) return;
+        const mode = event.payload?.quickMode ?? 0;
+        setQuickMode(mode);
+        quickModeExecutedRef.current = false;
+      });
+
+      try {
+        const mode = await invoke('get_screenshot_quick_mode');
+        if (mounted) {
+          setQuickMode(mode);
+          quickModeExecutedRef.current = false;
+        }
+      } catch (err) {
+        console.error('获取快捷模式失败:', err);
+      }
+    })();
+    
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
+  }, []);
 
   const handleRightClick = useCallback(async (e) => {
     e.evt?.preventDefault?.();
@@ -157,6 +195,45 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     }
   }, [getEffectiveSelection, stageRef, cornerRadius, screens]);
 
+  const handleQuickOcr = useCallback(async () => {
+    const effectiveSelection = getEffectiveSelection();
+    if (!effectiveSelection) return;
+    try {
+      const result = await recognizeSelectionOcr(stageRef, effectiveSelection, { screens });
+      if (result?.text) {
+        const { copyTextToClipboard } = await import('@shared/api/system');
+        await copyTextToClipboard(result.text);
+      }
+    } catch (err) {
+      console.error('OCR识别失败:', err);
+    }
+  }, [getEffectiveSelection, stageRef, screens]);
+
+  useEffect(() => {
+    if (!isSelectionComplete || quickModeExecutedRef.current || quickMode === 0) return;
+    
+    const executeQuickMode = async () => {
+      quickModeExecutedRef.current = true;
+
+      await new Promise(r => setTimeout(r, 50));
+      
+      try {
+        if (quickMode === 1) {
+          await handleConfirmSelection();
+        } else if (quickMode === 2) {
+          await handlePinSelection();
+        } else if (quickMode === 3) {
+          await handleQuickOcr();
+        }
+      } catch (err) {
+        console.error('快捷模式执行失败:', err);
+      }
+      await cancelScreenshotSession();
+    };
+    
+    executeQuickMode();
+  }, [isSelectionComplete, quickMode, handleConfirmSelection, handlePinSelection, handleQuickOcr]);
+
   return {
     selection,
     cornerRadius,
@@ -172,6 +249,7 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     autoSelectionRect,
     displayAutoSelectionRect,
     hasAutoSelection,
+    quickMode,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,

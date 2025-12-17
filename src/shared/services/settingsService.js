@@ -81,6 +81,9 @@ export const defaultSettings = {
   // 截屏设置
   screenshotEnabled: true,
   screenshotShortcut: 'Ctrl+Shift+A',
+  screenshotQuickSaveShortcut: '',
+  screenshotQuickPinShortcut: '',
+  screenshotQuickOcrShortcut: '',
   screenshotQuality: 85,
   screenshotAutoSave: false,
   screenshotShowHints: true,

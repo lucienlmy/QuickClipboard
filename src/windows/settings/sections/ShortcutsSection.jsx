@@ -149,16 +149,30 @@ function ShortcutsSection({
           <ShortcutInput value={settings.quickpasteShortcut} onChange={value => handleShortcutChange('quickpasteShortcut', value)} onReset={() => handleShortcutChange('quickpasteShortcut', 'Ctrl+`')} hasError={hasErrorStatus('quickpasteShortcut', 'quickpaste')} errorMessage={getErrorMessage('quickpasteShortcut', 'quickpaste')} />
         </SettingItem>
 
-        <SettingItem label={t('settings.shortcuts.screenshot')} description={t('settings.shortcuts.screenshotDesc')}>
-          <ShortcutInput value={settings.screenshotShortcut} onChange={value => handleShortcutChange('screenshotShortcut', value)} onReset={() => handleShortcutChange('screenshotShortcut', 'Ctrl+Shift+A')} hasError={hasErrorStatus('screenshotShortcut', 'screenshot')} errorMessage={getErrorMessage('screenshotShortcut', 'screenshot')} />
-        </SettingItem>
-
         <SettingItem label={t('settings.shortcuts.toggleClipboardMonitor')} description={t('settings.shortcuts.toggleClipboardMonitorDesc')}>
           <ShortcutInput value={settings.toggleClipboardMonitorShortcut} onChange={value => handleShortcutChange('toggleClipboardMonitorShortcut', value)} onReset={() => handleShortcutChange('toggleClipboardMonitorShortcut', 'Ctrl+Shift+Z')} hasError={hasErrorStatus('toggleClipboardMonitorShortcut', 'toggle_clipboard_monitor')} errorMessage={getErrorMessage('toggleClipboardMonitorShortcut', 'toggle_clipboard_monitor')} />
         </SettingItem>
 
         <SettingItem label={t('settings.shortcuts.togglePasteWithFormat')} description={t('settings.shortcuts.togglePasteWithFormatDesc')}>
           <ShortcutInput value={settings.togglePasteWithFormatShortcut} onChange={value => handleShortcutChange('togglePasteWithFormatShortcut', value)} onReset={() => handleShortcutChange('togglePasteWithFormatShortcut', 'Ctrl+Shift+X')} hasError={hasErrorStatus('togglePasteWithFormatShortcut', 'toggle_paste_with_format')} errorMessage={getErrorMessage('togglePasteWithFormatShortcut', 'toggle_paste_with_format')} />
+        </SettingItem>
+      </SettingsSection>
+
+      <SettingsSection title={t('settings.shortcuts.screenshotTitle')} description={t('settings.shortcuts.screenshotSectionDesc')}>
+        <SettingItem label={t('settings.shortcuts.screenshot')} description={t('settings.shortcuts.screenshotDesc')}>
+          <ShortcutInput value={settings.screenshotShortcut} onChange={value => handleShortcutChange('screenshotShortcut', value)} onReset={() => handleShortcutChange('screenshotShortcut', 'Ctrl+Shift+A')} hasError={hasErrorStatus('screenshotShortcut', 'screenshot')} errorMessage={getErrorMessage('screenshotShortcut', 'screenshot')} />
+        </SettingItem>
+
+        <SettingItem label={t('settings.shortcuts.screenshotQuickSave')} description={t('settings.shortcuts.screenshotQuickSaveDesc')}>
+          <ShortcutInput value={settings.screenshotQuickSaveShortcut} onChange={value => handleShortcutChange('screenshotQuickSaveShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickSaveShortcut', '')} hasError={hasErrorStatus('screenshotQuickSaveShortcut', 'screenshot_quick_save')} errorMessage={getErrorMessage('screenshotQuickSaveShortcut', 'screenshot_quick_save')} />
+        </SettingItem>
+
+        <SettingItem label={t('settings.shortcuts.screenshotQuickPin')} description={t('settings.shortcuts.screenshotQuickPinDesc')}>
+          <ShortcutInput value={settings.screenshotQuickPinShortcut} onChange={value => handleShortcutChange('screenshotQuickPinShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickPinShortcut', '')} hasError={hasErrorStatus('screenshotQuickPinShortcut', 'screenshot_quick_pin')} errorMessage={getErrorMessage('screenshotQuickPinShortcut', 'screenshot_quick_pin')} />
+        </SettingItem>
+
+        <SettingItem label={t('settings.shortcuts.screenshotQuickOcr')} description={t('settings.shortcuts.screenshotQuickOcrDesc')}>
+          <ShortcutInput value={settings.screenshotQuickOcrShortcut} onChange={value => handleShortcutChange('screenshotQuickOcrShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickOcrShortcut', '')} hasError={hasErrorStatus('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} errorMessage={getErrorMessage('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} />
         </SettingItem>
       </SettingsSection>
 

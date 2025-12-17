@@ -3,9 +3,16 @@ use crate::utils::image_http_server::{PinEditData, set_pin_edit_data, clear_pin_
 use serde_json::json;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::thread;
 use std::time::Duration;
+
+// 截屏快捷模式
+// 0: 普通模式（显示工具栏）
+// 1: 快速保存模式（选区完成后直接复制到剪贴板）
+// 2: 快速贴图模式（选区完成后直接贴图）
+// 3: 快速OCR模式（选区完成后直接OCR识别并复制）
+static SCREENSHOT_QUICK_MODE: AtomicU8 = AtomicU8::new(0);
 
 #[derive(Debug, Clone, Copy)]
 struct PhysicalRect {
@@ -59,7 +66,7 @@ fn resize_window_to_virtual_screen(window: &WebviewWindow) {
     let _ = window.set_position(Position::Physical(PhysicalPosition::new(x, y)));
 }
 
-pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
+fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
     let settings = crate::get_settings();
     if !settings.screenshot_enabled {
         return Ok(());
@@ -70,9 +77,10 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
         let _ = window.set_focus();
         return Ok(());
     }
+    SCREENSHOT_QUICK_MODE.store(mode, Ordering::SeqCst);
 
     crate::services::screenshot::capture_and_store_last(app)?;
-    let _ = window.emit("screenshot:new-session", ());
+    let _ = window.emit("screenshot:new-session", json!({ "quickMode": mode }));
     resize_window_to_virtual_screen(&window);
     let _ = window.show();
     let _ = window.set_focus();
@@ -81,6 +89,34 @@ pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
         eprintln!("无法启动自动选区: {}", e);
     }
     Ok(())
+}
+
+pub fn start_screenshot(app: &AppHandle) -> Result<(), String> {
+    start_screenshot_with_mode(app, 0)
+}
+
+pub fn start_screenshot_quick_save(app: &AppHandle) -> Result<(), String> {
+    start_screenshot_with_mode(app, 1)
+}
+
+pub fn start_screenshot_quick_pin(app: &AppHandle) -> Result<(), String> {
+    start_screenshot_with_mode(app, 2)
+}
+
+pub fn start_screenshot_quick_ocr(app: &AppHandle) -> Result<(), String> {
+    start_screenshot_with_mode(app, 3)
+}
+
+// 获取当前快捷模式
+#[tauri::command]
+pub fn get_screenshot_quick_mode() -> u8 {
+    SCREENSHOT_QUICK_MODE.load(Ordering::SeqCst)
+}
+
+// 重置快捷模式
+#[tauri::command]
+pub fn reset_screenshot_quick_mode() {
+    SCREENSHOT_QUICK_MODE.store(0, Ordering::SeqCst);
 }
 
 // 启动贴图编辑模式

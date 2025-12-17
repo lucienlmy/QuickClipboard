@@ -413,7 +413,7 @@ function App() {
 
 
       {/* 选区信息栏 */}
-      {!longScreenshot.isActive && !isPinEdit && (
+      {!longScreenshot.isActive && !isPinEdit && !session.quickMode && (
         <SelectionInfoBar
           selection={session.selection}
           cornerRadius={session.cornerRadius}
@@ -430,40 +430,42 @@ function App() {
       )}
 
       {/* 工具栏 */}
-      <SelectionToolbar
-        selection={effectiveSelection}
-        isDrawing={session.isDrawing}
-        isMoving={session.isMoving}
-        isResizing={session.isResizing}
-        isDrawingShape={editing.isDrawingShape}
-        stageRegionManager={stageRegionManager}
-        onCancel={handleCancel}
-        onConfirm={isPinEdit ? handleConfirm : session.handleConfirmSelection}
-        onPin={handlePinSelection}
-        onSave={session.handleSaveSelection}
-        activeToolId={editing.activeToolId}
-        onToolChange={editing.setActiveToolId}
-        undo={editing.undo}
-        redo={editing.redo}
-        canUndo={editing.canUndo}
-        canRedo={editing.canRedo}
-        clearCanvas={editing.clearCanvas}
-        canClearCanvas={editing.canClearCanvas}
-        longScreenshotMode={longScreenshot.isActive}
-        isLongScreenshotCapturing={longScreenshot.isCapturing}
-        isLongScreenshotSaving={longScreenshot.isSaving}
-        hasLongScreenshotPreview={!!longScreenshot.preview}
-        onLongScreenshotEnter={longScreenshot.enter}
-        onLongScreenshotStart={longScreenshot.start}
-        onLongScreenshotStop={longScreenshot.stop}
-        onLongScreenshotCopy={longScreenshot.copy}
-        onLongScreenshotSave={longScreenshot.save}
-        onLongScreenshotCancel={longScreenshot.cancel}
-        pinEditMode={isPinEdit}
-      />
+      {!session.quickMode && (
+        <SelectionToolbar
+          selection={effectiveSelection}
+          isDrawing={session.isDrawing}
+          isMoving={session.isMoving}
+          isResizing={session.isResizing}
+          isDrawingShape={editing.isDrawingShape}
+          stageRegionManager={stageRegionManager}
+          onCancel={handleCancel}
+          onConfirm={isPinEdit ? handleConfirm : session.handleConfirmSelection}
+          onPin={handlePinSelection}
+          onSave={session.handleSaveSelection}
+          activeToolId={editing.activeToolId}
+          onToolChange={editing.setActiveToolId}
+          undo={editing.undo}
+          redo={editing.redo}
+          canUndo={editing.canUndo}
+          canRedo={editing.canRedo}
+          clearCanvas={editing.clearCanvas}
+          canClearCanvas={editing.canClearCanvas}
+          longScreenshotMode={longScreenshot.isActive}
+          isLongScreenshotCapturing={longScreenshot.isCapturing}
+          isLongScreenshotSaving={longScreenshot.isSaving}
+          hasLongScreenshotPreview={!!longScreenshot.preview}
+          onLongScreenshotEnter={longScreenshot.enter}
+          onLongScreenshotStart={longScreenshot.start}
+          onLongScreenshotStop={longScreenshot.stop}
+          onLongScreenshotCopy={longScreenshot.copy}
+          onLongScreenshotSave={longScreenshot.save}
+          onLongScreenshotCancel={longScreenshot.cancel}
+          pinEditMode={isPinEdit}
+        />
+      )}
 
       {/* 工具参数面板 */}
-      {!longScreenshot.isActive && (
+      {!longScreenshot.isActive && !session.quickMode && (
         <ToolParameterPanel
           selection={effectiveSelection}
           activeTool={editing.activeTool}
@@ -510,7 +512,7 @@ function App() {
       {ocrResult && <OcrOverlay result={ocrResult} selection={effectiveSelection} />}
 
       {/* 快捷键提示 */}
-      {settings.screenshotHintsEnabled && !isPinEdit && (
+      {settings.screenshotHintsEnabled && !isPinEdit && !session.quickMode && (
         <KeyboardShortcutsHelp
           stageRegionManager={stageRegionManager}
           longScreenshotMode={longScreenshot.isActive}
@@ -523,7 +525,7 @@ function App() {
       )}
 
       {/* 径向工具选择器*/}
-      {effectiveHasValidSelection && !longScreenshot.isActive && !isPinEdit && (
+      {effectiveHasValidSelection && !longScreenshot.isActive && !isPinEdit && !session.quickMode && (
         <RadialToolPicker
           activeToolId={editing.activeToolId}
           onToolSelect={(toolId) => editing.setActiveToolId(editing.activeToolId === toolId ? null : toolId)}

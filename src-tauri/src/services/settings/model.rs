@@ -32,6 +32,9 @@ pub struct AppSettings {
     // 截屏设置
     pub screenshot_enabled: bool,
     pub screenshot_shortcut: String,
+    pub screenshot_quick_save_shortcut: String,
+    pub screenshot_quick_pin_shortcut: String,
+    pub screenshot_quick_ocr_shortcut: String,
     pub screenshot_quality: u8,
     pub screenshot_auto_save: bool,
     pub screenshot_show_hints: bool,
@@ -153,6 +156,9 @@ impl Default for AppSettings {
 
             screenshot_enabled: true,
             screenshot_shortcut: "Ctrl+Shift+A".to_string(),
+            screenshot_quick_save_shortcut: String::new(),
+            screenshot_quick_pin_shortcut: String::new(),
+            screenshot_quick_ocr_shortcut: String::new(),
             screenshot_quality: 85,
             screenshot_auto_save: true,
             screenshot_show_hints: true,

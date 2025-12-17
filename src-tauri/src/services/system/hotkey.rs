@@ -154,6 +154,39 @@ pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
     })
 }
 
+pub fn register_screenshot_quick_save_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("screenshot_quick_save", shortcut_str, |app| {
+        if crate::services::low_memory::is_low_memory_mode() {
+            return;
+        }
+        if let Err(e) = crate::windows::screenshot_window::start_screenshot_quick_save(app) {
+            eprintln!("启动快速保存截图失败: {}", e);
+        }
+    })
+}
+
+pub fn register_screenshot_quick_pin_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("screenshot_quick_pin", shortcut_str, |app| {
+        if crate::services::low_memory::is_low_memory_mode() {
+            return;
+        }
+        if let Err(e) = crate::windows::screenshot_window::start_screenshot_quick_pin(app) {
+            eprintln!("启动快速贴图截图失败: {}", e);
+        }
+    })
+}
+
+pub fn register_screenshot_quick_ocr_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("screenshot_quick_ocr", shortcut_str, |app| {
+        if crate::services::low_memory::is_low_memory_mode() {
+            return;
+        }
+        if let Err(e) = crate::windows::screenshot_window::start_screenshot_quick_ocr(app) {
+            eprintln!("启动快速OCR截图失败: {}", e);
+        }
+    })
+}
+
 pub fn register_toggle_clipboard_monitor_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("toggle_clipboard_monitor", shortcut_str, |app| {
         let app_clone = app.clone();
@@ -363,6 +396,24 @@ pub fn reload_from_settings() -> Result<(), String> {
         if settings.screenshot_enabled && !settings.screenshot_shortcut.is_empty() {
             if let Err(e) = register_screenshot_hotkey(&settings.screenshot_shortcut) {
                 eprintln!("注册截图快捷键失败: {}", e);
+            }
+        }
+        
+        if settings.screenshot_enabled && !settings.screenshot_quick_save_shortcut.is_empty() {
+            if let Err(e) = register_screenshot_quick_save_hotkey(&settings.screenshot_quick_save_shortcut) {
+                eprintln!("注册快速保存截图快捷键失败: {}", e);
+            }
+        }
+        
+        if settings.screenshot_enabled && !settings.screenshot_quick_pin_shortcut.is_empty() {
+            if let Err(e) = register_screenshot_quick_pin_hotkey(&settings.screenshot_quick_pin_shortcut) {
+                eprintln!("注册快速贴图截图快捷键失败: {}", e);
+            }
+        }
+        
+        if settings.screenshot_enabled && !settings.screenshot_quick_ocr_shortcut.is_empty() {
+            if let Err(e) = register_screenshot_quick_ocr_hotkey(&settings.screenshot_quick_ocr_shortcut) {
+                eprintln!("注册快速OCR截图快捷键失败: {}", e);
             }
         }
         
