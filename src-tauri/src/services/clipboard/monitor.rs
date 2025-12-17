@@ -191,6 +191,11 @@ pub fn get_app_handle() -> Option<tauri::AppHandle> {
 fn emit_clipboard_updated() -> Result<(), String> {
     let app_handle = APP_HANDLE.lock();
     let handle = app_handle.as_ref().ok_or("应用未初始化")?;
+    
+    if crate::services::low_memory::is_low_memory_mode() {
+        let _ = crate::windows::tray::native_menu::update_native_menu(handle);
+    }
+    
     use tauri::Emitter;
     handle.emit("clipboard-updated", ()).map_err(|e| e.to_string())
 }

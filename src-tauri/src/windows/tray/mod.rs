@@ -1,14 +1,13 @@
 mod setup;
 mod menu;
 mod events;
-mod native_menu;
+pub mod native_menu;
 
 pub use setup::*;
-pub use menu::*;
 pub use events::*;
-pub use native_menu::handle_native_menu_event;
+pub use native_menu::{handle_native_menu_event, is_menu_visible, scroll_page};
 
-use tauri::{AppHandle, Manager, tray::TrayIconId};
+use tauri::{AppHandle, tray::TrayIconId};
 
 // 切换到原生系统菜单
 pub fn switch_to_native_menu(app: &AppHandle) -> Result<(), String> {

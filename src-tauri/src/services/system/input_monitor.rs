@@ -139,7 +139,10 @@ fn handle_input_event(event: Event) -> Option<Event> {
             handle_mouse_move(x, y);
             Some(event)
         }
-        EventType::Wheel { .. } => Some(event)
+        EventType::Wheel { delta_y, .. } => {
+            handle_wheel_event(delta_y);
+            Some(event)
+        }
     }
 }
 
@@ -361,6 +364,32 @@ fn handle_mouse_button_release(button: rdev::Button) {
 
 fn handle_mouse_move(x: f64, y: f64) {
     crate::mouse::update_cursor_position(x, y);
+}
+
+static LAST_WHEEL_TIME: Mutex<Option<Instant>> = Mutex::new(None);
+const WHEEL_THROTTLE_MS: u64 = 30;
+
+fn handle_wheel_event(delta_y: i64) {
+    use crate::windows::tray::{is_menu_visible, scroll_page};
+
+    if !is_menu_visible() {
+        return;
+    }
+
+    {
+        let mut last_time = LAST_WHEEL_TIME.lock();
+        let now = Instant::now();
+        if let Some(last) = *last_time {
+            if now.duration_since(last) < Duration::from_millis(WHEEL_THROTTLE_MS) {
+                return;
+            }
+        }
+        *last_time = Some(now);
+    }
+
+    let delta = if delta_y < 0 { 1 } else { -1 };
+
+    scroll_page(delta);
 }
 
 fn handle_middle_button_action() {

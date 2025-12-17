@@ -153,12 +153,16 @@ unsafe extern "system" fn focus_callback(
     let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
     let name = String::from_utf16_lossy(&name_buf[..name_len as usize]);
     
-    // 过滤系窗口
+    // 过滤窗口
     if class_name == "Shell_TrayWnd" 
         || class_name == "Shell_SecondaryTrayWnd"
         || class_name == "NotifyIconOverflowWindow"
         || class_name == "TopLevelWindowForOverflowXamlIsland"
+        || class_name == "tray_icon_app"
         || class_name.starts_with("Windows.UI.")
+        || class_name == "#32768"
+        || class_name == "DropDown"
+        || class_name == "Xaml_WindowedPopupClass"
         || name == "快速剪贴板"
         || name == "菜单" {
         return;

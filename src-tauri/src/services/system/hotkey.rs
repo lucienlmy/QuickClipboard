@@ -7,7 +7,6 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use serde::{Serialize, Deserialize};
 
 static APP_HANDLE: OnceCell<AppHandle> = OnceCell::new();
-static MAIN_WINDOW: OnceCell<WebviewWindow> = OnceCell::new();
 static REGISTERED_SHORTCUTS: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
 static HOTKEYS_ENABLED: AtomicBool = AtomicBool::new(true);
 
@@ -22,17 +21,12 @@ pub struct ShortcutStatus {
 
 static SHORTCUT_STATUS: Lazy<Mutex<HashMap<String, ShortcutStatus>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
-pub fn init_hotkey_manager(app: AppHandle, window: WebviewWindow) {
+pub fn init_hotkey_manager(app: AppHandle, _window: WebviewWindow) {
     let _ = APP_HANDLE.set(app);
-    let _ = MAIN_WINDOW.set(window);
 }
 
 fn get_app() -> Result<&'static AppHandle, String> {
     APP_HANDLE.get().ok_or("热键管理器未初始化".to_string())
-}
-
-fn get_main_window() -> Option<&'static WebviewWindow> {
-    MAIN_WINDOW.get()
 }
 
 fn parse_shortcut(shortcut_str: &str) -> Result<Shortcut, String> {
@@ -104,18 +98,7 @@ pub fn unregister_shortcut(id: &str) {
 
 pub fn register_toggle_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("toggle", shortcut_str, |app| {
-        // 低占用模式下，先退出低占用模式再显示窗口
-        if crate::services::low_memory::is_low_memory_mode() {
-            if let Err(e) = crate::services::low_memory::exit_low_memory_mode(app) {
-                eprintln!("退出低占用模式失败: {}", e);
-                return;
-            }
-            if let Some(window) = app.get_webview_window("main") {
-                crate::show_main_window(&window);
-            }
-        } else {
-            let _ = crate::toggle_main_window_visibility(app);
-        }
+        let _ = crate::toggle_main_window_visibility(app);
     })
 }
 
