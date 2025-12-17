@@ -96,31 +96,40 @@ fn recreate_main_window(app: &AppHandle) -> Result<(), String> {
 
     let settings = crate::get_settings();
 
-    let mut builder = WebviewWindowBuilder::new(
+    let (width, height) = if settings.remember_window_size {
+        settings.saved_window_size.unwrap_or((360, 520))
+    } else {
+        (360, 520)
+    };
+    let window = WebviewWindowBuilder::new(
         app,
         "main",
         WebviewUrl::App("windows/main/index.html".into()),
     )
     .title("快速剪贴板")
-    .inner_size(380.0, 600.0)
-    .min_inner_size(300.0, 400.0)
+    .inner_size(width as f64, height as f64)
+    .min_inner_size(350.0, 500.0)
+    .max_inner_size(500.0, 800.0)
     .decorations(false)
     .transparent(true)
     .shadow(false)
     .always_on_top(true)
     .skip_taskbar(true)
-    .visible(false)
+    .visible(false) 
     .resizable(true)
     .maximizable(false)
-    .minimizable(false);
-
-    if let Some((w, h)) = settings.saved_window_size.filter(|_| settings.remember_window_size) {
-        builder = builder.inner_size(w as f64, h as f64);
-    }
-
-    let window = builder.build().map_err(|e| format!("重建主窗口失败: {}", e))?;
+    .minimizable(false)
+    .center()
+    .focused(false)
+    .visible_on_all_workspaces(true)
+    .disable_drag_drop_handler() 
+    .build()
+    .map_err(|e| format!("重建主窗口失败: {}", e))?;
     
     let _ = window.set_focusable(false);
+    
+    #[cfg(debug_assertions)]
+    let _ = window.open_devtools();
 
     crate::input_monitor::update_main_window(window.clone());
 
