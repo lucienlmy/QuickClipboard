@@ -141,6 +141,7 @@ pub async fn pin_image_from_file(
     }
     
     // 存储图片数据
+    let actual_original_path = original_image_path.or_else(|| Some(file_path.clone()));
     if let Some(data_map) = PIN_IMAGE_DATA_MAP.get() {
         data_map.lock().unwrap().insert(
             window_label.clone(),
@@ -151,7 +152,7 @@ pub async fn pin_image_from_file(
                 preview_mode: is_preview,
                 image_physical_x,
                 image_physical_y,
-                original_image_path,
+                original_image_path: actual_original_path,
                 edit_data,
             },
         );
