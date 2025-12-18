@@ -122,7 +122,7 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     if (!originalBlob) return;
     const originalFilePath = await savePinImage(originalBlob);
 
-    const hasEdits = !!editData || hasBorder || hasWatermark;
+    const hasEdits = !!editData || hasBorder || hasWatermark || cornerRadius > 0;
     let effectFilePath = originalFilePath; 
 
     if (hasEdits) {
