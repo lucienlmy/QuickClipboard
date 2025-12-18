@@ -30,7 +30,8 @@ function ClipboardItem({
   sortId,
   isSelected = false,
   onHover,
-  isDragActive = false
+  isDragActive = false,
+  showShortcut = true
 }) {
   const {
     t
@@ -367,7 +368,7 @@ function ClipboardItem({
           <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
         </button>
         {/* 快捷键 */}
-        {getShortcut() && <span className={`${shortcutClasses} pointer-events-none`}>
+        {showShortcut && getShortcut() && <span className={`${shortcutClasses} pointer-events-none`}>
             {getShortcut()}
           </span>}
         {/* 序号 */}

@@ -21,6 +21,7 @@ const ClipboardList = forwardRef(({
   });
   const snap = useSnapshot(navigationStore);
   const clipSnap = useSnapshot(clipboardStore);
+  const showShortcut = !clipSnap.filter && clipSnap.contentType === 'all';
   const settings = useSnapshot(settingsStore);
   const itemsArray = useMemo(() => {
     return Array.from({
@@ -237,7 +238,7 @@ const ClipboardList = forwardRef(({
               animationDelay: `${animationDelay}ms`,
               animationFillMode: 'backwards'
             }}>
-                    <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDragActive={dragActive} />
+                    <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDragActive={dragActive} showShortcut={showShortcut} />
                   </div>
                 </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
@@ -255,7 +256,7 @@ const ClipboardList = forwardRef(({
             small: 'h-[50px]'
           }[settings.rowHeight] ?? 'h-[90px]';
           return <div className={`px-2.5 pb-2 pt-1 ${overlayHeight}`}>
-            <ClipboardItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} isDragActive={true} />
+            <ClipboardItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} isDragActive={true} showShortcut={showShortcut} />
           </div>;
         })()}
       </DragOverlay>
