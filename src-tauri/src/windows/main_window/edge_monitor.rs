@@ -86,6 +86,7 @@ pub fn start_edge_monitoring() {
 pub fn stop_edge_monitoring() {
     MONITORING_ACTIVE.store(false, Ordering::Relaxed);
 }
+const CONTENT_INSET_LOGICAL: f64 = 5.0;
 
 fn check_mouse_near_edge(
     window: &WebviewWindow,
@@ -98,6 +99,10 @@ fn check_mouse_near_edge(
         crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), win_x, win_y)?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
+
+    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
+        window.app_handle(), win_x, win_y
+    );
     
     let settings = crate::get_settings();
     let base_trigger = if settings.edge_hide_offset >= 10 {
@@ -113,8 +118,8 @@ fn check_mouse_near_edge(
         && cursor_y <= win_y + win_height as i32;
     
     // 检查鼠标是否接近对应边缘（使用当前显示器边界）
-    const CONTENT_INSET: i32 = 5;
-    let trigger_distance = base_trigger + CONTENT_INSET;
+    let content_inset = (CONTENT_INSET_LOGICAL * scale_factor) as i32;
+    let trigger_distance = base_trigger + content_inset;
     
     let is_near = match state.snap_edge {
         super::state::SnapEdge::Left => {

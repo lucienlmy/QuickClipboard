@@ -3,8 +3,11 @@ use super::state::{SnapEdge, set_snap_edge, set_hidden, clear_snap, is_snapped};
 use std::time::Duration;
 
 const SNAP_THRESHOLD: i32 = 30;
-const FRONTEND_CONTENT_INSET: i32 = 5;
-const FRONTEND_SHADOW_PADDING: i32 = 7;
+const FRONTEND_CONTENT_INSET_LOGICAL: f64 = 5.0;
+
+fn get_content_inset(scale_factor: f64) -> i32 {
+    (FRONTEND_CONTENT_INSET_LOGICAL * scale_factor) as i32
+}
 
 pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     let settings = crate::get_settings();
@@ -57,11 +60,16 @@ pub fn snap_to_edge(window: &WebviewWindow, edge: SnapEdge) -> Result<(), String
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
+    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
+        window.app_handle(), x, y
+    );
+    let content_inset = get_content_inset(scale_factor);
+    
     let (new_x, new_y) = match edge {
-        SnapEdge::Left => (monitor_x - FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Right => (monitor_right - size.width as i32 + FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Top => (x, monitor_y - FRONTEND_CONTENT_INSET),
-        SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + FRONTEND_CONTENT_INSET),
+        SnapEdge::Left => (monitor_x - content_inset, y),
+        SnapEdge::Right => (monitor_right - size.width as i32 + content_inset, y),
+        SnapEdge::Top => (x, monitor_y - content_inset),
+        SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + content_inset),
         SnapEdge::None => return Ok(()),
     };
     
@@ -93,10 +101,15 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     let settings = crate::get_settings();
     
+    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
+        window.app_handle(), x, y
+    );
+    let content_inset = get_content_inset(scale_factor);
+    
     let hide_offset = if settings.edge_hide_offset == 0 {
         0
     } else {
-        settings.edge_hide_offset + FRONTEND_SHADOW_PADDING
+        content_inset + settings.edge_hide_offset
     };
     let (hide_x, hide_y) = match state.snap_edge {
         SnapEdge::Left => {
@@ -154,11 +167,16 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
+    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
+        window.app_handle(), x, y
+    );
+    let content_inset = get_content_inset(scale_factor);
+    
     let (show_x, show_y) = match state.snap_edge {
-        SnapEdge::Left => (monitor_x - FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Right => (monitor_right - size.width as i32 + FRONTEND_CONTENT_INSET, y),
-        SnapEdge::Top => (x, monitor_y - FRONTEND_CONTENT_INSET),
-        SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + FRONTEND_CONTENT_INSET),
+        SnapEdge::Left => (monitor_x - content_inset, y),
+        SnapEdge::Right => (monitor_right - size.width as i32 + content_inset, y),
+        SnapEdge::Top => (x, monitor_y - content_inset),
+        SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + content_inset),
         SnapEdge::None => return Ok(()),
     };
     
@@ -329,8 +347,13 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
         return Ok(());
     };
     
+    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
+        window.app_handle(), saved_x, saved_y
+    );
+    let content_inset = get_content_inset(scale_factor);
+    
     let corrected_y = saved_y.max(monitor_y).min(monitor_bottom - h);
-    let corrected_x = saved_x.max(monitor_x - w + FRONTEND_SHADOW_PADDING).min(monitor_right - FRONTEND_SHADOW_PADDING);
+    let corrected_x = saved_x.max(monitor_x - w + content_inset).min(monitor_right - content_inset);
     
     let (final_x, final_y) = match snapped_edge {
         SnapEdge::Left | SnapEdge::Right => (saved_x, corrected_y),
