@@ -11,7 +11,7 @@ import {
   RADIUS_HANDLE_COLOR,
 } from '../constants/selectionConstants';
 
-function SelectionHandles({ selection, visible = true }) {
+function SelectionHandles({ selection, visible = true, pinEditMode = false }) {
   if (!visible || !selection || selection.width <= 0 || selection.height <= 0) {
     return null;
   }
@@ -22,6 +22,10 @@ function SelectionHandles({ selection, visible = true }) {
     <>
       {handles.map((handle) => {
         const isRadius = isRadiusHandle(handle.type);
+        // 贴图编辑模式显示圆角手柄
+        if (pinEditMode && !isRadius) {
+          return null;
+        }
         return (
           <Circle
             key={handle.type}

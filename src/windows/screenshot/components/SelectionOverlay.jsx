@@ -36,11 +36,8 @@ function SelectionOverlay({
 }) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
-
   // 光标样式管理
   useCursorStyle(stageRef, selection, isInteracting, activeToolId, toolStyle);
-
-
 
   return (
     <Layer id="screenshot-overlay-layer" listening={listening}>
@@ -72,8 +69,12 @@ function SelectionOverlay({
       {hasValidSelection && <SelectionRect selection={selection} cornerRadius={cornerRadius} />}
 
       {/* 选区控制手柄 */}
-      {hasValidSelection && !longScreenshotMode && !pinEditMode && (
-        <SelectionHandles selection={selection} visible={!isDrawing && !isMoving} />
+      {hasValidSelection && !longScreenshotMode && (
+        <SelectionHandles 
+          selection={selection} 
+          visible={!isDrawing && !isMoving} 
+          pinEditMode={pinEditMode}
+        />
       )}
 
     </Layer>

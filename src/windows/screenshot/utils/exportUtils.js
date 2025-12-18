@@ -157,7 +157,7 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
 }
 
 // 导出编辑后的贴图图片
-export async function exportPinEditImage(stageRef, selection, { originalImage } = {}) {
+export async function exportPinEditImage(stageRef, selection, { originalImage, cornerRadius = 0 } = {}) {
   if (!selection || !stageRef?.current || !originalImage) return null;
 
   const stage = stageRef.current.getStage ? stageRef.current.getStage() : stageRef.current;
@@ -165,8 +165,12 @@ export async function exportPinEditImage(stageRef, selection, { originalImage } 
 
   try {
     const { compositePinEditImage } = await import('./imageCompositor');
-    const canvas = compositePinEditImage({ stage, selection, originalImage });
+    let canvas = compositePinEditImage({ stage, selection, originalImage });
     if (!canvas) return null;
+    if (cornerRadius > 0) {
+      const pixelRatio = originalImage.naturalWidth / selection.width;
+      canvas = applyCornerRadius(canvas, cornerRadius, pixelRatio);
+    }
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!blob) return null;

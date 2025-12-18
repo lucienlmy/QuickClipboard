@@ -27,6 +27,8 @@ import { recognizeSelectionOcr } from './utils/ocrUtils';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import RadialToolPicker from './components/RadialToolPicker';
+import { checkHandleHit, isRadiusHandle } from './utils/handleDetection';
+import { calculateRadiusDelta, calculateNewRadius } from './utils/selectionOperations';
 
 function App() {
   useSettingsSync();
@@ -144,9 +146,10 @@ function App() {
     try {
       const { exportPinEditImage } = await import('./utils/exportUtils');
       const editShapes = editing.getSerializableShapes();
-      const hasEdits = editShapes.length > 0;
+      const hasEdits = editShapes.length > 0 || session.cornerRadius > 0;
       const result = await exportPinEditImage(stageRef, effectiveSelection, {
         originalImage: pinEditMode.pinImage,
+        cornerRadius: session.cornerRadius,
       });
 
       if (result) {
@@ -157,7 +160,7 @@ function App() {
     } catch (err) {
       console.error('确认贴图编辑失败:', err);
     }
-  }, [effectiveSelection, pinEditMode, stageRef, editing]);
+  }, [effectiveSelection, pinEditMode, stageRef, editing, session.cornerRadius]);
 
   const handleCancel = useCallback(() => {
     if (isPinEdit) {
@@ -219,11 +222,32 @@ function App() {
     pinEditMode: isPinEdit,
   });
 
+  // 贴图编辑模式圆角调整状态
+  const pinEditRadiusRef = useRef({ 
+    isAdjusting: false, 
+    startPos: null, 
+    initialRadius: 0,
+    handleType: null,
+  });
+
   // 鼠标事件处理
   const handleMouseDown = (e) => {
     if (longScreenshot.isActive) return;
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
+    if (isPinEdit && !editing.activeToolId && effectiveSelection) {
+      const handleType = checkHandleHit(pos, effectiveSelection);
+      if (handleType && isRadiusHandle(handleType)) {
+        pinEditRadiusRef.current = {
+          isAdjusting: true,
+          startPos: pos,
+          initialRadius: session.cornerRadius,
+          handleType,
+        };
+        return;
+      }
+    }
+    
     if (editing.activeToolId) {
       if (e.evt?.button !== undefined && e.evt.button !== 0) return;
       editing.handleMouseDown(e, pos);
@@ -239,6 +263,18 @@ function App() {
       handleCursorMove(e);
       return;
     }
+    
+    // 贴图编辑模式圆角调整
+    if (pinEditRadiusRef.current.isAdjusting && effectiveSelection) {
+      const { startPos, initialRadius, handleType } = pinEditRadiusRef.current;
+      const dx = pos.x - startPos.x;
+      const dy = pos.y - startPos.y;
+      const delta = calculateRadiusDelta(handleType, dx, dy);
+      const newRadius = calculateNewRadius(initialRadius, delta, effectiveSelection);
+      session.updateCornerRadius(newRadius);
+      return;
+    }
+    
     if (editing.activeToolId) {
       if (e.evt?.button !== undefined && e.evt.button !== 0) return;
       editing.handleMouseMove(e, pos);
@@ -250,6 +286,12 @@ function App() {
 
   const handleMouseUp = (e) => {
     if (longScreenshot.isActive) return;
+
+    if (pinEditRadiusRef.current.isAdjusting) {
+      pinEditRadiusRef.current = { isAdjusting: false, startPos: null, initialRadius: 0, handleType: null };
+      return;
+    }
+    
     if (editing.activeToolId) {
       editing.handleMouseUp(e);
     } else {
@@ -385,7 +427,7 @@ function App() {
             watermarkConfig={editing.watermarkConfig}
             borderConfig={editing.borderConfig}
             selection={effectiveSelection}
-            cornerRadius={isPinEdit ? 0 : session.cornerRadius}
+            cornerRadius={session.cornerRadius}
             stageSize={stageSize}
             pinEditMode={isPinEdit}
           />
@@ -395,7 +437,7 @@ function App() {
           stageHeight={stageSize.height}
           stageRef={stageRef}
           selection={effectiveSelection}
-          cornerRadius={isPinEdit ? 0 : session.cornerRadius}
+          cornerRadius={session.cornerRadius}
           hasValidSelection={effectiveHasValidSelection}
           isDrawing={session.isDrawing}
           isMoving={session.isMoving}
