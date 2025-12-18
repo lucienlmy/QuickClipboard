@@ -6,11 +6,12 @@ export const DRAWING_TOOLS = [
   { id: 'pen', icon: 'ti ti-pencil', title: '画笔' },
   { id: 'text', icon: 'ti ti-typography', title: '文本' },
   { id: 'mosaic', icon: 'ti ti-blur', title: '马赛克' },
-  { id: 'watermark', icon: 'ti ti-droplet-half-2', title: '水印' },
   { id: 'number', icon: 'ti ti-circle-number-1', title: '序号' },
   { id: 'polyline', icon: 'ti ti-line', title: '折线' },
   { id: 'curveArrow', icon: 'ti ti-arrow-ramp-right', title: '箭头' },
   { id: 'shape', icon: 'ti ti-triangle-square-circle', title: '形状' },
+  { id: 'border', icon: 'ti ti-border-outer', title: '边框' },
+  { id: 'watermark', icon: 'ti ti-droplet-half-2', title: '水印' },
   { id: 'ocr', icon: 'ti ti-text-scan-2', title: 'OCR识别' },
 ];
 

@@ -124,7 +124,12 @@ function App() {
     initializePositionRef.current = initializePosition;
   }, [initializePosition]);
   
-  const session = useScreenshotSession(stageRef, stageRegionManager, { screens });
+  const quickPinCallbackRef = useRef(null);
+  
+  const session = useScreenshotSession(stageRef, stageRegionManager, { 
+    screens,
+    onQuickPin: () => quickPinCallbackRef.current?.(),
+  });
   const longScreenshot = useLongScreenshot(session.selection, screens, stageRegionManager);
   const editing = useScreenshotEditing(effectiveScreens, stageRef, {
     clipBounds: isPinEdit ? pinEditSelection : null,
@@ -166,17 +171,25 @@ function App() {
     try {
       const { exportToPin } = await import('./utils/exportUtils');
       const editShapes = editing.getSerializableShapes(session.selection);
-      const hasEdits = editShapes.length > 0;
+      const hasBorder = editing.borderConfig?.enabled;
+      const hasWatermark = editing.watermarkConfig?.enabled;
+      const hasEdits = editShapes.length > 0 || hasBorder || hasWatermark;
       const editDataJson = hasEdits ? JSON.stringify(editShapes) : null;
 
       await exportToPin(stageRef, session.selection, session.cornerRadius, {
         screens,
         editData: editDataJson,
+        hasBorder,
+        hasWatermark,
       });
     } catch (err) {
       console.error('创建贴图失败:', err);
     }
   }, [session.selection, session.cornerRadius, stageRef, screens, editing]);
+
+  useEffect(() => {
+    quickPinCallbackRef.current = handlePinSelection;
+  }, [handlePinSelection]);
 
   // 快捷键管理
   useKeyboardShortcuts({
@@ -370,7 +383,9 @@ function App() {
             onTextChange={(text, index) => editing.updateTextContent(index, text)}
             onTextEditClose={editing.stopEditingText}
             watermarkConfig={editing.watermarkConfig}
+            borderConfig={editing.borderConfig}
             selection={effectiveSelection}
+            cornerRadius={isPinEdit ? 0 : session.cornerRadius}
             stageSize={stageSize}
             pinEditMode={isPinEdit}
           />

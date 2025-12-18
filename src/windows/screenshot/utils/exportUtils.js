@@ -105,7 +105,7 @@ async function savePinImage(blob) {
 }
 
 // 导出为贴图（普通截图模式）
-export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [], editData = null } = {}) {
+export async function exportToPin(stageRef, selection, cornerRadius = 0, { screens = [], editData = null, hasBorder = false, hasWatermark = false } = {}) {
   if (!selection || !stageRef || !stageRef.current) return;
 
   const stage = stageRef.current.getStage ? stageRef.current.getStage() : stageRef.current;
@@ -122,7 +122,7 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     if (!originalBlob) return;
     const originalFilePath = await savePinImage(originalBlob);
 
-    const hasEdits = !!editData;
+    const hasEdits = !!editData || hasBorder || hasWatermark;
     let effectFilePath = originalFilePath; 
 
     if (hasEdits) {

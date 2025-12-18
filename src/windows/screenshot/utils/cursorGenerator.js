@@ -124,6 +124,7 @@ export function getToolCursor(toolId, toolStyle = {}) {
     case 'shape':
     case 'curveArrow':
     case 'watermark':
+    case 'border':
     default:
       return 'crosshair';
   }

@@ -7,6 +7,7 @@ import { createPolylineTool } from '../tools/polylineTool';
 import { createTextTool } from '../tools/textTool';
 import { createMosaicTool } from '../tools/mosaicTool';
 import { createWatermarkTool } from '../tools/watermarkTool';
+import { createBorderTool } from '../tools/borderTool';
 import { createNumberTool } from '../tools/numberTool';
 import { createOcrTool } from '../tools/ocrTool';
 import { recordColorHistory } from '../utils/colorHistory';
@@ -156,6 +157,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     text: createTextTool(),
     mosaic: createMosaicTool(),
     watermark: createWatermarkTool(),
+    border: createBorderTool(),
     select: createSelectTool(),
     ocr: createOcrTool(),
   });
@@ -176,6 +178,13 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
       return {
         tool: tools.current.watermark,
         style: toolStyles.watermark || tools.current.watermark.getDefaultStyle(),
+      };
+    }
+    
+    if (activeToolId === 'border') {
+      return {
+        tool: tools.current.border,
+        style: toolStyles.border || tools.current.border.getDefaultStyle(),
       };
     }
     
@@ -370,6 +379,13 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
       return;
     }
     
+    if (activeToolId === 'border') {
+      setToolStyles(prev => {
+        return persistenceManager.current.updateParameter('border', paramId, value, prev);
+      });
+      return;
+    }
+    
     if (activeToolId === 'select' && selectedShapeIndices.length === 1) {
       const newShapes = shapes.map((shape, i) => 
         i === selectedShapeIndices[0] ? { ...shape, [paramId]: value } : shape
@@ -452,7 +468,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
       return true;
     }
     
-    if (activeToolId === 'watermark') {
+    if (activeToolId === 'watermark' || activeToolId === 'border') {
       return false;
     }
     
@@ -769,6 +785,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     startEditingText,
     stopEditingText,
     watermarkConfig: toolStyles.watermark,
+    borderConfig: toolStyles.border,
     getSerializableShapes: useCallback((bounds = null) => {
       const effectiveBounds = bounds || clipBounds;
       return shapes.map((shape) => {

@@ -7,7 +7,7 @@ import { useAutoSelection } from './useAutoSelection';
 import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUtils';
 import { recognizeSelectionOcr } from '../utils/ocrUtils';
 
-export function useScreenshotSession(stageRef, stageRegionManager, { screens = [] } = {}) {
+export function useScreenshotSession(stageRef, stageRegionManager, { screens = [], onQuickPin = null } = {}) {
   // 截屏模式：0-普通, 1-快速复制, 2-快速贴图, 3-快速OCR
   const [screenshotMode, setScreenshotMode] = useState(0);
   const screenshotModeExecutedRef = useRef(false);
@@ -224,7 +224,11 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
         if (screenshotMode === 1) {
           await handleConfirmSelection();
         } else if (screenshotMode === 2) {
-          await handlePinSelection();
+          if (onQuickPin) {
+            await onQuickPin();
+          } else {
+            await handlePinSelection();
+          }
         } else if (screenshotMode === 3) {
           await handleQuickOcr();
         }
@@ -235,7 +239,7 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     };
     
     executeScreenshotMode();
-  }, [isSelectionComplete, screenshotMode, handleConfirmSelection, handlePinSelection, handleQuickOcr]);
+  }, [isSelectionComplete, screenshotMode, handleConfirmSelection, handlePinSelection, handleQuickOcr, onQuickPin]);
 
   return {
     selection,

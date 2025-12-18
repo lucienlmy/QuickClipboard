@@ -3,8 +3,9 @@ import { Layer, Transformer, Rect, Group } from 'react-konva';
 import { ShapeRenderer } from './ShapeRenderer';
 import TextEditor from './TextEditor';
 import WatermarkRenderer from './WatermarkRenderer';
+import BorderRenderer from './BorderRenderer';
 
-const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, onShapeTransformByIndex, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose, watermarkConfig, selection, stageSize, pinEditMode }) => {
+const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectShape, onShapeTransform, onShapeTransformByIndex, isSelectMode, selectionBox, onTextEdit, editingTextIndex, onTextChange, onTextEditClose, watermarkConfig, borderConfig, selection, cornerRadius = 0, stageSize, pinEditMode }) => {
   const transformerRef = useRef(null);
   const shapeRefs = useRef([]);
   const layerRef = useRef(null);
@@ -153,6 +154,12 @@ const EditingLayer = ({ shapes, listening, selectedShapeIndices = [], onSelectSh
           listening={false}
         />
       )}
+      {/* 边框渲染 */}
+      <BorderRenderer
+        borderConfig={borderConfig}
+        selection={selection}
+        cornerRadius={cornerRadius}
+      />
       {/* 水印渲染在最上层 */}
       <WatermarkRenderer 
         watermarkConfig={watermarkConfig} 
