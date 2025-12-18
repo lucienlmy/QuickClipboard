@@ -179,10 +179,6 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     try {
       await restoreLastFocus();
       await invoke('paste_image_file', { filePath: item.path });
-      toast.success(t('common.pasted') || '已粘贴', {
-        size: TOAST_SIZES.EXTRA_SMALL,
-        position: TOAST_POSITIONS.BOTTOM_RIGHT
-      });
     } catch (err) {
       console.error('粘贴图片失败:', err);
       toast.error(t('common.pasteFailed') || '粘贴失败', {

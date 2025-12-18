@@ -113,10 +113,6 @@ function ClipboardItem({
     } else {
       try {
         await pasteClipboardItem(item.id);
-        toast.success(t('common.pasted'), {
-          size: TOAST_SIZES.EXTRA_SMALL,
-          position: TOAST_POSITIONS.BOTTOM_RIGHT
-        });
         // 粘贴后置顶
         const oneTimeEnabled = getToolState('one-time-paste-button');
         if (settings.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {

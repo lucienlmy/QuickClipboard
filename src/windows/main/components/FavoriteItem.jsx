@@ -99,10 +99,6 @@ function FavoriteItem({
   const handleClick = async () => {
     try {
       await pasteFavorite(item.id);
-      toast.success(t('common.pasted'), {
-        size: TOAST_SIZES.EXTRA_SMALL,
-        position: TOAST_POSITIONS.BOTTOM_RIGHT
-      });
     } catch (err) {
       console.error('粘贴收藏项失败:', err);
       toast.error(t('common.pasteFailed'), {

@@ -252,7 +252,6 @@ async function handlePasteActions(result, item, isClipboard = true, index = unde
       }
     }
   }
-  toast.success(i18n.t('common.pasted'), TOAST_CONFIG)
   return true
 }
 
