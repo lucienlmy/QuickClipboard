@@ -8,8 +8,9 @@ import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUti
 import { recognizeSelectionOcr } from '../utils/ocrUtils';
 
 export function useScreenshotSession(stageRef, stageRegionManager, { screens = [] } = {}) {
-  const [quickMode, setQuickMode] = useState(0);
-  const quickModeExecutedRef = useRef(false);
+  // 截屏模式：0-普通, 1-快速复制, 2-快速贴图, 3-快速OCR
+  const [screenshotMode, setScreenshotMode] = useState(0);
+  const screenshotModeExecutedRef = useRef(false);
   
   const {
     selection,
@@ -88,6 +89,7 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
 
   const isSelectionComplete = hasValidSelection && !isDrawing && !isMoving && !isResizing;
 
+  // 初始化截屏模式
   useEffect(() => {
     let unlisten;
     let mounted = true;
@@ -97,19 +99,19 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
       const win = getCurrentWebviewWindow();
       unlisten = await win.listen('screenshot:new-session', (event) => {
         if (!mounted) return;
-        const mode = event.payload?.quickMode ?? 0;
-        setQuickMode(mode);
-        quickModeExecutedRef.current = false;
+        const mode = event.payload?.screenshotMode ?? 0;
+        setScreenshotMode(mode);
+        screenshotModeExecutedRef.current = false;
       });
 
       try {
-        const mode = await invoke('get_screenshot_quick_mode');
+        const mode = await invoke('get_screenshot_mode');
         if (mounted) {
-          setQuickMode(mode);
-          quickModeExecutedRef.current = false;
+          setScreenshotMode(mode);
+          screenshotModeExecutedRef.current = false;
         }
       } catch (err) {
-        console.error('获取快捷模式失败:', err);
+        console.error('获取截屏模式失败:', err);
       }
     })();
     
@@ -209,30 +211,31 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     }
   }, [getEffectiveSelection, stageRef, screens]);
 
+  // 快速截屏模式
   useEffect(() => {
-    if (!isSelectionComplete || quickModeExecutedRef.current || quickMode === 0) return;
+    if (!isSelectionComplete || screenshotModeExecutedRef.current || screenshotMode === 0) return;
     
-    const executeQuickMode = async () => {
-      quickModeExecutedRef.current = true;
+    const executeScreenshotMode = async () => {
+      screenshotModeExecutedRef.current = true;
 
       await new Promise(r => setTimeout(r, 50));
       
       try {
-        if (quickMode === 1) {
+        if (screenshotMode === 1) {
           await handleConfirmSelection();
-        } else if (quickMode === 2) {
+        } else if (screenshotMode === 2) {
           await handlePinSelection();
-        } else if (quickMode === 3) {
+        } else if (screenshotMode === 3) {
           await handleQuickOcr();
         }
       } catch (err) {
-        console.error('快捷模式执行失败:', err);
+        console.error('快速截屏模式执行失败:', err);
       }
       await cancelScreenshotSession();
     };
     
-    executeQuickMode();
-  }, [isSelectionComplete, quickMode, handleConfirmSelection, handlePinSelection, handleQuickOcr]);
+    executeScreenshotMode();
+  }, [isSelectionComplete, screenshotMode, handleConfirmSelection, handlePinSelection, handleQuickOcr]);
 
   return {
     selection,
@@ -249,7 +252,7 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
     autoSelectionRect,
     displayAutoSelectionRect,
     hasAutoSelection,
-    quickMode,
+    screenshotMode,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,

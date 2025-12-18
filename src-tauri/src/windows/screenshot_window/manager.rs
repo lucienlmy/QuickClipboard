@@ -7,12 +7,12 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::thread;
 use std::time::Duration;
 
-// 截屏快捷模式
-// 0: 普通模式（显示工具栏）
+// 截屏模式
+// 0: 普通模式
 // 1: 快速保存模式（选区完成后直接复制到剪贴板）
 // 2: 快速贴图模式（选区完成后直接贴图）
 // 3: 快速OCR模式（选区完成后直接OCR识别并复制）
-static SCREENSHOT_QUICK_MODE: AtomicU8 = AtomicU8::new(0);
+static SCREENSHOT_MODE: AtomicU8 = AtomicU8::new(0);
 
 #[derive(Debug, Clone, Copy)]
 struct PhysicalRect {
@@ -77,10 +77,10 @@ fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
         let _ = window.set_focus();
         return Ok(());
     }
-    SCREENSHOT_QUICK_MODE.store(mode, Ordering::SeqCst);
+    SCREENSHOT_MODE.store(mode, Ordering::SeqCst);
 
     crate::services::screenshot::capture_and_store_last(app)?;
-    let _ = window.emit("screenshot:new-session", json!({ "quickMode": mode }));
+    let _ = window.emit("screenshot:new-session", json!({ "screenshotMode": mode }));
     resize_window_to_virtual_screen(&window);
     let _ = window.show();
     let _ = window.set_focus();
@@ -107,16 +107,16 @@ pub fn start_screenshot_quick_ocr(app: &AppHandle) -> Result<(), String> {
     start_screenshot_with_mode(app, 3)
 }
 
-// 获取当前快捷模式
+// 获取当前截屏模式
 #[tauri::command]
-pub fn get_screenshot_quick_mode() -> u8 {
-    SCREENSHOT_QUICK_MODE.load(Ordering::SeqCst)
+pub fn get_screenshot_mode() -> u8 {
+    SCREENSHOT_MODE.load(Ordering::SeqCst)
 }
 
-// 重置快捷模式
+// 重置截屏模式
 #[tauri::command]
-pub fn reset_screenshot_quick_mode() {
-    SCREENSHOT_QUICK_MODE.store(0, Ordering::SeqCst);
+pub fn reset_screenshot_mode() {
+    SCREENSHOT_MODE.store(0, Ordering::SeqCst);
 }
 
 // 启动贴图编辑模式
@@ -134,6 +134,7 @@ pub fn start_pin_edit_mode(
     original_image_path: Option<String>,
     edit_data_json: Option<String>,
 ) -> Result<(), String> {
+    SCREENSHOT_MODE.store(0, Ordering::SeqCst);
     let window = get_or_create_window(app)?;
     let edit_data = PinEditData {
         image_path,

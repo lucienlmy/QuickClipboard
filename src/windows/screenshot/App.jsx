@@ -413,7 +413,7 @@ function App() {
 
 
       {/* 选区信息栏 */}
-      {!longScreenshot.isActive && !isPinEdit && !session.quickMode && (
+      {!longScreenshot.isActive && !isPinEdit && !session.screenshotMode && (
         <SelectionInfoBar
           selection={session.selection}
           cornerRadius={session.cornerRadius}
@@ -430,7 +430,7 @@ function App() {
       )}
 
       {/* 工具栏 */}
-      {!session.quickMode && (
+      {(isPinEdit || !session.screenshotMode) && (
         <SelectionToolbar
           selection={effectiveSelection}
           isDrawing={session.isDrawing}
@@ -465,7 +465,7 @@ function App() {
       )}
 
       {/* 工具参数面板 */}
-      {!longScreenshot.isActive && !session.quickMode && (
+      {!longScreenshot.isActive && (isPinEdit || !session.screenshotMode) && (
         <ToolParameterPanel
           selection={effectiveSelection}
           activeTool={editing.activeTool}
@@ -512,7 +512,7 @@ function App() {
       {ocrResult && <OcrOverlay result={ocrResult} selection={effectiveSelection} />}
 
       {/* 快捷键提示 */}
-      {settings.screenshotHintsEnabled && !isPinEdit && !session.quickMode && (
+      {settings.screenshotHintsEnabled && !isPinEdit && !session.screenshotMode && (
         <KeyboardShortcutsHelp
           stageRegionManager={stageRegionManager}
           longScreenshotMode={longScreenshot.isActive}
@@ -525,7 +525,7 @@ function App() {
       )}
 
       {/* 径向工具选择器*/}
-      {effectiveHasValidSelection && !longScreenshot.isActive && !isPinEdit && !session.quickMode && (
+      {effectiveHasValidSelection && !longScreenshot.isActive && !isPinEdit && !session.screenshotMode && (
         <RadialToolPicker
           activeToolId={editing.activeToolId}
           onToolSelect={(toolId) => editing.setActiveToolId(editing.activeToolId === toolId ? null : toolId)}
