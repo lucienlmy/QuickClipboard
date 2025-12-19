@@ -30,7 +30,6 @@ const SHAPE_OPTIONS = [
   { value: 'triangle', label: '三角形', icon: 'ti ti-triangle' },
   { value: 'diamond', label: '菱形', icon: 'ti ti-diamonds' },
   { value: 'pentagon', label: '五边形', icon: 'ti ti-pentagon' },
-  { value: 'arrow', label: '箭头', icon: 'ti ti-arrow-up-right' },
 ];
 
 const SHAPE_PARAMETERS = [

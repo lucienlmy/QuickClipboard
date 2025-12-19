@@ -54,6 +54,7 @@ export const createCurveArrowTool = () => {
         stroke: merged.stroke,
         strokeWidth: merged.strokeWidth,
         opacity: merged.opacity,
+        lineStyle: merged.lineStyle,
         dash: dash,
         lineCap: 'round',
         lineJoin: 'round',

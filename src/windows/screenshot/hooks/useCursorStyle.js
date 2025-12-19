@@ -11,7 +11,8 @@ export function useCursorStyle(
   selection,
   isInteracting,
   activeToolId = null,
-  toolStyle = {}
+  toolStyle = {},
+  isHoveringShape = false
 ) {
   useEffect(() => {
     if (!stageRef?.current) return;
@@ -19,11 +20,15 @@ export function useCursorStyle(
     const stage = stageRef.current;
     const container = stage.container();
 
-    const handleMouseMove = (e) => {
+    const handleMouseMove = () => {
       const pos = stage.getPointerPosition();
       if (!pos) return;
 
       if (isInteracting) return;
+      if (isHoveringShape) {
+        container.style.cursor = 'move';
+        return;
+      }
 
       // 编辑模式：使用工具专属光标
       if (activeToolId && activeToolId !== 'select') {
@@ -56,5 +61,5 @@ export function useCursorStyle(
     return () => {
       container.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [stageRef, selection, isInteracting, activeToolId, toolStyle]);
+  }, [stageRef, selection, isInteracting, activeToolId, toolStyle, isHoveringShape]);
 }

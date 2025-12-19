@@ -75,6 +75,7 @@ export const createPolylineTool = () => {
         stroke: merged.stroke,
         strokeWidth: merged.strokeWidth,
         opacity: merged.opacity,
+        lineStyle: merged.lineStyle,
         dash,
         connectionType: merged.connectionType,
         lineCap: 'round',

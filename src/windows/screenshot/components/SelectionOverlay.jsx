@@ -1,12 +1,9 @@
 //选区覆盖层组件
 
-import { useCallback, useEffect } from 'react';
 import { Layer, Rect } from 'react-konva';
-import { cancelScreenshotSession } from '@shared/api/system';
 import SelectionRect from './SelectionRect';
 import SelectionHandles from './SelectionHandles';
 import AutoSelectionRect from './AutoSelectionRect';
-import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUtils';
 import { useCursorStyle } from '../hooks/useCursorStyle';
 import { OVERLAY_COLOR, OVERLAY_OPACITY } from '../constants/selectionConstants';
 
@@ -32,12 +29,13 @@ function SelectionOverlay({
   activeToolId = null,
   toolStyle = {},
   longScreenshotMode = false,
-  pinEditMode = false
+  pinEditMode = false,
+  isHoveringShape = false
 }) {
   if (stageWidth <= 0 || stageHeight <= 0) return null;
 
   // 光标样式管理
-  useCursorStyle(stageRef, selection, isInteracting, activeToolId, toolStyle);
+  useCursorStyle(stageRef, selection, isInteracting, activeToolId, toolStyle, isHoveringShape);
 
   return (
     <Layer id="screenshot-overlay-layer" listening={listening}>

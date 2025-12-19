@@ -1,4 +1,5 @@
 // 序号标注渲染组件
+import { useState } from 'react';
 import { Group, Circle, Rect, Text, Line } from 'react-konva';
 
 // 序号类型转换函数
@@ -66,7 +67,9 @@ function toChinese(num) {
   return result.replace(/零+$/, '');
 }
 
-export default function NumberMarker({ shape, isSelected, onClick, onTransform }) {
+export default function NumberMarker({ shape, index, isSelected, canSelect, onSelect, onTransform, onHoverChange }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
   const {
     x = 0,
     y = 0,
@@ -86,6 +89,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
 
   const radius = size / 2;
   const cornerRadius = size * 0.2;
+  const showHoverHighlight = isHovered && !isSelected && canSelect;
 
   // 转换序号显示
   const displayNumber = convertNumber(number, numberType);
@@ -105,6 +109,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -119,6 +124,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -134,6 +140,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -155,6 +162,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -174,6 +182,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -195,6 +204,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -217,6 +227,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -238,6 +249,7 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
             stroke={borderWidth > 0 ? borderColor : undefined}
             strokeWidth={borderWidth}
             opacity={opacity}
+            listening={false}
           />
         );
       
@@ -246,23 +258,49 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
     }
   };
 
+  const handleClick = (e) => {
+    if (canSelect) {
+      e.cancelBubble = true;
+      onSelect?.();
+    }
+  };
+
   return (
     <Group
+      name={`shape-number-${index}`}
       x={x}
       y={y}
-      draggable={shape.draggable}
-      onClick={onClick}
-      onTap={onClick}
+      draggable={isSelected}
+      listening={true}
+      onClick={handleClick}
+      onTap={handleClick}
+      onMouseEnter={() => {
+        if (canSelect) {
+          setIsHovered(true);
+          onHoverChange?.(true);
+        }
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        onHoverChange?.(false);
+      }}
       onDragEnd={(e) => {
-        if (onTransform) {
-          onTransform({
-            ...shape,
-            x: e.target.x(),
-            y: e.target.y(),
-          });
+        if (isSelected && onTransform) {
+          onTransform({ ...shape, x: e.target.x(), y: e.target.y() });
         }
       }}
     >
+      {/* 透明点击区域 */}
+      <Rect
+        x={0}
+        y={0}
+        width={size}
+        height={size}
+        fill="transparent"
+        onClick={handleClick}
+        onTap={handleClick}
+      />
+      
       {/* 背景 */}
       {renderBackground()}
       
@@ -280,7 +318,22 @@ export default function NumberMarker({ shape, isSelected, onClick, onTransform }
         align="center"
         verticalAlign="middle"
         opacity={opacity}
+        listening={false}
       />
+      
+      {/* 悬停高亮边框 */}
+      {showHoverHighlight && (
+        <Rect
+          x={-3}
+          y={-3}
+          width={size + 6}
+          height={size + 6}
+          stroke="#1677ff"
+          strokeWidth={2}
+          dash={[4, 4]}
+          listening={false}
+        />
+      )}
       
       {/* 选中状态的高亮边框 */}
       {isSelected && (

@@ -415,11 +415,12 @@ function App() {
             shapes={editing.shapes}
             listening={!!editing.activeToolId}
             selectedShapeIndices={editing.selectedShapeIndices}
-            onSelectShape={editing.toggleSelectShape}
+            activeToolId={editing.activeToolId}
+            onSelect={editing.handleShapeClick}
             onShapeTransform={editing.updateSelectedShape}
             onShapeTransformByIndex={editing.updateShapeByIndex}
-            isSelectMode={editing.activeToolId === 'select'}
             selectionBox={editing.selectionBox}
+            isSelectToolActive={editing.activeToolId === 'select'}
             onTextEdit={editing.startEditingText}
             editingTextIndex={editing.editingTextIndex}
             onTextChange={(text, index) => editing.updateTextContent(index, text)}
@@ -430,6 +431,8 @@ function App() {
             cornerRadius={session.cornerRadius}
             stageSize={stageSize}
             pinEditMode={isPinEdit}
+            onHoverChange={editing.setIsHoveringShape}
+            isDrawingShape={editing.isDrawingShape}
           />
         )}
         <SelectionOverlay
@@ -455,6 +458,7 @@ function App() {
           toolStyle={editing.toolStyle}
           longScreenshotMode={longScreenshot.isActive}
           pinEditMode={isPinEdit}
+          isHoveringShape={editing.isHoveringShape}
         />
         <Layer id="screenshot-ui-layer" listening={false}>
           <Magnifier

@@ -15,6 +15,71 @@ import { processMosaicShape } from '../utils/imageProcessor';
 import { createPersistenceManager } from '../utils/toolParameterPersistence';
 import { shapeToRelative, shapeToAbsolute } from '../utils/shapeCoordinates';
 
+// 形状类型转换
+const convertShapeType = (shape, newType) => {
+  let bounds;
+  if (shape.shapeType === 'circle' || shape.shapeType === 'diamond' || 
+      (typeof shape.sides === 'number' && shape.sides >= 3)) {
+    const cx = shape.centerX ?? (shape.x + (shape.width || 0) / 2);
+    const cy = shape.centerY ?? (shape.y + (shape.height || 0) / 2);
+    const r = shape.radius ?? Math.max(Math.abs(shape.width || 0), Math.abs(shape.height || 0)) / 2;
+    bounds = { x: cx - r, y: cy - r, width: r * 2, height: r * 2 };
+  } else {
+    bounds = { x: shape.x, y: shape.y, width: Math.abs(shape.width || 0), height: Math.abs(shape.height || 0) };
+  }
+  
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const size = Math.min(bounds.width, bounds.height);
+  const radius = size / 2;
+
+  const base = {
+    tool: 'shape',
+    shapeType: newType,
+    stroke: shape.stroke,
+    strokeWidth: shape.strokeWidth,
+    strokeOpacity: shape.strokeOpacity,
+    fill: shape.fill,
+    fillOpacity: shape.fillOpacity,
+  };
+
+  const polygonConfigs = {
+    triangle: { sides: 3, rotation: 0 },
+    pentagon: { sides: 5, rotation: 0 },
+  };
+  
+  switch (newType) {
+    case 'rectangle':
+    case 'ellipse':
+      return { ...base, x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+    
+    case 'circle':
+      return { ...base, x: centerX - radius, y: centerY - radius, width: size, height: size, centerX, centerY, radius };
+    
+    case 'diamond':
+      return {
+        ...base,
+        x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
+        centerX, centerY,
+        points: [centerX, bounds.y, bounds.x + bounds.width, centerY, centerX, bounds.y + bounds.height, bounds.x, centerY],
+        rotation: 0,
+      };
+    
+    case 'triangle':
+    case 'pentagon':
+      const config = polygonConfigs[newType];
+      return {
+        ...base,
+        x: centerX - radius, y: centerY - radius, width: size, height: size,
+        centerX, centerY, radius,
+        sides: config.sides, rotation: config.rotation,
+      };
+    
+    default:
+      return { ...base, x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+  }
+};
+
 // 检查形状是否在框选范围内
 const checkShapeInBox = (shape, box) => {
   if (shape.tool === 'pen' || shape.tool === 'curveArrow' || shape.tool === 'polyline') {
@@ -144,6 +209,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
   const [selectedShapeIndices, setSelectedShapeIndices] = useState([]);
   const [selectionBox, setSelectionBox] = useState(null);
   const [editingTextIndex, setEditingTextIndex] = useState(null);
+  const [isHoveringShape, setIsHoveringShape] = useState(false);
   const isDrawingRef = useRef(false);
   const isSelectingRef = useRef(false);
   const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
@@ -188,24 +254,19 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
       };
     }
     
-    if (activeToolId === 'select' && selectedShapeIndices.length > 0) {
-      // 多选时只显示删除按钮
+    if (selectedShapeIndices.length > 0) {
+      const deleteParam = {
+        id: 'delete',
+        type: 'button',
+        label: selectedShapeIndices.length > 1 ? `删除选中 (${selectedShapeIndices.length})` : '删除选中',
+        icon: 'ti ti-trash',
+        variant: 'danger',
+        action: 'delete',
+      };
+
       if (selectedShapeIndices.length > 1) {
-        const deleteParam = {
-          id: 'delete',
-          type: 'button',
-          label: `删除选中 (${selectedShapeIndices.length})`,
-          icon: 'ti ti-trash',
-          variant: 'danger',
-          action: 'delete',
-        };
-        
         return {
-          tool: {
-            id: 'select',
-            name: '多选',
-            parameters: [deleteParam],
-          },
+          tool: { id: 'select', name: '多选', parameters: [deleteParam] },
           style: {},
           isSelectMode: true,
         };
@@ -218,39 +279,33 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
         if (shapeTool && tools.current[shapeTool]) {
           const baseTool = tools.current[shapeTool];
           
-          const deleteParam = {
-            id: 'delete',
-            type: 'button',
-            label: '删除选中',
-            icon: 'ti ti-trash',
-            variant: 'danger',
-            action: 'delete',
-          };
-          
           if (shapeTool === 'mosaic' && selectedShape.processedImage) {
             return {
-              tool: {
-                id: 'mosaic',
-                name: '马赛克',
-                parameters: [deleteParam],
-              },
+              tool: { id: 'mosaic', name: '马赛克', parameters: [deleteParam] },
               style: {},
               isSelectMode: true,
             };
           }
           
-          // 过滤掉不可修改的类型参数
-          const typeParamIds = ['shapeType', 'lineStyle', 'mode'];
+          const getExcludeParams = (tool) => {
+            switch (tool) {
+              case 'pen': return ['lineStyle', 'mode'];
+              case 'number': return ['currentNumber'];
+              default: return [];
+            }
+          };
+          const excludeParamIds = getExcludeParams(shapeTool);
           const editableParams = (baseTool.parameters || []).filter(
-            param => !typeParamIds.includes(param.id)
+            param => !excludeParamIds.includes(param.id)
           );
           
+          const mergedStyle = shapeTool === 'number' 
+            ? { ...selectedShape, currentNumber: toolStyles.number?.currentNumber ?? 1 }
+            : selectedShape;
+          
           return {
-            tool: {
-              ...baseTool,
-              parameters: [...editableParams, deleteParam],
-            },
-            style: selectedShape,
+            tool: { ...baseTool, parameters: [...editableParams, deleteParam] },
+            style: mergedStyle,
             isSelectMode: true,
           };
         }
@@ -386,7 +441,86 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
       return;
     }
     
-    if (activeToolId === 'select' && selectedShapeIndices.length === 1) {
+    // 有选中形状时，修改形状属性
+    if (selectedShapeIndices.length === 1) {
+      const selectedShape = shapes[selectedShapeIndices[0]];
+      
+      // 形状类型转换：需要重新计算形状数据
+      if (paramId === 'shapeType' && selectedShape?.tool === 'shape') {
+        const convertedShape = convertShapeType(selectedShape, value);
+        const newShapes = shapes.map((shape, i) => 
+          i === selectedShapeIndices[0] ? convertedShape : shape
+        );
+        setShapes(newShapes);
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push(newShapes);
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+        return;
+      }
+      
+      // 箭头工具：lineStyle 改变需要重新计算 dash
+      if (paramId === 'lineStyle' && selectedShape?.tool === 'curveArrow') {
+        const strokeWidth = selectedShape.strokeWidth || 6;
+        const dash = value === 'dashed' 
+          ? [Math.max(strokeWidth * 2, 10), Math.max(strokeWidth * 1.5, 8)]
+          : undefined;
+        const newShapes = shapes.map((shape, i) => 
+          i === selectedShapeIndices[0] ? { ...shape, lineStyle: value, dash } : shape
+        );
+        setShapes(newShapes);
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push(newShapes);
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+        return;
+      }
+      
+      // 折线工具：lineStyle 改变需要重新计算 dash
+      if (paramId === 'lineStyle' && selectedShape?.tool === 'polyline') {
+        const strokeWidth = selectedShape.strokeWidth || 6;
+        const dash = value === 'dashed'
+          ? [Math.max(strokeWidth * 2, 8), Math.max(strokeWidth * 1.2, 4)]
+          : undefined;
+        const newShapes = shapes.map((shape, i) => 
+          i === selectedShapeIndices[0] ? { ...shape, lineStyle: value, dash } : shape
+        );
+        setShapes(newShapes);
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push(newShapes);
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+        return;
+      }
+      
+      // 箭头工具：strokeWidth 改变时，如果是虚线需要重新计算 dash
+      if (paramId === 'strokeWidth' && selectedShape?.tool === 'curveArrow' && selectedShape?.lineStyle === 'dashed') {
+        const dash = [Math.max(value * 2, 10), Math.max(value * 1.5, 8)];
+        const newShapes = shapes.map((shape, i) => 
+          i === selectedShapeIndices[0] ? { ...shape, strokeWidth: value, dash } : shape
+        );
+        setShapes(newShapes);
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push(newShapes);
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+        return;
+      }
+      
+      // 折线工具：strokeWidth 改变时，如果是虚线需要重新计算 dash
+      if (paramId === 'strokeWidth' && selectedShape?.tool === 'polyline' && selectedShape?.lineStyle === 'dashed') {
+        const dash = [Math.max(value * 2, 8), Math.max(value * 1.2, 4)];
+        const newShapes = shapes.map((shape, i) => 
+          i === selectedShapeIndices[0] ? { ...shape, strokeWidth: value, dash } : shape
+        );
+        setShapes(newShapes);
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push(newShapes);
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+        return;
+      }
+      
       const newShapes = shapes.map((shape, i) => 
         i === selectedShapeIndices[0] ? { ...shape, [paramId]: value } : shape
       );
@@ -472,19 +606,74 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
       return false;
     }
     
+    const targetName = e.target.name?.() || '';
+    if (targetName.includes('_anchor') || targetName.includes('_rotater') || e.target.getClassName?.() === 'Transformer') {
+      return true;
+    }
+    
+    const stage = e.target.getStage?.();
+    const clickedOnStage = e.target === stage;
+
     if (activeToolId === 'select') {
-      const isBackground = e.target.name && e.target.name() === 'editingLayerBackground';
-      
-      if (isBackground) {
+      if (clickedOnStage) {
+        setSelectedShapeIndices([]);
         isSelectingRef.current = true;
-        setSelectionBox({
-          x: clampedPos.x,
-          y: clampedPos.y,
-          width: 0,
-          height: 0,
-        });
+        setSelectionBox({ x: clampedPos.x, y: clampedPos.y, width: 0, height: 0 });
       }
       return true;
+    }
+    
+    if (activeToolId === 'polyline' && currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
+      const tool = tools.current.polyline;
+      const now = Date.now();
+      const last = lastClickRef.current;
+      const dist = Math.sqrt((clampedPos.x - last.x) ** 2 + (clampedPos.y - last.y) ** 2);
+      const timeDiff = now - last.time;
+      const isDoubleClick = timeDiff < 300 && dist < 20;
+      
+      lastClickRef.current = { x: clampedPos.x, y: clampedPos.y, time: now };
+      
+      if (isDoubleClick) {
+        const finishedShape = tool.finishShape(currentShape);
+        if (finishedShape.points.length >= 4) {
+          setShapes(prevShapes => [...prevShapes, finishedShape]);
+          setHistory(prev => [...prev.slice(0, historyStep + 1), [...shapes, finishedShape]]);
+          setHistoryStep(prev => prev + 1);
+        }
+        setCurrentShape(null);
+        isDrawingRef.current = false;
+      } else {
+        const updatedShape = tool.addPoint(currentShape, clampedPos);
+        setCurrentShape(updatedShape);
+      }
+      return true;
+    }
+    
+    // 点击空白时取消选中
+    if (clickedOnStage && selectedShapeIndices.length > 0) {
+      setSelectedShapeIndices([]);
+      if (activeToolId === 'text') {
+        return true;
+      }
+    }
+    
+    // 检查点击的形状类型
+    if (!clickedOnStage) {
+      let node = e.target;
+      let shapeTool = null;
+      while (node && node !== stage) {
+        const name = node.name?.() || '';
+        if (name.startsWith('shape-')) {
+          const parts = name.split('-');
+          shapeTool = parts[1];
+          break;
+        }
+        node = node.getParent?.();
+      }
+      
+      if (shapeTool === activeToolId) {
+        return true;
+      }
     }
     
     const tool = tools.current[activeToolId];
@@ -524,7 +713,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     setCurrentShape(newShape);
     
     return true;
-  }, [activeToolId, activeToolStyle, editingTextIndex, currentShape, shapes, historyStep, clipBounds]);
+  }, [activeToolId, activeToolStyle, editingTextIndex, currentShape, shapes, historyStep, clipBounds, selectedShapeIndices]);
 
   const handleMouseMove = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
@@ -633,6 +822,11 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
       setShapes(newShapes);
       pushToHistory(newShapes);
       
+      // 创建完成后自动选中（马赛克、画笔、序号除外）
+      if (finalizedShape.tool !== 'mosaic' && finalizedShape.tool !== 'pen' && finalizedShape.tool !== 'number') {
+        setSelectedShapeIndices([newShapes.length - 1]);
+      }
+      
       // 记录颜色历史 - 画笔/箭头/形状工具
       if (finalizedShape.stroke) {
         recordColorHistory(finalizedShape.stroke);
@@ -692,6 +886,17 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     }
   }, []);
 
+  const handleShapeClick = useCallback((index, isMultiSelect) => {
+    if (activeToolId === 'select') {
+      toggleSelectShape(index, isMultiSelect);
+    } else {
+      const clickedShape = shapes[index];
+      if (clickedShape?.tool === activeToolId) {
+        toggleSelectShape(index, isMultiSelect);
+      }
+    }
+  }, [activeToolId, shapes, toggleSelectShape]);
+
   const deleteSelectedShapes = useCallback(() => {
     if (selectedShapeIndices.length === 0) return;
     const newShapes = shapes.filter((_, i) => !selectedShapeIndices.includes(i));
@@ -700,6 +905,15 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     setSelectedShapeIndices([]);
   }, [selectedShapeIndices, shapes, pushToHistory]);
 
+  // 实时更新形状（拖动时用，不记录历史）
+  const updateSelectedShapeLive = useCallback((updatedAttrs) => {
+    if (selectedShapeIndices.length !== 1) return;
+    setShapes(prev => prev.map((shape, i) =>
+      i === selectedShapeIndices[0] ? { ...shape, ...updatedAttrs } : shape
+    ));
+  }, [selectedShapeIndices]);
+
+  // 更新形状并记录历史（拖动结束时用）
   const updateSelectedShape = useCallback((updatedAttrs) => {
     if (selectedShapeIndices.length !== 1) return;
     const newShapes = shapes.map((shape, i) =>
@@ -719,10 +933,13 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
   }, [shapes, pushToHistory]);
 
   useEffect(() => {
-    if (activeToolId !== 'select') {
-      setSelectedShapeIndices([]);
-    }
-  }, [activeToolId]);
+    if (!activeToolId) return;
+    if (activeToolId === 'select') return;
+    setSelectedShapeIndices(prev => {
+      const filtered = prev.filter(i => shapes[i]?.tool === activeToolId);
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [activeToolId, shapes]);
 
   const updateTextContent = useCallback((index, text) => {
     if (index === null || index < 0 || index >= shapes.length) return;
@@ -748,7 +965,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     });
   }, []);
 
-  const handleDoubleClick = useCallback((e, relativePos) => {
+  const handleDoubleClick = useCallback(() => {
     return false;
   }, []);
 
@@ -776,14 +993,18 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     selectedShapeIndices,
     setSelectedShapeIndices,
     toggleSelectShape,
+    handleShapeClick,
     deleteSelectedShapes,
     updateSelectedShape,
+    updateSelectedShapeLive,
     updateShapeByIndex,
     selectionBox,
     editingTextIndex,
     updateTextContent,
     startEditingText,
     stopEditingText,
+    isHoveringShape,
+    setIsHoveringShape,
     watermarkConfig: toolStyles.watermark,
     borderConfig: toolStyles.border,
     getSerializableShapes: useCallback((bounds = null) => {

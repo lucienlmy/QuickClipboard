@@ -20,8 +20,6 @@
         "height": 520,
         "minWidth": 350,
         "minHeight": 500,
-        "maxWidth": 500,
-        "maxHeight": 800,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
