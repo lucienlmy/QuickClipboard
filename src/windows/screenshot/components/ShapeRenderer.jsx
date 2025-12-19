@@ -124,8 +124,7 @@ export const ShapeRenderer = ({
     }
   };
   
-  // 画笔只能在选择工具中被选中，不能自己选自己
-  const canSelect = activeToolId === 'select' || (activeToolId === shape.tool && shape.tool !== 'pen');
+  const canSelect = activeToolId === 'select' || activeToolId === shape.tool;
   const commonProps = createCommonProps(isSelected, onSelect, index, activeToolId, shape.tool, setIsHovered, onHoverChange);
   const showHoverHighlight = isHovered && !isSelected && canSelect && !isCreating;
 
@@ -329,14 +328,14 @@ export const ShapeRenderer = ({
     );
   }
 
-  // 画笔工具 - 只在选择工具中可交互
+  // 画笔工具
   if (shape.tool === 'pen') {
-    const isPenToolActive = activeToolId === 'pen';
+    const penProps = createCommonProps(isSelected, onSelect, index, activeToolId, 'select', setIsHovered, onHoverChange);
     return (
       <>
         <Line
           ref={setRef}
-          name={`shape-pen-${index}`}
+          {...penProps}
           x={shape.offsetX ?? 0}
           y={shape.offsetY ?? 0}
           points={shape.points}
@@ -349,12 +348,6 @@ export const ShapeRenderer = ({
           opacity={shape.opacity}
           globalCompositeOperation={shape.globalCompositeOperation}
           hitStrokeWidth={20}
-          listening={!isPenToolActive}
-          draggable={isSelected && !isPenToolActive}
-          onClick={isPenToolActive ? undefined : commonProps.onClick}
-          onTap={isPenToolActive ? undefined : commonProps.onTap}
-          onMouseEnter={isPenToolActive ? undefined : commonProps.onMouseEnter}
-          onMouseLeave={isPenToolActive ? undefined : commonProps.onMouseLeave}
           onDragEnd={(e) => {
             if (isSelected && onShapeTransform) {
               onShapeTransform({ offsetX: e.target.x(), offsetY: e.target.y() });
@@ -447,7 +440,7 @@ export const ShapeRenderer = ({
   // 马赛克工具
   if (shape.tool === 'mosaic') {
     if (shape.processedImage) {
-      const commonProps = createCommonProps(isSelected, onSelect, index, activeToolId, 'mosaic', setIsHovered, onHoverChange);
+      const commonProps = createCommonProps(isSelected, onSelect, index, activeToolId, 'select', setIsHovered, onHoverChange);
       return (
         <>
           <KonvaImage

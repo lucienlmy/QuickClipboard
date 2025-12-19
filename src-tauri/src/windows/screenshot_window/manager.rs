@@ -82,6 +82,8 @@ fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
     crate::services::screenshot::capture_and_store_last(app)?;
     let _ = window.emit("screenshot:new-session", json!({ "screenshotMode": mode }));
     resize_window_to_virtual_screen(&window);
+    let is_dev = cfg!(debug_assertions);
+    let _ = window.set_always_on_top(!is_dev);
     let _ = window.show();
     let _ = window.set_focus();
 
