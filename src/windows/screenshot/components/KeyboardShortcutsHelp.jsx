@@ -105,11 +105,17 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
   }, [mousePos, stageRegionManager]);
 
   const hintPosition = useMemo(() => {
-    if (!mousePos || !stageRegionManager) {
-      return { bottom: '16px', left: '16px' };
+    let targetScreen = null;
+    if (mousePos && stageRegionManager) {
+      targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
     }
-
-    const targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
+    
+    if (!targetScreen && stageRegionManager) {
+      const bounds = stageRegionManager.getTotalBounds();
+      if (bounds) {
+        targetScreen = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+      }
+    }
 
     if (!targetScreen) {
       return { bottom: '16px', left: '16px' };

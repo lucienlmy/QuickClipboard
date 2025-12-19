@@ -367,7 +367,7 @@ function App() {
         const pos = stage?.getPointerPosition?.();
         if (pos) {
           initializePositionRef.current?.(pos);
-          setTimeout(() => magnifierUpdateRef.current?.(pos), 50);
+          setTimeout(() => magnifierUpdateRef.current?.(pos), 0);
         }
       }, 0);
     };
@@ -574,7 +574,7 @@ function App() {
       {ocrResult && <OcrOverlay result={ocrResult} selection={effectiveSelection} />}
 
       {/* 快捷键提示 */}
-      {settings.screenshotHintsEnabled && !isPinEdit && !session.screenshotMode && (
+      {settings.screenshotHintsEnabled && !isPinEdit && !session.screenshotMode && screens.length > 0 && (
         <KeyboardShortcutsHelp
           stageRegionManager={stageRegionManager}
           longScreenshotMode={longScreenshot.isActive}
