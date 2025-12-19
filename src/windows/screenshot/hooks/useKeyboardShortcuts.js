@@ -176,6 +176,7 @@ export default function useKeyboardShortcuts({
     canDelete,
     canClearCanvas,
     hasValidSelection,
+    hasAutoSelection,
     activeToolId,
     isInTextInput,
   ]);

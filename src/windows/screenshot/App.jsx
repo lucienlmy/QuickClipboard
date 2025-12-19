@@ -170,16 +170,17 @@ function App() {
     }
   }, [isPinEdit, pinEditMode, session]);
   const handlePinSelection = useCallback(async () => {
-    if (!session.selection) return;
+    const targetSelection = session.selection || session.autoSelectionRect;
+    if (!targetSelection) return;
     try {
       const { exportToPin } = await import('./utils/exportUtils');
-      const editShapes = editing.getSerializableShapes(session.selection);
+      const editShapes = editing.getSerializableShapes(targetSelection);
       const hasBorder = editing.borderConfig?.enabled;
       const hasWatermark = editing.watermarkConfig?.enabled;
       const hasEdits = editShapes.length > 0 || hasBorder || hasWatermark;
       const editDataJson = hasEdits ? JSON.stringify(editShapes) : null;
 
-      await exportToPin(stageRef, session.selection, session.cornerRadius, {
+      await exportToPin(stageRef, targetSelection, session.cornerRadius, {
         screens,
         editData: editDataJson,
         hasBorder,
@@ -188,7 +189,7 @@ function App() {
     } catch (err) {
       console.error('创建贴图失败:', err);
     }
-  }, [session.selection, session.cornerRadius, stageRef, screens, editing]);
+  }, [session.selection, session.autoSelectionRect, session.cornerRadius, stageRef, screens, editing]);
 
   useEffect(() => {
     quickPinCallbackRef.current = handlePinSelection;
