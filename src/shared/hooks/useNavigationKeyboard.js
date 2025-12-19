@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { toggleWindowVisibility } from '@shared/api'
+import { hideMainWindow } from '@shared/api'
 
 // 全局键盘导航Hook
 export function useNavigationKeyboard({
@@ -10,7 +10,6 @@ export function useNavigationKeyboard({
   onTabLeft = null,
   onTabRight = null,
   onFocusSearch = null,
-  onHideWindow = null,
   onTogglePin = null,
   onPreviousGroup = null,
   onNextGroup = null,
@@ -47,13 +46,9 @@ export function useNavigationKeyboard({
               if (onFocusSearch) onFocusSearch()
               break
             case 'hide-window':
-              if (onHideWindow) {
-                onHideWindow()
-              } else {
-                toggleWindowVisibility().catch(err => {
-                  console.error('切换窗口可见性失败:', err)
-                })
-              }
+              hideMainWindow().catch(err => {
+                console.error('隐藏窗口失败:', err)
+              })
               break
             case 'toggle-pin':
               if (onTogglePin) {
@@ -91,7 +86,6 @@ export function useNavigationKeyboard({
     onTabLeft,
     onTabRight,
     onFocusSearch,
-    onHideWindow,
     onTogglePin,
     onPreviousGroup,
     onNextGroup

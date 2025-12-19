@@ -10,6 +10,11 @@ export async function toggleWindowVisibility() {
   return await invoke('toggle_window_visibility')
 }
 
+// 隐藏主窗口
+export async function hideMainWindow() {
+  return await invoke('hide_main_window')
+}
+
 // 聚焦剪贴板窗口
 export async function focusClipboardWindow() {
   return await invoke('focus_clipboard_window')
