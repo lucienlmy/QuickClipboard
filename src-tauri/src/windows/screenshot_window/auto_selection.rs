@@ -168,6 +168,8 @@ impl AutoSelectionManager {
             return Err(format!("初始化 UIAutomation 失败: {:?}", e));
         }
 
+        thread::sleep(Duration::from_millis(10));
+        
         let exclude_hwnd = *screenshot_hwnd.lock();
         if let Err(e) = ui_index.rebuild_index(exclude_hwnd) {
             eprintln!("auto_selection: 初始化元素缓存失败: {:?}", e);
