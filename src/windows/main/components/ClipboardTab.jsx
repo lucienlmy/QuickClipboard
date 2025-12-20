@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from 'react';
+import { useRef, forwardRef, useImperativeHandle, useEffect, useState, useCallback } from 'react';
 import { useSnapshot } from 'valtio';
 import { listen } from '@tauri-apps/api/event';
 import { clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
@@ -6,6 +6,8 @@ import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
 import ClipboardList from './ClipboardList';
 import FloatingToolbar from './FloatingToolbar';
+
+const SEARCH_DEBOUNCE_DELAY = 200;
 const ClipboardTab = forwardRef(({
   contentFilter,
   searchQuery
@@ -15,17 +17,34 @@ const ClipboardTab = forwardRef(({
   const listRef = useRef(null);
   const [isAtTop, setIsAtTop] = useState(true);
   const prevTotalCountRef = useRef(snap.totalCount);
+  const searchDebounceRef = useRef(null);
+  
+  const debouncedSearch = useCallback((query, filter) => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    
+    searchDebounceRef.current = setTimeout(() => {
+      clipboardStore.setFilter(query);
+      refreshClipboardHistory();
+      if (query) {
+        navigationStore.setSelectedIndex(0);
+      } else {
+        navigationStore.resetNavigation();
+      }
+    }, query ? SEARCH_DEBOUNCE_DELAY : 0);
+  }, []);
 
   useEffect(() => {
     clipboardStore.setContentType(contentFilter);
-    clipboardStore.setFilter(searchQuery);
-    refreshClipboardHistory();
-    if (searchQuery) {
-      navigationStore.setSelectedIndex(0);
-    } else {
-      navigationStore.resetNavigation();
-    }
-  }, [searchQuery, contentFilter]);
+    debouncedSearch(searchQuery, contentFilter);
+    
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, contentFilter, debouncedSearch]);
 
   const scrollToTopIfEnabled = (delay = 50) => {
     if (settings.autoScrollToTopOnShow) {

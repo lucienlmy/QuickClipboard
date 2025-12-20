@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from 'react';
+import { useRef, forwardRef, useImperativeHandle, useEffect, useState, useCallback } from 'react';
 import { useSnapshot } from 'valtio';
 import { favoritesStore, refreshFavorites } from '@shared/store';
 import { navigationStore } from '@shared/store/navigationStore';
@@ -6,6 +6,8 @@ import { groupsStore } from '@shared/store/groupsStore';
 import { openBlankEditor } from '@shared/api/textEditor';
 import FavoritesList from './FavoritesList';
 import FloatingToolbar from './FloatingToolbar';
+
+const SEARCH_DEBOUNCE_DELAY = 200;
 const FavoritesTab = forwardRef(({
   contentFilter,
   searchQuery
@@ -13,17 +15,34 @@ const FavoritesTab = forwardRef(({
   const snap = useSnapshot(favoritesStore);
   const listRef = useRef(null);
   const [isAtTop, setIsAtTop] = useState(true);
+  const searchDebounceRef = useRef(null);
+
+  const debouncedSearch = useCallback((query, filter) => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    
+    searchDebounceRef.current = setTimeout(() => {
+      favoritesStore.setFilter(query);
+      refreshFavorites();
+      if (query) {
+        navigationStore.setSelectedIndex(0);
+      } else {
+        navigationStore.resetNavigation();
+      }
+    }, query ? SEARCH_DEBOUNCE_DELAY : 0);
+  }, []);
 
   useEffect(() => {
     favoritesStore.setContentType(contentFilter);
-    favoritesStore.setFilter(searchQuery);
-    refreshFavorites();
-    if (searchQuery) {
-      navigationStore.setSelectedIndex(0);
-    } else {
-      navigationStore.resetNavigation();
-    }
-  }, [searchQuery, contentFilter]);
+    debouncedSearch(searchQuery, contentFilter);
+    
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, contentFilter, debouncedSearch]);
 
   // 暴露导航方法给父组件
   useImperativeHandle(ref, () => ({
