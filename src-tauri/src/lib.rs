@@ -1,9 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
-use std::{fs};
+use std::fs;
 
 mod commands;
+mod security;
 mod services;
 mod utils;
 mod windows;
@@ -33,6 +34,7 @@ pub use services::low_memory::{is_low_memory_mode, enter_low_memory_mode, exit_l
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    security::check_webview_security();
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if services::low_memory::is_low_memory_mode() {
