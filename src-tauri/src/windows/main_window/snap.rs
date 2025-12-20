@@ -188,21 +188,21 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     // 根据动画配置决定是否使用过渡
     let settings = crate::get_settings();
+    let direction = match state.snap_edge {
+        SnapEdge::Left => "left",
+        SnapEdge::Right => "right",
+        SnapEdge::Top => "top",
+        SnapEdge::Bottom => "bottom",
+        SnapEdge::None => "top",
+    };
+    
     if settings.clipboard_animation_enabled {
         animate_window_position(window, x, y, show_x, show_y, 200)?;
-        
-        let direction = match state.snap_edge {
-            SnapEdge::Left => "left",
-            SnapEdge::Right => "right",
-            SnapEdge::Top => "top",
-            SnapEdge::Bottom => "bottom",
-            SnapEdge::None => "top",
-        };
-        
         let _ = window.emit("edge-snap-bounce-animation", direction);
     } else {
         window.set_position(tauri::PhysicalPosition::new(show_x, show_y))
             .map_err(|e| e.to_string())?;
+        let _ = window.emit("edge-snap-bounce-animation", direction);
     }
     set_hidden(false);
     
