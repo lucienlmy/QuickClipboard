@@ -1,6 +1,12 @@
 use tauri::{AppHandle, Manager};
 use super::state::{is_low_memory_mode, set_low_memory_mode};
 
+#[cfg(windows)]
+use windows::Win32::System::{
+    Threading::GetCurrentProcess,
+    Memory::{SetProcessWorkingSetSizeEx, QUOTA_LIMITS_HARDWS_MIN_DISABLE, QUOTA_LIMITS_HARDWS_MAX_DISABLE},
+};
+
 // 需要销毁的 WebView 窗口列表
 const WEBVIEW_LABELS: &[&str] = &[
     "main",
@@ -35,6 +41,9 @@ pub fn enter_low_memory_mode(app: &AppHandle) -> Result<(), String> {
     crate::input_monitor::disable_navigation_keys();
 
     destroy_all_webviews(app);
+
+    // 清理工作集
+    trim_working_set();
     
     let _ = crate::services::notification::show_notification(
         app,
@@ -141,3 +150,21 @@ fn recreate_main_window(app: &AppHandle) -> Result<(), String> {
 
     Ok(())
 }
+
+// 清理进程工作集
+#[cfg(windows)]
+fn trim_working_set() {
+    unsafe {
+        let process = GetCurrentProcess();
+        let _ = SetProcessWorkingSetSizeEx(
+            process,
+            usize::MAX,
+            usize::MAX,
+            QUOTA_LIMITS_HARDWS_MIN_DISABLE | QUOTA_LIMITS_HARDWS_MAX_DISABLE,
+        );
+    }
+    println!("[低占用模式] 工作集已清理");
+}
+
+#[cfg(not(windows))]
+fn trim_working_set() {}
