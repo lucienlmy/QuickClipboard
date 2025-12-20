@@ -24,6 +24,8 @@ pub fn submit_context_menu(item_id: Option<String>) {
 
 #[tauri::command]
 pub async fn show_context_menu(app: AppHandle, items: Vec<MenuItem>, x: i32, y: i32, width: Option<i32>, theme: Option<String>) -> Result<Option<String>, String> {
+    let _ = crate::windows::pin_image_window::close_image_preview(app.clone());
+    
     show_menu(app, ContextMenuOptions {
         items, x, y, cursor_x: 0, cursor_y: 0, width, theme, session_id: 0,
         monitor_x: 0.0, monitor_y: 0.0, monitor_width: 0.0, monitor_height: 0.0,
@@ -33,6 +35,8 @@ pub async fn show_context_menu(app: AppHandle, items: Vec<MenuItem>, x: i32, y: 
 
 #[tauri::command]
 pub fn close_all_context_menus(app: AppHandle) {
+    let _ = crate::windows::pin_image_window::close_image_preview(app.clone());
+    
     if let Some(w) = app.get_webview_window("context-menu") {
         let _ = w.hide();
         std::thread::spawn(|| {

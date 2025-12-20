@@ -80,6 +80,8 @@ pub fn snap_to_edge(window: &WebviewWindow, edge: SnapEdge) -> Result<(), String
 }
 
 pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
+    use tauri::Manager;
+    
     let state = super::state::get_window_state();
     
     if !state.is_snapped || state.is_hidden {
@@ -89,6 +91,8 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     if crate::is_context_menu_visible() {
         return Ok(());
     }
+
+    let _ = crate::windows::pin_image_window::close_image_preview(window.app_handle().clone());
     
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;

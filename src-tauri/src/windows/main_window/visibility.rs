@@ -112,6 +112,10 @@ fn show_normal_window(window: &WebviewWindow) {
 
 fn hide_normal_window(window: &WebviewWindow) {
     use tauri::Emitter;
+    use tauri::Manager;
+
+    let _ = crate::windows::pin_image_window::close_image_preview(window.app_handle().clone());
+    
     let _ = window.emit("window-hide-animation", ());
 
     let settings = crate::get_settings();
