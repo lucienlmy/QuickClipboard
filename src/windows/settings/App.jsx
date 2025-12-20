@@ -94,6 +94,7 @@ function App() {
     await settingsStore.saveSetting(key, value);
   };
   const renderSection = () => {
+    const uiAnimationEnabled = snap.uiAnimationEnabled !== false;
     let content;
     switch (activeSection) {
       case 'general':
@@ -135,7 +136,7 @@ function App() {
       default:
         content = <GeneralSection settings={snap} onSettingChange={handleSettingChange} />;
     }
-    return <div key={activeSection} className="animate-slide-in-left-fast">
+    return <div key={activeSection} className={uiAnimationEnabled ? 'animate-slide-in-left-fast' : ''}>
         {content}
       </div>;
   };

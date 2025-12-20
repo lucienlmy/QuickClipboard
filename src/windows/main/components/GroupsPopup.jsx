@@ -3,6 +3,7 @@ import { useSnapshot } from 'valtio';
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
 import { groupsStore } from '@shared/store/groupsStore';
+import { settingsStore } from '@shared/store/settingsStore';
 import { showConfirm, showError } from '@shared/utils/dialog';
 import GroupModal from './GroupModal';
 const GroupsPopup = forwardRef(({
@@ -14,6 +15,8 @@ const GroupsPopup = forwardRef(({
     t
   } = useTranslation();
   const groups = useSnapshot(groupsStore);
+  const settings = useSnapshot(settingsStore);
+  const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
   const [isOpen, setIsOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
@@ -168,7 +171,7 @@ const GroupsPopup = forwardRef(({
   return <>
     <div className="relative flex flex-col items-end" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       {/* 弹出面板 */}
-      {isOpen && <div className={`groups-panel absolute bottom-full right-0 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border border-b-0 border-gray-300/80 dark:border-gray-700/30 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}>
+      {isOpen && <div className={`groups-panel absolute bottom-full right-0 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border border-b-0 border-gray-300/80 dark:border-gray-700/30 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${uiAnimationEnabled ? (isClosing ? 'animate-slide-down' : 'animate-slide-up') : ''}`}>
         {/* 头部 */}
         <div className="flex items-center justify-between px-2.5 py-2 border-b border-gray-200/50 dark:border-gray-700/50">
           <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">

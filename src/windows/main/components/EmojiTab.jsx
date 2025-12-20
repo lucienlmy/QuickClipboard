@@ -343,6 +343,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const renderVirtualItem = useCallback((index) => {
     const section = virtualDataRef.current[index];
     if (!section) return null;
+    const uiAnimationEnabled = settingsStore.uiAnimationEnabled !== false;
     
     if (section.type === 'header') {
       return (
@@ -383,11 +384,11 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
               <div key={`${baseChar}-${idx}`} className="relative group">
                 <button
                   onClick={() => handlePaste(item, section.catId)}
-                  className="aspect-square w-full flex items-center justify-center text-2xl leading-none overflow-hidden text-gray-700 dark:text-gray-200 rounded cursor-pointer active:scale-95 hover:scale-120 hover:z-50 hover:bg-white dark:hover:bg-gray-800 hover:shadow-lg hover:rounded-lg hover:border hover:border-gray-200 dark:hover:border-gray-700"
-                  style={{
+                  className={`aspect-square w-full flex items-center justify-center text-2xl leading-none overflow-hidden text-gray-700 dark:text-gray-200 rounded cursor-pointer ${uiAnimationEnabled ? 'active:scale-95 hover:scale-120 hover:z-50 hover:bg-white dark:hover:bg-gray-800 hover:shadow-lg hover:rounded-lg hover:border hover:border-gray-200 dark:hover:border-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                  style={uiAnimationEnabled ? {
                     opacity: 0,
                     animation: `fadeIn 0.15s ease-out ${idx * 15}ms forwards`
-                  }}
+                  } : {}}
                   title={name}
                 >
                   <span className="inline-flex items-center justify-center w-[1.2em] h-[1.2em] overflow-hidden">{displayChar}</span>
@@ -396,7 +397,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
                 {skinVariants && (
                   <button
                     onClick={(e) => handleSkinPickerOpen(e, baseChar, skinVariants, item, section.catId)}
-                    className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white dark:border-gray-800 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-125"
+                    className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white dark:border-gray-800 opacity-0 group-hover:opacity-100 shadow-sm ${uiAnimationEnabled ? 'transition-opacity hover:scale-125' : ''}`}
                     title="选择肤色"
                   />
                 )}

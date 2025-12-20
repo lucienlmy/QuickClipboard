@@ -1,5 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useSnapshot } from 'valtio';
+import { settingsStore } from '@shared/store/settingsStore';
 
 // 通用底部菜单弹出组件
 const BottomMenuPopup = forwardRef(({
@@ -9,6 +11,8 @@ const BottomMenuPopup = forwardRef(({
   menuItems = [],
   width = 120
 }, ref) => {
+  const settings = useSnapshot(settingsStore);
+  const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
@@ -100,7 +104,7 @@ const BottomMenuPopup = forwardRef(({
   return <>
     <div className="relative flex flex-col items-end" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       {/* 弹出面板 */}
-      {isOpen && <div className={`groups-panel absolute bottom-full right-0 backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border border-b-0 border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} style={{
+      {isOpen && <div className={`groups-panel absolute bottom-full right-0 backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border border-b-0 border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${uiAnimationEnabled ? (isClosing ? 'animate-slide-down' : 'animate-slide-up') : ''}`} style={{
         width: `${width}px`,
         maxHeight: '350px'
       }}>

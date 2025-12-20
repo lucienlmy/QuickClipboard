@@ -218,7 +218,9 @@
       "backgroundImageCleared": "背景图片已清除",
       "backgroundImageError": "设置背景图片失败",
       "clipboardAnimation": "启用剪贴板显示/隐藏动画",
-      "clipboardAnimationDesc": "开启或关闭剪贴板窗口的显示和隐藏动画效果"
+      "clipboardAnimationDesc": "开启或关闭剪贴板窗口的显示和隐藏动画效果",
+      "uiAnimation": "启用界面动效",
+      "uiAnimationDesc": "开启或关闭界面动效（如标签栏滑块、悬停浮动、列表插入、面板显示等动画）"
     },
     "shortcuts": {
       "title": "快捷键设置",

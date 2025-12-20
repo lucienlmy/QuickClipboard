@@ -218,7 +218,9 @@
       "backgroundImageCleared": "Background image cleared",
       "backgroundImageError": "Failed to set background image",
       "clipboardAnimation": "Enable Clipboard Show/Hide Animation",
-      "clipboardAnimationDesc": "Enable or disable animation effects for clipboard window show and hide"
+      "clipboardAnimationDesc": "Enable or disable animation effects for clipboard window show and hide",
+      "uiAnimation": "Enable UI Animations",
+      "uiAnimationDesc": "Enable or disable UI animations (tab slider, hover float, list insert, panel show, etc.)"
     },
     "shortcuts": {
       "title": "Shortcuts",

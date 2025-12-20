@@ -314,7 +314,7 @@ function ClipboardItem({
     bg-gray-100/80 dark:bg-gray-800/80
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border hover:translate-y-[-3px] ${getHeightClass()}`}>
+  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''} ${getHeightClass()}`}>
       {settings.showBadges !== false && (hasFileMissing || item.is_pinned || isPasted) && (
         <div 
           className="absolute top-0 left-0 z-30 pointer-events-none overflow-hidden rounded-tl-md"

@@ -26,6 +26,7 @@ export const defaultSettings = {
   opacity: 0.9,
   backgroundImagePath: '',
   clipboardAnimationEnabled: true,
+  uiAnimationEnabled: true,
   
   // 快捷键设置
   toggleShortcut: 'Shift+Space',

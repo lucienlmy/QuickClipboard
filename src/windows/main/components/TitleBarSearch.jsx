@@ -16,6 +16,7 @@ const TitleBarSearch = forwardRef(({
   const inputRef = useInputFocus();
   const searchRef = useRef(null);
   const settings = useSnapshot(settingsStore);
+  const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
 
   // 搜索框清空按钮样式
   const searchInputStyle = `
@@ -124,10 +125,10 @@ const TitleBarSearch = forwardRef(({
                 <input ref={inputRef} type="search" value={value} onChange={e => onChange(e.target.value)} onFocus={handleFocus} onBlur={() => setIsFocused(false)} onKeyDown={handleKeyDown} placeholder={placeholder} style={isVertical ? {
         writingMode: 'vertical-rl',
         textAlign: 'start'
-      } : {}} className={`absolute ${isVertical ? 'bottom-6 left-0 w-7 py-2' : 'right-6 h-7 px-2'} text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all duration-300 ease-in-out shadow-sm ${isExpanded ? isVertical ? 'h-48 opacity-100 mb-1' : 'w-30 opacity-100 mr-1' : (isVertical ? 'h-0' : 'w-0') + ' opacity-0 pointer-events-none border-0'}`} />
+      } : {}} className={`absolute ${isVertical ? 'bottom-6 left-0 w-7 py-2' : 'right-6 h-7 px-2'} text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300/50 dark:border-gray-600/50 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 dark:focus:border-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 shadow-sm ${uiAnimationEnabled ? 'transition-all duration-300 ease-in-out' : ''} ${isExpanded ? isVertical ? 'h-48 opacity-100 mb-1' : 'w-30 opacity-100 mr-1' : (isVertical ? 'h-0' : 'w-0') + ' opacity-0 pointer-events-none border-0'}`} />
 
                 {/* 搜索图标 - 始终保持在原位 */}
-                <button onClick={handleIconClick} className="relative z-10 flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-500 transition-all duration-200 dark:hover:bg-gray-700 dark:text-gray-300" title="搜索">
+                <button onClick={handleIconClick} className={`relative z-10 flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-500 dark:hover:bg-gray-700 dark:text-gray-300 ${uiAnimationEnabled ? 'transition-all duration-200' : ''}`} title="搜索">
                     <i className="ti ti-search" style={{
           fontSize: 16
         }}></i>

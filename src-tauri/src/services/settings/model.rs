@@ -72,6 +72,7 @@ pub struct AppSettings {
 
     // 动画设置
     pub clipboard_animation_enabled: bool,
+    pub ui_animation_enabled: bool,
 
     // 显示行为
     pub auto_scroll_to_top_on_show: bool,
@@ -192,6 +193,7 @@ impl Default for AppSettings {
             mouse_middle_button_long_press_ms: 300,
 
             clipboard_animation_enabled: true,
+            ui_animation_enabled: true,
 
             auto_scroll_to_top_on_show: false,
             auto_clear_search: false,

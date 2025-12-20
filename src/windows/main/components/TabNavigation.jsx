@@ -1,6 +1,8 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { useSnapshot } from 'valtio';
+import { settingsStore } from '@shared/store/settingsStore';
 import TabButton from './TabButton';
 import FilterButton from './FilterButton';
 
@@ -15,6 +17,8 @@ function TabNavigation({
   const {
     t
   } = useTranslation();
+  const settings = useSnapshot(settingsStore);
+  const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
   const tabsRef = useRef({});
   const filtersRef = useRef({});
   const emojiModesRef = useRef({});
@@ -160,14 +164,14 @@ function TabNavigation({
       <div className="flex-1 flex items-center px-2 relative">
         <div className="flex items-center justify-center gap-1 w-full relative">
           {/* 滑动指示器 */}
-          <div className="absolute rounded-lg transition-all duration-300 ease-out pointer-events-none" style={{
+          <div className={`absolute rounded-lg pointer-events-none ${uiAnimationEnabled ? 'transition-all duration-300 ease-out' : ''}`} style={{
             width: `${tabIndicator.width}px`,
             height: '28px',
             left: `${tabIndicator.left}px`,
             top: '50%',
             transform: 'translateY(-50%)'
           }}>
-            <div key={`tab-bounce-${tabAnimationKey}`} className="w-full h-full rounded-lg bg-blue-500 animate-button-bounce" />
+            <div key={`tab-bounce-${tabAnimationKey}`} className={`w-full h-full rounded-lg bg-blue-500 ${uiAnimationEnabled ? 'animate-button-bounce' : ''}`} />
           </div>
           {tabs.map((tab, index) => <TabButton key={tab.id} id={tab.id} label={tab.label} icon={tab.icon} isActive={activeTab === tab.id} onClick={onTabChange} index={index} buttonRef={el => tabsRef.current[tab.id] = el} />)}
         </div>
@@ -180,14 +184,14 @@ function TabNavigation({
       <div className="flex-1 flex items-center px-1 relative">
         <div className={`flex items-center justify-center gap-1 relative ${activeTab === 'emoji' ? 'w-full' : 'mx-auto'}`}>
           {/* 滑动指示器 */}
-          <div className="absolute rounded-lg transition-all duration-300 ease-out pointer-events-none" style={{
+          <div className={`absolute rounded-lg pointer-events-none ${uiAnimationEnabled ? 'transition-all duration-300 ease-out' : ''}`} style={{
             width: `${activeTab === 'emoji' ? emojiModeIndicator.width : filterIndicator.width}px`,
             height: '28px',
             left: `${activeTab === 'emoji' ? emojiModeIndicator.left : filterIndicator.left}px`,
             top: '50%',
             transform: 'translateY(-50%)'
           }}>
-            <div key={activeTab === 'emoji' ? `emoji-mode-bounce-${emojiModeAnimationKey}` : `filter-bounce-${filterAnimationKey}`} className="w-full h-full rounded-lg bg-blue-500 animate-button-bounce" />
+            <div key={activeTab === 'emoji' ? `emoji-mode-bounce-${emojiModeAnimationKey}` : `filter-bounce-${filterAnimationKey}`} className={`w-full h-full rounded-lg bg-blue-500 ${uiAnimationEnabled ? 'animate-button-bounce' : ''}`} />
           </div>
           {activeTab === 'emoji'
             ? emojiModes.map(mode => (
@@ -195,15 +199,15 @@ function TabNavigation({
                   <button
                     onClick={() => handleEmojiModeChange(mode.id)}
                     title={mode.label}
-                    className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg focus:outline-none hover:scale-105 ${
+                    className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg focus:outline-none ${uiAnimationEnabled ? 'hover:scale-105' : ''} ${
                       emojiMode === mode.id
                         ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
                         : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
                     }`}
-                    style={{
+                    style={uiAnimationEnabled ? {
                       transitionProperty: 'transform, box-shadow, background-color, color',
                       transitionDuration: '200ms, 200ms, 500ms, 500ms'
-                    }}
+                    } : {}}
                   >
                     {mode.emoji ? <span style={{ fontSize: 16 }}>{mode.emoji}</span> : <i className={mode.icon} style={{ fontSize: 16 }} />}
                   </button>

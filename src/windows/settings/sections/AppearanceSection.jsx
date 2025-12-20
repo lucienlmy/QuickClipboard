@@ -151,9 +151,15 @@ function AppearanceSection({
               </div>}
           </div>}
 
-        <SettingItem label={t('settings.appearance.clipboardAnimation')} description={t('settings.appearance.clipboardAnimationDesc')}>
-          <Toggle checked={settings.clipboardAnimationEnabled} onChange={checked => onSettingChange('clipboardAnimationEnabled', checked)} />
-        </SettingItem>
+        <div>
+          <SettingItem label={t('settings.appearance.clipboardAnimation')} description={t('settings.appearance.clipboardAnimationDesc')}>
+            <Toggle checked={settings.clipboardAnimationEnabled} onChange={checked => onSettingChange('clipboardAnimationEnabled', checked)} />
+          </SettingItem>
+
+          <SettingItem label={t('settings.appearance.uiAnimation')} description={t('settings.appearance.uiAnimationDesc')}>
+            <Toggle checked={settings.uiAnimationEnabled} onChange={checked => onSettingChange('uiAnimationEnabled', checked)} />
+          </SettingItem>
+        </div>
       </div>
     </SettingsSection>;
 }

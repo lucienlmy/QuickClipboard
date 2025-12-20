@@ -220,17 +220,18 @@ const FavoritesList = forwardRef(({
           }[settings.rowHeight] ?? 'h-20';
           const animationDelay = Math.min(index * 20, 100);
           const isAutoHeight = settings.rowHeight === 'auto';
+          const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
           return <div className="px-2.5 pb-2 pt-1 relative">
-                  <div className={`${isAutoHeight ? 'absolute inset-0' : ''} rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${skeletonHeight} animate-pulse`} style={{
+                  <div className={`${isAutoHeight ? 'absolute inset-0' : ''} rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 ${skeletonHeight} ${uiAnimationEnabled ? 'animate-pulse' : ''}`} style={uiAnimationEnabled ? {
               animation: `pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite, fadeOut 0.3s ease-out ${animationDelay + 200}ms forwards`
-            }}>
+            } : {}}>
                     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
                     <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                   </div>
-                  <div className={`${isAutoHeight ? 'relative' : 'absolute inset-0 px-2.5 pb-2 pt-1'} animate-slide-in-left-fast`} style={{
+                  <div className={`${isAutoHeight ? 'relative' : 'absolute inset-0 px-2.5 pb-2 pt-1'} ${uiAnimationEnabled ? 'animate-slide-in-left-fast' : ''}`} style={uiAnimationEnabled ? {
               animationDelay: `${animationDelay}ms`,
               animationFillMode: 'backwards'
-            }}>
+            } : {}}>
                     <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} isDragActive={dragActive} />
                   </div>
                 </div>;
