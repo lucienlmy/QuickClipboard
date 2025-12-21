@@ -62,50 +62,13 @@ function ShortcutsSection({
   const hasErrorStatus = (key, backendId) => {
     return hasDuplicate(key) || backendId && hasBackendError(backendId);
   };
-  const numberModifierOptions = [{
-    value: 'Ctrl',
-    label: 'Ctrl + 1~9'
-  }, {
-    value: 'Shift',
-    label: 'Shift + 1~9'
-  }, {
-    value: 'Ctrl+Shift',
-    label: 'Ctrl + Shift + 1~9'
-  }, {
-    value: 'F',
-    label: 'F1 ~ F9'
-  }, {
-    value: 'Ctrl+F',
-    label: 'Ctrl + F1~F9'
-  }, {
-    value: 'Shift+F',
-    label: 'Shift + F1~F9'
-  }, {
-    value: 'Ctrl+Shift+F',
-    label: 'Ctrl + Shift + F1~F9'
-  }];
-  const mouseModifierOptions = [{
-    value: 'None',
-    label: t('settings.shortcuts.mouseMiddleOnly')
-  }, {
-    value: 'Ctrl',
-    label: 'Ctrl + ' + t('settings.shortcuts.middleButton')
-  }, {
-    value: 'Alt',
-    label: 'Alt + ' + t('settings.shortcuts.middleButton')
-  }, {
-    value: 'Shift',
-    label: 'Shift + ' + t('settings.shortcuts.middleButton')
-  }, {
-    value: 'Ctrl+Shift',
-    label: 'Ctrl + Shift + ' + t('settings.shortcuts.middleButton')
-  }, {
-    value: 'Ctrl+Alt',
-    label: 'Ctrl + Alt + ' + t('settings.shortcuts.middleButton')
-  }, {
-    value: 'Alt+Shift',
-    label: 'Alt + Shift + ' + t('settings.shortcuts.middleButton')
-  }];
+  
+  const numberKeyTypeOptions = [
+    { value: '1~9', label: '1~9' },
+    { value: 'F', label: 'F1~F9' },
+  ];
+  
+  const mouseModifierOptions = ['Ctrl', 'Shift', 'Alt'];
   const mouseTriggerOptions = [{
     value: 'short_press',
     label: t('settings.shortcuts.mouseMiddleTriggerShortPress')
@@ -195,7 +158,12 @@ function ShortcutsSection({
         </SettingItem>
 
         <SettingItem label={t('settings.shortcuts.numberModifier')} description={t('settings.shortcuts.numberModifierDesc')}>
-          <Select value={settings.numberShortcutsModifier} onChange={value => onSettingChange('numberShortcutsModifier', value)} options={numberModifierOptions} className="w-56" />
+          <ShortcutComboInput 
+            value={settings.numberShortcutsModifier} 
+            onChange={value => onSettingChange('numberShortcutsModifier', value)} 
+            modifierOptions={['Ctrl', 'Shift']}
+            fixedKeyOptions={numberKeyTypeOptions}
+          />
         </SettingItem>
 
         {hasBackendError('number_shortcuts') && (
@@ -212,7 +180,13 @@ function ShortcutsSection({
         </SettingItem>
 
         <SettingItem label={t('settings.shortcuts.mouseMiddleModifier')} description={t('settings.shortcuts.mouseMiddleModifierDesc')}>
-          <Select value={settings.mouseMiddleButtonModifier} onChange={value => onSettingChange('mouseMiddleButtonModifier', value)} options={mouseModifierOptions} className="w-56" />
+          <ShortcutComboInput 
+            value={settings.mouseMiddleButtonModifier === 'None' ? '' : settings.mouseMiddleButtonModifier} 
+            onChange={value => onSettingChange('mouseMiddleButtonModifier', value || 'None')} 
+            modifierOptions={mouseModifierOptions}
+            fixedKey={t('settings.shortcuts.middleButton')}
+            allowEmpty
+          />
         </SettingItem>
 
         {settings.mouseMiddleButtonModifier === 'None' && (

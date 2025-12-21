@@ -107,11 +107,8 @@ pub fn is_mouse_monitoring_enabled() -> bool {
 }
 
 pub fn get_modifier_keys_state() -> (bool, bool, bool, bool) {
-    if let Some(state) = KEYBOARD_STATE.try_lock() {
-        (state.ctrl, state.alt, state.shift, state.meta)
-    } else {
-        (false, false, false, false)
-    }
+    let state = KEYBOARD_STATE.lock();
+    (state.ctrl, state.alt, state.shift, state.meta)
 }
 
 fn handle_input_event(event: Event) -> Option<Event> {
@@ -179,14 +176,13 @@ fn handle_key_release(key: Key) {
 }
 
 fn update_modifier_key(key: Key, pressed: bool) {
-    if let Some(mut state) = KEYBOARD_STATE.try_lock() {
-        match key {
-            Key::ControlLeft | Key::ControlRight => state.ctrl = pressed,
-            Key::Alt | Key::AltGr => state.alt = pressed,
-            Key::ShiftLeft | Key::ShiftRight => state.shift = pressed,
-            Key::MetaLeft | Key::MetaRight => state.meta = pressed,
-            _ => {}
-        }
+    let mut state = KEYBOARD_STATE.lock();
+    match key {
+        Key::ControlLeft | Key::ControlRight => state.ctrl = pressed,
+        Key::Alt | Key::AltGr => state.alt = pressed,
+        Key::ShiftLeft | Key::ShiftRight => state.shift = pressed,
+        Key::MetaLeft | Key::MetaRight => state.meta = pressed,
+        _ => {}
     }
 }
 
@@ -407,26 +403,30 @@ fn handle_middle_button_action() {
         return;
     }
 
+    let settings = crate::get_settings();
+    if !check_modifier_requirement(&settings.mouse_middle_button_modifier) {
+        return;
+    }
+
     if let Some(window) = MAIN_WINDOW.lock().as_ref() {
-        let settings = crate::get_settings();
-        
-        if !check_modifier_requirement(&settings.mouse_middle_button_modifier) {
-            return;
-        }
         crate::show_main_window(window);
     }
 }
 
 fn check_modifier_requirement(required: &str) -> bool {
-    let (ctrl, alt, shift, meta) = get_modifier_keys_state();
-    match required {
-        "None" => true,
-        "Ctrl" => ctrl,
-        "Alt" => alt,
-        "Shift" => shift,
-        "Meta" => meta,
-        _ => false,
+    let (ctrl, alt, shift, _meta) = get_modifier_keys_state();
+    
+    if required == "None" || required.is_empty() {
+        return true;
     }
+    
+    let parts: Vec<&str> = required.split('+').collect();
+    let need_ctrl = parts.contains(&"Ctrl");
+    let need_alt = parts.contains(&"Alt");
+    let need_shift = parts.contains(&"Shift");
+    
+    (!need_ctrl || ctrl) && (!need_alt || alt) && (!need_shift || shift)
+        && (need_ctrl || !ctrl) && (need_alt || !alt) && (need_shift || !shift)
 }
 
 // 检查鼠标是否在窗口外部
