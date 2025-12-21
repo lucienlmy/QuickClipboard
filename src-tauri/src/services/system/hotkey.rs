@@ -209,6 +209,49 @@ pub fn register_toggle_paste_with_format_hotkey(shortcut_str: &str) -> Result<()
     })
 }
 
+pub fn register_paste_plain_text_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("paste_plain_text", shortcut_str, |app| {
+        std::thread::spawn({
+            let app = app.clone();
+            move || {
+                if let Err(e) = handle_paste_plain_text(&app) {
+                    eprintln!("纯文本粘贴失败: {}", e);
+                }
+            }
+        });
+    })
+}
+
+fn handle_paste_plain_text(app: &AppHandle) -> Result<(), String> {
+    use crate::services::paste::paste_handler::paste_clipboard_item_with_format;
+    use crate::services::paste::PasteFormat;
+    use crate::services::database::{query_clipboard_items, QueryParams};
+    
+    let state = crate::get_window_state();
+    let is_window_visible = state.state == crate::WindowState::Visible && !state.is_hidden;
+    
+    if is_window_visible {
+        // 窗口显示时，通知前端粘贴选中项为纯文本
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.emit("paste-plain-text-selected", ());
+        }
+    } else {
+        // 窗口隐藏时，粘贴第一条为纯文本
+        let items = query_clipboard_items(QueryParams {
+            offset: 0,
+            limit: 1,
+            search: None,
+            content_type: None,
+        })?.items;
+        
+        if let Some(item) = items.first() {
+            paste_clipboard_item_with_format(item, Some(PasteFormat::PlainText))?;
+        }
+    }
+    
+    Ok(())
+}
+
 pub fn register_number_shortcuts(modifier: &str) -> Result<(), String> {
     let app = get_app()?;
     
@@ -379,6 +422,10 @@ pub fn reload_from_settings() -> Result<(), String> {
     let settings = crate::get_settings();
     
     unregister_all();
+    {
+        let mut status_map = SHORTCUT_STATUS.lock();
+        status_map.clear();
+    }
     
     if settings.hotkeys_enabled {
         if !settings.toggle_shortcut.is_empty() {
@@ -426,6 +473,12 @@ pub fn reload_from_settings() -> Result<(), String> {
         if !settings.toggle_paste_with_format_shortcut.is_empty() {
             if let Err(e) = register_toggle_paste_with_format_hotkey(&settings.toggle_paste_with_format_shortcut) {
                 eprintln!("注册切换格式粘贴快捷键失败: {}", e);
+            }
+        }
+        
+        if !settings.paste_plain_text_shortcut.is_empty() {
+            if let Err(e) = register_paste_plain_text_hotkey(&settings.paste_plain_text_shortcut) {
+                eprintln!("注册纯文本粘贴快捷键失败: {}", e);
             }
         }
         

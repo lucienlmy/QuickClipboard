@@ -5,6 +5,7 @@ import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
 import Slider from '@shared/components/ui/Slider';
 import ShortcutInput from '../components/ShortcutInput';
+import ShortcutComboInput from '../components/ShortcutComboInput';
 import { useShortcutStatuses } from '@shared/hooks/useShortcutStatuses';
 import { useShortcutDuplicateCheck } from '@shared/hooks/useShortcutDuplicateCheck';
 import { promptDisableWinVHotkeyIfNeeded, promptEnableWinVHotkey } from '@shared/api/system';
@@ -155,6 +156,18 @@ function ShortcutsSection({
 
         <SettingItem label={t('settings.shortcuts.togglePasteWithFormat')} description={t('settings.shortcuts.togglePasteWithFormatDesc')}>
           <ShortcutInput value={settings.togglePasteWithFormatShortcut} onChange={value => handleShortcutChange('togglePasteWithFormatShortcut', value)} onReset={() => handleShortcutChange('togglePasteWithFormatShortcut', 'Ctrl+Shift+X')} hasError={hasErrorStatus('togglePasteWithFormatShortcut', 'toggle_paste_with_format')} errorMessage={getErrorMessage('togglePasteWithFormatShortcut', 'toggle_paste_with_format')} />
+        </SettingItem>
+
+        <SettingItem label={t('settings.shortcuts.pastePlainText')} description={t('settings.shortcuts.pastePlainTextDesc')}>
+          <ShortcutComboInput 
+            value={settings.pastePlainTextShortcut} 
+            onChange={value => handleShortcutChange('pastePlainTextShortcut', value)} 
+            modifierOptions={['Ctrl', 'Shift']}
+            fixedModifiers={['Ctrl']}
+            disabledKeys={['V', 'C', 'X', 'A', 'Z', 'Y']}
+            hasError={hasErrorStatus('pastePlainTextShortcut', 'paste_plain_text')}
+            errorMessage={getErrorMessage('pastePlainTextShortcut', 'paste_plain_text')}
+          />
         </SettingItem>
       </SettingsSection>
 

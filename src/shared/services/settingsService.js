@@ -48,6 +48,7 @@ export const defaultSettings = {
   togglePinShortcut: 'Ctrl+P',
   toggleClipboardMonitorShortcut: 'Ctrl+Shift+Z',
   togglePasteWithFormatShortcut: 'Ctrl+Shift+X',
+  pastePlainTextShortcut: '',
   
   // 剪贴板设置
   clipboardMonitor: true,
@@ -64,6 +65,7 @@ export const defaultSettings = {
   edgeHideOffset: 3,
   autoFocusSearch: false,
   pasteWithFormat: true,
+  pasteShortcutMode: 'ctrl_v',
   pasteToTop: false,
   showBadges: true,
   showSourceIcon: true,

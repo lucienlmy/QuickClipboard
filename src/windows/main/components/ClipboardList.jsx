@@ -174,6 +174,25 @@ const ClipboardList = forwardRef(({
     navigateUp,
     navigateDown,
     executeCurrentItem,
+    executePlainTextPaste: async () => {
+      const item = itemsWithId[currentSelectedIndex];
+      if (item && !item._isPlaceholder) {
+        try {
+          const { pasteClipboardItem } = await import('@shared/api/clipboard');
+          await pasteClipboardItem(item.id, 'plain');
+          const oneTimeEnabled = getToolState('one-time-paste-button');
+          if (settings.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {
+            try {
+              await moveClipboardItemToTop(item.id);
+            } finally {
+              clipboardStore.items = new Map();
+            }
+          }
+        } catch (error) {
+          console.error('纯文本粘贴失败:', error);
+        }
+      }
+    },
     scrollToTop: (behavior = 'smooth') => {
       virtuosoRef.current?.scrollToIndex({
         index: 0,

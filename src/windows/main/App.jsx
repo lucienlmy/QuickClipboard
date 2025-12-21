@@ -91,14 +91,23 @@ function App() {
       };
       const unlisten1 = await listen('window-show-animation', handleWindowShow);
       const unlisten2 = await listen('edge-snap-bounce-animation', handleWindowShow);
+      const unlisten3 = await listen('paste-plain-text-selected', () => {
+        if (activeTab === 'clipboard' && clipboardTabRef.current?.executePlainTextPaste) {
+          clipboardTabRef.current.executePlainTextPaste();
+        } else if (activeTab === 'favorites' && favoritesTabRef.current?.executePlainTextPaste) {
+          favoritesTabRef.current.executePlainTextPaste();
+        }
+      });
+      
       return () => {
         unlisten1();
         unlisten2();
+        unlisten3();
       };
     };
     let cleanup = setupListeners();
     return () => cleanup.then(fn => fn());
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     const handleMouseEnter = async () => {

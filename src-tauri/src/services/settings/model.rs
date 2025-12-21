@@ -122,6 +122,7 @@ pub struct AppSettings {
     pub toggle_pin_shortcut: String,
     pub toggle_clipboard_monitor_shortcut: String,
     pub toggle_paste_with_format_shortcut: String,
+    pub paste_plain_text_shortcut: String,
 
     // 数据存储设置
     #[serde(alias = "custom_storage_path")]
@@ -235,6 +236,7 @@ impl Default for AppSettings {
             toggle_pin_shortcut: "Ctrl+P".to_string(),
             toggle_clipboard_monitor_shortcut: "Ctrl+Shift+Z".to_string(),
             toggle_paste_with_format_shortcut: "Ctrl+Shift+X".to_string(),
+            paste_plain_text_shortcut: String::new(),
 
             custom_storage_path: None,
             use_custom_storage: false,

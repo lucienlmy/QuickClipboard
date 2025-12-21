@@ -75,7 +75,8 @@ const ClipboardTab = forwardRef(({
   useImperativeHandle(ref, () => ({
     navigateUp: () => listRef.current?.navigateUp?.(),
     navigateDown: () => listRef.current?.navigateDown?.(),
-    executeCurrentItem: () => listRef.current?.executeCurrentItem?.()
+    executeCurrentItem: () => listRef.current?.executeCurrentItem?.(),
+    executePlainTextPaste: () => listRef.current?.executePlainTextPaste?.()
   }));
 
   // 处理滚动状态变化
