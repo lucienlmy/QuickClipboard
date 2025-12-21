@@ -91,6 +91,34 @@ impl Drop for KeyGuard {
 // 模拟粘贴
 #[cfg(target_os = "windows")]
 pub fn simulate_paste() -> Result<(), String> {
+    let settings = crate::get_settings();
+    
+    if settings.paste_shortcut_mode == "ctrl_v" {
+        simulate_paste_ctrl_v()
+    } else {
+        simulate_paste_shift_insert()
+    }
+}
+
+// Shift+Insert 粘贴
+#[cfg(target_os = "windows")]
+fn simulate_paste_shift_insert() -> Result<(), String> {
+    let mut enigo = Enigo::new(&Settings::default())
+        .map_err(|e| format!("创建键盘模拟器失败: {}", e))?;
+
+    enigo.key(Key::Shift, Direction::Press)
+        .map_err(|e| format!("按下Shift失败: {}", e))?;
+    enigo.key(Key::Other(0x2D), Direction::Click)
+        .map_err(|e| format!("按下Insert失败: {}", e))?;
+    enigo.key(Key::Shift, Direction::Release)
+        .map_err(|e| format!("释放Shift失败: {}", e))?;
+    
+    Ok(())
+}
+
+// Ctrl+V 粘贴
+#[cfg(target_os = "windows")]
+fn simulate_paste_ctrl_v() -> Result<(), String> {
     let user_alt = is_key_pressed(VK_MENU.0);
     
     if user_alt {

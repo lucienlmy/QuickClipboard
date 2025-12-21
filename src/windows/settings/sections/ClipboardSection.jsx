@@ -32,6 +32,13 @@ function ClipboardSection({
     value: 'right',
     label: t('settings.clipboard.positionRight')
   }];
+  const pasteShortcutModeOptions = [{
+    value: 'ctrl_v',
+    label: t('settings.clipboard.pasteShortcutCtrlV')
+  }, {
+    value: 'shift_insert',
+    label: t('settings.clipboard.pasteShortcutShiftInsert')
+  }];
   return <>
       <SettingsSection title={t('settings.clipboard.title')} description={t('settings.clipboard.description')}>
         <SettingItem label={t('settings.clipboard.monitor')} description={t('settings.clipboard.monitorDesc')}>
@@ -88,6 +95,10 @@ function ClipboardSection({
 
         <SettingItem label={t('settings.clipboard.showSourceIcon')} description={t('settings.clipboard.showSourceIconDesc')}>
           <Toggle checked={settings.showSourceIcon !== false} onChange={checked => onSettingChange('showSourceIcon', checked)} />
+        </SettingItem>
+
+        <SettingItem label={t('settings.clipboard.pasteShortcutMode')} description={t('settings.clipboard.pasteShortcutModeDesc')}>
+          <Select value={settings.pasteShortcutMode || 'ctrl_v'} onChange={value => onSettingChange('pasteShortcutMode', value)} options={pasteShortcutModeOptions} className="w-48" />
         </SettingItem>
       </SettingsSection>
     </>;

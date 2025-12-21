@@ -102,6 +102,7 @@ pub struct AppSettings {
 
     // 格式设置
     pub paste_with_format: bool,
+    pub paste_shortcut_mode: String,
     
     pub paste_to_top: bool,
     pub show_badges: bool,
@@ -216,6 +217,7 @@ impl Default for AppSettings {
             title_bar_position: "top".to_string(),
 
             paste_with_format: true,
+            paste_shortcut_mode: "ctrl_v".to_string(),
             paste_to_top: false,
             show_badges: true,
             show_source_icon: true,
