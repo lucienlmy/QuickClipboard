@@ -12,7 +12,6 @@ import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
-import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 
 const closeImagePreview = (previewTimerRef) => {
@@ -36,8 +35,6 @@ function ClipboardItem({
   const {
     t
   } = useTranslation();
-  const { theme, systemIsDark } = useSnapshot(settingsStore);
-  const isDark = theme === 'dark' || (theme === 'auto' && systemIsDark);
   const isPasted = item.paste_count > 0;
   const {
     settings,
@@ -253,6 +250,14 @@ function ClipboardItem({
       return `${index + 1}`;
     }
 
+    if (modifier === 'F') {
+      return `F${index + 1}`;
+    }
+
+    if (modifier.endsWith('+F')) {
+      return `${modifier}${index + 1}`;
+    }
+
     return `${modifier}+${index + 1}`;
   };
   const isSmallHeight = settings.rowHeight === 'small';
@@ -367,31 +372,21 @@ function ClipboardItem({
         {showShortcut && getShortcut() && <span className={`${shortcutClasses} pointer-events-none`}>
             {getShortcut()}
           </span>}
-        {/* 序号 */}
-        {settings.showSourceIcon !== false && sourceIconUrl && !iconLoadFailed ? (
-          <span className={`${iconBadgeClasses} pointer-events-none`} title={item.source_app || ''}>
+        {/* 来源图标 */}
+        {settings.showSourceIcon !== false && sourceIconUrl && !iconLoadFailed && (
+          <span className={iconBadgeClasses} title={item.source_app || ''}>
             <img 
               src={sourceIconUrl} 
               alt="" 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover pointer-events-none"
               onError={() => setIconLoadFailed(true)}
             />
-            <span 
-              className="absolute inset-0 flex items-center justify-center text-xs font-bold"
-              style={{ 
-                color: !isDark ? '#fff' : '#000',
-                WebkitTextStroke: !isDark ? '2px #000' : '2px #fff',
-                paintOrder: 'stroke fill'
-              }}
-            >
-              {index + 1}
-            </span>
-          </span>
-        ) : (
-          <span className={`${numberBadgeClasses} pointer-events-none`}>
-            {index + 1}
           </span>
         )}
+        {/* 序号 */}
+        <span className={`${numberBadgeClasses} pointer-events-none`}>
+          {index + 1}
+        </span>
       </div>
 
       {isSmallHeight ?
