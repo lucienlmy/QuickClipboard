@@ -13,6 +13,7 @@ static MONITORING_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(Non
 
 static NAVIGATION_KEYS_ENABLED: AtomicBool = AtomicBool::new(false);
 static MOUSE_MONITORING_ENABLED: AtomicBool = AtomicBool::new(false);
+static QUICKPASTE_KEYBOARD_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 
 // 中键按下时间记录
 static MIDDLE_BUTTON_PRESS_TIME: Mutex<Option<Instant>> = Mutex::new(None);
@@ -106,6 +107,18 @@ pub fn is_mouse_monitoring_enabled() -> bool {
     MOUSE_MONITORING_ENABLED.load(Ordering::Relaxed)
 }
 
+pub fn enable_quickpaste_keyboard_mode() {
+    QUICKPASTE_KEYBOARD_MODE_ENABLED.store(true, Ordering::SeqCst);
+}
+
+pub fn disable_quickpaste_keyboard_mode() {
+    QUICKPASTE_KEYBOARD_MODE_ENABLED.store(false, Ordering::SeqCst);
+}
+
+pub fn is_quickpaste_keyboard_mode_enabled() -> bool {
+    QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst)
+}
+
 pub fn get_modifier_keys_state() -> (bool, bool, bool, bool) {
     let state = KEYBOARD_STATE.lock();
     (state.ctrl, state.alt, state.shift, state.meta)
@@ -145,6 +158,11 @@ fn handle_input_event(event: Event) -> Option<Event> {
 
 fn handle_key_press(key: Key, _event: &Event) -> bool {
     update_modifier_key(key, true);
+    if QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) {
+        if handle_quickpaste_key_press(key) {
+            return true;
+        }
+    }
     
     // Ctrl+V 粘贴音效
     if matches!(key, Key::KeyV) {
@@ -173,6 +191,60 @@ fn handle_key_press(key: Key, _event: &Event) -> bool {
 
 fn handle_key_release(key: Key) {
     update_modifier_key(key, false);
+    
+    if QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) {
+        handle_quickpaste_key_release(key);
+    }
+}
+
+fn handle_quickpaste_key_press(key: Key) -> bool {
+    let is_modifier = matches!(
+        key,
+        Key::ControlLeft | Key::ControlRight |
+        Key::Alt | Key::AltGr |
+        Key::ShiftLeft | Key::ShiftRight |
+        Key::MetaLeft | Key::MetaRight
+    );
+    
+    if !is_modifier {
+        if let Some(window) = MAIN_WINDOW.lock().as_ref() {
+            if let Some(qp_window) = window.app_handle().get_webview_window("quickpaste") {
+                let _ = qp_window.emit("quickpaste-next", ());
+            }
+        }
+        return true;
+    }
+    
+    false
+}
+
+fn handle_quickpaste_key_release(key: Key) {
+    let is_modifier = matches!(
+        key,
+        Key::ControlLeft | Key::ControlRight |
+        Key::Alt | Key::AltGr |
+        Key::ShiftLeft | Key::ShiftRight |
+        Key::MetaLeft | Key::MetaRight
+    );
+    
+    if is_modifier {
+        let state = KEYBOARD_STATE.lock();
+        let all_modifiers_released = !state.ctrl && !state.alt && !state.shift && !state.meta;
+        drop(state);
+        
+        if all_modifiers_released {
+            if let Some(window) = MAIN_WINDOW.lock().as_ref() {
+                if let Some(qp_window) = window.app_handle().get_webview_window("quickpaste") {
+                    let _ = qp_window.emit("quickpaste-hide", ());
+                }
+                let app = window.app_handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(50));
+                    let _ = crate::windows::quickpaste::hide_quickpaste_window(&app);
+                });
+            }
+        }
+    }
 }
 
 fn update_modifier_key(key: Key, pressed: bool) {

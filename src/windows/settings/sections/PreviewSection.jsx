@@ -23,6 +23,10 @@ function PreviewSection({
         <Toggle checked={settings.quickpasteEnabled} onChange={checked => onSettingChange('quickpasteEnabled', checked)} />
       </SettingItem>
 
+      <SettingItem label={t('settings.quickpaste.pasteOnModifierRelease')} description={t('settings.quickpaste.pasteOnModifierReleaseDesc')}>
+        <Toggle checked={settings.quickpastePasteOnModifierRelease} onChange={checked => onSettingChange('quickpastePasteOnModifierRelease', checked)} />
+      </SettingItem>
+
       <SettingItem label={t('settings.quickpaste.scrollSound')} description={t('settings.quickpaste.scrollSoundDesc')}>
         <Toggle checked={settings.quickpasteScrollSound} onChange={checked => onSettingChange('quickpasteScrollSound', checked)} />
       </SettingItem>

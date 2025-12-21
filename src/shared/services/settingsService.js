@@ -78,6 +78,7 @@ export const defaultSettings = {
   
   // 便捷粘贴设置
   quickpasteEnabled: true,
+  quickpastePasteOnModifierRelease: false,
   quickpasteScrollSound: true,
   quickpasteScrollSoundPath: 'sounds/roll.mp3',
   

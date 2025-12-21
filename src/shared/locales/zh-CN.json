@@ -449,6 +449,8 @@
       "description": "配置便捷粘贴功能的行为",
       "enabled": "启用便捷粘贴",
       "enabledDesc": "使用快捷键快速预览剪贴板内容并粘贴",
+      "pasteOnModifierRelease": "松开主键时粘贴",
+      "pasteOnModifierReleaseDesc": "开启后松开主键（如Ctrl）粘贴，关闭则松开副键（如`）粘贴",
       "itemsCount": "显示项目数量",
       "itemsCountDesc": "便捷粘贴窗口中显示的剪贴板项目数量",
       "items": "项",

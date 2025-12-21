@@ -149,6 +149,17 @@ function QuickPasteWindow() {
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
   }, [totalCount]);
+
+  useEffect(() => {
+    const unlisten = listen('quickpaste-next', () => {
+      playScrollSound();
+      setActiveIndex(prev => {
+        const max = totalCount - 1;
+        return prev < max ? prev + 1 : 0;
+      });
+    });
+    return () => unlisten.then(fn => fn());
+  }, [totalCount]);
   useEffect(() => {
     virtuosoRef.current?.scrollToIndex({
       index: activeIndex,

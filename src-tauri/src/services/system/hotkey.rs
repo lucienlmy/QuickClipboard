@@ -115,6 +115,15 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
                 if crate::services::low_memory::is_low_memory_mode() {
                     return;
                 }
+                
+                let settings = crate::get_settings();
+                let is_keyboard_mode = settings.quickpaste_paste_on_modifier_release;
+                let is_visible = crate::windows::quickpaste::is_visible();
+                
+                if is_keyboard_mode && is_visible {
+                    return;
+                }
+                
                 if let Err(e) = crate::windows::quickpaste::show_quickpaste_window(&app) {
                     eprintln!("显示便捷粘贴窗口失败: {}", e);
                 }
@@ -122,6 +131,12 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
                 if crate::services::low_memory::is_low_memory_mode() {
                     return;
                 }
+                
+                let settings = crate::get_settings();
+                if settings.quickpaste_paste_on_modifier_release {
+                    return;
+                }
+                
                 if let Some(window) = app.get_webview_window("quickpaste") {
                     let _ = window.emit("quickpaste-hide", ());
                 }

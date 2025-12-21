@@ -1,6 +1,7 @@
 use tauri::{AppHandle, Manager, Emitter, WebviewUrl, WebviewWindowBuilder};
 use super::state::set_visible;
 use crate::utils::positioning::center_at_cursor;
+use crate::services::system::input_monitor::{enable_quickpaste_keyboard_mode, disable_quickpaste_keyboard_mode};
 
 fn create_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
     let settings = crate::get_settings();
@@ -40,7 +41,8 @@ pub fn init_quickpaste_window(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
-    if !crate::get_settings().quickpaste_enabled {
+    let settings = crate::get_settings();
+    if !settings.quickpaste_enabled {
         return Ok(());
     }
     let _ = crate::services::system::save_current_focus(app.clone());
@@ -50,11 +52,17 @@ pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
     let _ = window.show();
     let _ = window.set_always_on_top(true);
     set_visible(true);
+    
+    if settings.quickpaste_paste_on_modifier_release {
+        enable_quickpaste_keyboard_mode();
+    }
+    
     let _ = window.emit("quickpaste-show", ());
     Ok(())
 }
 
 pub fn hide_quickpaste_window(app: &AppHandle) -> Result<(), String> {
+    disable_quickpaste_keyboard_mode();
     if let Some(window) = app.get_webview_window("quickpaste") {
         let _ = window.hide();
     }

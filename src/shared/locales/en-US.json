@@ -449,6 +449,8 @@
       "description": "Configure quick paste feature behavior",
       "enabled": "Enable Quick Paste",
       "enabledDesc": "Use shortcut to quickly preview and paste clipboard content",
+      "pasteOnModifierRelease": "Paste on modifier key release",
+      "pasteOnModifierReleaseDesc": "When enabled, paste on modifier key release (e.g. Ctrl); when disabled, paste on secondary key release (e.g. `)",
       "itemsCount": "Items Count",
       "itemsCountDesc": "Number of items to show in quick paste window",
       "items": "items",
