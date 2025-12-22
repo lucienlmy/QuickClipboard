@@ -1,134 +1,184 @@
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::cpal::traits::{DeviceTrait, HostTrait};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use std::fs::File;
 use std::io::{BufReader, Cursor};
-use std::path::Path;
+use std::path::PathBuf;
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::thread;
+use std::time::Duration;
 
 static BUILTIN_COPY_SOUND: &[u8] = include_bytes!("../../../../sounds/copy.mp3");
 static BUILTIN_PASTE_SOUND: &[u8] = include_bytes!("../../../../sounds/paste.mp3");
 static BUILTIN_SCROLL_SOUND: &[u8] = include_bytes!("../../../../sounds/roll.mp3");
 
-// 全局音频流句柄
-static AUDIO_HANDLE: Lazy<Mutex<Option<rodio::OutputStreamHandle>>> = 
-    Lazy::new(|| {
-        let (handle_tx, handle_rx) = std::sync::mpsc::channel();
-        thread::spawn(move || {
-            match OutputStream::try_default() {
-                Ok((_stream, handle)) => {
-                    let _ = handle_tx.send(Some(handle));
-                    loop {
-                        thread::park();
+enum SoundCommand {
+    PlayFile(PathBuf, f32),
+    PlayBytes(&'static [u8], f32),
+    PlayBeep(f32, u64, f32),
+}
+
+static SOUND_SENDER: Lazy<Sender<SoundCommand>> = Lazy::new(|| {
+    let (tx, rx) = mpsc::channel::<SoundCommand>();
+
+    thread::Builder::new()
+        .name("audio-player".into())
+        .spawn(move || audio_thread_loop(rx))
+        .expect("Failed to spawn audio thread");
+
+    tx
+});
+
+/// 获取当前默认输出设备的名称
+fn get_default_device_name() -> Option<String> {
+    rodio::cpal::default_host()
+        .default_output_device()
+        .and_then(|d| d.name().ok())
+}
+
+struct AudioContext {
+    _stream: OutputStream,
+    handle: OutputStreamHandle,
+    device_name: Option<String>,
+}
+
+impl AudioContext {
+    fn try_new() -> Option<Self> {
+        let (stream, handle) = OutputStream::try_default().ok()?;
+        let device_name = get_default_device_name();
+        Some(Self {
+            _stream: stream,
+            handle,
+            device_name,
+        })
+    }
+
+    fn device_changed(&self) -> bool {
+        get_default_device_name() != self.device_name
+    }
+
+    fn play(&self, cmd: &SoundCommand) -> Result<(), String> {
+        match cmd {
+            SoundCommand::PlayFile(path, volume) => play_file(&self.handle, path, *volume),
+            SoundCommand::PlayBytes(bytes, volume) => play_bytes(&self.handle, bytes, *volume),
+            SoundCommand::PlayBeep(freq, dur, vol) => play_beep(&self.handle, *freq, *dur, *vol),
+        }
+    }
+}
+
+fn audio_thread_loop(rx: mpsc::Receiver<SoundCommand>) {
+    let mut ctx = AudioContext::try_new();
+
+    loop {
+        match rx.recv_timeout(Duration::from_secs(2)) {
+            Ok(cmd) => {
+                // 检查设备变化或上下文无效
+                let need_reinit = ctx.as_ref().map_or(true, |c| c.device_changed());
+                if need_reinit {
+                    ctx = AudioContext::try_new();
+                }
+
+                // 尝试播放
+                let result = ctx.as_ref().map_or(
+                    Err("无音频设备".to_string()),
+                    |c| c.play(&cmd),
+                );
+
+                // 播放失败时重建并重试
+                if result.is_err() {
+                    ctx = AudioContext::try_new();
+                    if let Some(ref c) = ctx {
+                        let _ = c.play(&cmd);
                     }
                 }
-                Err(_) => {
-                    let _ = handle_tx.send(None);
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                // 定期检查设备变化
+                if ctx.as_ref().map_or(true, |c| c.device_changed()) {
+                    ctx = AudioContext::try_new();
                 }
             }
-        });
-        
-        Mutex::new(handle_rx.recv().unwrap_or(None))
-    });
+            Err(RecvTimeoutError::Disconnected) => break,
+        }
+    }
+}
+
+fn play_file(handle: &OutputStreamHandle, path: &PathBuf, volume: f32) -> Result<(), String> {
+    let sink = Sink::try_new(handle).map_err(|e| e.to_string())?;
+    let file = File::open(path).map_err(|e| format!("打开文件失败: {}", e))?;
+    let source = Decoder::new(BufReader::new(file)).map_err(|e| format!("解码失败: {}", e))?;
+
+    sink.set_volume(volume);
+    sink.append(source);
+    sink.detach();
+    Ok(())
+}
+
+fn play_bytes(handle: &OutputStreamHandle, bytes: &'static [u8], volume: f32) -> Result<(), String> {
+    let sink = Sink::try_new(handle).map_err(|e| e.to_string())?;
+    let source = Decoder::new(Cursor::new(bytes)).map_err(|e| format!("解码失败: {}", e))?;
+
+    sink.set_volume(volume);
+    sink.append(source);
+    sink.detach();
+    Ok(())
+}
+
+fn play_beep(handle: &OutputStreamHandle, frequency: f32, duration_ms: u64, volume: f32) -> Result<(), String> {
+    let sink = Sink::try_new(handle).map_err(|e| e.to_string())?;
+
+    let sample_rate = 44100u32;
+    let duration_samples = ((sample_rate as f64 * duration_ms as f64) / 1000.0) as usize;
+    let two_pi_freq = 2.0 * std::f32::consts::PI * frequency;
+    let sample_rate_f = sample_rate as f32;
+
+    let samples: Vec<f32> = (0..duration_samples)
+        .map(|i| (two_pi_freq * i as f32 / sample_rate_f).sin())
+        .collect();
+
+    let source = rodio::buffer::SamplesBuffer::new(1, sample_rate, samples);
+    sink.set_volume(volume);
+    sink.append(source);
+    sink.detach();
+    Ok(())
+}
+
+#[inline]
+fn send_command(cmd: SoundCommand) {
+    let _ = SOUND_SENDER.send(cmd);
+}
 
 pub struct SoundPlayer;
 
 impl SoundPlayer {
-    pub fn play(path: impl AsRef<Path>, volume: f32) {
-        let path = path.as_ref().to_path_buf();
-        thread::spawn(move || {
-            if let Err(e) = Self::play_sync(&path, volume) {
-                eprintln!("播放音频失败: {}", e);
-            }
-        });
+    #[inline]
+    pub fn play(path: impl AsRef<std::path::Path>, volume: f32) {
+        send_command(SoundCommand::PlayFile(path.as_ref().to_path_buf(), volume));
     }
-    
+
+    #[inline]
     pub fn play_bytes(bytes: &'static [u8], volume: f32) {
-        thread::spawn(move || {
-            if let Err(e) = Self::play_bytes_sync(bytes, volume) {
-                eprintln!("播放内置音频失败: {}", e);
-            }
-        });
+        send_command(SoundCommand::PlayBytes(bytes, volume));
     }
-    
-    fn play_sync(path: &Path, volume: f32) -> Result<(), String> {
-        let handle = Self::get_stream_handle()?;
-        let sink = Sink::try_new(&handle).map_err(|e| e.to_string())?;
-        
-        let file = File::open(path).map_err(|e| format!("打开文件失败: {}", e))?;
-        let source = Decoder::new(BufReader::new(file)).map_err(|e| format!("解码失败: {}", e))?;
-        
-        sink.set_volume(volume);
-        sink.append(source);
-        sink.sleep_until_end();
-        
-        Ok(())
-    }
-    
-    fn play_bytes_sync(bytes: &'static [u8], volume: f32) -> Result<(), String> {
-        let handle = Self::get_stream_handle()?;
-        let sink = Sink::try_new(&handle).map_err(|e| e.to_string())?;
-        
-        let cursor = Cursor::new(bytes);
-        let source = Decoder::new(cursor).map_err(|e| format!("解码失败: {}", e))?;
-        
-        sink.set_volume(volume);
-        sink.append(source);
-        sink.sleep_until_end();
-        
-        Ok(())
-    }
-    
+
+    #[inline]
     pub fn play_beep(frequency: f32, duration_ms: u64, volume: f32) {
-        thread::spawn(move || {
-            if let Err(e) = Self::play_beep_sync(frequency, duration_ms, volume) {
-                eprintln!("播放蜂鸣音失败: {}", e);
-            }
-        });
-    }
-    
-    fn play_beep_sync(frequency: f32, duration_ms: u64, volume: f32) -> Result<(), String> {
-        let handle = Self::get_stream_handle()?;
-        let sink = Sink::try_new(&handle).map_err(|e| e.to_string())?;
-        
-        let sample_rate = 44100;
-        let duration_samples = (sample_rate as f32 * duration_ms as f32 / 1000.0) as usize;
-        
-        let samples: Vec<f32> = (0..duration_samples)
-            .map(|i| {
-                let t = i as f32 / sample_rate as f32;
-                (2.0 * std::f32::consts::PI * frequency * t).sin()
-            })
-            .collect();
-        
-        let source = rodio::buffer::SamplesBuffer::new(1, sample_rate, samples);
-        sink.set_volume(volume);
-        sink.append(source);
-        sink.sleep_until_end();
-        
-        Ok(())
-    }
-    
-    fn get_stream_handle() -> Result<rodio::OutputStreamHandle, String> {
-        let handle_guard = AUDIO_HANDLE.lock();
-        handle_guard.as_ref()
-            .ok_or_else(|| "音频流初始化失败".to_string())
-            .cloned()
+        send_command(SoundCommand::PlayBeep(frequency, duration_ms, volume));
     }
 }
 
 pub struct AppSounds;
 
 impl AppSounds {
-    // 播放复制音效
     pub fn play_copy() {
         let settings = crate::get_settings();
         if !settings.sound_enabled {
             return;
         }
-        
+
         let volume = (settings.sound_volume / 100.0) as f32;
-        
+
         if !settings.copy_sound_path.is_empty() {
             let path = Self::resolve_path(&settings.copy_sound_path);
             if path.exists() {
@@ -136,19 +186,18 @@ impl AppSounds {
                 return;
             }
         }
-        
+
         SoundPlayer::play_bytes(BUILTIN_COPY_SOUND, volume);
     }
-    
-    // 播放粘贴音效
+
     pub fn play_paste() {
         let settings = crate::get_settings();
         if !settings.sound_enabled {
             return;
         }
-        
+
         let volume = (settings.sound_volume / 100.0) as f32;
-        
+
         if !settings.paste_sound_path.is_empty() {
             let path = Self::resolve_path(&settings.paste_sound_path);
             if path.exists() {
@@ -156,19 +205,18 @@ impl AppSounds {
                 return;
             }
         }
-        
+
         SoundPlayer::play_bytes(BUILTIN_PASTE_SOUND, volume);
     }
-    
-    // 播放滚动音效
+
     pub fn play_scroll() {
         let settings = crate::get_settings();
         if !settings.sound_enabled || !settings.quickpaste_scroll_sound {
             return;
         }
-        
+
         let volume = (settings.sound_volume / 100.0) as f32;
-        
+
         if !settings.quickpaste_scroll_sound_path.is_empty() {
             let path = Self::resolve_path(&settings.quickpaste_scroll_sound_path);
             if path.exists() {
@@ -176,22 +224,19 @@ impl AppSounds {
                 return;
             }
         }
-        
+
         SoundPlayer::play_bytes(BUILTIN_SCROLL_SOUND, volume);
     }
-    
-    fn resolve_path(path: &str) -> std::path::PathBuf {
-        let p = Path::new(path);
-        
+
+    fn resolve_path(path: &str) -> PathBuf {
+        let p = std::path::Path::new(path);
+
         if p.is_absolute() {
             return p.to_path_buf();
         }
-        
-        if let Ok(data_dir) = crate::get_data_directory() {
-            data_dir.join(path)
-        } else {
-            p.to_path_buf()
-        }
+
+        crate::get_data_directory()
+            .map(|dir| dir.join(path))
+            .unwrap_or_else(|_| p.to_path_buf())
     }
 }
-
