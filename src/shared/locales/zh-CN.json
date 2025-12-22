@@ -720,6 +720,11 @@
   },
   "listSettings": {
     "title": "列表设置",
+    "listStyle": {
+      "label": "列表风格",
+      "compact": "紧凑",
+      "card": "卡片"
+    },
     "rowHeight": {
       "label": "行高",
       "auto": "自适应",

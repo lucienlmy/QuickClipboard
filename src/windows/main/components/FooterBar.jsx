@@ -18,6 +18,19 @@ function FooterBar({
   });
 
   const menuItems = [{
+    id: 'listStyle',
+    label: t('listSettings.listStyle.label'),
+    icon: "ti ti-layout-list",
+    currentValue: settings.listStyle,
+    options: [{
+      value: 'compact',
+      label: t('listSettings.listStyle.compact')
+    }, {
+      value: 'card',
+      label: t('listSettings.listStyle.card')
+    }],
+    onSelect: value => settingsStore.setListStyle(value)
+  }, {
     id: 'rowHeight',
     label: t('listSettings.rowHeight.label'),
     icon: "ti ti-row-insert-bottom",

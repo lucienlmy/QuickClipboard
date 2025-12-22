@@ -13,6 +13,7 @@ export const settingsStore = proxy({
   fontSize: 14,
   rowHeight: 'medium',
   fileDisplayMode: 'detailed',
+  listStyle: 'compact', // 'compact' | 'card'
   
   // 系统主题状态
   systemIsDark: typeof window !== 'undefined' && window.matchMedia 
@@ -103,6 +104,12 @@ export const settingsStore = proxy({
     localStorage.setItem('fileDisplayMode', mode)
   },
   
+  // 列表风格
+  setListStyle(style) {
+    this.listStyle = style
+    localStorage.setItem('listStyle', style)
+  },
+  
   // 粘贴格式
   setPasteWithFormat(withFormat) {
     this.saveSetting('pasteWithFormat', withFormat)
@@ -115,10 +122,12 @@ export async function initSettings() {
   const fontSize = localStorage.getItem('fontSize')
   const rowHeight = localStorage.getItem('rowHeight')
   const fileDisplayMode = localStorage.getItem('fileDisplayMode')
+  const listStyle = localStorage.getItem('listStyle')
   
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
   if (rowHeight) settingsStore.rowHeight = rowHeight
   if (fileDisplayMode) settingsStore.fileDisplayMode = fileDisplayMode
+  if (listStyle) settingsStore.listStyle = listStyle
   
   // 从后端加载所有配置
   await settingsStore.loadSettings()

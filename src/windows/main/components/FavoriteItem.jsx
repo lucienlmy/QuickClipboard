@@ -190,8 +190,16 @@ function FavoriteItem({
     return (primaryType === 'text' || primaryType === 'rich_text') && item.title;
   };
 
+  const isCardStyle = settings.listStyle === 'card';
+  
   // 键盘选中样式
-  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border-1.5' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-1.5';
+  const selectedClasses = isCardStyle
+    ? (isSelected 
+        ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border' 
+        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border')
+    : (isSelected 
+        ? 'bg-blue-100 dark:bg-blue-900/40 border-b border-gray-200 dark:border-gray-700' 
+        : 'bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700');
   const smallElementClasses = `
     flex items-center justify-center
     w-5 h-5
@@ -239,10 +247,10 @@ function FavoriteItem({
 
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
 
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''}  border ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''} ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
     {settings.showBadges !== false && (hasFileMissing || isPasted) && (
       <div 
-        className="absolute top-0 left-0 z-30 pointer-events-none overflow-hidden rounded-tl-md"
+        className={`absolute top-0 left-0 z-30 pointer-events-none overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
         style={{ width: 20, height: 20 }}
         title={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : t('common.pasted')}
       >
@@ -259,7 +267,7 @@ function FavoriteItem({
       </div>
     )}
     {/* 顶部操作区域：操作按钮、分组、序号 */}
-    <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
+    <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
       {/* 编辑按钮 */}
       {isTextOrRichText && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
         <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
@@ -291,8 +299,8 @@ function FavoriteItem({
       </div>
     </div> : <>
       {/* 时间戳 */}
-      <div className="flex items-center flex-shrink-0 mb-0.5">
-        <span className="text-xs text-gray-400 dark:text-gray-500">
+      <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
+        <span className="text-xs text-gray-400 dark:text-gray-500 leading-5">
           {formatTime()}
         </span>
       </div>

@@ -264,8 +264,16 @@ function ClipboardItem({
 
 
 
+  const isCardStyle = settings.listStyle === 'card';
+  
   // 键盘选中样式
-  const selectedClasses = isSelected ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border-1.5' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-1.5';
+  const selectedClasses = isCardStyle
+    ? (isSelected 
+        ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border' 
+        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border')
+    : (isSelected 
+        ? 'bg-blue-100 dark:bg-blue-900/40 border-b border-gray-200 dark:border-gray-700' 
+        : 'bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700');
   const smallElementClasses = `
     flex items-center justify-center
     w-5 h-5
@@ -319,10 +327,10 @@ function ClipboardItem({
     bg-gray-100/80 dark:bg-gray-800/80
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} rounded-md cursor-move transition-all border ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''} ${getHeightClass()}`}>
+  return <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''} ${getHeightClass()}`}>
       {settings.showBadges !== false && (hasFileMissing || item.is_pinned || isPasted) && (
         <div 
-          className="absolute top-0 left-0 z-30 pointer-events-none overflow-hidden rounded-tl-md"
+          className={`absolute top-0 left-0 z-30 pointer-events-none overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
           style={{ width: 20, height: 20 }}
           title={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : item.is_pinned ? t('contextMenu.pinned') : t('common.pasted')}
         >
@@ -351,7 +359,7 @@ function ClipboardItem({
         </div>
       )}
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
-      <div className="absolute top-1 right-2 flex items-center gap-1 z-20">
+      <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
         {/* 收藏按钮 */}
         <button className={actionButtonClasses} onClick={handleFavoriteClick} title={t('contextMenu.addToFavorites')}>
           <i className="ti ti-star" style={{ fontSize: 12 }}></i>
@@ -399,8 +407,8 @@ function ClipboardItem({
     // 中/大/自适应行高模式
     <>
           {/* 时间戳 */}
-          <div className="flex items-center flex-shrink-0 mb-0.5">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+          <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
+            <span className="text-xs text-gray-400 dark:text-gray-500 leading-5">
               {formatTime()}
             </span>
           </div>

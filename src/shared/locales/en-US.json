@@ -718,6 +718,11 @@
   },
   "listSettings": {
     "title": "List Settings",
+    "listStyle": {
+      "label": "List Style",
+      "compact": "Compact",
+      "card": "Card"
+    },
     "rowHeight": {
       "label": "Row Height",
       "auto": "Auto",
