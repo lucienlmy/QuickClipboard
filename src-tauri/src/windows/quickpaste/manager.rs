@@ -5,7 +5,7 @@ use crate::services::system::input_monitor::{enable_quickpaste_keyboard_mode, di
 
 fn create_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
     let settings = crate::get_settings();
-    WebviewWindowBuilder::new(app, "quickpaste", WebviewUrl::App("windows/quickpaste/index.html".into()))
+    let window = WebviewWindowBuilder::new(app, "quickpaste", WebviewUrl::App("windows/quickpaste/index.html".into()))
         .title("便捷粘贴")
         .inner_size(settings.quickpaste_window_width as f64, settings.quickpaste_window_height as f64)
         .min_inner_size(200.0, 300.0)
@@ -24,7 +24,12 @@ fn create_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
         .minimizable(false)
         .drag_and_drop(false)
         .build()
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    
+    #[cfg(debug_assertions)]
+    window.open_devtools();
+    
+    Ok(window)
 }
 
 fn get_or_create_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
