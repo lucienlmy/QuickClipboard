@@ -239,8 +239,9 @@ const ClipboardList = forwardRef(({
           }
           
           const dragActive = Boolean(activeId);
+          const animationDelay = settings.uiAnimationEnabled !== false ? Math.min(index * 20, 100) : 0;
           return <div className={`${heightClass} ${isCardStyle ? 'px-2.5 pb-2 pt-1' : ''}`}>
-                    <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDragActive={dragActive} showShortcut={showShortcut} />
+                    <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDragActive={dragActive} showShortcut={showShortcut} animationDelay={animationDelay} />
                   </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
           height: '100%'
