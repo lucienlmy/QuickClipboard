@@ -1,14 +1,37 @@
-use once_cell::sync::{OnceCell, Lazy};
+use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
-use serde::{Serialize, Deserialize};
 
-static APP_HANDLE: OnceCell<AppHandle> = OnceCell::new();
+static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 static REGISTERED_SHORTCUTS: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
 static HOTKEYS_ENABLED: AtomicBool = AtomicBool::new(true);
+
+static ACTIVE_PASTE_KEYS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+/// 检查快捷键是否首次按下
+fn try_activate_key(key_id: &str) -> bool {
+    let mut active = ACTIVE_PASTE_KEYS.lock();
+    if active.contains(key_id) {
+        false
+    } else {
+        active.insert(key_id.to_string());
+        true
+    }
+}
+
+/// 检查快捷键是否处于活跃状态（重复按下）
+fn is_key_active(key_id: &str) -> bool {
+    ACTIVE_PASTE_KEYS.lock().contains(key_id)
+}
+
+/// 释放快捷键
+fn deactivate_key(key_id: &str) {
+    ACTIVE_PASTE_KEYS.lock().remove(key_id);
+}
 
 // 快捷键注册状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,14 +42,18 @@ pub struct ShortcutStatus {
     pub error: Option<String>,
 }
 
-static SHORTCUT_STATUS: Lazy<Mutex<HashMap<String, ShortcutStatus>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static SHORTCUT_STATUS: Lazy<Mutex<HashMap<String, ShortcutStatus>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub fn init_hotkey_manager(app: AppHandle, _window: WebviewWindow) {
-    let _ = APP_HANDLE.set(app);
+    *APP_HANDLE.lock() = Some(app);
 }
 
-fn get_app() -> Result<&'static AppHandle, String> {
-    APP_HANDLE.get().ok_or("热键管理器未初始化".to_string())
+fn get_app() -> Result<AppHandle, String> {
+    APP_HANDLE
+        .lock()
+        .clone()
+        .ok_or_else(|| "热键管理器未初始化".to_string())
 }
 
 fn parse_shortcut(shortcut_str: &str) -> Result<Shortcut, String> {
@@ -225,45 +252,76 @@ pub fn register_toggle_paste_with_format_hotkey(shortcut_str: &str) -> Result<()
 }
 
 pub fn register_paste_plain_text_hotkey(shortcut_str: &str) -> Result<(), String> {
-    register_shortcut("paste_plain_text", shortcut_str, |app| {
-        std::thread::spawn({
-            let app = app.clone();
-            move || {
-                if let Err(e) = handle_paste_plain_text(&app) {
-                    eprintln!("纯文本粘贴失败: {}", e);
+    let app = get_app()?;
+
+    unregister_shortcut("paste_plain_text");
+
+    let shortcut = parse_shortcut(shortcut_str)?;
+    let key_id = "paste_plain_text".to_string();
+
+    app.global_shortcut()
+        .on_shortcut(shortcut, move |app, _shortcut, event| {
+            match event.state {
+                ShortcutState::Pressed => {
+                    if try_activate_key(&key_id) {
+                        // 首次按下
+                        let app = app.clone();
+                        let key_id = key_id.clone();
+                        std::thread::spawn(move || {
+                            if let Err(e) = handle_paste_plain_text_press(&app) {
+                                eprintln!("纯文本粘贴失败: {}", e);
+                                deactivate_key(&key_id);
+                            }
+                        });
+                    } else if is_key_active(&key_id) {
+                        // 重复按下
+                        std::thread::spawn(|| {
+                            let _ = simulate_paste_only();
+                        });
+                    }
+                }
+                ShortcutState::Released => {
+                    deactivate_key(&key_id);
                 }
             }
-        });
-    })
+        })
+        .map_err(|e| format!("注册纯文本粘贴快捷键失败: {}", e))?;
+
+    REGISTERED_SHORTCUTS
+        .lock()
+        .push(("paste_plain_text".to_string(), shortcut_str.to_string()));
+    update_shortcut_status("paste_plain_text", shortcut_str, true, None);
+    println!("已注册纯文本粘贴快捷键: {}", shortcut_str);
+    Ok(())
 }
 
-fn handle_paste_plain_text(app: &AppHandle) -> Result<(), String> {
+// 首次按下
+fn handle_paste_plain_text_press(app: &AppHandle) -> Result<(), String> {
+    use crate::services::database::{query_clipboard_items, QueryParams};
     use crate::services::paste::paste_handler::paste_clipboard_item_with_format;
     use crate::services::paste::PasteFormat;
-    use crate::services::database::{query_clipboard_items, QueryParams};
-    
+
     let state = crate::get_window_state();
     let is_window_visible = state.state == crate::WindowState::Visible && !state.is_hidden;
-    
+
     if is_window_visible {
-        // 窗口显示时，通知前端粘贴选中项为纯文本
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.emit("paste-plain-text-selected", ());
         }
     } else {
-        // 窗口隐藏时，粘贴第一条为纯文本
         let items = query_clipboard_items(QueryParams {
             offset: 0,
             limit: 1,
             search: None,
             content_type: None,
-        })?.items;
-        
+        })?
+        .items;
+
         if let Some(item) = items.first() {
             paste_clipboard_item_with_format(item, Some(PasteFormat::PlainText))?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -299,21 +357,41 @@ pub fn register_number_shortcuts(modifier: &str) -> Result<(), String> {
         };
         
         if let Ok(shortcut) = parse_shortcut(&shortcut_str) {
+            let key_id = format!("number_{}", num);
             let index = (num - 1) as usize;
-            
-            match app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-                if event.state == ShortcutState::Pressed {
-                    if let Err(e) = handle_number_shortcut(index) {
-                        eprintln!("执行数字快捷键 {} 失败: {}", index + 1, e);
+
+            match app
+                .global_shortcut()
+                .on_shortcut(shortcut, move |_app, _shortcut, event| {
+                    match event.state {
+                        ShortcutState::Pressed => {
+                            if try_activate_key(&key_id) {
+                                // 首次按下
+                                let key_id = key_id.clone();
+                                if let Err(e) = handle_number_shortcut_press(index) {
+                                    eprintln!("执行数字快捷键 {} 失败: {}", index + 1, e);
+                                    deactivate_key(&key_id);
+                                }
+                            } else if is_key_active(&key_id) {
+                                // 重复按下
+                                let _ = simulate_paste_only();
+                            }
+                        }
+                        ShortcutState::Released => {
+                            deactivate_key(&key_id);
+                        }
                     }
-                }
-            }) {
+                })
+            {
                 Ok(_) => {
                     REGISTERED_SHORTCUTS.lock().push((id, shortcut_str.clone()));
                     println!("已注册数字快捷键: {}", shortcut_str);
                 }
                 Err(e) => {
-                    eprintln!("注册数字快捷键 {} 失败: {}，继续注册其他快捷键", shortcut_str, e);
+                    eprintln!(
+                        "注册数字快捷键 {} 失败: {}，继续注册其他快捷键",
+                        shortcut_str, e
+                    );
                     failed_shortcuts.push(shortcut_str);
                 }
             }
@@ -352,21 +430,39 @@ pub fn unregister_number_shortcuts() {
     }
 }
 
-fn handle_number_shortcut(index: usize) -> Result<(), String> {
+// 首次按下
+fn handle_number_shortcut_press(index: usize) -> Result<(), String> {
     use crate::services::database::{query_clipboard_items, QueryParams};
     use crate::services::paste::paste_handler::paste_clipboard_item_with_update;
-    
+
     let items = query_clipboard_items(QueryParams {
         offset: 0,
         limit: 9,
         search: None,
         content_type: None,
-    })?.items;
-    
-    let item = items.get(index)
-        .ok_or_else(|| format!("剪贴板项索引 {} 超出范围（共 {} 项）", index + 1, items.len()))?;
-    
+    })?
+    .items;
+
+    let item = items.get(index).ok_or_else(|| {
+        format!(
+            "剪贴板项索引 {} 超出范围（共 {} 项）",
+            index + 1,
+            items.len()
+        )
+    })?;
+
     paste_clipboard_item_with_update(item)
+}
+
+// 重复按下
+fn simulate_paste_only() -> Result<(), String> {
+    use crate::services::paste::keyboard::simulate_paste;
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    simulate_paste()?;
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    Ok(())
 }
 
 pub fn unregister_all() {
