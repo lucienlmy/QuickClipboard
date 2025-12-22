@@ -3,41 +3,24 @@ import { settingsStore } from '@shared/store';
 import { TextContent, ImageContent, FileContent, HtmlContent } from '@windows/main/components/ClipboardContent';
 import { getPrimaryType } from '@shared/utils/contentType';
 
+// 行高配置常量
+export const ROW_HEIGHT_CONFIG = {
+  auto: { px: 90, class: '', itemClass: 'min-h-[50px] max-h-[350px]', lineClamp: 'line-clamp-none' },
+  large: { px: 120, class: 'h-[120px]', itemClass: 'h-full', lineClamp: 'line-clamp-4' },
+  medium: { px: 90, class: 'h-[90px]', itemClass: 'h-full', lineClamp: 'line-clamp-2' },
+  small: { px: 50, class: 'h-[50px]', itemClass: 'h-full', lineClamp: 'line-clamp-1' }
+};
+
 // 剪贴板和收藏项的共同逻辑
 export function useItemCommon(item) {
   const settings = useSnapshot(settingsStore);
+  const rowConfig = ROW_HEIGHT_CONFIG[settings.rowHeight] || ROW_HEIGHT_CONFIG.medium;
 
   // 获取固定行高
-  const getHeightClass = () => {
-    switch (settings.rowHeight) {
-      case 'auto':
-        return 'min-h-[50px] max-h-[350px]';
-      case 'large':
-        return 'h-full';
-      case 'medium':
-        return 'h-full';
-      case 'small':
-        return 'h-full';
-      default:
-        return 'h-full';
-    }
-  };
+  const getHeightClass = () => rowConfig.itemClass;
 
   // 获取文本行数限制
-  const getLineClampClass = () => {
-    switch (settings.rowHeight) {
-      case 'auto':
-        return 'line-clamp-none';
-      case 'large':
-        return 'line-clamp-4';
-      case 'medium':
-        return 'line-clamp-2';
-      case 'small':
-        return 'line-clamp-1';
-      default:
-        return 'line-clamp-2';
-    }
-  };
+  const getLineClampClass = () => rowConfig.lineClamp;
 
   // 获取内容类型
   const contentType = item.content_type || item.type || 'text';
