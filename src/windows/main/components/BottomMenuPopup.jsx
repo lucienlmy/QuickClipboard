@@ -131,15 +131,20 @@ const BottomMenuPopup = forwardRef(({
             const currentOption = menuItem.options?.find(opt => opt.value === menuItem.currentValue);
             return <div key={menuItem.id} className="border-b border-gray-200/30 dark:border-gray-700/30 last:border-b-0">
               <div onClick={() => toggleMenuItem(menuItem.id)} className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all" title={menuItem.label}>
-                {menuItem.icon && <div className="flex-shrink-0">
+                {menuItem.icon && <div className="flex-shrink-0 text-gray-500 dark:text-gray-400">
                   <i className={menuItem.icon} style={{ fontSize: 14 }} />
                 </div>}
 
-                <div className="flex-1 text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                  {currentOption?.label || '-'}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                    {menuItem.label}
+                  </div>
+                  <div className="text-xs text-gray-700 dark:text-gray-200 font-medium truncate">
+                    {currentOption?.label || '-'}
+                  </div>
                 </div>
 
-                <div className={`flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                <div className={`flex-shrink-0 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
                   <i className="ti ti-chevron-right" style={{
                     fontSize: 12
                   }}></i>
@@ -147,7 +152,7 @@ const BottomMenuPopup = forwardRef(({
               </div>
 
               {/* 子选项列表 */}
-              {isExpanded && menuItem.options && <div className="bg-gray-50/50 dark:bg-gray-900/50">
+              {isExpanded && menuItem.options && <div className="bg-gray-100 dark:bg-gray-900/80">
                 {menuItem.options.map(option => {
                   const OptionIcon = option.icon;
                   const isActive = menuItem.currentValue === option.value;
@@ -155,7 +160,7 @@ const BottomMenuPopup = forwardRef(({
                     e.stopPropagation();
                     handleSelectOption(menuItem, option);
                   }} className="group relative">
-                    <div className={`flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-all ${isActive ? 'bg-blue-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}>
+                    <div className={`flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-all ${isActive ? 'bg-blue-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
                       {OptionIcon && <div className="flex-shrink-0">
                         <OptionIcon size={12} />
                       </div>}
