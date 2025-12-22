@@ -37,11 +37,13 @@ static KEYBOARD_STATE: Mutex<KeyboardState> = Mutex::new(KeyboardState {
 
 static THROTTLE_STATE: Lazy<Mutex<HashMap<String, Instant>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
-fn get_throttle_delay(action: &str) -> Duration {
+fn get_throttle_delay(action: &str) -> Option<Duration> {
     match action {
-        "navigate-up" | "navigate-down" => Duration::from_millis(80),
-        "tab-left" | "tab-right" | "previous-group" | "next-group" => Duration::from_millis(150),
-        _ => Duration::from_millis(200),
+        "navigate-up" | "navigate-down" => None,
+        "tab-left" | "tab-right" => Some(Duration::from_millis(150)),
+        "previous-group" | "next-group" => Some(Duration::from_millis(100)),
+        "execute-item" | "focus-search" | "hide-window" | "toggle-pin" => Some(Duration::from_millis(200)),
+        _ => Some(Duration::from_millis(100)),
     }
 }
 
@@ -259,45 +261,85 @@ fn update_modifier_key(key: Key, pressed: bool) {
 }
 
 fn handle_navigation_key(key: Key) -> bool {
-    if let Some(window) = MAIN_WINDOW.lock().as_ref() {
-        let settings = crate::get_settings();
-        
-        let shortcuts = [
-            (&settings.navigate_up_shortcut, "navigate-up"),
-            (&settings.navigate_down_shortcut, "navigate-down"),
-            (&settings.tab_left_shortcut, "tab-left"),
-            (&settings.tab_right_shortcut, "tab-right"),
-            (&settings.focus_search_shortcut, "focus-search"),
-            (&settings.hide_window_shortcut, "hide-window"),
-            (&settings.execute_item_shortcut, "execute-item"),
-            (&settings.previous_group_shortcut, "previous-group"),
-            (&settings.next_group_shortcut, "next-group"),
-            (&settings.toggle_pin_shortcut, "toggle-pin"),
-        ];
+    let modifier_state = match KEYBOARD_STATE.try_lock() {
+        Some(state) => (state.ctrl, state.alt, state.shift, state.meta),
+        None => return false,
+    };
+    
+    let settings = crate::get_settings();
+    
+    let shortcuts = [
+        (&settings.navigate_up_shortcut, "navigate-up"),
+        (&settings.navigate_down_shortcut, "navigate-down"),
+        (&settings.execute_item_shortcut, "execute-item"),
+        (&settings.tab_left_shortcut, "tab-left"),
+        (&settings.tab_right_shortcut, "tab-right"),
+        (&settings.previous_group_shortcut, "previous-group"),
+        (&settings.next_group_shortcut, "next-group"),
+        (&settings.focus_search_shortcut, "focus-search"),
+        (&settings.hide_window_shortcut, "hide-window"),
+        (&settings.toggle_pin_shortcut, "toggle-pin"),
+    ];
 
-        for (shortcut_str, action) in shortcuts {
-            if check_shortcut_match(key, shortcut_str) {
-                if should_throttle(action) {
-                    return true;
-                }
-                
+    for (shortcut_str, action) in shortcuts {
+        if check_shortcut_match_fast(key, shortcut_str, modifier_state) {
+            if should_throttle(action) {
+                return true;
+            }
+            
+            if let Some(window) = MAIN_WINDOW.try_lock().and_then(|w| w.as_ref().cloned()) {
                 let _ = window.emit(
                     "navigation-action",
                     serde_json::json!({
                         "action": action
                     }),
                 );
-                return true;
             }
+            return true;
         }
     }
     false 
 }
 
+fn check_shortcut_match_fast(key: Key, shortcut_str: &str, modifier_state: (bool, bool, bool, bool)) -> bool {
+    let (ctrl, alt, shift, meta) = modifier_state;
+    let parts: Vec<&str> = shortcut_str.split('+').collect();
+    
+    let mut required_ctrl = false;
+    let mut required_alt = false;
+    let mut required_shift = false;
+    let mut required_meta = false;
+    let mut main_key = "";
+    
+    for part in &parts {
+        match part.trim() {
+            "Ctrl" | "Control" => required_ctrl = true,
+            "Alt" => required_alt = true,
+            "Shift" => required_shift = true,
+            "Win" | "Super" | "Meta" | "Cmd" | "Command" => required_meta = true,
+            key_str => main_key = key_str,
+        }
+    }
+
+    if ctrl != required_ctrl || alt != required_alt || shift != required_shift || meta != required_meta {
+        return false;
+    }
+    
+    match_key(key, main_key)
+}
+
 fn should_throttle(action: &str) -> bool {
-    let mut throttle_state = THROTTLE_STATE.lock();
+    let delay = match get_throttle_delay(action) {
+        Some(d) => d,
+        None => return false,
+    };
+
+    let mut throttle_state = match THROTTLE_STATE.try_lock() {
+        Some(state) => state,
+        None => return false,
+    };
+    
     let now = Instant::now();
-    let delay = get_throttle_delay(action);
     
     if let Some(last_time) = throttle_state.get(action) {
         if now.duration_since(*last_time) < delay {
@@ -307,39 +349,6 @@ fn should_throttle(action: &str) -> bool {
     
     throttle_state.insert(action.to_string(), now);
     false
-}
-
-fn check_shortcut_match(key: Key, shortcut_str: &str) -> bool {
-    if let Some(state) = KEYBOARD_STATE.try_lock() {
-        let parts: Vec<&str> = shortcut_str.split('+').collect();
-        
-        let mut required_ctrl = false;
-        let mut required_alt = false;
-        let mut required_shift = false;
-        let mut required_meta = false;
-        let mut main_key = "";
-        
-        for part in &parts {
-            match part.trim() {
-                "Ctrl" | "Control" => required_ctrl = true,
-                "Alt" => required_alt = true,
-                "Shift" => required_shift = true,
-                "Win" | "Super" | "Meta" | "Cmd" | "Command" => required_meta = true,
-                key_str => main_key = key_str,
-            }
-        }
-        
-        if state.ctrl != required_ctrl || 
-           state.alt != required_alt || 
-           state.shift != required_shift || 
-           state.meta != required_meta {
-            return false;
-        }
-        
-        match_key(key, main_key)
-    } else {
-        false
-    }
 }
 
 fn match_key(key: Key, key_str: &str) -> bool {
