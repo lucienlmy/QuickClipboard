@@ -1,5 +1,7 @@
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store';
+import { clipboardStore } from '@shared/store/clipboardStore';
+import { favoritesStore } from '@shared/store/favoritesStore';
 import { TextContent, ImageContent, FileContent, HtmlContent } from '@windows/main/components/ClipboardContent';
 import { getPrimaryType } from '@shared/utils/contentType';
 
@@ -12,9 +14,13 @@ export const ROW_HEIGHT_CONFIG = {
 };
 
 // 剪贴板和收藏项的共同逻辑
-export function useItemCommon(item) {
+export function useItemCommon(item, options = {}) {
   const settings = useSnapshot(settingsStore);
+  const clipSnap = useSnapshot(clipboardStore);
+  const favSnap = useSnapshot(favoritesStore);
   const rowConfig = ROW_HEIGHT_CONFIG[settings.rowHeight] || ROW_HEIGHT_CONFIG.medium;
+
+  const searchKeyword = options.searchKeyword ?? ((options.isFavorite ? favSnap.filter : clipSnap.filter) || '');
 
   // 获取固定行高
   const getHeightClass = () => rowConfig.itemClass;
@@ -88,21 +94,21 @@ export function useItemCommon(item) {
 
     // 文件类型
     if (primaryType === 'file') {
-      return <FileContent item={item} compact={compact} />;
+      return <FileContent item={item} compact={compact} searchKeyword={searchKeyword} />;
     }
 
     // HTML 富文本类型
     if (primaryType === 'rich_text') {
       // 根据格式设置决定显示 HTML 还是纯文本
       if (settings.pasteWithFormat && item.html_content) {
-        return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} />;
+        return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} />;
       } else {
-        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} />;
+        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} />;
       }
     }
 
     // 默认文本类型
-    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} />;
+    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} />;
   };
   return {
     settings,
@@ -110,6 +116,7 @@ export function useItemCommon(item) {
     getLineClampClass,
     contentType,
     formatTime,
-    renderContent
+    renderContent,
+    searchKeyword
   };
 }

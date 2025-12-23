@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { deleteFavorite } from '@shared/store/favoritesStore';
 import { openEditorForFavorite } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
+import { highlightText } from '@shared/utils/highlightText';
 
 const closeImagePreview = (previewTimerRef) => {
   if (previewTimerRef.current) {
@@ -40,8 +41,9 @@ function FavoriteItem({
     getHeightClass,
     contentType,
     formatTime,
-    renderContent
-  } = useItemCommon(item);
+    renderContent,
+    searchKeyword
+  } = useItemCommon(item, { isFavorite: true });
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const previewTimerRef = useRef(null);
@@ -313,7 +315,7 @@ function FavoriteItem({
       {/* 标题 */}
       {shouldShowTitle() && <div className="flex-shrink-0 mb-1">
         <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
-          {item.title}
+          {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
         </p>
       </div>}
 

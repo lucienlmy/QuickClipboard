@@ -1,10 +1,12 @@
 use super::models::{FavoriteItem, PaginatedResult, FavoritesQueryParams};
-use super::connection::{with_connection, truncate_string, MAX_CONTENT_LENGTH};
+use super::connection::{with_connection, truncate_string, truncate_around_keyword, MAX_CONTENT_LENGTH};
 use rusqlite::{params, OptionalExtension};
 use chrono;
 
 // 分页查询收藏列表
 pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<FavoriteItem>, String> {
+    let search_keyword = params.search.clone();
+    
     with_connection(|conn| {
         let mut where_clauses = vec![];
         let mut count_params: Vec<Box<dyn rusqlite::ToSql>> = vec![];
@@ -18,7 +20,7 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
             }
         }
 
-        if let Some(search_query) = params.search {
+        if let Some(ref search_query) = search_keyword {
             if !search_query.is_empty() {
                 where_clauses.push("(title LIKE ? OR content LIKE ? OR html_content LIKE ?)");
                 let search_pattern = format!("%{}%", search_query);
@@ -83,13 +85,29 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
 
             let (truncated_content, truncated_html) = if content_type == "text" || content_type == "rich_text" || content_type == "link" {
                 let truncated_content = if content.len() > MAX_CONTENT_LENGTH {
-                    truncate_string(content, MAX_CONTENT_LENGTH)
+                    if let Some(ref keyword) = search_keyword {
+                        if !keyword.trim().is_empty() {
+                            truncate_around_keyword(content, keyword, MAX_CONTENT_LENGTH)
+                        } else {
+                            truncate_string(content, MAX_CONTENT_LENGTH)
+                        }
+                    } else {
+                        truncate_string(content, MAX_CONTENT_LENGTH)
+                    }
                 } else {
                     content
                 };
                 let truncated_html = html_content.map(|html| {
                     if html.len() > MAX_CONTENT_LENGTH {
-                        truncate_string(html, MAX_CONTENT_LENGTH)
+                        if let Some(ref keyword) = search_keyword {
+                            if !keyword.trim().is_empty() {
+                                truncate_around_keyword(html, keyword, MAX_CONTENT_LENGTH)
+                            } else {
+                                truncate_string(html, MAX_CONTENT_LENGTH)
+                            }
+                        } else {
+                            truncate_string(html, MAX_CONTENT_LENGTH)
+                        }
                     } else {
                         html
                     }

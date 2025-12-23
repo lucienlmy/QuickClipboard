@@ -1,5 +1,5 @@
 use super::models::{ClipboardItem, PaginatedResult, QueryParams};
-use super::connection::{with_connection, truncate_string, MAX_CONTENT_LENGTH};
+use super::connection::{with_connection, truncate_string, truncate_around_keyword, MAX_CONTENT_LENGTH};
 use rusqlite::{params, OptionalExtension};
 use std::collections::HashSet;
 use chrono;
@@ -48,12 +48,14 @@ fn delete_image_files(image_ids: Vec<String>) -> Result<(), String> {
 
 // 分页查询剪贴板历史
 pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<ClipboardItem>, String> {
+    let search_keyword = params.search.clone();
+    
     with_connection(|conn| {
         let mut where_clauses = vec![];
         let mut count_params: Vec<Box<dyn rusqlite::ToSql>> = vec![];
         let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = vec![];
         
-        if let Some(ref search) = params.search {
+        if let Some(ref search) = search_keyword {
             if !search.trim().is_empty() {
                 where_clauses.push("content LIKE ?");
                 let search_pattern = format!("%{}%", search);
@@ -110,21 +112,37 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
                 let content_type: String = row.get(3)?;
                 
                 let (truncated_content, truncated_html) = if content_type == "text" || content_type == "rich_text" || content_type == "link" {
-                    let content = if content.len() > MAX_CONTENT_LENGTH {
-                        truncate_string(content, MAX_CONTENT_LENGTH)
+                    let truncated_content = if content.len() > MAX_CONTENT_LENGTH {
+                        if let Some(ref keyword) = search_keyword {
+                            if !keyword.trim().is_empty() {
+                                truncate_around_keyword(content, keyword, MAX_CONTENT_LENGTH)
+                            } else {
+                                truncate_string(content, MAX_CONTENT_LENGTH)
+                            }
+                        } else {
+                            truncate_string(content, MAX_CONTENT_LENGTH)
+                        }
                     } else {
                         content
                     };
                     
-                    let html = html_content.map(|h| {
+                    let truncated_html = html_content.map(|h| {
                         if h.len() > MAX_CONTENT_LENGTH {
-                            truncate_string(h, MAX_CONTENT_LENGTH)
+                            if let Some(ref keyword) = search_keyword {
+                                if !keyword.trim().is_empty() {
+                                    truncate_around_keyword(h, keyword, MAX_CONTENT_LENGTH)
+                                } else {
+                                    truncate_string(h, MAX_CONTENT_LENGTH)
+                                }
+                            } else {
+                                truncate_string(h, MAX_CONTENT_LENGTH)
+                            }
                         } else {
                             h
                         }
                     });
                     
-                    (content, html)
+                    (truncated_content, truncated_html)
                 } else {
                     (content, html_content)
                 };

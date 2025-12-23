@@ -275,3 +275,52 @@ pub fn truncate_string(s: String, max_len: usize) -> String {
     format!("{}...(内容过长已截断)", &s[..truncate_point])
 }
 
+// 截取以关键词为中心的上下文
+pub fn truncate_around_keyword(s: String, keyword: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        return s;
+    }
+    
+    // 查找关键词位置
+    let s_lower = s.to_lowercase();
+    let keyword_lower = keyword.to_lowercase();
+    
+    let keyword_pos = match s_lower.find(&keyword_lower) {
+        Some(pos) => pos,
+        None => return truncate_string(s, max_len), 
+    };
+
+    let context_before = max_len / 3; 
+    let context_after = max_len - context_before; 
+
+    let start = if keyword_pos > context_before {
+        let ideal_start = keyword_pos - context_before;
+        (ideal_start..=keyword_pos)
+            .find(|&i| s.is_char_boundary(i))
+            .unwrap_or(keyword_pos)
+    } else {
+        0
+    };
+
+    let keyword_end = keyword_pos + keyword.len();
+    let ideal_end = (keyword_end + context_after).min(s.len());
+    let end = (0..=ideal_end)
+        .rev()
+        .find(|&i| s.is_char_boundary(i))
+        .unwrap_or(s.len());
+
+    let mut result = String::new();
+    
+    if start > 0 {
+        result.push_str("...");
+    }
+    
+    result.push_str(&s[start..end]);
+    
+    if end < s.len() {
+        result.push_str("...");
+    }
+    
+    result
+}
+

@@ -2,16 +2,22 @@ import { useEffect, useRef } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { sanitizeHTML } from '@shared/utils/htmlProcessor';
 import { invoke } from '@tauri-apps/api/core';
+import { highlightHtmlContent, clearHighlights, scrollToFirstHighlight } from '@shared/utils/highlightText';
+
 const PLACEHOLDER_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YwZjBmMCIvPjwvc3ZnPg==';
 const ERROR_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZWJlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjYzYyODI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg==';
 
 // HTML 富文本内容组件
 function HtmlContent({
   htmlContent,
-  lineClampClass
+  lineClampClass,
+  searchKeyword
 }) {
   const contentRef = useRef(null);
   const processedRef = useRef(null);
+  const hasScrolledRef = useRef(false);
+  const prevKeywordRef = useRef('');
+
   useEffect(() => {
     if (!contentRef.current || processedRef.current === htmlContent) return;
     processedRef.current = htmlContent;
@@ -55,6 +61,32 @@ function HtmlContent({
       }
     });
   }, [htmlContent]);
+
+  // 处理搜索高亮
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    if (searchKeyword !== prevKeywordRef.current) {
+      hasScrolledRef.current = false;
+      prevKeywordRef.current = searchKeyword;
+    }
+    
+    if (searchKeyword) {
+      clearHighlights(contentRef.current);
+      highlightHtmlContent(contentRef.current, searchKeyword);
+
+      if (!hasScrolledRef.current) {
+        requestAnimationFrame(() => {
+          if (scrollToFirstHighlight(contentRef.current)) {
+            hasScrolledRef.current = true;
+          }
+        });
+      }
+    } else {
+      clearHighlights(contentRef.current);
+    }
+  }, [searchKeyword, htmlContent]);
+
   return <div ref={contentRef} className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed html-content overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent" style={{
     wordBreak: 'break-all',
     maxHeight: '100%',

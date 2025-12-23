@@ -3,6 +3,7 @@ import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { useTranslation } from 'react-i18next';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
+import { highlightText } from '@shared/utils/highlightText';
 
 const IMAGE_FILE_EXTENSIONS = ['PNG', 'JPG', 'JPEG', 'GIF', 'BMP', 'WEBP', 'ICO', 'SVG'];
 
@@ -49,11 +50,20 @@ function FileIcon({
 
 function FileContent({
   item,
-  compact = false
+  compact = false,
+  searchKeyword
 }) {
   const { t } = useTranslation();
   const settings = useSnapshot(settingsStore);
   const handleDragMouseDown = useDragWithThreshold();
+  
+  const renderFileName = (name) => {
+    return searchKeyword ? highlightText(name, searchKeyword) : name;
+  };
+  
+  const renderFilePath = (path) => {
+    return searchKeyword ? highlightText(path, searchKeyword) : path;
+  };
 
   let filesData = null;
   try {
@@ -152,14 +162,14 @@ function FileContent({
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-1">
                 <span className={`text-xs truncate font-medium ${exists ? 'text-gray-800 dark:text-gray-200' : 'text-red-600 dark:text-red-400 line-through'}`}>
-                  {file.name}
+                  {renderFileName(file.name)}
                 </span>
                 <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
                   {exists ? formatFileSize(file.size || 0) : t('clipboard.fileNotFound', '文件不存在')}
                 </span>
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">
-                {file.path}
+                {renderFilePath(file.path)}
               </div>
             </div>
           </div>
@@ -198,14 +208,14 @@ function FileContent({
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
               <span className={`text-sm truncate font-medium ${exists ? 'text-gray-800 dark:text-gray-200' : 'text-red-600 dark:text-red-400 line-through'}`}>
-                {file.name}
+                {renderFileName(file.name)}
               </span>
               <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
                 {exists ? formatFileSize(file.size || 0) : t('clipboard.fileNotFound', '文件不存在')}
               </span>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-              {file.path}
+              {renderFilePath(file.path)}
             </div>
           </div>
         </div>
