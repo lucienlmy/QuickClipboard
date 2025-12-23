@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import { highlightText, scrollToFirstHighlight } from '@shared/utils/highlightText';
 
 // 文本内容组件
-function TextContent({ content, lineClampClass, searchKeyword }) {
+function TextContent({ content, lineClampClass, searchKeyword,rowHeight = 'medium' }) {
   const containerRef = useRef(null);
   const hasScrolledRef = useRef(false);
   const prevKeywordRef = useRef('');
@@ -27,10 +27,14 @@ function TextContent({ content, lineClampClass, searchKeyword }) {
 
   const clampClass = searchKeyword ? '' : lineClampClass;
 
+  const textClass = rowHeight === 'large' || rowHeight === 'auto'
+    ? 'text-sm leading-normal'
+    : 'text-sm leading-tight';
+
   return (
     <div
       ref={containerRef}
-      className={`text-sm text-gray-800 dark:text-gray-200 break-all leading-relaxed h-full ${clampClass} ${searchKeyword ? 'overflow-y-auto' : 'overflow-hidden'}`}
+      className={`${textClass} text-gray-800 dark:text-gray-200 break-all h-full ${clampClass} ${searchKeyword ? 'overflow-y-auto' : 'overflow-hidden'}`}
     >
       {renderedContent}
     </div>

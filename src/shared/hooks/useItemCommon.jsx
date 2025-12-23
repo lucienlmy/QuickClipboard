@@ -9,8 +9,8 @@ import { getPrimaryType } from '@shared/utils/contentType';
 export const ROW_HEIGHT_CONFIG = {
   auto: { px: 90, cardPx: 90, class: '', cardClass: '', itemClass: 'min-h-[50px] max-h-[350px]', lineClamp: 'line-clamp-none' },
   large: { px: 120, cardPx: 132, class: 'h-[120px]', cardClass: 'h-[132px]', itemClass: 'h-full', lineClamp: 'line-clamp-4' },
-  medium: { px: 90, cardPx: 102, class: 'h-[90px]', cardClass: 'h-[102px]', itemClass: 'h-full', lineClamp: 'line-clamp-2' },
-  small: { px: 50, cardPx: 62, class: 'h-[50px]', cardClass: 'h-[62px]', itemClass: 'h-full', lineClamp: 'line-clamp-1' }
+  medium: { px: 90, cardPx: 102, class: 'h-[90px]', cardClass: 'h-[102px]', itemClass: 'h-full', lineClamp: 'line-clamp-3' },
+  small: { px: 50, cardPx: 62, class: 'h-[50px]', cardClass: 'h-[62px]', itemClass: 'h-full', lineClamp: 'line-clamp-2' }
 };
 
 // 剪贴板和收藏项的共同逻辑
@@ -86,6 +86,7 @@ export function useItemCommon(item, options = {}) {
   const renderContent = (compact = false) => {
     const lineClampClass = getLineClampClass();
     const primaryType = getPrimaryType(contentType);
+    const rowHeight = settings.rowHeight;
 
     // 图片类型
     if (primaryType === 'image') {
@@ -101,14 +102,14 @@ export function useItemCommon(item, options = {}) {
     if (primaryType === 'rich_text') {
       // 根据格式设置决定显示 HTML 还是纯文本
       if (settings.pasteWithFormat && item.html_content) {
-        return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} />;
+        return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
       } else {
-        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} />;
+        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
       }
     }
 
     // 默认文本类型
-    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} />;
+    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
   };
   return {
     settings,
