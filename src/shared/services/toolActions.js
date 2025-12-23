@@ -2,6 +2,7 @@ import {
   setWindowPinned,
   openSettingsWindow,
   startScreenshot,
+  hideMainWindow,
   checkAiTranslationConfig,
   enableAiTranslationCancelShortcut,
   disableAiTranslationCancelShortcut
@@ -106,6 +107,14 @@ export const toolActions = {
   // 截图
   'screenshot-button': async () => {
     try {
+      const { settingsStore } = await import('@shared/store/settingsStore')
+      const animationEnabled = settingsStore.clipboardAnimationEnabled
+      
+      await hideMainWindow()
+      
+      const waitTime = animationEnabled ? 170 : 50
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+      
       await startScreenshot()
     } catch (error) {
       console.error('启动截图失败:', error)
