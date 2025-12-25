@@ -35,14 +35,7 @@
       }
     ],
     "security": {
-      "csp": {
-        "default-src": "'self' customprotocol: asset:",
-        "connect-src": "ipc: http://ipc.localhost https://api.quickclipboard.cn https://api.github.com https://github.com",
-        "img-src": "'self' asset: http://asset.localhost blob: data: https:",
-        "style-src": "'unsafe-inline' 'self'",
-        "script-src": "'self'",
-        "navigate-to": "'self'"
-      },
+      "csp": null,
       "capabilities": [
         "default",
         "settings",

@@ -12,7 +12,6 @@ use super::image_stitcher::{compare_frames, ProcessResult, StitchManager};
 
 const VERTICAL_PADDING: u32 = 30;
 const FRAME_CHANGE_THRESHOLD: f64 = 3.0;
-const CAPTURE_INTERVAL_MS: u64 = 12;
 
 #[derive(Debug, Clone, Copy)]
 struct SelectionRect {
@@ -258,11 +257,9 @@ impl WgcCapturer {
             .unwrap_or(60);
 
         let capture_fps = match refresh_rate {
-            r if r >= 240 => 120,
-            r if r >= 144 => 90,
-            r if r >= 120 => 90,
-            r if r >= 75 => 60,
-            _ => 60,
+            r if r >= 120 => 60,
+            r if r >= 75 => 45,
+            _ => 30,
         };
 
         let target = xcap_id
@@ -343,7 +340,35 @@ fn capture_loop() {
     let mut last_update = Instant::now();
 
     let selection_pos = SCREENSHOT_SELECTION.lock().map(|s| (s.x, s.y));
+    // let mut wgc: Option<WgcCapturer> = None;
     let mut wgc = selection_pos.and_then(|(x, y)| WgcCapturer::new(x, y));
+
+    // GDI 捕获间隔
+    let gdi_interval_ms = if wgc.is_none() {
+        let refresh_rate = selection_pos
+            .and_then(|(x, y)| {
+                use xcap::Monitor;
+                let monitors = Monitor::all().ok()?;
+                monitors.into_iter().find(|m| {
+                    matches!((m.x(), m.y(), m.width(), m.height()),
+                        (Ok(mx), Ok(my), Ok(mw), Ok(mh))
+                        if (x as i32) >= mx && (x as i32) < mx + mw as i32 
+                        && (y as i32) >= my && (y as i32) < my + mh as i32)
+                }).and_then(|m| crate::utils::screen::get_monitor_refresh_rate(&m))
+            })
+            .unwrap_or(60);
+        
+        // 限制在 12-30fps
+        let target_fps = match refresh_rate {
+            r if r >= 120 => 30,
+            r if r >= 75 => 24,
+            r if r >= 60 => 20,
+            _ => 12,
+        };
+        1000 / target_fps as u64
+    } else {
+        16
+    };
 
     while CAPTURING_ACTIVE.load(Ordering::Relaxed) {
         if let Some(selection) = *SCREENSHOT_SELECTION.lock() {
@@ -403,7 +428,7 @@ fn capture_loop() {
         }
 
         if wgc.is_none() {
-            thread::sleep(Duration::from_millis(CAPTURE_INTERVAL_MS));
+            thread::sleep(Duration::from_millis(gdi_interval_ms));
         }
     }
 
