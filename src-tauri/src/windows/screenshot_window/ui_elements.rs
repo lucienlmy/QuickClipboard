@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use atree::{Arena, Token};
-use rtree_rs::{Rect, RTree};
+use rstar::{RTree, AABB, RTreeObject, PointDistance};
 use uiautomation::core::UICacheRequest;
 use uiautomation::types::{TreeScope, UIProperty};
 use uiautomation::{UIAutomation, UIElement, UITreeWalker};
@@ -12,12 +12,31 @@ use windows::Win32::Foundation::HWND;
 use super::element_rect::ElementRect;
 use super::ui_automation_types::ElementLevel;
 
+#[derive(Debug, Clone)]
+struct IndexedElement {
+    bounds: AABB<[f64; 2]>,
+    level: ElementLevel,
+}
+
+impl RTreeObject for IndexedElement {
+    type Envelope = AABB<[f64; 2]>;
+    fn envelope(&self) -> Self::Envelope {
+        self.bounds
+    }
+}
+
+impl PointDistance for IndexedElement {
+    fn distance_2(&self, point: &[f64; 2]) -> f64 {
+        self.bounds.distance_2(point)
+    }
+}
+
 pub struct UiElementIndex {
     automation: Option<Arc<UIAutomationWrapper>>,
     walker: Option<UITreeWalker>,
     desktop_root: Option<UIElement>,
     cache_req: Option<UICacheRequest>,
-    spatial_index: RTree<2, i32, ElementLevel>,
+    spatial_index: RTree<IndexedElement>,
     level_to_element: HashMap<ElementLevel, (UIElement, Token)>,
     rect_tree: Arena<uiautomation::types::Rect>,
     child_cache: HashMap<ElementLevel, Option<(UIElement, ElementLevel)>>,
@@ -51,6 +70,13 @@ impl UiElementIndex {
         }
     }
 
+    fn to_aabb(r: uiautomation::types::Rect) -> AABB<[f64; 2]> {
+        AABB::from_corners(
+            [r.get_left() as f64, r.get_top() as f64],
+            [r.get_right() as f64, r.get_bottom() as f64],
+        )
+    }
+
     pub fn init(&mut self) -> Result<(), String> {
         if self.automation.is_some() {
             return Ok(());
@@ -76,10 +102,6 @@ impl UiElementIndex {
         self.cache_req = Some(cache);
 
         Ok(())
-    }
-
-    fn to_rtree_rect(r: uiautomation::types::Rect) -> Rect<2, i32> {
-        Rect::new([r.get_left(), r.get_top()], [r.get_right(), r.get_bottom()])
     }
 
     fn fix_inverted_rect(rect: uiautomation::types::Rect) -> uiautomation::types::Rect {
@@ -203,7 +225,10 @@ impl UiElementIndex {
             }
         }
 
-        self.spatial_index.insert(Self::to_rtree_rect(bounds), level);
+        self.spatial_index.insert(IndexedElement {
+            bounds: Self::to_aabb(bounds),
+            level,
+        });
 
         let node = self.rect_tree.new_node(bounds);
         parent_token.append_node(&mut self.rect_tree, node).unwrap();
@@ -217,19 +242,27 @@ impl UiElementIndex {
         x: i32,
         y: i32,
     ) -> Option<(UIElement, ElementLevel, uiautomation::types::Rect, Token)> {
-        let matches = self.spatial_index.search(Rect::new_point([x, y]));
+        let point = [x as f64, y as f64];
+        let matches = self.spatial_index.locate_all_at_point(&point);
 
         let mut best_level = ElementLevel::root();
-        let mut best_rect = None;
+        let mut best_aabb: Option<AABB<[f64; 2]>> = None;
         for hit in matches {
-            if best_level.cmp(&hit.data) == Ordering::Less {
-                best_level = hit.data.clone();
-                best_rect = Some(hit.rect);
+            if best_level.cmp(&hit.level) == Ordering::Less {
+                best_level = hit.level;
+                best_aabb = Some(hit.bounds);
             }
         }
 
-        let bounds = best_rect.map(|r| {
-            uiautomation::types::Rect::new(r.min[0], r.min[1], r.max[0], r.max[1])
+        let bounds = best_aabb.map(|aabb| {
+            let lower = aabb.lower();
+            let upper = aabb.upper();
+            uiautomation::types::Rect::new(
+                lower[0] as i32,
+                lower[1] as i32,
+                upper[0] as i32,
+                upper[1] as i32,
+            )
         })?;
 
         self.level_to_element
@@ -242,10 +275,11 @@ impl UiElementIndex {
         mx: i32,
         my: i32,
     ) -> Result<Vec<ElementRect>, String> {
-        let matches = self.spatial_index.search(Rect::new_point([mx, my]));
+        let point = [mx as f64, my as f64];
+        let matches = self.spatial_index.locate_all_at_point(&point);
         
         for hit in matches {
-            let level = &hit.data;
+            let level = &hit.level;
             if level.element_level == 1 {
                 if let Some(win_rect) = self.window_bounds.get(level) {
                     let outer_rect = ElementRect::from(*win_rect);

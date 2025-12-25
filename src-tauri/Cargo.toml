@@ -51,7 +51,7 @@ active-win-pos-rs = "0.8"
 xcap = {git="https://github.com/mosheng1/xcap"}
 scap = { git = "https://github.com/mosheng1/scap" }
 atree = "0.5.2"
-rtree_rs = "0.1.4"
+rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
 winreg = "0.55"
 
