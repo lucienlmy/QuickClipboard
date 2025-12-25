@@ -30,7 +30,7 @@ static SOUND_SENDER: Lazy<Sender<SoundCommand>> = Lazy::new(|| {
     tx
 });
 
-/// 获取当前默认输出设备的名称
+// 获取当前默认输出设备的名称
 fn get_default_device_name() -> Option<String> {
     rodio::cpal::default_host()
         .default_output_device()

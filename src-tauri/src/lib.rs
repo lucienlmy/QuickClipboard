@@ -145,6 +145,7 @@ pub fn run() {
                 commands::disable_long_screenshot_passthrough,
                 commands::start_long_screenshot_capture,
                 commands::stop_long_screenshot_capture,
+                commands::update_long_screenshot_preview_panel,
                 commands::save_long_screenshot,
                 commands::copy_long_screenshot_to_clipboard,
                 commands::recognize_image_ocr,

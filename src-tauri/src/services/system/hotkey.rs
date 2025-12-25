@@ -12,7 +12,7 @@ static HOTKEYS_ENABLED: AtomicBool = AtomicBool::new(true);
 
 static ACTIVE_PASTE_KEYS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
-/// 检查快捷键是否首次按下
+// 检查快捷键是否首次按下
 fn try_activate_key(key_id: &str) -> bool {
     let mut active = ACTIVE_PASTE_KEYS.lock();
     if active.contains(key_id) {
@@ -23,12 +23,12 @@ fn try_activate_key(key_id: &str) -> bool {
     }
 }
 
-/// 检查快捷键是否处于活跃状态（重复按下）
+// 检查快捷键是否处于活跃状态（重复按下）
 fn is_key_active(key_id: &str) -> bool {
     ACTIVE_PASTE_KEYS.lock().contains(key_id)
 }
 
-/// 释放快捷键
+// 释放快捷键
 fn deactivate_key(key_id: &str) {
     ACTIVE_PASTE_KEYS.lock().remove(key_id);
 }

@@ -566,7 +566,9 @@ function App() {
           isCapturing={longScreenshot.isCapturing}
           isSaving={longScreenshot.isSaving}
           previewImage={longScreenshot.preview}
+          previewSize={longScreenshot.previewSize}
           capturedCount={longScreenshot.capturedCount}
+          screens={screens}
         />
       )}
 

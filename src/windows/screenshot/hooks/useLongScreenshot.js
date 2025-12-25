@@ -8,6 +8,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
   const [isActive, setIsActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const [capturedCount, setCapturedCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -16,29 +17,40 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     setIsActive(true);
     setIsCapturing(false);
     setPreview(null);
-    
+    setPreviewSize({ width: 0, height: 0 });
+
     // 启用后端鼠标穿透控制
     if (selection && toolbarPosition && screens && screens.length > 0) {
       try {
-        const dpr = window.devicePixelRatio || 1;
-        // CSS坐标转物理坐标的偏移
-        const stageOffsetX = screens[0].physicalX - screens[0].x * dpr;
-        const stageOffsetY = screens[0].physicalY - screens[0].y * dpr;
-        
         const centerX = selection.x + selection.width / 2;
         const centerY = selection.y + selection.height / 2;
-        const selectionScaleFactor = stageRegionManager?.getNearestScreen(centerX, centerY)?.scaleFactor || 1.0;
+        const screen = stageRegionManager?.getNearestScreen(centerX, centerY);
         
-        // CSS坐标转物理坐标
-        const physicalX = selection.x * dpr + stageOffsetX;
-        const physicalY = selection.y * dpr + stageOffsetY;
-        const physicalWidth = selection.width * dpr;
-        const physicalHeight = selection.height * dpr;
+        if (!screen) return;
         
-        const physicalToolbarX = toolbarPosition.x * dpr + stageOffsetX;
-        const physicalToolbarY = toolbarPosition.y * dpr + stageOffsetY;
-        const physicalToolbarWidth = toolbarPosition.width * dpr;
-        const physicalToolbarHeight = toolbarPosition.height * dpr;
+        const scaleX = screen.physicalWidth / screen.width;
+        const scaleY = screen.physicalHeight / screen.height;
+        
+        const relX = selection.x - screen.x;
+        const relY = selection.y - screen.y;
+        
+        const border = 3;
+        const contentRelX = relX + border;
+        const contentRelY = relY + border;
+        const contentWidth = selection.width - border * 2;
+        const contentHeight = selection.height - border * 2;
+        
+        const physicalX = screen.physicalX + Math.round(contentRelX * scaleX);
+        const physicalY = screen.physicalY + Math.round(contentRelY * scaleY);
+        const physicalWidth = Math.round(contentWidth * scaleX);
+        const physicalHeight = Math.round(contentHeight * scaleY);
+        
+        const toolbarRelX = toolbarPosition.x - screen.x;
+        const toolbarRelY = toolbarPosition.y - screen.y;
+        const physicalToolbarX = screen.physicalX + Math.round(toolbarRelX * scaleX);
+        const physicalToolbarY = screen.physicalY + Math.round(toolbarRelY * scaleY);
+        const physicalToolbarWidth = Math.round(toolbarPosition.width * scaleX);
+        const physicalToolbarHeight = Math.round(toolbarPosition.height * scaleY);
         
         await invoke('enable_long_screenshot_passthrough', {
           physicalX,
@@ -49,7 +61,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
           physicalToolbarY,
           physicalToolbarWidth,
           physicalToolbarHeight,
-          selectionScaleFactor,
+          selectionScaleFactor: scaleX,
         });
       } catch (err) {
         console.error('启用鼠标穿透失败:', err);
@@ -185,8 +197,13 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     });
 
     const unlistenPreview = appWindow.listen('long-screenshot-preview', (event) => {
-      const previewUrl = event.payload;
-      setPreview(previewUrl);
+      const previewData = event.payload;
+      if (typeof previewData === 'string') {
+        setPreview(previewData);
+      } else {
+        setPreview(previewData.url);
+        setPreviewSize({ width: previewData.width, height: previewData.height });
+      }
     });
 
     return () => {
@@ -200,6 +217,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     isCapturing,
     isSaving,
     preview,
+    previewSize,
     capturedCount,
     enter,
     start,

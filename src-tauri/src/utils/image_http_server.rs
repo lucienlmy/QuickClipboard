@@ -15,6 +15,10 @@ static IMAGE_STORE: Lazy<Mutex<Option<HttpImageStore>>> =
 static LONG_SCREENSHOT_PREVIEW: Lazy<Mutex<Option<Vec<u8>>>> =
     Lazy::new(|| Mutex::new(None));
 
+// 长截屏实时当前帧预览
+static LONG_SCREENSHOT_REALTIME: Lazy<Mutex<Option<Vec<u8>>>> =
+    Lazy::new(|| Mutex::new(None));
+
 // 贴图编辑模式数据
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct PinEditData {
@@ -100,6 +104,32 @@ fn send_http_long_screenshot_preview(mut stream: TcpStream) {
     let _ = stream.flush();
 }
 
+fn send_http_long_screenshot_realtime(mut stream: TcpStream) {
+    let realtime_guard = LONG_SCREENSHOT_REALTIME.lock();
+    let Some(image_data) = realtime_guard.as_ref() else {
+        send_http_404(stream);
+        return;
+    };
+
+    let header = format!(
+        "HTTP/1.1 200 OK\r\n\
+        Content-Type: image/bmp\r\n\
+        Content-Length: {}\r\n\
+        Access-Control-Allow-Origin: *\r\n\
+        Access-Control-Allow-Methods: GET, OPTIONS\r\n\
+        Access-Control-Allow-Headers: *\r\n\
+        Cache-Control: no-cache, no-store, must-revalidate\r\n\
+        Pragma: no-cache\r\n\
+        Expires: 0\r\n\
+        Connection: close\r\n\r\n",
+        image_data.len()
+    );
+
+    let _ = stream.write_all(header.as_bytes());
+    let _ = stream.write_all(image_data);
+    let _ = stream.flush();
+}
+
 fn handle_http_request(mut stream: TcpStream) {
     let mut buffer = [0u8; 1024];
     let _ = stream.read(&mut buffer);
@@ -111,6 +141,11 @@ fn handle_http_request(mut stream: TcpStream) {
 
     if path_without_query == "/long-screenshot/preview.bmp" {
         send_http_long_screenshot_preview(stream);
+        return;
+    }
+
+    if path_without_query == "/long-screenshot/realtime.bmp" {
+        send_http_long_screenshot_realtime(stream);
         return;
     }
 
@@ -180,6 +215,16 @@ pub fn update_long_screenshot_preview(png_data: Vec<u8>) -> Result<u16, String> 
 pub fn clear_long_screenshot_preview() {
     let mut guard = LONG_SCREENSHOT_PREVIEW.lock();
     *guard = None;
+    let mut realtime_guard = LONG_SCREENSHOT_REALTIME.lock();
+    *realtime_guard = None;
+}
+
+// 更新长截屏实时当前帧预览
+pub fn update_long_screenshot_realtime(bmp_data: Vec<u8>) -> Result<u16, String> {
+    let port = ensure_http_server_started()?;
+    let mut guard = LONG_SCREENSHOT_REALTIME.lock();
+    *guard = Some(bmp_data);
+    Ok(port)
 }
 
 // 设置贴图编辑数据

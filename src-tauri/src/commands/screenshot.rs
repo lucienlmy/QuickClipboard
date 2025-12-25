@@ -84,6 +84,12 @@ pub fn stop_long_screenshot_capture() -> Result<(), String> {
     Ok(())
 }
 
+// 更新长截屏预览面板位置
+#[tauri::command]
+pub fn update_long_screenshot_preview_panel(x: f64, y: f64, width: f64, height: f64) {
+    crate::windows::screenshot_window::long_screenshot::update_preview_panel_rect(x, y, width, height);
+}
+
 // 保存长截屏
 #[tauri::command]
 pub async fn save_long_screenshot(path: String) -> Result<(), String> {
