@@ -1,4 +1,5 @@
-import { useRef, useState, useLayoutEffect } from 'react';
+import { useRef, useState, useLayoutEffect, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { DRAWING_TOOLS, HISTORY_TOOLS, ACTION_TOOLS } from '../constants/tools';
 import { usePanelDrag } from '../hooks/usePanelDrag';
@@ -21,6 +22,7 @@ function SelectionToolbar({
   onLongScreenshotCancel,
   // 贴图编辑模式
   pinEditMode = false,
+  screens,
 }) {
   const toolbarRef = useRef(null);
   const [toolbarSize, setToolbarSize] = useState({ width: 340, height: 35 });
@@ -35,6 +37,34 @@ function SelectionToolbar({
     }
   });
 
+  // 工具栏位置变化时更新后端（长截屏模式）
+  const handleToolbarPositionChange = useCallback((pos) => {
+    if (!longScreenshotMode || !screens || screens.length === 0) return;
+    
+    const centerX = pos.x + pos.width / 2;
+    const centerY = pos.y + pos.height / 2;
+    const screen = stageRegionManager?.getNearestScreen(centerX, centerY);
+    if (!screen) return;
+    
+    const scaleX = screen.physicalWidth / screen.width;
+    const scaleY = screen.physicalHeight / screen.height;
+    
+    const relX = pos.x - screen.x;
+    const relY = pos.y - screen.y;
+    
+    const physicalX = screen.physicalX + Math.round(relX * scaleX);
+    const physicalY = screen.physicalY + Math.round(relY * scaleY);
+    const physicalWidth = Math.round(pos.width * scaleX);
+    const physicalHeight = Math.round(pos.height * scaleY);
+    
+    invoke('update_long_screenshot_toolbar', {
+      x: physicalX,
+      y: physicalY,
+      width: physicalWidth,
+      height: physicalHeight,
+    }).catch(() => {});
+  }, [longScreenshotMode, screens, stageRegionManager]);
+
   const {
     lockedPosition,
     isDragging,
@@ -46,6 +76,7 @@ function SelectionToolbar({
     selection,
     stageRegionManager,
     enableSnap: true,
+    onPositionChange: handleToolbarPositionChange,
   });
 
   if (!selection || selection.width <= 0 || selection.height <= 0) return null;

@@ -88,6 +88,7 @@ export function usePanelDrag({
   stageRegionManager,
   enableSnap = true,
   onMaxHeightChange,
+  onPositionChange,
 }) {
   const [position, setPosition] = useState(null);
   const [lockedPosition, setLockedPosition] = useState(null);
@@ -171,7 +172,16 @@ export function usePanelDrag({
     if (!dragStateRef.current.isDragging) return;
     dragStateRef.current.isDragging = false;
     setIsDragging(false);
-  }, []);
+    
+    if (lockedPosition && onPositionChange) {
+      onPositionChange({
+        x: lockedPosition.x,
+        y: lockedPosition.y,
+        width: panelSize.width,
+        height: panelSize.height,
+      });
+    }
+  }, [lockedPosition, panelSize.width, panelSize.height, onPositionChange]);
 
   useEffect(() => {
     window.addEventListener('pointermove', handleDragMove);

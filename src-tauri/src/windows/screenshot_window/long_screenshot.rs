@@ -110,6 +110,11 @@ pub fn update_preview_panel_rect(x: f64, y: f64, width: f64, height: f64) {
     *PREVIEW_PANEL.lock() = Some(PreviewPanelRect { x, y, width, height });
 }
 
+// 更新工具栏位置
+pub fn update_toolbar_rect(x: f64, y: f64, width: f64, height: f64) {
+    *SCREENSHOT_TOOLBAR.lock() = Some(ToolbarRect { x, y, width, height });
+}
+
 // 设置窗口是否从屏幕捕获中排除
 #[cfg(target_os = "windows")]
 fn set_window_exclude_from_capture(window: &WebviewWindow, exclude: bool) {

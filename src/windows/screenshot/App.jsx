@@ -523,6 +523,7 @@ function App() {
           onLongScreenshotSave={longScreenshot.save}
           onLongScreenshotCancel={longScreenshot.cancel}
           pinEditMode={isPinEdit}
+          screens={screens}
         />
       )}
 
