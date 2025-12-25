@@ -298,7 +298,7 @@ pub fn register_paste_plain_text_hotkey(shortcut_str: &str) -> Result<(), String
 
 // 首次按下
 fn handle_paste_plain_text_press(app: &AppHandle) -> Result<(), String> {
-    use crate::services::database::{query_clipboard_items, QueryParams};
+    use crate::services::database::{query_clipboard_items, get_clipboard_item_by_id, QueryParams};
     use crate::services::paste::paste_handler::paste_clipboard_item_with_format;
     use crate::services::paste::PasteFormat;
 
@@ -319,7 +319,9 @@ fn handle_paste_plain_text_press(app: &AppHandle) -> Result<(), String> {
         .items;
 
         if let Some(item) = items.first() {
-            paste_clipboard_item_with_format(item, Some(PasteFormat::PlainText))?;
+            let full_item = get_clipboard_item_by_id(item.id)?
+                .ok_or_else(|| format!("剪贴板项 {} 不存在", item.id))?;
+            paste_clipboard_item_with_format(&full_item, Some(PasteFormat::PlainText))?;
         }
     }
 
@@ -433,7 +435,7 @@ pub fn unregister_number_shortcuts() {
 
 // 首次按下
 fn handle_number_shortcut_press(index: usize) -> Result<(), String> {
-    use crate::services::database::{query_clipboard_items, QueryParams};
+    use crate::services::database::{query_clipboard_items, get_clipboard_item_by_id, QueryParams};
     use crate::services::paste::paste_handler::paste_clipboard_item_with_update;
 
     let items = query_clipboard_items(QueryParams {
@@ -452,7 +454,10 @@ fn handle_number_shortcut_press(index: usize) -> Result<(), String> {
         )
     })?;
 
-    paste_clipboard_item_with_update(item)
+    let full_item = get_clipboard_item_by_id(item.id)?
+        .ok_or_else(|| format!("剪贴板项 {} 不存在", item.id))?;
+
+    paste_clipboard_item_with_update(&full_item)
 }
 
 // 重复按下
