@@ -7,6 +7,11 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::thread;
 use std::time::Duration;
 
+#[cfg(target_os = "windows")]
+use windows::Win32::Foundation::HWND;
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WINDOW_DISPLAY_AFFINITY};
+
 // 截屏模式
 // 0: 普通模式
 // 1: 快速保存模式（选区完成后直接复制到剪贴板）
@@ -66,6 +71,18 @@ fn resize_window_to_virtual_screen(window: &WebviewWindow) {
     let _ = window.set_position(Position::Physical(PhysicalPosition::new(x, y)));
 }
 
+// 设置窗口是否从屏幕捕获中排除
+#[cfg(target_os = "windows")]
+fn set_window_exclude_from_capture(window: &WebviewWindow, exclude: bool) {
+    if let Ok(hwnd) = window.hwnd() {
+        let affinity = WINDOW_DISPLAY_AFFINITY(if exclude { 0x11 } else { 0x00 });
+        unsafe { let _ = SetWindowDisplayAffinity(HWND(hwnd.0), affinity); }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_window_exclude_from_capture(_window: &WebviewWindow, _exclude: bool) {}
+
 fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
     let settings = crate::get_settings();
     if !settings.screenshot_enabled {
@@ -79,17 +96,36 @@ fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
     }
     SCREENSHOT_MODE.store(mode, Ordering::SeqCst);
 
-    crate::services::screenshot::capture_and_store_last(app)?;
-    let _ = window.emit("screenshot:new-session", json!({ "screenshotMode": mode }));
+    set_window_exclude_from_capture(&window, true);
+    
     resize_window_to_virtual_screen(&window);
     let is_dev = cfg!(debug_assertions);
     let _ = window.set_always_on_top(!is_dev);
     let _ = window.show();
     let _ = window.set_focus();
 
-    if let Err(e) = crate::windows::screenshot_window::auto_selection::start_auto_selection(app.clone()) {
-        eprintln!("无法启动自动选区: {}", e);
-    }
+    let app_clone = app.clone();
+    thread::spawn(move || {
+        let capture_result = crate::services::screenshot::capture_and_store_last(&app_clone);
+        
+        let app_for_main = app_clone.clone();
+        let _ = app_clone.run_on_main_thread(move || {
+            if let Some(window) = app_for_main.get_webview_window("screenshot") {
+                set_window_exclude_from_capture(&window, false);
+                
+                if capture_result.is_ok() {
+                    let _ = window.emit("screenshot:new-session", json!({ "screenshotMode": mode }));
+                    
+                    if let Err(e) = crate::windows::screenshot_window::auto_selection::start_auto_selection(app_for_main.clone()) {
+                        eprintln!("无法启动自动选区: {}", e);
+                    }
+                } else if let Err(ref e) = capture_result {
+                    eprintln!("截屏失败: {}", e);
+                }
+            }
+        });
+    });
+
     Ok(())
 }
 
