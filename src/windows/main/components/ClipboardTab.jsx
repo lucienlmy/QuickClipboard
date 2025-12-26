@@ -48,7 +48,7 @@ const ClipboardTab = forwardRef(({
 
   const scrollToTopIfEnabled = (delay = 50) => {
     if (settings.autoScrollToTopOnShow) {
-      setTimeout(() => listRef.current?.scrollToTop?.('auto'), delay);
+      setTimeout(() => listRef.current?.scrollToTop?.(), delay);
     }
   };
 

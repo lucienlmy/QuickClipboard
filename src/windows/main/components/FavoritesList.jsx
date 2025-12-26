@@ -196,11 +196,11 @@ const FavoritesList = forwardRef(({
         }
       }
     },
-    scrollToTop: (behavior = 'smooth') => {
+    scrollToTop: () => {
       virtuosoRef.current?.scrollToIndex({
         index: 0,
         align: 'start',
-        behavior
+        behavior: 'auto'
       });
     }
   }));
