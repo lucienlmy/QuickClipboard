@@ -177,6 +177,34 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             .map_err(|e| format!("添加来源图标哈希字段失败: {}", e))?;
     }
 
+    let clip_char_count_exists = conn
+        .prepare("PRAGMA table_info(clipboard)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "char_count"))
+        })
+        .unwrap_or(false);
+    
+    if !clip_char_count_exists {
+        conn.execute("ALTER TABLE clipboard ADD COLUMN char_count INTEGER", [])
+            .map_err(|e| format!("添加剪贴板字符数量字段失败: {}", e))?;
+    }
+
+    let fav_char_count_exists = conn
+        .prepare("PRAGMA table_info(favorites)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "char_count"))
+        })
+        .unwrap_or(false);
+    
+    if !fav_char_count_exists {
+        conn.execute("ALTER TABLE favorites ADD COLUMN char_count INTEGER", [])
+            .map_err(|e| format!("添加收藏字符数量字段失败: {}", e))?;
+    }
+
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_clipboard_order ON clipboard(is_pinned DESC, item_order DESC, updated_at DESC)",
         [],

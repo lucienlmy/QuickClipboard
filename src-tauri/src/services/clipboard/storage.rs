@@ -6,6 +6,20 @@ use rusqlite::params;
 use chrono;
 use serde_json::Value;
 
+// 计算文本字符数
+fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
+    if content_type.contains("text") || content_type.contains("rich_text") {
+        let count = content.chars().count() as i64;
+        if count > 0 {
+            Some(count)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
     let settings = get_settings();
     
@@ -30,10 +44,11 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
             .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| row.get(0))
             .unwrap_or(0);
         let new_order = max_order + 1;
+        let char_count = calculate_char_count(&content.content, &content.content_type);
         
         conn.execute(
-            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, source_app, source_icon_hash, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, source_app, source_icon_hash, char_count, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 content.content,
                 content.html_content,
@@ -42,6 +57,7 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
                 new_order,
                 content.source_app,
                 content.source_icon_hash,
+                char_count,
                 now,
                 now
             ],

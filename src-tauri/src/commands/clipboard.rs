@@ -199,6 +199,7 @@ pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), S
             paste_count: 0,
             source_app: None,
             source_icon_hash: None,
+            char_count: favorite.char_count,
             created_at: favorite.created_at,
             updated_at: favorite.updated_at,
         };

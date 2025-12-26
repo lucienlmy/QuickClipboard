@@ -17,6 +17,8 @@ pub struct ClipboardItem {
     pub source_app: Option<String>,       
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_icon_hash: Option<String>, 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub char_count: Option<i64>,
     pub created_at: i64,  
     pub updated_at: i64, 
 }
@@ -35,6 +37,8 @@ pub struct FavoriteItem {
     pub group_name: String,
     pub item_order: i64,
     pub paste_count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub char_count: Option<i64>,
     pub created_at: i64,  
     pub updated_at: i64, 
 }

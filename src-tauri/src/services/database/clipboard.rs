@@ -5,6 +5,39 @@ use rusqlite::{params, OptionalExtension};
 use std::collections::HashSet;
 use chrono;
 
+// 计算文本字符数
+fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
+    if content_type.contains("text") || content_type.contains("rich_text") {
+        let count = content.chars().count() as i64;
+        if count > 0 {
+            Some(count)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+// 异步更新缺失的字符数
+pub fn update_missing_char_counts(items: Vec<(i64, String, String)>) {
+    if items.is_empty() { return; }
+    
+    std::thread::spawn(move || {
+        let _ = with_connection(|conn| {
+            for (id, content, content_type) in items {
+                if let Some(char_count) = calculate_char_count(&content, &content_type) {
+                    conn.execute(
+                        "UPDATE clipboard SET char_count = ?1 WHERE id = ?2",
+                        params![char_count, id],
+                    )?;
+                }
+            }
+            Ok(())
+        });
+    });
+}
+
 // 按逗号拆分图片ID
 fn split_image_ids(s: &str) -> Vec<String> {
     s.split(',')
@@ -21,7 +54,7 @@ fn is_image_id_referenced(conn: &rusqlite::Connection, image_id: &str) -> Result
     let p2 = format!("%,{},%", image_id);
     let p3 = format!("%,{}", image_id);
 
-    let mut q = |table: &str| -> Result<bool, rusqlite::Error> {
+    let q = |table: &str| -> Result<bool, rusqlite::Error> {
         let sql = format!(
             "SELECT EXISTS(SELECT 1 FROM {} WHERE image_id = ?1 OR image_id LIKE ?2 OR image_id LIKE ?3 OR image_id LIKE ?4)",
             table
@@ -103,7 +136,7 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         }
         
         let query_sql = format!(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at 
+            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
              FROM clipboard 
              {} 
              ORDER BY is_pinned DESC, item_order DESC, updated_at DESC 
@@ -115,27 +148,31 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         query_params.push(Box::new(params.offset));
         
         let mut stmt = conn.prepare(&query_sql)?;
+
+        let mut items_to_update: Vec<(i64, String, String)> = vec![];
         
         let items = stmt.query_map(
             rusqlite::params_from_iter(query_params.iter().map(|p| p.as_ref())),
             |row| {
+                let id: i64 = row.get(0)?;
                 let content: String = row.get(1)?;
                 let html_content: Option<String> = row.get(2)?;
                 let content_type: String = row.get(3)?;
+                let char_count: Option<i64> = row.get(12)?;
                 
                 let (truncated_content, truncated_html) = if content_type == "text" || content_type == "rich_text" || content_type == "link" {
                     let truncated_content = if content.len() > MAX_CONTENT_LENGTH {
                         if let Some(ref keyword) = search_keyword {
                             if !keyword.trim().is_empty() {
-                                truncate_around_keyword(content, keyword, MAX_CONTENT_LENGTH)
+                                truncate_around_keyword(content.clone(), keyword, MAX_CONTENT_LENGTH)
                             } else {
-                                truncate_string(content, MAX_CONTENT_LENGTH)
+                                truncate_string(content.clone(), MAX_CONTENT_LENGTH)
                             }
                         } else {
-                            truncate_string(content, MAX_CONTENT_LENGTH)
+                            truncate_string(content.clone(), MAX_CONTENT_LENGTH)
                         }
                     } else {
-                        content
+                        content.clone()
                     };
                     
                     let truncated_html = html_content.map(|h| {
@@ -148,28 +185,48 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
                     
                     (truncated_content, truncated_html)
                 } else {
-                    (content, html_content)
+                    (content.clone(), html_content)
+                };
+
+                let needs_char_count = content_type.contains("text") || content_type.contains("rich_text");
+                let final_char_count = if char_count.is_none() && needs_char_count && !content.is_empty() {
+                    Some(content.chars().count() as i64)
+                } else {
+                    char_count
                 };
                 
-                Ok(ClipboardItem {
-                    id: row.get(0)?,
+                Ok((ClipboardItem {
+                    id,
                     content: truncated_content,
                     html_content: truncated_html,
-                    content_type,
+                    content_type: content_type.clone(),
                     image_id: row.get(4)?,
                     item_order: row.get(5)?,
                     is_pinned: row.get::<_, i64>(6)? != 0,
                     paste_count: row.get(7)?,
                     source_app: row.get(8)?,
                     source_icon_hash: row.get(9)?,
+                    char_count: final_char_count,
                     created_at: row.get(10)?,
                     updated_at: row.get(11)?,
-                })
+                }, char_count.is_none() && needs_char_count, id, content, content_type))
             }
         )?
         .collect::<Result<Vec<_>, _>>()?;
         
-        Ok(PaginatedResult::new(total_count, items, params.offset, params.limit))
+        let mut result_items = vec![];
+        for (item, needs_update, id, content, content_type) in items {
+            if needs_update {
+                items_to_update.push((id, content, content_type));
+            }
+            result_items.push(item);
+        }
+
+        if !items_to_update.is_empty() {
+            update_missing_char_counts(items_to_update);
+        }
+        
+        Ok(PaginatedResult::new(total_count, result_items, params.offset, params.limit))
     })
 }
 
@@ -184,21 +241,33 @@ pub fn get_clipboard_count() -> Result<i64, String> {
 pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {
         conn.query_row(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at 
+            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
              FROM clipboard WHERE id = ?",
             params![id],
             |row| {
+                let content: String = row.get(1)?;
+                let content_type: String = row.get(3)?;
+                let char_count: Option<i64> = row.get(12)?;
+                
+                // 计算字符数
+                let final_char_count = if char_count.is_none() && (content_type.contains("text") || content_type.contains("rich_text")) && !content.is_empty() {
+                    Some(content.chars().count() as i64)
+                } else {
+                    char_count
+                };
+                
                 Ok(ClipboardItem {
                     id: row.get(0)?,
-                    content: row.get(1)?,
+                    content,
                     html_content: row.get(2)?,
-                    content_type: row.get(3)?,
+                    content_type,
                     image_id: row.get(4)?,
                     item_order: row.get(5)?,
                     is_pinned: row.get::<_, i64>(6)? != 0,
                     paste_count: row.get(7)?,
                     source_app: row.get(8)?,
                     source_icon_hash: row.get(9)?,
+                    char_count: final_char_count,
                     created_at: row.get(10)?,
                     updated_at: row.get(11)?,
                 })

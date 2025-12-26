@@ -416,6 +416,11 @@ function ClipboardItem({
           <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
             <span className="text-xs text-gray-400 dark:text-gray-500 leading-5">
               {formatTime()}
+              {item.char_count != null && (
+                <span className="ml-1.5">
+                  {item.char_count.toLocaleString()} {t('common.chars', '字符')}
+                </span>
+              )}
             </span>
           </div>
 

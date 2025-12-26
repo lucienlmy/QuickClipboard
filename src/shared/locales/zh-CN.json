@@ -28,7 +28,8 @@
     "editFailed": "编辑失败",
     "operationFailed": "操作失败",
     "noResults": "无搜索结果",
-    "rename": "重命名"
+    "rename": "重命名",
+    "chars": "字符"
   },
   "clipboard": {
     "title": "剪贴板",

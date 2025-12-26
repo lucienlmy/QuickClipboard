@@ -28,7 +28,8 @@
     "editFailed": "Edit failed",
     "operationFailed": "Operation failed",
     "noResults": "No results",
-    "rename": "Rename"
+    "rename": "Rename",
+    "chars": "chars"
   },
   "clipboard": {
     "title": "Clipboard",

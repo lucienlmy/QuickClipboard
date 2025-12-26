@@ -4,6 +4,39 @@ use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use chrono;
 
+// 计算文本字符数
+fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
+    if content_type.contains("text") || content_type.contains("rich_text") {
+        let count = content.chars().count() as i64;
+        if count > 0 {
+            Some(count)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+// 异步更新缺失的字符数
+pub fn update_missing_favorite_char_counts(items: Vec<(String, String, String)>) {
+    if items.is_empty() { return; }
+    
+    std::thread::spawn(move || {
+        let _ = with_connection(|conn| {
+            for (id, content, content_type) in items {
+                if let Some(char_count) = calculate_char_count(&content, &content_type) {
+                    conn.execute(
+                        "UPDATE favorites SET char_count = ?1 WHERE id = ?2",
+                        params![char_count, id],
+                    )?;
+                }
+            }
+            Ok(())
+        });
+    });
+}
+
 // 分页查询收藏列表
 pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<FavoriteItem>, String> {
     let search_keyword = params.search.clone();
@@ -58,7 +91,7 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
         let query_sql = if is_all_groups {
             // 查询全部分组时，按分组顺序排列
             format!(
-                "SELECT f.id, f.title, f.content, f.html_content, f.content_type, f.image_id, f.group_name, f.item_order, f.paste_count, f.created_at, f.updated_at 
+                "SELECT f.id, f.title, f.content, f.html_content, f.content_type, f.image_id, f.group_name, f.item_order, f.paste_count, f.created_at, f.updated_at, f.char_count 
                  FROM favorites f 
                  LEFT JOIN groups g ON f.group_name = g.name 
                  {} 
@@ -68,7 +101,7 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
             )
         } else {
             format!(
-                "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at 
+                "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at, char_count 
                  FROM favorites {} ORDER BY item_order DESC, updated_at DESC LIMIT ? OFFSET ?",
                 where_sql
             )
@@ -78,25 +111,29 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
         query_params.push(Box::new(params.offset));
 
         let mut stmt = conn.prepare(&query_sql)?;
+
+        let mut items_to_update: Vec<(String, String, String)> = vec![];
         
         let items = stmt.query_map(rusqlite::params_from_iter(query_params), |row| {
+            let id: String = row.get(0)?;
             let content: String = row.get(2)?;
             let html_content: Option<String> = row.get(3)?;
             let content_type: String = row.get(4)?;
+            let char_count: Option<i64> = row.get(11)?;
 
             let (truncated_content, truncated_html) = if content_type == "text" || content_type == "rich_text" || content_type == "link" {
                 let truncated_content = if content.len() > MAX_CONTENT_LENGTH {
                     if let Some(ref keyword) = search_keyword {
                         if !keyword.trim().is_empty() {
-                            truncate_around_keyword(content, keyword, MAX_CONTENT_LENGTH)
+                            truncate_around_keyword(content.clone(), keyword, MAX_CONTENT_LENGTH)
                         } else {
-                            truncate_string(content, MAX_CONTENT_LENGTH)
+                            truncate_string(content.clone(), MAX_CONTENT_LENGTH)
                         }
                     } else {
-                        truncate_string(content, MAX_CONTENT_LENGTH)
+                        truncate_string(content.clone(), MAX_CONTENT_LENGTH)
                     }
                 } else {
-                    content
+                    content.clone()
                 };
                 let truncated_html = html_content.map(|html| {
                     if html.len() > MAX_CONTENT_LENGTH {
@@ -107,26 +144,47 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
                 });
                 (truncated_content, truncated_html)
             } else {
-                (content, html_content)
+                (content.clone(), html_content)
             };
 
-            Ok(FavoriteItem {
-                id: row.get(0)?,
+            // 计算字符数
+            let needs_char_count = content_type.contains("text") || content_type.contains("rich_text");
+            let final_char_count = if char_count.is_none() && needs_char_count && !content.is_empty() {
+                Some(content.chars().count() as i64)
+            } else {
+                char_count
+            };
+
+            Ok((FavoriteItem {
+                id: id.clone(),
                 title: row.get(1)?,
                 content: truncated_content,
                 html_content: truncated_html,
-                content_type,
+                content_type: content_type.clone(),
                 image_id: row.get(5)?,
                 group_name: row.get(6)?,
                 item_order: row.get(7)?,
                 paste_count: row.get(8)?,
+                char_count: final_char_count,
                 created_at: row.get(9)?,
                 updated_at: row.get(10)?,
-            })
+            }, char_count.is_none() && needs_char_count, id, content, content_type))
         })?
-        .collect::<Result<Vec<FavoriteItem>, rusqlite::Error>>()?;
+        .collect::<Result<Vec<_>, rusqlite::Error>>()?;
+
+        let mut result_items = vec![];
+        for (item, needs_update, id, content, content_type) in items {
+            if needs_update {
+                items_to_update.push((id, content, content_type));
+            }
+            result_items.push(item);
+        }
+
+        if !items_to_update.is_empty() {
+            update_missing_favorite_char_counts(items_to_update);
+        }
         
-        Ok(PaginatedResult::new(total_count, items, params.offset, params.limit))
+        Ok(PaginatedResult::new(total_count, result_items, params.offset, params.limit))
     })
 }
 
@@ -146,7 +204,7 @@ fn is_image_id_referenced(conn: &rusqlite::Connection, image_id: &str) -> Result
     let p2 = format!("%,{},%", image_id);
     let p3 = format!("%,{}", image_id);
 
-    let mut q = |table: &str| -> Result<bool, rusqlite::Error> {
+    let q = |table: &str| -> Result<bool, rusqlite::Error> {
         let sql = format!(
             "SELECT EXISTS(SELECT 1 FROM {} WHERE image_id = ?1 OR image_id LIKE ?2 OR image_id LIKE ?3 OR image_id LIKE ?4)",
             table
@@ -193,20 +251,32 @@ pub fn get_favorites_count(group_name: Option<String>) -> Result<i64, String> {
 pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
     with_connection(|conn| {
         conn.query_row(
-            "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at 
+            "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at, char_count 
              FROM favorites WHERE id = ?",
             params![id],
             |row| {
+                let content: String = row.get(2)?;
+                let content_type: String = row.get(4)?;
+                let char_count: Option<i64> = row.get(11)?;
+                
+                // 计算字符数
+                let final_char_count = if char_count.is_none() && (content_type.contains("text") || content_type.contains("rich_text")) && !content.is_empty() {
+                    Some(content.chars().count() as i64)
+                } else {
+                    char_count
+                };
+                
                 Ok(FavoriteItem {
                     id: row.get(0)?,
                     title: row.get(1)?,
-                    content: row.get(2)?,
+                    content,
                     html_content: row.get(3)?,
-                    content_type: row.get(4)?,
+                    content_type,
                     image_id: row.get(5)?,
                     group_name: row.get(6)?,
                     item_order: row.get(7)?,
                     paste_count: row.get(8)?,
+                    char_count: final_char_count,
                     created_at: row.get(9)?,
                     updated_at: row.get(10)?,
                 })
@@ -285,8 +355,8 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
     let group_name = group_name.unwrap_or_else(|| "全部".to_string());
     
     with_connection(|conn| {
-        let (content, html_content, content_type, image_id) = conn.query_row(
-            "SELECT content, html_content, content_type, image_id FROM clipboard WHERE id = ?",
+        let (content, html_content, content_type, image_id, char_count) = conn.query_row(
+            "SELECT content, html_content, content_type, image_id, char_count FROM clipboard WHERE id = ?",
             params![clipboard_id],
             |row| {
                 Ok((
@@ -294,11 +364,18 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
                     row.get::<_, Option<String>>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<i64>>(4)?,
                 ))
             }
         )?;
         
         let title = String::new();
+
+        let final_char_count = if char_count.is_none() && (content_type.contains("text") || content_type.contains("rich_text")) && !content.is_empty() {
+            Some(content.chars().count() as i64)
+        } else {
+            char_count
+        };
         
         let id = Uuid::new_v4().to_string();
         let now = chrono::Local::now().timestamp();
@@ -311,8 +388,8 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
         let new_order = max_order + 1;
         
         conn.execute(
-            "INSERT INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, char_count, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 &id,
                 &title,
@@ -322,6 +399,7 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
                 &image_id,
                 &group_name,
                 new_order,
+                final_char_count,
                 now,
                 now,
             ],
@@ -337,6 +415,7 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
             group_name,
             item_order: new_order,
             paste_count: 0,
+            char_count: final_char_count,
             created_at: now,
             updated_at: now,
         })
@@ -424,6 +503,8 @@ pub fn add_favorite(title: String, content: String, group_name: Option<String>) 
     
     let group_name = group_name.unwrap_or_else(|| "全部".to_string());
     let (id, now) = (Uuid::new_v4().to_string(), chrono::Local::now().timestamp());
+
+    let char_count = Some(content.chars().count() as i64);
     
     with_connection(|conn| {
         let max_order: i64 = conn.query_row(
@@ -433,15 +514,15 @@ pub fn add_favorite(title: String, content: String, group_name: Option<String>) 
         let new_order = max_order + 1;
         
         conn.execute(
-            "INSERT INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, NULL, 'text', NULL, ?4, ?5, ?6, ?7)",
-            params![&id, &title, &content, &group_name, new_order, now, now],
+            "INSERT INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, char_count, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, NULL, 'text', NULL, ?4, ?5, ?6, ?7, ?8)",
+            params![&id, &title, &content, &group_name, new_order, char_count, now, now],
         )?;
         
         Ok(FavoriteItem {
             id: id.clone(), title, content, html_content: None,
             content_type: "text".to_string(), image_id: None, group_name,
-            item_order: new_order, paste_count: 0, created_at: now, updated_at: now,
+            item_order: new_order, paste_count: 0, char_count, created_at: now, updated_at: now,
         })
     })
 }
@@ -451,12 +532,14 @@ pub fn update_favorite(id: String, title: String, content: String, group_name: O
     let group_name = group_name.unwrap_or_else(|| "全部".to_string());
     
     with_connection(|conn| {
-        let old_group_name = conn.query_row(
-            "SELECT group_name FROM favorites WHERE id = ?", params![&id],
-            |row| row.get::<_, String>(0)
+        let (old_group_name, content_type) = conn.query_row(
+            "SELECT group_name, content_type FROM favorites WHERE id = ?", params![&id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         ).optional()?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         
         let now = chrono::Local::now().timestamp();
+
+        let char_count = calculate_char_count(&content, &content_type);
         
         if old_group_name != group_name {
             let max_order: i64 = conn.query_row(
@@ -466,8 +549,8 @@ pub fn update_favorite(id: String, title: String, content: String, group_name: O
             let new_order = max_order + 1;
             
             conn.execute(
-                "UPDATE favorites SET title = ?1, content = ?2, group_name = ?3, item_order = ?4, updated_at = ?5 WHERE id = ?6",
-                params![&title, &content, &group_name, new_order, now, &id],
+                "UPDATE favorites SET title = ?1, content = ?2, group_name = ?3, item_order = ?4, char_count = ?5, updated_at = ?6 WHERE id = ?7",
+                params![&title, &content, &group_name, new_order, char_count, now, &id],
             )?;
             
             let item_ids: Vec<String> = conn.prepare(
@@ -483,8 +566,8 @@ pub fn update_favorite(id: String, title: String, content: String, group_name: O
             }
         } else {
             conn.execute(
-                "UPDATE favorites SET title = ?1, content = ?2, updated_at = ?3 WHERE id = ?4",
-                params![&title, &content, now, &id],
+                "UPDATE favorites SET title = ?1, content = ?2, char_count = ?3, updated_at = ?4 WHERE id = ?5",
+                params![&title, &content, char_count, now, &id],
             )?;
         }
         Ok(())
