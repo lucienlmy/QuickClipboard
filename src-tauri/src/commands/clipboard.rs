@@ -66,22 +66,28 @@ fn resolve_stored_path(stored_path: &str) -> String {
 
 // 分页查询剪贴板历史
 #[tauri::command]
-pub fn get_clipboard_history(
+pub async fn get_clipboard_history(
     offset: Option<i64>,
     limit: Option<i64>,
     search: Option<String>,
     content_type: Option<String>,
 ) -> Result<PaginatedResult<ClipboardItem>, String> {
-    let params = QueryParams {
-        offset: offset.unwrap_or(0),
-        limit: limit.unwrap_or(50),
-        search,
-        content_type,
-    };
-
-    let mut result = query_clipboard_items(params)?;
-    fill_file_exists(&mut result.items);
-    Ok(result)
+    let result = tokio::task::spawn_blocking(move || {
+        let params = QueryParams {
+            offset: offset.unwrap_or(0),
+            limit: limit.unwrap_or(50),
+            search,
+            content_type,
+        };
+        query_clipboard_items(params)
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))??;
+    
+    let mut items = result.items;
+    fill_file_exists(&mut items);
+    
+    Ok(PaginatedResult::new(result.total_count, items, result.offset, result.limit))
 }
 
 // 另存图片

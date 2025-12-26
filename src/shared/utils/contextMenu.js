@@ -248,7 +248,7 @@ async function handlePasteActions(result, item, isClipboard = true, index = unde
       try {
         await moveClipboardItemToTop(item.id)
       } finally {
-        clipboardStore.items = new Map()
+        clipboardStore.items = {}
       }
     }
   }

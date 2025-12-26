@@ -11,6 +11,9 @@ import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
 import { moveFavoriteItemById } from '@shared/api';
 import FavoriteItem from './FavoriteItem';
+
+const SCROLL_DEBOUNCE_DELAY = 50;
+
 const FavoritesList = forwardRef(({
   onScrollStateChange
 }, ref) => {
@@ -20,6 +23,8 @@ const FavoritesList = forwardRef(({
     startIndex: 0,
     endIndex: 0
   });
+  const loadTimeoutRef = useRef(null);
+  const lastLoadedRangeRef = useRef({ start: -1, end: -1 });
   const snap = useSnapshot(navigationStore);
   const favSnap = useSnapshot(favoritesStore);
   const groupsSnap = useSnapshot(groupsStore);
@@ -27,7 +32,7 @@ const FavoritesList = forwardRef(({
   const itemsArray = useMemo(() => {
     return Array.from({
       length: favSnap.totalCount
-    }, (_, i) => favSnap.items.get(i) || null);
+    }, (_, i) => favSnap.items[i] || null);
   }, [favSnap.items, favSnap.totalCount]);
   useCustomScrollbar(scrollerElement);
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
@@ -39,8 +44,10 @@ const FavoritesList = forwardRef(({
           _isPlaceholder: true
         };
       }
-      item._sortId = `${item.id}`;
-      return item;
+      return {
+        ...item,
+        _sortId: `${item.id}`
+      };
     });
   }, [itemsArray]);
 
@@ -62,7 +69,7 @@ const FavoritesList = forwardRef(({
     } catch (error) {
       console.error('移动收藏项失败:', error);
     } finally {
-      favoritesStore.items = new Map();
+      favoritesStore.items = {};
     }
   };
 
@@ -128,7 +135,7 @@ const FavoritesList = forwardRef(({
     enabled: snap.activeTab === 'favorites'
   });
 
-  const handleRangeChanged = useCallback(async ({
+  const handleRangeChanged = useCallback(({
     startIndex,
     endIndex
   }) => {
@@ -137,34 +144,55 @@ const FavoritesList = forwardRef(({
       endIndex
     };
 
-    favoritesStore.updateViewRange(startIndex, endIndex);
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
 
-    let rangeStart = -1,
-      rangeEnd = -1;
-    for (let i = startIndex; i <= endIndex && i < favSnap.totalCount; i++) {
-      if (!favSnap.items.has(i)) {
-        if (rangeStart === -1) rangeStart = i;
-        rangeEnd = i;
+    loadTimeoutRef.current = setTimeout(() => {
+      const lastRange = lastLoadedRangeRef.current;
+      const bufferStart = Math.max(0, startIndex - 50);
+      const bufferEnd = Math.min(favSnap.totalCount - 1, endIndex + 50);
+      
+      if (bufferStart >= lastRange.start && bufferEnd <= lastRange.end) {
+        return;
       }
-    }
-    if (rangeStart !== -1) {
-      await loadFavoritesRange(Math.max(0, rangeStart - 20), Math.min(favSnap.totalCount - 1, rangeEnd + 20), groupsSnap.currentGroup);
-    }
+
+      favoritesStore.updateViewRange(startIndex, endIndex);
+
+      let rangeStart = -1,
+        rangeEnd = -1;
+      for (let i = startIndex; i <= endIndex && i < favSnap.totalCount; i++) {
+        if (!favoritesStore.hasItem(i)) {
+          if (rangeStart === -1) rangeStart = i;
+          rangeEnd = i;
+        }
+      }
+      if (rangeStart !== -1) {
+        const loadStart = Math.max(0, rangeStart - 50);
+        const loadEnd = Math.min(favSnap.totalCount - 1, rangeEnd + 50);
+        lastLoadedRangeRef.current = { start: loadStart, end: loadEnd };
+        loadFavoritesRange(loadStart, loadEnd, groupsSnap.currentGroup);
+      }
+    }, SCROLL_DEBOUNCE_DELAY);
   }, [favSnap.totalCount, favSnap.items, groupsSnap.currentGroup]);
 
+  const itemsCount = Object.keys(favSnap.items).length;
+  
   useEffect(() => {
-    if (favSnap.totalCount > 0 && favSnap.items.size === 0) {
+    if (favSnap.totalCount > 0 && itemsCount === 0) {
+      lastLoadedRangeRef.current = { start: -1, end: -1 };
+      
       const {
         startIndex,
         endIndex
       } = currentRangeRef.current;
       if (startIndex >= 0 && endIndex >= startIndex && endIndex < favSnap.totalCount) {
-        loadFavoritesRange(Math.max(0, startIndex - 20), Math.min(favSnap.totalCount - 1, endIndex + 20), groupsSnap.currentGroup);
+        loadFavoritesRange(Math.max(0, startIndex - 50), Math.min(favSnap.totalCount - 1, endIndex + 50), groupsSnap.currentGroup);
       } else {
         loadFavoritesRange(0, Math.min(49, favSnap.totalCount - 1), groupsSnap.currentGroup);
       }
     }
-  }, [favSnap.totalCount, favSnap.items.size, groupsSnap.currentGroup]);
+  }, [favSnap.totalCount, itemsCount, groupsSnap.currentGroup]);
   useImperativeHandle(ref, () => ({
     navigateUp,
     navigateDown,

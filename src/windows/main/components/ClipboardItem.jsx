@@ -117,7 +117,7 @@ function ClipboardItem({
           try {
             await moveClipboardItemToTop(item.id);
           } finally {
-            clipboardStore.items = new Map();
+            clipboardStore.items = {};
           }
         }
       } catch (error) {

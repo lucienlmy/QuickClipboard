@@ -87,12 +87,11 @@ function HtmlContent({
     }
   }, [searchKeyword, htmlContent]);
 
-  return <div ref={contentRef} className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed html-content overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent" style={{
+  return <div ref={contentRef} className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed html-content overflow-hidden scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent" style={{
     wordBreak: 'break-all',
     maxHeight: '100%',
     height: '100%',
-    overflowY: 'auto',
-    overflowX: 'hidden',
+    overflow: 'hidden',
     paddingRight: '4px',
     isolation: 'isolate',
     contain: 'layout style paint'

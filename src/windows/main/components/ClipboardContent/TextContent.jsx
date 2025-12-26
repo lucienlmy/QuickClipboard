@@ -34,7 +34,7 @@ function TextContent({ content, lineClampClass, searchKeyword,rowHeight = 'mediu
   return (
     <div
       ref={containerRef}
-      className={`${textClass} text-gray-800 dark:text-gray-200 break-all h-full ${clampClass} ${searchKeyword ? 'overflow-y-auto' : 'overflow-hidden'}`}
+      className={`${textClass} text-gray-800 dark:text-gray-200 break-all h-full ${clampClass} overflow-hidden`}
     >
       {renderedContent}
     </div>

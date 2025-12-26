@@ -11,6 +11,9 @@ import { settingsStore } from '@shared/store/settingsStore';
 import { moveClipboardItemToTop, moveClipboardItemById } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
 import ClipboardItem from './ClipboardItem';
+
+const SCROLL_DEBOUNCE_DELAY = 50;
+
 const ClipboardList = forwardRef(({
   onScrollStateChange
 }, ref) => {
@@ -20,6 +23,8 @@ const ClipboardList = forwardRef(({
     startIndex: 0,
     endIndex: 0
   });
+  const loadTimeoutRef = useRef(null);
+  const lastLoadedRangeRef = useRef({ start: -1, end: -1 });
   const snap = useSnapshot(navigationStore);
   const clipSnap = useSnapshot(clipboardStore);
   const showShortcut = !clipSnap.filter && clipSnap.contentType === 'all';
@@ -27,7 +32,7 @@ const ClipboardList = forwardRef(({
   const itemsArray = useMemo(() => {
     return Array.from({
       length: clipSnap.totalCount
-    }, (_, i) => clipSnap.items.get(i) || null);
+    }, (_, i) => clipSnap.items[i] || null);
   }, [clipSnap.items, clipSnap.totalCount]);
   useCustomScrollbar(scrollerElement);
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
@@ -39,8 +44,10 @@ const ClipboardList = forwardRef(({
           _isPlaceholder: true
         };
       }
-      item._sortId = `${item.created_at}-${index}`;
-      return item;
+      return {
+        ...item,
+        _sortId: `${item.created_at}-${index}`
+      };
     });
   }, [itemsArray]);
 
@@ -60,7 +67,7 @@ const ClipboardList = forwardRef(({
     } catch (error) {
       console.error('移动剪贴板项失败:', error);
     } finally {
-      clipboardStore.items = new Map();
+      clipboardStore.items = {};
     }
   };
 
@@ -124,7 +131,7 @@ const ClipboardList = forwardRef(({
           try {
             await moveClipboardItemToTop(item.id);
           } finally {
-            clipboardStore.items = new Map();
+            clipboardStore.items = {};
           }
         }
       } catch (error) {
@@ -134,7 +141,7 @@ const ClipboardList = forwardRef(({
     enabled: snap.activeTab === 'clipboard'
   });
 
-  const handleRangeChanged = useCallback(async ({
+  const handleRangeChanged = useCallback(({
     startIndex,
     endIndex
   }) => {
@@ -143,34 +150,55 @@ const ClipboardList = forwardRef(({
       endIndex
     };
 
-    clipboardStore.updateViewRange(startIndex, endIndex);
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
 
-    let rangeStart = -1,
-      rangeEnd = -1;
-    for (let i = startIndex; i <= endIndex && i < clipSnap.totalCount; i++) {
-      if (!clipSnap.items.has(i)) {
-        if (rangeStart === -1) rangeStart = i;
-        rangeEnd = i;
+    loadTimeoutRef.current = setTimeout(() => {
+      const lastRange = lastLoadedRangeRef.current;
+      const bufferStart = Math.max(0, startIndex - 50);
+      const bufferEnd = Math.min(clipSnap.totalCount - 1, endIndex + 50);
+      
+      if (bufferStart >= lastRange.start && bufferEnd <= lastRange.end) {
+        return;
       }
-    }
-    if (rangeStart !== -1) {
-      await loadClipboardRange(Math.max(0, rangeStart - 20), Math.min(clipSnap.totalCount - 1, rangeEnd + 20));
-    }
+
+      clipboardStore.updateViewRange(startIndex, endIndex);
+
+      let rangeStart = -1,
+        rangeEnd = -1;
+      for (let i = startIndex; i <= endIndex && i < clipSnap.totalCount; i++) {
+        if (!clipboardStore.hasItem(i)) {
+          if (rangeStart === -1) rangeStart = i;
+          rangeEnd = i;
+        }
+      }
+      if (rangeStart !== -1) {
+        const loadStart = Math.max(0, rangeStart - 50);
+        const loadEnd = Math.min(clipSnap.totalCount - 1, rangeEnd + 50);
+        lastLoadedRangeRef.current = { start: loadStart, end: loadEnd };
+        loadClipboardRange(loadStart, loadEnd);
+      }
+    }, SCROLL_DEBOUNCE_DELAY);
   }, [clipSnap.totalCount, clipSnap.items]);
 
+  const itemsCount = Object.keys(clipSnap.items).length;
+  
   useEffect(() => {
-    if (clipSnap.totalCount > 0 && clipSnap.items.size === 0) {
+    if (clipSnap.totalCount > 0 && itemsCount === 0) {
+      lastLoadedRangeRef.current = { start: -1, end: -1 };
+      
       const {
         startIndex,
         endIndex
       } = currentRangeRef.current;
       if (startIndex >= 0 && endIndex >= startIndex && endIndex < clipSnap.totalCount) {
-        loadClipboardRange(Math.max(0, startIndex - 20), Math.min(clipSnap.totalCount - 1, endIndex + 20));
+        loadClipboardRange(Math.max(0, startIndex - 50), Math.min(clipSnap.totalCount - 1, endIndex + 50));
       } else {
         loadClipboardRange(0, Math.min(49, clipSnap.totalCount - 1));
       }
     }
-  }, [clipSnap.totalCount, clipSnap.items.size]);
+  }, [clipSnap.totalCount, itemsCount]);
   useImperativeHandle(ref, () => ({
     navigateUp,
     navigateDown,
@@ -186,7 +214,7 @@ const ClipboardList = forwardRef(({
             try {
               await moveClipboardItemToTop(item.id);
             } finally {
-              clipboardStore.items = new Map();
+              clipboardStore.items = {};
             }
           }
         } catch (error) {

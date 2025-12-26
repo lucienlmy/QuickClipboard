@@ -1,5 +1,6 @@
 use super::models::{ClipboardItem, PaginatedResult, QueryParams};
-use super::connection::{with_connection, truncate_string, truncate_around_keyword, MAX_CONTENT_LENGTH};
+use super::connection::{with_connection, MAX_CONTENT_LENGTH};
+use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use std::collections::HashSet;
 use chrono;
@@ -49,27 +50,25 @@ fn delete_image_files(image_ids: Vec<String>) -> Result<(), String> {
 // 分页查询剪贴板历史
 pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<ClipboardItem>, String> {
     let search_keyword = params.search.clone();
+    let has_filter = search_keyword.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false)
+        || params.content_type.as_ref().map(|t| t != "all").unwrap_or(false);
     
     with_connection(|conn| {
         let mut where_clauses = vec![];
-        let mut count_params: Vec<Box<dyn rusqlite::ToSql>> = vec![];
         let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = vec![];
         
         if let Some(ref search) = search_keyword {
             if !search.trim().is_empty() {
                 where_clauses.push("content LIKE ?");
                 let search_pattern = format!("%{}%", search);
-                count_params.push(Box::new(search_pattern.clone()));
                 query_params.push(Box::new(search_pattern));
             }
         }
         
         if let Some(ref content_type) = params.content_type {
             if content_type != "all" {
-                let pattern = format!("%{}%", content_type);
-                where_clauses.push("content_type LIKE ?");
-                count_params.push(Box::new(pattern.clone()));
-                query_params.push(Box::new(pattern));
+                where_clauses.push("content_type = ?");
+                query_params.push(Box::new(content_type.clone()));
             }
         }
         
@@ -79,12 +78,25 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
             format!("WHERE {}", where_clauses.join(" AND "))
         };
         
-        let count_sql = format!("SELECT COUNT(*) FROM clipboard {}", where_clause);
-        let total_count: i64 = conn.query_row(
-            &count_sql,
-            rusqlite::params_from_iter(count_params.iter().map(|p| p.as_ref())),
-            |row| row.get(0)
-        )?;
+        let total_count: i64 = if has_filter {
+            let count_sql = format!("SELECT COUNT(*) FROM clipboard {}", where_clause);
+            let count_params: Vec<Box<dyn rusqlite::ToSql>> = query_params.iter().map(|p| {
+                let val: Box<dyn rusqlite::ToSql> = match p.as_ref().to_sql() {
+                    Ok(rusqlite::types::ToSqlOutput::Borrowed(rusqlite::types::ValueRef::Text(s))) => {
+                        Box::new(String::from_utf8_lossy(s).to_string())
+                    }
+                    _ => Box::new("")
+                };
+                val
+            }).collect();
+            conn.query_row(
+                &count_sql,
+                rusqlite::params_from_iter(count_params.iter().map(|p| p.as_ref())),
+                |row| row.get(0)
+            )?
+        } else {
+            conn.query_row("SELECT COUNT(*) FROM clipboard", [], |row| row.get(0))?
+        };
         
         if total_count == 0 {
             return Ok(PaginatedResult::new(0, vec![], params.offset, params.limit));
@@ -128,15 +140,7 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
                     
                     let truncated_html = html_content.map(|h| {
                         if h.len() > MAX_CONTENT_LENGTH {
-                            if let Some(ref keyword) = search_keyword {
-                                if !keyword.trim().is_empty() {
-                                    truncate_around_keyword(h, keyword, MAX_CONTENT_LENGTH)
-                                } else {
-                                    truncate_string(h, MAX_CONTENT_LENGTH)
-                                }
-                            } else {
-                                truncate_string(h, MAX_CONTENT_LENGTH)
-                            }
+                            truncate_html(h, MAX_CONTENT_LENGTH)
                         } else {
                             h
                         }

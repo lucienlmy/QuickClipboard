@@ -36,7 +36,7 @@ function QuickPasteWindow() {
   const isClipboardTab = navSnap.activeTab === 'clipboard';
   const currentItems = isClipboardTab ? clipSnap.items : favSnap.items;
   const totalCount = isClipboardTab ? clipSnap.totalCount : favSnap.totalCount;
-  const itemsArray = useMemo(() => Array.from({ length: totalCount }, (_, i) => currentItems.get(i) || null), [currentItems, totalCount]);
+  const itemsArray = useMemo(() => Array.from({ length: totalCount }, (_, i) => currentItems[i] || null), [currentItems, totalCount]);
   const title = isClipboardTab ? t('settings.quickpaste.window.clipboardHistory') : groupSnap.currentGroup;
 
   // 计算可见项目数量
@@ -87,7 +87,7 @@ function QuickPasteWindow() {
       
       let needLoad = false;
       for (let i = start; i <= end; i++) {
-        if (!currentItems.has(i)) {
+        if (!(i in currentItems)) {
           needLoad = true;
           break;
         }

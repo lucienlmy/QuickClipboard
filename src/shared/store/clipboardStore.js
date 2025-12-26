@@ -10,22 +10,21 @@ import {
 
 listen('paste-count-updated', (event) => {
   const id = event.payload
-  const newItems = new Map(clipboardStore.items)
-  for (const [index, item] of newItems.entries()) {
+  for (const key of Object.keys(clipboardStore.items)) {
+    const item = clipboardStore.items[key]
     if (item && item.id === id) {
-      newItems.set(index, { ...item, paste_count: (item.paste_count || 0) + 1 })
+      clipboardStore.items[key] = { ...item, paste_count: (item.paste_count || 0) + 1 }
       break
     }
   }
-  clipboardStore.items = newItems
 })
 
-const CACHE_WINDOW_SIZE = 150 
-const CACHE_BUFFER = 75    
+const CACHE_WINDOW_SIZE = 200 
+const CACHE_BUFFER = 100      
 
 // 剪贴板 Store
 export const clipboardStore = proxy({
-  items: new Map(),
+  items: {}, 
   totalCount: 0,
   filter: '',
   contentType: 'all',
@@ -37,54 +36,52 @@ export const clipboardStore = proxy({
   
   // 设置指定范围的数据
   setItemsInRange(startIndex, items) {
-    const newItems = new Map(this.items)
     items.forEach((item, offset) => {
-      newItems.set(startIndex + offset, item)
+      this.items[startIndex + offset] = item
     })
-    this.items = newItems
   },
   
   updateViewRange(startIndex, endIndex) {
-    this.currentViewRange = { start: startIndex, end: endIndex }
-    this.trimCache()
+    const prev = this.currentViewRange
+    if (Math.abs(prev.start - startIndex) > 30 || Math.abs(prev.end - endIndex) > 30) {
+      this.currentViewRange = { start: startIndex, end: endIndex }
+      this.trimCache()
+    }
   },
   
   trimCache() {
-    if (this.items.size <= CACHE_WINDOW_SIZE) return
+    const itemCount = Object.keys(this.items).length
+    if (itemCount <= CACHE_WINDOW_SIZE) return
     
     const { start, end } = this.currentViewRange
     const center = Math.floor((start + end) / 2)
     const keepStart = Math.max(0, center - CACHE_BUFFER)
     const keepEnd = Math.min(this.totalCount - 1, center + CACHE_BUFFER)
     
-    const newItems = new Map()
-    for (const [index, item] of this.items) {
-      if (index >= keepStart && index <= keepEnd) {
-        newItems.set(index, item)
+    for (const key of Object.keys(this.items)) {
+      const index = parseInt(key, 10)
+      if (index < keepStart || index > keepEnd) {
+        delete this.items[key]
       }
-    }
-    
-    if (newItems.size < this.items.size) {
-      this.items = newItems
     }
   },
 
   getItem(index) {
-    return this.items.get(index)
+    return this.items[index]
   },
   
   // 检查指定索引是否已加载
   hasItem(index) {
-    return this.items.has(index)
+    return index in this.items
   },
 
   addItem(item) {
-    this.items = new Map()
+    this.items = {}
   },
   
   // 删除项
   removeItem(id) {
-    this.items = new Map()
+    this.items = {}
   },
   
   setFilter(value) {
@@ -108,7 +105,7 @@ export const clipboardStore = proxy({
   },
   
   clearAll() {
-    this.items = new Map()
+    this.items = {}
     this.selectedIds = new Set()
     this.totalCount = 0
     this.currentViewRange = { start: 0, end: 50 }
@@ -125,13 +122,24 @@ export const clipboardStore = proxy({
   
   isRangeLoading(start, end) {
     return this.loadingRanges.has(`${start}-${end}`)
+  },
+
+  hasOverlappingLoadingRange(start, end) {
+    for (const range of this.loadingRanges) {
+      const [loadStart, loadEnd] = range.split('-').map(Number);
+      if (start <= loadEnd && end >= loadStart) {
+        return true;
+      }
+    }
+    return false;
   }
 })
 
 // 加载指定范围的数据
 export async function loadClipboardRange(startIndex, endIndex) {
   // 避免重复加载
-  if (clipboardStore.isRangeLoading(startIndex, endIndex)) {
+  if (clipboardStore.isRangeLoading(startIndex, endIndex) || 
+      clipboardStore.hasOverlappingLoadingRange(startIndex, endIndex)) {
     return
   }
   
@@ -184,12 +192,12 @@ export async function initClipboardItems() {
   clipboardStore.error = null
   
   try {
-    clipboardStore.items = new Map()
+    clipboardStore.items = {}
     
     if (clipboardStore.contentType !== 'all' || clipboardStore.filter) {
       const result = await getClipboardHistory({
         offset: 0,
-        limit: 50,
+        limit: 100,
         contentType: clipboardStore.contentType !== 'all' ? clipboardStore.contentType : undefined,
         search: clipboardStore.filter || undefined
       })
@@ -201,7 +209,7 @@ export async function initClipboardItems() {
       clipboardStore.totalCount = totalCount
       
       if (totalCount > 0) {
-        const endIndex = Math.min(49, totalCount - 1)
+        const endIndex = Math.min(99, totalCount - 1)
         await loadClipboardRange(0, endIndex)
       }
     }
@@ -215,7 +223,7 @@ export async function initClipboardItems() {
 
 // 刷新剪贴板历史
 export async function refreshClipboardHistory() {
-  clipboardStore.items = new Map()
+  clipboardStore.items = {}
   return await initClipboardItems()
 }
 

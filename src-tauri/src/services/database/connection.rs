@@ -2,12 +2,11 @@ use rusqlite::Connection;
 use parking_lot::Mutex;
 use once_cell::sync::Lazy;
 
+pub const MAX_CONTENT_LENGTH: usize = 1600;
+
 // 数据库连接
 static DB_CONNECTION: Lazy<Mutex<Option<Connection>>> = 
     Lazy::new(|| Mutex::new(None));
-
-// 文本内容显示限制
-pub const MAX_CONTENT_LENGTH: usize = 10000;
 
 // 初始化数据库连接
 pub fn init_database(db_path: &str) -> Result<(), String> {
@@ -179,9 +178,14 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
     }
 
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_clipboard_order_updated ON clipboard(item_order DESC, updated_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_clipboard_order ON clipboard(is_pinned DESC, item_order DESC, updated_at DESC)",
         [],
-    ).map_err(|e| format!("创建剪贴板索引失败: {}", e))?;
+    ).map_err(|e| format!("创建剪贴板排序索引失败: {}", e))?;
+    
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_clipboard_content_type ON clipboard(content_type)",
+        [],
+    ).map_err(|e| format!("创建内容类型索引失败: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_favorites_group ON favorites(group_name, item_order)",
@@ -253,74 +257,5 @@ where
     let conn = conn_guard.as_ref()
         .ok_or("数据库未初始化")?;
     f(conn).map_err(|e| format!("数据库操作失败: {}", e))
-}
-
-// 截断字符串用于显示
-pub fn truncate_string(s: String, max_len: usize) -> String {
-    if s.len() <= max_len {
-        return s;
-    }
-    
-    let ideal_point = max_len.saturating_sub(100);
-    
-    let truncate_point = (0..=ideal_point)
-        .rev()
-        .find(|&i| s.is_char_boundary(i))
-        .unwrap_or(0);
-    
-    if truncate_point == 0 {
-        return "...(内容过长已截断)".to_string();
-    }
-    
-    format!("{}...(内容过长已截断)", &s[..truncate_point])
-}
-
-// 截取以关键词为中心的上下文
-pub fn truncate_around_keyword(s: String, keyword: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        return s;
-    }
-    
-    // 查找关键词位置
-    let s_lower = s.to_lowercase();
-    let keyword_lower = keyword.to_lowercase();
-    
-    let keyword_pos = match s_lower.find(&keyword_lower) {
-        Some(pos) => pos,
-        None => return truncate_string(s, max_len), 
-    };
-
-    let context_before = max_len / 3; 
-    let context_after = max_len - context_before; 
-
-    let start = if keyword_pos > context_before {
-        let ideal_start = keyword_pos - context_before;
-        (ideal_start..=keyword_pos)
-            .find(|&i| s.is_char_boundary(i))
-            .unwrap_or(keyword_pos)
-    } else {
-        0
-    };
-
-    let keyword_end = keyword_pos + keyword.len();
-    let ideal_end = (keyword_end + context_after).min(s.len());
-    let end = (0..=ideal_end)
-        .rev()
-        .find(|&i| s.is_char_boundary(i))
-        .unwrap_or(s.len());
-
-    let mut result = String::new();
-    
-    if start > 0 {
-        result.push_str("...");
-    }
-    
-    result.push_str(&s[start..end]);
-    
-    if end < s.len() {
-        result.push_str("...");
-    }
-    
-    result
 }
 

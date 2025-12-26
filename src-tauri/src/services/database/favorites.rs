@@ -1,5 +1,6 @@
 use super::models::{FavoriteItem, PaginatedResult, FavoritesQueryParams};
-use super::connection::{with_connection, truncate_string, truncate_around_keyword, MAX_CONTENT_LENGTH};
+use super::connection::{with_connection, MAX_CONTENT_LENGTH};
+use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use chrono;
 
@@ -99,15 +100,7 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
                 };
                 let truncated_html = html_content.map(|html| {
                     if html.len() > MAX_CONTENT_LENGTH {
-                        if let Some(ref keyword) = search_keyword {
-                            if !keyword.trim().is_empty() {
-                                truncate_around_keyword(html, keyword, MAX_CONTENT_LENGTH)
-                            } else {
-                                truncate_string(html, MAX_CONTENT_LENGTH)
-                            }
-                        } else {
-                            truncate_string(html, MAX_CONTENT_LENGTH)
-                        }
+                        truncate_html(html, MAX_CONTENT_LENGTH)
                     } else {
                         html
                     }
