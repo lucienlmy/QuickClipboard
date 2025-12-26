@@ -24,7 +24,6 @@ const FavoritesList = forwardRef(({
     endIndex: 0
   });
   const loadTimeoutRef = useRef(null);
-  const lastLoadedRangeRef = useRef({ start: -1, end: -1 });
   const snap = useSnapshot(navigationStore);
   const favSnap = useSnapshot(favoritesStore);
   const groupsSnap = useSnapshot(groupsStore);
@@ -149,14 +148,6 @@ const FavoritesList = forwardRef(({
     }
 
     loadTimeoutRef.current = setTimeout(() => {
-      const lastRange = lastLoadedRangeRef.current;
-      const bufferStart = Math.max(0, startIndex - 50);
-      const bufferEnd = Math.min(favSnap.totalCount - 1, endIndex + 50);
-      
-      if (bufferStart >= lastRange.start && bufferEnd <= lastRange.end) {
-        return;
-      }
-
       favoritesStore.updateViewRange(startIndex, endIndex);
 
       let rangeStart = -1,
@@ -170,7 +161,6 @@ const FavoritesList = forwardRef(({
       if (rangeStart !== -1) {
         const loadStart = Math.max(0, rangeStart - 50);
         const loadEnd = Math.min(favSnap.totalCount - 1, rangeEnd + 50);
-        lastLoadedRangeRef.current = { start: loadStart, end: loadEnd };
         loadFavoritesRange(loadStart, loadEnd, groupsSnap.currentGroup);
       }
     }, SCROLL_DEBOUNCE_DELAY);
@@ -180,8 +170,6 @@ const FavoritesList = forwardRef(({
   
   useEffect(() => {
     if (favSnap.totalCount > 0 && itemsCount === 0) {
-      lastLoadedRangeRef.current = { start: -1, end: -1 };
-      
       const {
         startIndex,
         endIndex

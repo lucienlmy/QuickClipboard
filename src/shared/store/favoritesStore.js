@@ -86,11 +86,19 @@ export const favoritesStore = proxy({
   },
   
   setFilter(value) {
-    this.filter = value
+    if (this.filter !== value) {
+      this.filter = value
+      this.items = {}
+      this.loadingRanges = new Set()
+    }
   },
   
   setContentType(value) {
-    this.contentType = value
+    if (this.contentType !== value) {
+      this.contentType = value
+      this.items = {}
+      this.loadingRanges = new Set()
+    }
   },
   
   toggleSelect(id) {
@@ -204,6 +212,7 @@ export async function initFavorites(groupName = null) {
     }
     
     favoritesStore.items = {}
+    favoritesStore.loadingRanges = new Set()
     
     if (favoritesStore.contentType !== 'all' || favoritesStore.filter) {
       const result = await getFavoritesHistory({
@@ -236,6 +245,7 @@ export async function initFavorites(groupName = null) {
 // 刷新收藏列表
 export async function refreshFavorites(groupName = null) {
   favoritesStore.items = {}
+  favoritesStore.loadingRanges = new Set()
   return await initFavorites(groupName)
 }
 

@@ -24,7 +24,6 @@ const ClipboardList = forwardRef(({
     endIndex: 0
   });
   const loadTimeoutRef = useRef(null);
-  const lastLoadedRangeRef = useRef({ start: -1, end: -1 });
   const snap = useSnapshot(navigationStore);
   const clipSnap = useSnapshot(clipboardStore);
   const showShortcut = !clipSnap.filter && clipSnap.contentType === 'all';
@@ -155,14 +154,6 @@ const ClipboardList = forwardRef(({
     }
 
     loadTimeoutRef.current = setTimeout(() => {
-      const lastRange = lastLoadedRangeRef.current;
-      const bufferStart = Math.max(0, startIndex - 50);
-      const bufferEnd = Math.min(clipSnap.totalCount - 1, endIndex + 50);
-      
-      if (bufferStart >= lastRange.start && bufferEnd <= lastRange.end) {
-        return;
-      }
-
       clipboardStore.updateViewRange(startIndex, endIndex);
 
       let rangeStart = -1,
@@ -176,7 +167,6 @@ const ClipboardList = forwardRef(({
       if (rangeStart !== -1) {
         const loadStart = Math.max(0, rangeStart - 50);
         const loadEnd = Math.min(clipSnap.totalCount - 1, rangeEnd + 50);
-        lastLoadedRangeRef.current = { start: loadStart, end: loadEnd };
         loadClipboardRange(loadStart, loadEnd);
       }
     }, SCROLL_DEBOUNCE_DELAY);
@@ -186,8 +176,6 @@ const ClipboardList = forwardRef(({
   
   useEffect(() => {
     if (clipSnap.totalCount > 0 && itemsCount === 0) {
-      lastLoadedRangeRef.current = { start: -1, end: -1 };
-      
       const {
         startIndex,
         endIndex

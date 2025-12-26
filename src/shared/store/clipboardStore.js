@@ -85,11 +85,19 @@ export const clipboardStore = proxy({
   },
   
   setFilter(value) {
-    this.filter = value
+    if (this.filter !== value) {
+      this.filter = value
+      this.items = {}
+      this.loadingRanges = new Set()
+    }
   },
   
   setContentType(value) {
-    this.contentType = value
+    if (this.contentType !== value) {
+      this.contentType = value
+      this.items = {}
+      this.loadingRanges = new Set()
+    }
   },
   
   toggleSelect(id) {
@@ -193,6 +201,7 @@ export async function initClipboardItems() {
   
   try {
     clipboardStore.items = {}
+    clipboardStore.loadingRanges = new Set()
     
     if (clipboardStore.contentType !== 'all' || clipboardStore.filter) {
       const result = await getClipboardHistory({
@@ -224,6 +233,7 @@ export async function initClipboardItems() {
 // 刷新剪贴板历史
 export async function refreshClipboardHistory() {
   clipboardStore.items = {}
+  clipboardStore.loadingRanges = new Set()
   return await initClipboardItems()
 }
 
