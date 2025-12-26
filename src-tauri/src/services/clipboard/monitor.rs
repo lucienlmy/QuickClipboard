@@ -32,6 +32,12 @@ static LAST_CONTENT_HASHES: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(Vec::new()))
 });
 
+// 清除上一次内容缓存（用于删除剪贴板项后允许重新添加相同内容）
+pub fn clear_last_content_cache() {
+    let mut last_hashes = LAST_CONTENT_HASHES.lock();
+    last_hashes.clear();
+}
+
 // 剪贴板监听管理器
 struct ClipboardMonitorManager {
     generation: u64,

@@ -13,5 +13,6 @@ pub use monitor::{
     set_last_hash_text,
     set_last_hash_files,
     set_last_hash_file,
+    clear_last_content_cache,
 };
 

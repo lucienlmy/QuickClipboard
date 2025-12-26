@@ -224,13 +224,21 @@ pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), S
 // 删除单个剪贴板项
 #[tauri::command]
 pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
-    db_delete_clipboard_item(id)
+    let result = db_delete_clipboard_item(id);
+    if result.is_ok() {
+        crate::services::clipboard::clear_last_content_cache();
+    }
+    result
 }
 
 // 清空剪贴板历史
 #[tauri::command]
 pub fn clear_clipboard_history() -> Result<(), String> {
-    db_clear_clipboard_history()
+    let result = db_clear_clipboard_history();
+    if result.is_ok() {
+        crate::services::clipboard::clear_last_content_cache();
+    }
+    result
 }
 // 根据 ID 获取单个剪贴板项
 #[tauri::command]
