@@ -1,9 +1,10 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import { pasteFavorite } from '@shared/store/favoritesStore';
+import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
+import { focusWindowImmediately, restoreFocus } from '@shared/hooks/useInputFocus';
 import { useSnapshot } from 'valtio';
 import { groupsStore } from '@shared/store/groupsStore';
 import { showFavoriteItemContextMenu } from '@shared/utils/contextMenu';
@@ -11,6 +12,7 @@ import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
 import { deleteFavorite } from '@shared/store/favoritesStore';
 import { openEditorForFavorite } from '@shared/api/textEditor';
+import { updateFavorite } from '@shared/api';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { highlightText } from '@shared/utils/highlightText';
 
@@ -47,6 +49,9 @@ function FavoriteItem({
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const previewTimerRef = useRef(null);
+
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const hasFileMissing = (() => {
     if (!isFileType && !isImageType) return false;
@@ -187,10 +192,46 @@ function FavoriteItem({
     }
   };
 
-  // 判断是否显示标题（纯文本和富文本显示标题）
+  // 判断是否显示标题（只要有非空标题就显示）
   const shouldShowTitle = () => {
-    const primaryType = getPrimaryType(contentType);
-    return (primaryType === 'text' || primaryType === 'rich_text') && item.title;
+    return item.title && item.title.trim();
+  };
+  
+  // 处理标题编辑（文件和图片类型）
+  const handleTitleEditClick = (e) => {
+    e.stopPropagation();
+    setEditingTitle(item.title || '');
+    setIsEditingTitle(true);
+  };
+  
+  const handleTitleSave = async () => {
+    const newTitle = editingTitle.trim();
+    if (newTitle !== (item.title || '').trim()) {
+      try {
+        await updateFavorite(item.id, newTitle, item.content, item.group_name);
+        await refreshFavorites();
+        toast.success(t('common.saved'), {
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        });
+      } catch (error) {
+        console.error('保存标题失败:', error);
+        toast.error(t('common.saveFailed'), {
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        });
+      }
+    }
+    setIsEditingTitle(false);
+  };
+  
+  const handleTitleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleTitleSave();
+    } else if (e.key === 'Escape') {
+      setIsEditingTitle(false);
+    }
   };
 
   const isCardStyle = settings.listStyle === 'card';
@@ -275,10 +316,16 @@ function FavoriteItem({
     )}
     {/* 顶部操作区域：操作按钮、分组、序号 */}
     <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
-      {/* 编辑按钮 */}
-      {isTextOrRichText && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-        <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
-      </button>}
+      {/* 编辑按钮（文本/富文本用编辑器，文件/图片用标题编辑） */}
+      {isTextOrRichText ? (
+        <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
+          <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+        </button>
+      ) : (
+        <button className={actionButtonClasses} onClick={handleTitleEditClick} title={t('favorites.editTitle', '编辑标题')}>
+          <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
+        </button>
+      )}
       {/* 删除按钮 */}
       <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
         <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
@@ -301,9 +348,27 @@ function FavoriteItem({
     </div>
 
     {isSmallHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
-      <div className="flex-1 min-w-0 overflow-hidden h-full">
-        {renderContent(true)}
-      </div>
+      {isEditingTitle ? (
+        <input
+          type="text"
+          value={editingTitle}
+          onChange={(e) => setEditingTitle(e.target.value)}
+          onFocus={focusWindowImmediately}
+          onBlur={(e) => {
+            restoreFocus();
+            handleTitleSave();
+          }}
+          onKeyDown={handleTitleKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          autoFocus
+          className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border border-blue-400 dark:border-blue-500 rounded px-1.5 outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder={t('favorites.titlePlaceholder', '输入标题...')}
+        />
+      ) : (
+        <div className="flex-1 min-w-0 overflow-hidden h-full">
+          {renderContent(true)}
+        </div>
+      )}
     </div> : <>
       {/* 时间戳 */}
       <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
@@ -313,11 +378,31 @@ function FavoriteItem({
       </div>
 
       {/* 标题 */}
-      {shouldShowTitle() && <div className="flex-shrink-0 mb-1">
-        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
-          {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
-        </p>
-      </div>}
+      {isEditingTitle ? (
+        <div className="flex-shrink-0 mb-1 pr-16">
+          <input
+            type="text"
+            value={editingTitle}
+            onChange={(e) => setEditingTitle(e.target.value)}
+            onFocus={focusWindowImmediately}
+            onBlur={(e) => {
+              restoreFocus();
+              handleTitleSave();
+            }}
+            onKeyDown={handleTitleKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            autoFocus
+            className="w-full text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border border-blue-400 dark:border-blue-500 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-400"
+            placeholder={t('favorites.titlePlaceholder', '输入标题...')}
+          />
+        </div>
+      ) : shouldShowTitle() && (
+        <div className="flex-shrink-0 mb-1">
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
+            {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
+          </p>
+        </div>
+      )}
 
       {/* 内容区域 */}
       <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>

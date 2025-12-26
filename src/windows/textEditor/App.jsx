@@ -6,7 +6,6 @@ import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { getClipboardItemById, getFavoriteItemById, updateClipboardItem, updateFavorite, addFavorite } from '@shared/api';
 import { groupsStore, loadGroups } from '@shared/store/groupsStore';
-import { generateTitleFromContent } from '@shared/utils/titleUtils';
 import TitleBar from './components/TitleBar';
 import EditorToolbar from './components/EditorToolbar';
 import TextEditor from './components/TextEditor';
@@ -131,9 +130,7 @@ function App() {
         if (editorData.id) {
           await updateFavorite(editorData.id, title, content, selectedGroup);
         } else {
-          // 如果标题为空，从内容生成标题
-          const finalTitle = title.trim() || generateTitleFromContent(content);
-          await addFavorite(finalTitle, content, selectedGroup);
+          await addFavorite(title.trim(), content, selectedGroup);
         }
       }
       setOriginalContent(content);

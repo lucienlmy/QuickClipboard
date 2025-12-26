@@ -9,6 +9,8 @@
     "confirm": "确认",
     "cancel": "取消",
     "save": "保存",
+    "saved": "已保存",
+    "saveFailed": "保存失败",
     "delete": "删除",
     "edit": "编辑",
     "close": "关闭",
@@ -45,6 +47,8 @@
     "empty": "暂无收藏内容",
     "add": "添加收藏",
     "edit": "编辑收藏",
+    "editTitle": "编辑标题",
+    "titlePlaceholder": "输入标题...",
     "confirmDelete": "确定要删除此收藏项吗？",
     "confirmDeleteTitle": "确认删除"
   },

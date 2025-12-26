@@ -298,11 +298,7 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
             }
         )?;
         
-        let title = {
-            let mut t: String = content.chars().take(50).collect();
-            if content.chars().count() > 50 { t.push_str("..."); }
-            t
-        };
+        let title = String::new();
         
         let id = Uuid::new_v4().to_string();
         let now = chrono::Local::now().timestamp();

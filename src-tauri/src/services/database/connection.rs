@@ -191,6 +191,7 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         "CREATE INDEX IF NOT EXISTS idx_favorites_group ON favorites(group_name, item_order)",
         [],
     ).map_err(|e| format!("创建收藏索引失败: {}", e))?;
+    migrate_favorites_auto_titles(conn);
 
     Ok(())
 }
@@ -259,3 +260,31 @@ where
     f(conn).map_err(|e| format!("数据库操作失败: {}", e))
 }
 
+
+// 清理文件和图片类型收藏项的自动生成标题
+fn migrate_favorites_auto_titles(conn: &Connection) {
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT id, title, content FROM favorites WHERE content_type LIKE '%file%' OR content_type LIKE '%image%'"
+    ) {
+        let items: Vec<(String, String, String)> = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        }).map(|rows| rows.filter_map(|r| r.ok()).collect()).unwrap_or_default();
+        
+        for (id, title, content) in items {
+            let content_chars: Vec<char> = content.chars().collect();
+            let expected_title = if content_chars.len() > 50 {
+                format!("{}...", content_chars[..50].iter().collect::<String>())
+            } else {
+                content_chars.iter().collect::<String>()
+            };
+            
+            if title == expected_title {
+                conn.execute("UPDATE favorites SET title = '' WHERE id = ?", [&id]).ok();
+            }
+        }
+    }
+}
