@@ -144,13 +144,22 @@ export async function openTextEditor() {
   }
 }
 
-// 钉图片到屏幕
+// 贴图片到屏幕
 export async function pinImageToScreen(filePath) {
   try {
-    await invoke('pin_image_from_file', { filePath })
+    await invoke('create_native_pin_from_file', { filePath })
     return true
   } catch (error) {
-    console.error('钉图到屏幕失败:', error)
+    if (error?.toString?.()?.includes('not found') || error?.toString?.()?.includes('Command')) {
+      try {
+        await invoke('pin_image_from_file', { filePath })
+        return true
+      } catch (fallbackError) {
+        console.error('tauri版也失败:', fallbackError)
+        throw fallbackError
+      }
+    }
+    console.error('贴图到屏幕失败:', error)
     throw error
   }
 }

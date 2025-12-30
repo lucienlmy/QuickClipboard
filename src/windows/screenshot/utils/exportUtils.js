@@ -118,6 +118,14 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
     const imagePhysicalY = backgroundCanvas._physicalOffsetY ?? 0;
     const imagePhysicalWidth = backgroundCanvas.width;
     const imagePhysicalHeight = backgroundCanvas.height;
+    const targetScreen = screens.find(screen => {
+      const screenX2 = screen.x + screen.width;
+      const screenY2 = screen.y + screen.height;
+      return selection.x >= screen.x && selection.x < screenX2 && 
+             selection.y >= screen.y && selection.y < screenY2;
+    });
+    const scaleFactor = targetScreen?.scaleFactor || window.devicePixelRatio || 1;
+    
     const originalBlob = await new Promise((resolve) => backgroundCanvas.toBlob(resolve, 'image/png'));
     if (!originalBlob) return;
     const originalFilePath = await savePinImage(originalBlob);
@@ -139,15 +147,28 @@ export async function exportToPin(stageRef, selection, cornerRadius = 0, { scree
       effectFilePath = await savePinImage(blob);
     }
 
-    await invoke('pin_image_from_file', {
-      filePath: effectFilePath,
-      imagePhysicalX,
-      imagePhysicalY,
-      imagePhysicalWidth,
-      imagePhysicalHeight,
-      originalImagePath: originalFilePath,
-      editData: editData,
-    });
+    try {
+      const windowId = await invoke('create_native_pin_window', {
+        filePath: effectFilePath,
+        x: imagePhysicalX,
+        y: imagePhysicalY,
+        width: imagePhysicalWidth,
+        height: imagePhysicalHeight,
+        scaleFactor,
+        originalImagePath: originalFilePath || null,
+        editData: editData || null,
+      });
+    } catch (nativeError) {
+      await invoke('pin_image_from_file', {
+        filePath: effectFilePath,
+        imagePhysicalX,
+        imagePhysicalY,
+        imagePhysicalWidth,
+        imagePhysicalHeight,
+        originalImagePath: originalFilePath,
+        editData: editData,
+      });
+    }
 
     await cancelScreenshotSession();
   } catch (error) {

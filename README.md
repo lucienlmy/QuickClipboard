@@ -170,8 +170,29 @@ npm install
 npm run tauri dev
 
 # 构建发行版
-npm run tauri build
+npm run tauri:build
+
+# 社区版开发模式（不含私有插件）
+npm run tauri:dev:community
+
+# 社区版构建（不含私有插件）
+npm run tauri:build:community
 ```
 
+### ⚠️ 关于私有组件
+
+本项目包含可选的私有插件 `gpu-image-viewer`（GPU 加速图片窗口），用于提升贴图和图片预览性能，在拥有多个贴图窗口情况下显著降低内存占用。
+
+| 版本 | 说明 |
+|------|------|
+| 官方发布版 | 包含完整功能 |
+| 社区编译版 | 使用 `npm run tauri:build:community`，不含原生图片窗口，使用 WebView 替代（内存占用较高） |
+
 ---
+
+## 📜 许可证
+
+本项目基于 [Apache License 2.0](LICENSE) 开源。
+
+> 私有插件 `gpu-image-viewer` 不在开源范围内，仅官方发布版包含。
 

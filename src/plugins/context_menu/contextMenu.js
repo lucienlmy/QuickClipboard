@@ -199,12 +199,19 @@ function createMenuItem(item) {
     if (item.preview_image) {
         let timer = null;
         menuItem.addEventListener('mouseenter', () => {
-            timer = setTimeout(() => {
-                invoke('pin_image_from_file', { filePath: item.preview_image, previewMode: true }).catch(() => {});
+            timer = setTimeout(async () => {
+                try {
+                    await invoke('show_native_image_preview', { filePath: item.preview_image });
+                } catch (nativeError) {
+                    if (nativeError?.toString?.()?.includes('not found') || nativeError?.toString?.()?.includes('Command')) {
+                        invoke('pin_image_from_file', { filePath: item.preview_image, previewMode: true }).catch(() => {});
+                    }
+                }
             }, 300);
         });
         menuItem.addEventListener('mouseleave', () => {
             if (timer) { clearTimeout(timer); timer = null; }
+            invoke('close_native_image_preview').catch(() => {});
             invoke('close_image_preview').catch(() => {});
         });
     }

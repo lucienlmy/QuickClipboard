@@ -8,7 +8,9 @@
     "build": "vite build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev:community": "node scripts/community-build.js --dev",
+    "tauri:build": "tauri build",
+    "tauri:build:community": "node scripts/community-build.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.4",

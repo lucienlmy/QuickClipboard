@@ -18,7 +18,7 @@ pub fn get_pin_images_list() -> Vec<(String, String)> {
         return vec![];
     }
     
-    let mut images = Vec::new();
+    let mut images: Vec<(String, String, std::time::SystemTime)> = Vec::new();
     let image_extensions = ["png", "jpg", "jpeg", "gif", "bmp", "webp", "ico"];
     
     if let Ok(entries) = fs::read_dir(&pin_dir) {
@@ -32,15 +32,18 @@ pub fn get_pin_images_list() -> Vec<(String, String)> {
                             .unwrap_or("未知")
                             .to_string();
                         let file_path = path.to_string_lossy().to_string();
-                        images.push((file_name, file_path));
+                        let modified = entry.metadata()
+                            .and_then(|m| m.modified())
+                            .unwrap_or(std::time::UNIX_EPOCH);
+                        images.push((file_name, file_path, modified));
                     }
                 }
             }
         }
     }
 
-    images.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
-    images
+    images.sort_by(|a, b| b.2.cmp(&a.2));
+    images.into_iter().map(|(name, path, _)| (name, path)).collect()
 }
 
 const MAX_PIN_IMAGES_DISPLAY: usize = 20;
@@ -206,6 +209,7 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
         monitor_width: 0.0,
         monitor_height: 0.0,
         is_tray_menu: true,
+        force_focus: false,
     };
     
     if let Ok(Some(selected_id)) = show_menu(app.clone(), options).await {
@@ -263,13 +267,29 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
                     if let Some((_, file_path)) = images.get(idx) {
                         let app = app.clone();
                         let file_path = file_path.clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Err(e) = crate::windows::pin_image_window::pin_image_from_file(
-                                app, file_path, None, None, None, None, None, None, None, None, None, None, None,
-                            ).await {
-                                eprintln!("创建贴图窗口失败: {}", e);
-                            }
-                        });
+                        #[cfg(feature = "gpu-image-viewer")]
+                        if let Err(e) = crate::windows::native_pin_window::create_native_pin_from_file(
+                            app.clone(), file_path.clone(),
+                        ) {
+                            eprintln!("原生贴图窗口失败，尝试tauri版: {}", e);
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e2) = crate::windows::pin_image_window::pin_image_from_file(
+                                    app, file_path, None, None, None, None, None, None, None, None, None, None, None,
+                                ).await {
+                                    eprintln!("tauri版贴图窗口也失败: {}", e2);
+                                }
+                            });
+                        }
+                        #[cfg(not(feature = "gpu-image-viewer"))]
+                        {
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e) = crate::windows::pin_image_window::pin_image_from_file(
+                                    app, file_path, None, None, None, None, None, None, None, None, None, None, None,
+                                ).await {
+                                    eprintln!("创建贴图窗口失败: {}", e);
+                                }
+                            });
+                        }
                     }
                 }
             }

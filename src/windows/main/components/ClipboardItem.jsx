@@ -19,6 +19,7 @@ const closeImagePreview = (previewTimerRef) => {
     clearTimeout(previewTimerRef.current);
     previewTimerRef.current = null;
   }
+  invoke('close_native_image_preview').catch(() => {});
   invoke('close_image_preview').catch(() => {});
 };
 
@@ -145,7 +146,15 @@ function ClipboardItem({
         try {
           const filesData = JSON.parse(item.content.substring(6))
           const filePath = filesData?.files?.[0]?.actual_path || filesData?.files?.[0]?.path || null
-          await invoke('pin_image_from_file', { filePath, previewMode: true });
+          try {
+            await invoke('show_native_image_preview', { filePath });
+          } catch (nativeError) {
+            if (nativeError?.toString?.()?.includes('not found') || nativeError?.toString?.()?.includes('Command')) {
+              await invoke('pin_image_from_file', { filePath, previewMode: true });
+            } else {
+              throw nativeError;
+            }
+          }
         } catch (error) {
           console.error('显示图片预览失败:', error);
         }

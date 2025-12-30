@@ -60,6 +60,8 @@ pub struct ContextMenuOptions {
     pub monitor_height: f64,
     #[serde(default)]
     pub is_tray_menu: bool,
+    #[serde(default)]
+    pub force_focus: bool,
 }
 
 pub async fn show_menu(
@@ -67,6 +69,14 @@ pub async fn show_menu(
     mut options: ContextMenuOptions,
 ) -> Result<Option<String>, String> {
     const LABEL: &str = "context-menu";
+    let old_session = super::get_active_menu_session();
+    if old_session != 0 {
+        super::clear_active_menu_session(old_session);
+        if let Some(w) = app.get_webview_window(LABEL) {
+            let _ = w.hide();
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    }
 
     super::clear_result();
     super::clear_options();
@@ -133,7 +143,7 @@ pub async fn show_menu(
     std::thread::sleep(std::time::Duration::from_millis(100));
     let _ = window.set_always_on_top(true);
     let _ = window.show();
-    if is_tray {
+    if is_tray || options.force_focus {
         let _ = window.set_focus();
     }
     let _ = window.set_always_on_top(true);

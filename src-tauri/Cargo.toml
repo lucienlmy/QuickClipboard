@@ -47,6 +47,7 @@ tauri-plugin-drag = "2"
 rdev = { version = "0.5.3", features = ["unstable_grab"] }
 enigo = "0.6.1"
 tauri-plugin-autostart = "2.5.1"
+tauri-plugin-store = "2"
 active-win-pos-rs = "0.8"
 xcap = {git="https://github.com/mosheng1/xcap"}
 scap = { git = "https://github.com/mosheng1/scap" }
@@ -54,6 +55,10 @@ atree = "0.5.2"
 rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
 winreg = "0.55"
+
+# 图片查看器 (社区编译时不启用)
+gpu-image-viewer = { git = "ssh://git@github.com/mosheng1/gpu-image-viewer.git", optional = true }
+# gpu-image-viewer = { path = "plugins/gpu-image-viewer", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [
@@ -72,6 +77,8 @@ windows = { version = "0.62.2", features = [
 uiautomation = "0.24.0"
 
 [features]
+default = ["gpu-image-viewer"]
+gpu-image-viewer = ["dep:gpu-image-viewer"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [profile.release]

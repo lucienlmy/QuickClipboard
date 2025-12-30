@@ -35,7 +35,7 @@ pub use services::low_memory::{is_low_memory_mode, enter_low_memory_mode, exit_l
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     security::check_webview_security();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if services::low_memory::is_low_memory_mode() {
                 if let Err(e) = services::low_memory::exit_low_memory_mode(app) {
@@ -54,7 +54,12 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_drag::init())
-            .invoke_handler(tauri::generate_handler![
+        .plugin(tauri_plugin_store::Builder::new().build());
+    
+    #[cfg(feature = "gpu-image-viewer")]
+    let builder = builder.plugin(gpu_image_viewer::init());
+        
+    builder.invoke_handler(tauri::generate_handler![
                 commands::start_custom_drag,
                 commands::stop_custom_drag,
                 commands::toggle_main_window,
@@ -210,8 +215,22 @@ pub fn run() {
                 commands::il_rename_image,
                 commands::il_get_images_dir,
                 commands::il_get_gifs_dir,
+                #[cfg(feature = "gpu-image-viewer")]
+                windows::native_pin_window::create_native_pin_window,
+                #[cfg(feature = "gpu-image-viewer")]
+                windows::native_pin_window::confirm_native_pin_edit,
+                #[cfg(feature = "gpu-image-viewer")]
+                windows::native_pin_window::cancel_native_pin_edit,
+                #[cfg(feature = "gpu-image-viewer")]
+                windows::native_pin_window::show_native_image_preview,
+                #[cfg(feature = "gpu-image-viewer")]
+                windows::native_pin_window::close_native_image_preview,
+                #[cfg(feature = "gpu-image-viewer")]
+                windows::native_pin_window::create_native_pin_from_file,
             ])
-        .setup(|app| {
+        
+    .setup(|app| {
+                services::store::init(app.handle());
                 #[cfg(windows)]
                 {
                     let settings = get_settings();
@@ -290,6 +309,8 @@ pub fn run() {
                 set_clipboard_app_handle(app.handle().clone());
 
                 windows::pin_image_window::init_pin_image_window();
+                #[cfg(feature = "gpu-image-viewer")]
+                windows::native_pin_window::setup_event_listener(app.handle());
                 focus::start_focus_listener(app.handle().clone());
 
                 if settings.clipboard_monitor {
