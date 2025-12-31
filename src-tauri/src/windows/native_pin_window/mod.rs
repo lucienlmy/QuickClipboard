@@ -16,6 +16,7 @@ const STORE_KEY_DEFAULT_ALWAYS_ON_TOP: &str = "native_pin.default_always_on_top"
 const STORE_KEY_DEFAULT_LOCKED: &str = "native_pin.default_locked";
 const STORE_KEY_DEFAULT_OPACITY: &str = "native_pin.default_opacity";
 const STORE_KEY_DEFAULT_PIXEL_RENDER: &str = "native_pin.default_pixel_render";
+const STORE_KEY_DEFAULT_PRIVACY_MODE: &str = "native_pin.default_privacy_mode";
 
 // 窗口数据
 #[derive(Debug, Clone)]
@@ -28,6 +29,7 @@ pub struct NativePinData {
     pub pixel_render: bool,
     pub original_image_path: Option<String>,
     pub edit_data: Option<String>,
+    pub privacy_mode: u8, // 0=关闭, 1=模糊, 2=马赛克
 }
 
 // 窗口数据存储
@@ -75,6 +77,14 @@ fn save_default_pixel_render(enabled: bool) {
     let _ = store::set(STORE_KEY_DEFAULT_PIXEL_RENDER, &enabled);
 }
 
+fn get_default_privacy_mode() -> u8 {
+    store::get::<u8>(STORE_KEY_DEFAULT_PRIVACY_MODE).unwrap_or(0)
+}
+
+fn save_default_privacy_mode(mode: u8) {
+    let _ = store::set(STORE_KEY_DEFAULT_PRIVACY_MODE, &mode);
+}
+
 // 创建原生贴图窗口
 #[tauri::command]
 pub fn create_native_pin_window(
@@ -92,6 +102,7 @@ pub fn create_native_pin_window(
     let default_locked = get_default_locked();
     let default_opacity = get_default_opacity();
     let default_pixel_render = get_default_pixel_render();
+    let default_privacy_mode = get_default_privacy_mode();
     
     let shadow = if default_shadow {
         Some(gpu_image_viewer::window::ShadowStyle::default())
@@ -118,6 +129,7 @@ pub fn create_native_pin_window(
             is_preview: false,
             opacity: Some(default_opacity),
             pixel_render: Some(default_pixel_render),
+            privacy_mode: Some(default_privacy_mode),
             center_position: false,
         }
     )?;
@@ -137,6 +149,7 @@ fn register_window(
     let default_locked = get_default_locked();
     let default_opacity = get_default_opacity();
     let default_pixel_render = get_default_pixel_render();
+    let default_privacy_mode = get_default_privacy_mode();
     
     let mut map = WINDOW_DATA.lock().unwrap();
     map.insert(id, NativePinData {
@@ -148,6 +161,7 @@ fn register_window(
         pixel_render: default_pixel_render,
         original_image_path,
         edit_data,
+        privacy_mode: default_privacy_mode,
     });
 }
 
@@ -199,6 +213,14 @@ pub fn set_pixel_render(id: u64, enabled: bool) {
         data.pixel_render = enabled;
     }
     save_default_pixel_render(enabled);
+}
+
+pub fn set_privacy_mode(id: u64, mode: u8) {
+    let mut map = WINDOW_DATA.lock().unwrap();
+    if let Some(data) = map.get_mut(&id) {
+        data.privacy_mode = mode;
+    }
+    save_default_privacy_mode(mode);
 }
 
 fn separator_item() -> MenuItem {
@@ -296,6 +318,7 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
     let locked = window_data.as_ref().map(|d| d.locked).unwrap_or(false);
     let opacity = window_data.as_ref().map(|d| d.opacity).unwrap_or(1.0);
     let pixel_render = window_data.as_ref().map(|d| d.pixel_render).unwrap_or(false);
+    let privacy_mode = window_data.as_ref().map(|d| d.privacy_mode).unwrap_or(0);
     let is_thumbnail = window_info.thumbnail_mode;
     
     let screen_x = window_info.x + cursor_x as i32;
@@ -328,6 +351,13 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
         preview_image: None,
     });
     
+    // 隐私模式子菜单
+    let privacy_items = vec![
+        menu_item_checked(&format!("native-pin-privacy-0-{}", window_id), "关闭", privacy_mode == 0),
+        menu_item_checked(&format!("native-pin-privacy-1-{}", window_id), "模糊", privacy_mode == 1),
+        menu_item_checked(&format!("native-pin-privacy-2-{}", window_id), "马赛克", privacy_mode == 2),
+    ];
+    
     let items = vec![
         menu_item_checked(&format!("native-pin-toggle-top-{}", window_id), "窗口置顶", always_on_top),
         menu_item_checked(&format!("native-pin-toggle-shadow-{}", window_id), "窗口阴影", shadow_enabled),
@@ -343,6 +373,17 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
             disabled: false,
             separator: false,
             children: Some(opacity_items),
+            preview_image: None,
+        },
+        MenuItem {
+            id: format!("native-pin-privacy-submenu-{}", window_id),
+            label: "隐私模式".to_string(),
+            icon: Some("ti ti-eye-off".to_string()),
+            favicon: None,
+            icon_color: None,
+            disabled: false,
+            separator: false,
+            children: Some(privacy_items),
             preview_image: None,
         },
         separator_item(),
@@ -407,6 +448,13 @@ fn handle_menu_action(app: &AppHandle, action: &str) -> Result<(), String> {
         let new_state = !current;
         gpu_image_viewer::window::set_pixel_render(window_id, new_state)?;
         set_pixel_render(window_id, new_state);
+    } else if action_part.contains("privacy-") && !action_part.contains("submenu") {
+        if let Some(mode_str) = action_part.strip_prefix("native-pin-privacy-") {
+            if let Ok(mode) = mode_str.parse::<u8>() {
+                gpu_image_viewer::window::set_privacy_mode(window_id, mode)?;
+                set_privacy_mode(window_id, mode);
+            }
+        }
     } else if action_part.ends_with("toggle-thumbnail") {
         gpu_image_viewer::window::toggle_thumbnail(window_id, DEFAULT_THUMBNAIL_SIZE, None, None)?;
     } else if action_part.ends_with("opacity-custom") {
@@ -609,6 +657,7 @@ pub fn create_native_pin_from_file(app: AppHandle, file_path: String) -> Result<
     let default_locked = get_default_locked();
     let default_opacity = get_default_opacity();
     let default_pixel_render = get_default_pixel_render();
+    let default_privacy_mode = get_default_privacy_mode();
     
     let shadow = if default_shadow {
         Some(gpu_image_viewer::window::ShadowStyle::default())
@@ -635,6 +684,7 @@ pub fn create_native_pin_from_file(app: AppHandle, file_path: String) -> Result<
             is_preview: false,
             opacity: Some(default_opacity),
             pixel_render: Some(default_pixel_render),
+            privacy_mode: Some(default_privacy_mode),
             center_position: true,
         }
     )?;
@@ -716,6 +766,7 @@ pub fn show_native_image_preview(app: AppHandle, file_path: String) -> Result<()
             is_preview: true,
             opacity: None,
             pixel_render: None,
+            privacy_mode: None,
             center_position: false,
         }
     )?;
