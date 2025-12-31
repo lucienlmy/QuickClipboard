@@ -11,7 +11,7 @@ export const KEYBOARD_SHORTCUTS = {
   // 编辑操作
   actions: {
     undo: { keys: ['Ctrl+Z'], description: '撤销' },
-    redo: { keys: ['Ctrl+Shift+Z', 'Ctrl+Y'], description: '重做' },
+    redo: { keys: ['Ctrl+Y'], description: '重做' },
     delete: { keys: ['Delete', 'Backspace'], description: '删除选中' },
     clearCanvas: { keys: ['Ctrl+Shift+C'], description: '清空画布' },
     cancel: { keys: ['Escape'], description: '取消工具/选区' },

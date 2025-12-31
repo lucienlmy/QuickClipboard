@@ -8,6 +8,7 @@ import Select from '@shared/components/ui/Select';
 import Slider from '@shared/components/ui/Slider';
 import ShortcutInput from '../components/ShortcutInput';
 import ShortcutComboInput from '../components/ShortcutComboInput';
+import ReadonlyShortcut from '../components/ReadonlyShortcut';
 import { useShortcutStatuses } from '@shared/hooks/useShortcutStatuses';
 import { useShortcutDuplicateCheck } from '@shared/hooks/useShortcutDuplicateCheck';
 import { promptDisableWinVHotkeyIfNeeded, promptEnableWinVHotkey } from '@shared/api/system';
@@ -49,7 +50,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
     return hasDuplicate(key) || (backendId && hasBackendError(backendId));
   };
 
-  const tabs = ['globalHotkey', 'screenshotHotkey', 'windowOps', 'quickActions'];
+  const tabs = ['globalHotkey', 'screenshotHotkey', 'pinOps', 'navigation', 'quickActions'];
   const activeIndex = tabs.indexOf(activeTab);
 
   const numberKeyTypeOptions = [
@@ -68,7 +69,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
         className={`flex ${uiAnimationEnabled ? 'transition-transform duration-300 ease-out' : ''}`}
         style={{ transform: `translateX(-${activeIndex * 100}%)` }}
       >
-        {/* 全局控制 */}
+        {/* 全局热键 */}
         <div className="w-full flex-shrink-0">
           <SettingsSection title={t('settings.shortcuts.globalTitle')} description={t('settings.shortcuts.globalDesc')}>
             <SettingItem label={t('settings.shortcuts.toggleWindow')} description={t('settings.shortcuts.toggleWindowDesc')}>
@@ -113,7 +114,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
           </SettingsSection>
         </div>
 
-        {/* 截图功能 */}
+        {/* 截图热键 */}
         <div className="w-full flex-shrink-0">
           <SettingsSection title={t('settings.shortcuts.screenshotTitle')} description={t('settings.shortcuts.screenshotSectionDesc')}>
             <SettingItem label={t('settings.shortcuts.screenshot')} description={t('settings.shortcuts.screenshotDesc')}>
@@ -127,6 +128,77 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
             </SettingItem>
             <SettingItem label={t('settings.shortcuts.screenshotQuickOcr')} description={t('settings.shortcuts.screenshotQuickOcrDesc')}>
               <ShortcutInput value={settings.screenshotQuickOcrShortcut} onChange={value => handleShortcutChange('screenshotQuickOcrShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickOcrShortcut', '')} hasError={hasErrorStatus('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} errorMessage={getErrorMessage('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} />
+            </SettingItem>
+          </SettingsSection>
+          <SettingsSection title={t('settings.shortcuts.screenshotInternalTitle')} description={t('settings.shortcuts.screenshotInternalDesc')}>
+            <SettingItem label={t('settings.shortcuts.screenshotToolSwitch')} description={t('settings.shortcuts.screenshotToolSwitchDesc')}>
+              <ReadonlyShortcut keys={['1-9']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotUndo')} description={t('settings.shortcuts.screenshotUndoDesc')}>
+              <ReadonlyShortcut keys={['Ctrl', 'Z']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotRedo')} description={t('settings.shortcuts.screenshotRedoDesc')}>
+              <ReadonlyShortcut keys={['Ctrl', 'Y']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotDelete')} description={t('settings.shortcuts.screenshotDeleteDesc')}>
+              <ReadonlyShortcut keys={['Delete']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotClearCanvas')} description={t('settings.shortcuts.screenshotClearCanvasDesc')}>
+              <ReadonlyShortcut keys={['Ctrl', 'Shift', 'C']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotCancel')} description={t('settings.shortcuts.screenshotCancelDesc')}>
+              <ReadonlyShortcut groups={[['Esc'], [t('settings.shortcuts.screenshotKeys.rightClick')]]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotSave')} description={t('settings.shortcuts.screenshotSaveDesc')}>
+              <ReadonlyShortcut keys={['Ctrl', 'S']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotConfirm')} description={t('settings.shortcuts.screenshotConfirmDesc')}>
+              <ReadonlyShortcut groups={[['Enter'], [t('settings.shortcuts.screenshotKeys.doubleClick')]]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotPinAction')} description={t('settings.shortcuts.screenshotPinActionDesc')}>
+              <ReadonlyShortcut keys={['Ctrl', 'P']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotSelectAll')} description={t('settings.shortcuts.screenshotSelectAllDesc')}>
+              <ReadonlyShortcut keys={['Ctrl', 'A']} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.screenshotRadialPicker')} description={t('settings.shortcuts.screenshotRadialPickerDesc')}>
+              <ReadonlyShortcut keys={['Tab']} />
+            </SettingItem>
+          </SettingsSection>
+        </div>
+
+        {/* 贴图操作 */}
+        <div className="w-full flex-shrink-0">
+          <SettingsSection title={t('settings.shortcuts.pinTitle')} description={t('settings.shortcuts.pinDesc')}>
+            <SettingItem label={t('settings.shortcuts.pinDrag')} description={t('settings.shortcuts.pinDragDesc')}>
+              <ReadonlyShortcut keys={[t('settings.shortcuts.pinKeys.leftDrag')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinClose')} description={t('settings.shortcuts.pinCloseDesc')}>
+              <ReadonlyShortcut keys={[t('settings.shortcuts.pinKeys.doubleClick')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinMenu')} description={t('settings.shortcuts.pinMenuDesc')}>
+              <ReadonlyShortcut keys={[t('settings.shortcuts.pinKeys.rightClick')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinThumbnail')} description={t('settings.shortcuts.pinThumbnailDesc')}>
+              <ReadonlyShortcut keys={[t('settings.shortcuts.pinKeys.leftHold'), t('settings.shortcuts.pinKeys.rightClick')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinZoom')} description={t('settings.shortcuts.pinZoomDesc')}>
+              <ReadonlyShortcut keys={[t('settings.shortcuts.pinKeys.scroll')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinZoomFast')} description={t('settings.shortcuts.pinZoomFastDesc')}>
+              <ReadonlyShortcut keys={['Shift', t('settings.shortcuts.pinKeys.scroll')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinZoomFine')} description={t('settings.shortcuts.pinZoomFineDesc')}>
+              <ReadonlyShortcut keys={['Ctrl', t('settings.shortcuts.pinKeys.scroll')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinInnerZoom')} description={t('settings.shortcuts.pinInnerZoomDesc')}>
+              <ReadonlyShortcut keys={['Alt', t('settings.shortcuts.pinKeys.scroll')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinInnerZoomFast')} description={t('settings.shortcuts.pinInnerZoomFastDesc')}>
+              <ReadonlyShortcut keys={['Alt', 'Shift', t('settings.shortcuts.pinKeys.scroll')]} />
+            </SettingItem>
+            <SettingItem label={t('settings.shortcuts.pinInnerDrag')} description={t('settings.shortcuts.pinInnerDragDesc')}>
+              <ReadonlyShortcut keys={['Alt', t('settings.shortcuts.pinKeys.leftDrag')]} />
             </SettingItem>
           </SettingsSection>
         </div>
@@ -167,7 +239,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
           </SettingsSection>
         </div>
 
-        {/* 高级设置 */}
+        {/* 快捷操作 */}
         <div className="w-full flex-shrink-0">
           <SettingsSection title={t('settings.shortcuts.numberTitle')} description={t('settings.shortcuts.numberDesc')}>
             <SettingItem label={t('settings.shortcuts.enableNumber')} description={t('settings.shortcuts.enableNumberDesc')}>
