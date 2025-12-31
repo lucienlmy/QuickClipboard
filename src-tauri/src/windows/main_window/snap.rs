@@ -1,9 +1,12 @@
-use tauri::{WebviewWindow, Emitter, Manager};
+use tauri::{WebviewWindow, Manager};
 use super::state::{SnapEdge, set_snap_edge, set_hidden, clear_snap, is_snapped};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 const SNAP_THRESHOLD: i32 = 30;
 const FRONTEND_CONTENT_INSET_LOGICAL: f64 = 5.0;
+
+static ANIMATION_VERSION: AtomicU64 = AtomicU64::new(0);
 
 fn get_content_inset(scale_factor: f64) -> i32 {
     (FRONTEND_CONTENT_INSET_LOGICAL * scale_factor) as i32
@@ -188,21 +191,11 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     // 根据动画配置决定是否使用过渡
     let settings = crate::get_settings();
-    let direction = match state.snap_edge {
-        SnapEdge::Left => "left",
-        SnapEdge::Right => "right",
-        SnapEdge::Top => "top",
-        SnapEdge::Bottom => "bottom",
-        SnapEdge::None => "top",
-    };
-    
     if settings.clipboard_animation_enabled {
         animate_window_position(window, x, y, show_x, show_y, 200)?;
-        let _ = window.emit("edge-snap-bounce-animation", direction);
     } else {
         window.set_position(tauri::PhysicalPosition::new(show_x, show_y))
             .map_err(|e| e.to_string())?;
-        let _ = window.emit("edge-snap-bounce-animation", direction);
     }
     set_hidden(false);
     
@@ -225,6 +218,7 @@ fn animate_window_position(
     end_y: i32,
     duration_ms: u64,
 ) -> Result<(), String> {
+    let version = ANIMATION_VERSION.fetch_add(1, Ordering::SeqCst) + 1;
     let window_clone = window.clone();
     
     std::thread::spawn(move || {
@@ -240,8 +234,12 @@ fn animate_window_position(
         let dy = end_y - start_y;
         
         for frame in 0..=total_frames {
+            if ANIMATION_VERSION.load(Ordering::SeqCst) != version {
+                return;
+            }
+            
             let progress = frame as f32 / total_frames as f32;
-            let eased_progress = 1.0 - (1.0 - progress).powi(3);
+            let eased_progress = 1.0 - (1.0 - progress).powi(2);
             
             let current_x = start_x + (dx as f32 * eased_progress) as i32;
             let current_y = start_y + (dy as f32 * eased_progress) as i32;
@@ -251,6 +249,10 @@ fn animate_window_position(
             if frame < total_frames {
                 std::thread::sleep(frame_duration);
             }
+        }
+        
+        if ANIMATION_VERSION.load(Ordering::SeqCst) == version {
+            let _ = window_clone.set_position(tauri::PhysicalPosition::new(end_x, end_y));
         }
     });
     

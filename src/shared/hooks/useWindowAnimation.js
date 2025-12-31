@@ -71,51 +71,6 @@ function animateCollapse(container) {
   requestAnimationFrame(animate)
 }
 
-// 贴边显示弹动动画
-function animateEdgeSnapBounce(container, direction = 'top') {
-  const amplitude = 40 
-  const duration = 500
-  const startTime = performance.now()
-
-  container.style.willChange = 'transform'
-
-  function animate(currentTime) {
-    const elapsed = currentTime - startTime
-    const progress = Math.min(elapsed / duration, 1)
-
-    const frequency = Math.PI * 3.5
-    const damping = 5
-    const displacement = amplitude * Math.exp(-damping * progress) * Math.cos(frequency * progress)
-
-    let tx = 0, ty = 0
-    switch (direction) {
-      case 'top':
-        ty = displacement
-        break
-      case 'bottom':
-        ty = -displacement
-        break
-      case 'left':
-        tx = displacement
-        break
-      case 'right':
-        tx = -displacement
-        break
-    }
-
-    container.style.transform = `translate(${tx}px, ${ty}px)`
-
-    if (progress < 1) {
-      requestAnimationFrame(animate)
-    } else {
-      container.style.transform = 'none'
-      container.style.willChange = 'auto'
-    }
-  }
-
-  requestAnimationFrame(animate)
-}
-
 export function useWindowAnimation() {
   useEffect(() => {
     const container = document.querySelector('.main-container')
@@ -139,13 +94,6 @@ export function useWindowAnimation() {
       }
     })
 
-    const unlistenEdgeBounce = listen('edge-snap-bounce-animation', (event) => {
-      if (settingsStore.clipboardAnimationEnabled) {
-        const direction = event.payload
-        animateEdgeSnapBounce(container, direction)
-      }
-    })
-
     // 超时显示
     const fallbackTimer = setTimeout(() => {
       if (container.style.height !== 'calc(100vh - 10px)') {
@@ -157,7 +105,6 @@ export function useWindowAnimation() {
     return () => {
       unlistenShow.then(fn => fn())
       unlistenHide.then(fn => fn())
-      unlistenEdgeBounce.then(fn => fn())
       clearTimeout(fallbackTimer)
     }
   }, [])
