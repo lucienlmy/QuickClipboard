@@ -393,7 +393,7 @@ function FavoriteItem({
 
       {/* 标题 */}
       {isEditingTitle ? (
-        <div className="flex-shrink-0 mb-1 pr-16">
+        <div className="flex-shrink-0 mb-0.5 pr-16">
           <input
             type="text"
             value={editingTitle}
@@ -411,8 +411,8 @@ function FavoriteItem({
           />
         </div>
       ) : shouldShowTitle() && (
-        <div className="flex-shrink-0 mb-1">
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16">
+        <div className="flex-shrink-0 mb-0">
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16 leading-tight">
             {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
           </p>
         </div>
@@ -420,7 +420,7 @@ function FavoriteItem({
 
       {/* 内容区域 */}
       <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
-        {renderContent()}
+        {renderContent(false, shouldShowTitle())}
       </div>
     </>}
   </div>;
