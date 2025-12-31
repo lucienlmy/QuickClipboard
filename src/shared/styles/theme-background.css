@@ -177,8 +177,22 @@ body.theme-background {
 /* 侧边栏毛玻璃效果 */
 .theme-background .settings-sidebar {
   background-color: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
   border-right-color: rgba(229, 231, 235, 0.8);
+}
+
+/* 设置窗口 Tab 栏毛玻璃效果 */
+.theme-background .settings-tab-bar {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom-color: rgba(229, 231, 235, 0.8);
+}
+
+.theme-background.dark .settings-tab-bar {
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  border-bottom-color: rgba(75, 85, 99, 0.5);
 }
 
 /* 设置窗口搜索框增强透明度 */

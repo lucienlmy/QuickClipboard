@@ -74,3 +74,13 @@ body.dragging-cursor * {
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(75, 85, 99, 0.7);
 }
+
+.settings-tab-bar button {
+  background-color: transparent;
+  border: none;
+  padding: 0.5rem 1rem;
+}
+
+.settings-tab-bar button.bg-blue-500 {
+  background-color: rgb(59, 130, 246);
+}

@@ -233,6 +233,12 @@
     "shortcuts": {
       "title": "Shortcuts",
       "description": "Customize all keyboard shortcuts",
+      "tabs": {
+        "globalHotkey": "Global",
+        "screenshotHotkey": "Screenshot",
+        "windowOps": "Window",
+        "quickActions": "Quick Actions"
+      },
       "globalTitle": "Global Shortcuts",
       "globalDesc": "Shortcuts available in any application",
       "toggleWindow": "Toggle Window",

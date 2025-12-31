@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSnapshot } from 'valtio';
+import { useTranslation } from 'react-i18next';
 import { settingsStore } from '@shared/store/settingsStore';
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
 import SettingsHeader from './components/SettingsHeader';
 import SettingsSidebar from './components/SettingsSidebar';
+import TabBar from '@shared/components/ui/TabBar';
 import GeneralSection from './sections/GeneralSection';
 import AppearanceSection from './sections/AppearanceSection';
 import ShortcutsSection from './sections/ShortcutsSection';
@@ -20,6 +22,7 @@ import DataManagementSection from './sections/DataManagementSection';
 import AboutSection from './sections/AboutSection';
 import ToastContainer from '@shared/components/common/ToastContainer';
 function App() {
+  const { t } = useTranslation();
   const snap = useSnapshot(settingsStore);
   const {
     theme,
@@ -33,6 +36,21 @@ function App() {
   } = useTheme();
   const [activeSection, setActiveSection] = useState('general');
   const [pendingTargetLabel, setPendingTargetLabel] = useState('');
+
+  const [shortcutsTab, setShortcutsTab] = useState('globalHotkey');
+  const shortcutsTabs = [
+    { id: 'globalHotkey', label: t('settings.shortcuts.tabs.globalHotkey') },
+    { id: 'screenshotHotkey', label: t('settings.shortcuts.tabs.screenshotHotkey') },
+    { id: 'windowOps', label: t('settings.shortcuts.tabs.windowOps') },
+    { id: 'quickActions', label: t('settings.shortcuts.tabs.quickActions') },
+  ];
+
+  useEffect(() => {
+    const mainEl = document.querySelector('.settings-container main');
+    if (mainEl) {
+      mainEl.scrollTop = 0;
+    }
+  }, [shortcutsTab]);
 
   const handleSearchNavigate = (section, targetLabel) => {
     setActiveSection(section);
@@ -104,7 +122,7 @@ function App() {
         content = <AppearanceSection settings={snap} onSettingChange={handleSettingChange} />;
         break;
       case 'shortcuts':
-        content = <ShortcutsSection settings={snap} onSettingChange={handleSettingChange} />;
+        content = <ShortcutsSection settings={snap} onSettingChange={handleSettingChange} activeTab={shortcutsTab} />;
         break;
       case 'clipboard':
         content = <ClipboardSection settings={snap} onSettingChange={handleSettingChange} />;
@@ -156,9 +174,16 @@ function App() {
       <div className="flex-1 flex overflow-hidden">
         <SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
 
-        <main className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${isBackground ? 'bg-transparent' : 'bg-gray-50 dark:bg-gray-900'}`}>
-          {renderSection()}
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* 快捷键页面的 Tab 栏 */}
+          {activeSection === 'shortcuts' && (
+            <TabBar tabs={shortcutsTabs} activeTab={shortcutsTab} onTabChange={setShortcutsTab} />
+          )}
+          
+          <main className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${isBackground ? 'bg-transparent' : 'bg-gray-50 dark:bg-gray-900'}`}>
+            {renderSection()}
+          </main>
+        </div>
       </div>
 
       <ToastContainer />

@@ -231,6 +231,12 @@
       "uiAnimationDesc": "开启或关闭界面动效（如标签栏滑块、悬停浮动、列表插入、面板显示等动画）"
     },
     "shortcuts": {
+      "tabs": {
+        "globalHotkey": "全局热键",
+        "screenshotHotkey": "截图热键",
+        "windowOps": "窗口操作",
+        "quickActions": "快捷操作"
+      },
       "title": "快捷键设置",
       "description": "自定义所有快捷键",
       "globalTitle": "全局快捷键",
