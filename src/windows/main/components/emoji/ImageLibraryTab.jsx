@@ -10,6 +10,28 @@ import * as imageLibrary from '@shared/api/imageLibrary';
 import { IMAGE_COLS } from './emojiData';
 import RenameDialog from './RenameDialog';
 
+async function readFileInChunks(file, chunkSize = 1024 * 1024) {
+  const chunks = [];
+  let offset = 0;
+  
+  while (offset < file.size) {
+    const slice = file.slice(offset, offset + chunkSize);
+    const chunk = await slice.arrayBuffer();
+    chunks.push(new Uint8Array(chunk));
+    offset += chunkSize;
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+  
+  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let position = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, position);
+    position += chunk.length;
+  }
+  return result;
+}
+
 function ImageLibraryTab({ imageCategory, searchQuery }) {
   const { t } = useTranslation();
   const [imageTotal, setImageTotal] = useState(0);
@@ -26,6 +48,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
   const internalDragRef = useRef(false);
+  const loadRequestRef = useRef(null);
   const handleDragMouseDown = useDragWithThreshold({
     onDragStart: () => { internalDragRef.current = true; }
   });
@@ -85,6 +108,16 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     }
   }, [imageCategory, imageLoading]);
 
+  const scheduleLoadRange = useCallback((startIndex, endIndex) => {
+    if (loadRequestRef.current) {
+      clearTimeout(loadRequestRef.current);
+    }
+    loadRequestRef.current = setTimeout(() => {
+      loadRequestRef.current = null;
+      loadImageRange(startIndex, endIndex);
+    }, 50);
+  }, [loadImageRange]);
+
   useEffect(() => {
     setImageItems([]);
     loadedRangeRef.current = { start: 0, end: 0 };
@@ -132,23 +165,27 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     let gifCount = 0;
     let imageCount = 0;
 
-    for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i];
-      setUploadProgress({ current: i + 1, total: imageFiles.length });
+    const processFile = async (file, index) => {
+      setUploadProgress(prev => ({ ...prev, current: index + 1 }));
       
       try {
-        const buffer = await file.arrayBuffer();
-        const data = new Uint8Array(buffer);
+        const data = await readFileInChunks(file);
         const result = await imageLibrary.saveImage(file.name, data);
-        if (result.category === 'gifs') gifCount++;
-        else imageCount++;
+        return result.category === 'gifs' ? 'gif' : 'image';
       } catch (err) {
         console.error('保存图片失败:', err);
         toast.error(t('emoji.saveFailed', { name: file.name }), {
           size: TOAST_SIZES.EXTRA_SMALL,
           position: TOAST_POSITIONS.BOTTOM_RIGHT
         });
+        return null;
       }
+    };
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const result = await processFile(imageFiles[i], i);
+      if (result === 'gif') gifCount++;
+      else if (result === 'image') imageCount++;
     }
 
     setIsUploading(false);
@@ -272,7 +309,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     }
 
     if (!searchQuery?.trim() && rowItems.some(item => item.loading)) {
-      setTimeout(() => loadImageRange(startIdx, startIdx + IMAGE_COLS - 1), 0);
+      scheduleLoadRange(startIdx, startIdx + IMAGE_COLS - 1);
     }
 
     return (
@@ -322,7 +359,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         ))}
       </div>
     );
-  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, loadImageRange, handleImageClick, handleDragMouseDown, handleDeleteImage, handleRenameStart, t]);
+  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, scheduleLoadRange, handleImageClick, handleDragMouseDown, handleDeleteImage, handleRenameStart, t]);
 
   return (
     <div 
