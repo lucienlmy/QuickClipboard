@@ -30,14 +30,16 @@ pub fn normalize_path_for_hash(path: &str) -> String {
 pub fn resolve_stored_path(stored_path: &str) -> String {
     let normalized_input = stored_path.replace("/", "\\");
     
-    if normalized_input.starts_with("clipboard_images\\") || normalized_input.starts_with("pin_images\\") {
+    if normalized_input.starts_with("clipboard_images\\") 
+        || normalized_input.starts_with("pin_images\\")
+        || normalized_input.starts_with("image_library\\") {
         if let Ok(data_dir) = get_data_directory() {
             return data_dir.join(&normalized_input).to_string_lossy().to_string();
         }
     }
     
     let search_path = stored_path.replace("\\", "/");
-    for prefix in ["clipboard_images/", "pin_images/"] {
+    for prefix in ["clipboard_images/", "pin_images/", "image_library/"] {
         if let Some(idx) = search_path.find(prefix) {
             if let Ok(data_dir) = get_data_directory() {
                 let relative = search_path[idx..].replace("/", "\\");

@@ -272,9 +272,7 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
     
     // 检查是否已经在数据目录下
     let data_dir = crate::services::get_data_directory()?;
-    let clipboard_images_dir = data_dir.join("clipboard_images");
-    let pin_images_dir = data_dir.join("pin_images");
-    let is_in_data_dir = path.starts_with(&clipboard_images_dir) || path.starts_with(&pin_images_dir);
+    let is_in_data_dir = path.starts_with(&data_dir);
     
     let final_path = if is_in_data_dir {
         file_path.clone()
@@ -285,6 +283,7 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
         let hash = format!("{:x}", Sha256::digest(&image_data));
         let filename = format!("{}.png", &hash[..16]);
         
+        let clipboard_images_dir = data_dir.join("clipboard_images");
         std::fs::create_dir_all(&clipboard_images_dir)
             .map_err(|e| format!("创建目录失败: {}", e))?;
         

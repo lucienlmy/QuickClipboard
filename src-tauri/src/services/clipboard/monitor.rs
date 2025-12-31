@@ -246,7 +246,8 @@ pub fn set_last_hash_file(file_path: &str) {
     use sha2::{Sha256, Digest};
     
     let mut hasher = Sha256::new();
-    hasher.update(file_path.as_bytes());
+    let normalized = crate::services::normalize_path_for_hash(file_path);
+    hasher.update(normalized.as_bytes());
     
     let hash = format!("{:x}", hasher.finalize());
     let mut last_hashes = LAST_CONTENT_HASHES.lock();

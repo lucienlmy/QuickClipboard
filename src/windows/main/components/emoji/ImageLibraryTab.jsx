@@ -251,6 +251,25 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     setRenameValue(nameWithoutExt);
   }, []);
 
+  const handleCopyImage = useCallback(async (e, item) => {
+    e.stopPropagation();
+    if (!item || item.loading) return;
+    
+    try {
+      await invoke('copy_image_to_clipboard', { filePath: item.path });
+      toast.success(t('common.copied'), {
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      });
+    } catch (err) {
+      console.error('复制图片失败:', err);
+      toast.error(t('common.copyFailed'), {
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      });
+    }
+  }, [t]);
+
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingItem || !renameValue.trim()) {
       setRenamingItem(null);
@@ -339,6 +358,13 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <button
+                    onClick={(e) => handleCopyImage(e, item)}
+                    className="w-5 h-5 rounded-full bg-black/50 hover:bg-green-500 text-white flex items-center justify-center"
+                    title={t('common.copy') || '复制'}
+                  >
+                    <i className="ti ti-copy text-xs"></i>
+                  </button>
+                  <button
                     onClick={(e) => handleRenameStart(e, item)}
                     className="w-5 h-5 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center"
                     title={t('common.rename') || '重命名'}
@@ -359,7 +385,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         ))}
       </div>
     );
-  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, scheduleLoadRange, handleImageClick, handleDragMouseDown, handleDeleteImage, handleRenameStart, t]);
+  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, scheduleLoadRange, handleImageClick, handleDragMouseDown, handleCopyImage, handleDeleteImage, handleRenameStart, t]);
 
   return (
     <div 
