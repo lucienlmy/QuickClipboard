@@ -239,7 +239,7 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
             });
         }
         "toggle-hotkeys" => {
-            toggle_hotkeys();
+            toggle_hotkeys(app);
         }
         "toggle-clipboard-monitor" => {
             if let Err(e) = crate::commands::settings::toggle_clipboard_monitor(app) {
@@ -299,22 +299,26 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
 }
 
 // 切换快捷键状态
-fn toggle_hotkeys() {
+fn toggle_hotkeys(app: &AppHandle) {
     let mut settings = crate::get_settings();
     settings.hotkeys_enabled = !settings.hotkeys_enabled;
+    let enabled = settings.hotkeys_enabled;
     
     if let Err(e) = crate::update_settings(settings.clone()) {
         eprintln!("更新快捷键设置失败: {}", e);
         return;
     }
     
-    if settings.hotkeys_enabled {
+    if enabled {
         if let Err(e) = crate::hotkey::reload_from_settings() {
             eprintln!("重新加载快捷键失败: {}", e);
         }
     } else {
         crate::hotkey::unregister_all();
     }
+
+    let message = if enabled { "快捷键已启用" } else { "快捷键已禁用" };
+    let _ = crate::services::notification::show_notification(app, "QuickClipboard", message);
 }
 
 // 打开贴图目录

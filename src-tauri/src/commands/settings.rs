@@ -223,11 +223,15 @@ pub fn get_shortcut_status(id: String) -> Option<crate::hotkey::ShortcutStatus> 
 pub fn toggle_clipboard_monitor(app: &tauri::AppHandle) -> Result<(), String> {
     let mut settings = get_settings();
     settings.clipboard_monitor = !settings.clipboard_monitor;
+    let enabled = settings.clipboard_monitor;
     
     let result = save_settings(settings, app.clone());
     if crate::services::low_memory::is_low_memory_mode() {
         let _ = crate::windows::tray::native_menu::update_native_menu(app);
     }
+
+    let message = if enabled { "剪贴板监听已启用" } else { "剪贴板监听已禁用" };
+    let _ = crate::services::notification::show_notification(app, "QuickClipboard", message);
     
     result
 }
@@ -236,6 +240,7 @@ pub fn toggle_clipboard_monitor(app: &tauri::AppHandle) -> Result<(), String> {
 pub fn toggle_paste_with_format(app: &tauri::AppHandle) -> Result<(), String> {
     let mut settings = get_settings();
     settings.paste_with_format = !settings.paste_with_format;
+    let enabled = settings.paste_with_format;
     
     use tauri::Emitter;
     let _ = app.emit("settings-changed", serde_json::json!({
@@ -246,6 +251,9 @@ pub fn toggle_paste_with_format(app: &tauri::AppHandle) -> Result<(), String> {
     if crate::services::low_memory::is_low_memory_mode() {
         let _ = crate::windows::tray::native_menu::update_native_menu(app);
     }
+
+    let message = if enabled { "格式粘贴已启用" } else { "格式粘贴已禁用" };
+    let _ = crate::services::notification::show_notification(app, "QuickClipboard", message);
     
     result
 }
