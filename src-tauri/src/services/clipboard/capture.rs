@@ -1,4 +1,4 @@
-use clipboard_rs::{Clipboard, ClipboardContext, common::RustImage};
+use clipboard_rs::{Clipboard, ClipboardContext, common::RustImage, RustImageData};
 
 // 剪贴板内容类型
 #[derive(Debug, Clone, PartialEq)]
@@ -18,29 +18,35 @@ pub struct ClipboardContent {
 }
 
 // 保存剪贴板图片到缓存目录
-fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
+fn save_clipboard_image(rust_image: RustImageData) -> Result<String, String> {
     use sha2::{Sha256, Digest};
-    use uuid::Uuid;
     use crate::services::get_data_directory;
+    use image::{ImageEncoder, codecs::png::PngEncoder};
     
     let images_dir = get_data_directory()?.join("clipboard_images");
     std::fs::create_dir_all(&images_dir).map_err(|e| format!("创建目录失败: {}", e))?;
     
-    // 保存到临时文件
-    let temp_file = images_dir.join(format!("temp_{}.png", Uuid::new_v4()));
-    rust_image.save_to_path(temp_file.to_str().ok_or("路径转换失败")?).map_err(|e| e.to_string())?;
+    let rgba_image = rust_image.to_rgba8().map_err(|e| e.to_string())?;
+    let (width, height) = (rgba_image.width(), rgba_image.height());
     
-    // 计算哈希并重命名
-    let png_data = std::fs::read(&temp_file).map_err(|e| e.to_string())?;
+    let mut png_data = Vec::new();
+    let encoder = PngEncoder::new(&mut png_data);
+    encoder.write_image(
+        rgba_image.as_raw(),
+        width,
+        height,
+        image::ExtendedColorType::Rgba8,
+    ).map_err(|e| e.to_string())?;
+    
     let hash = format!("{:x}", Sha256::digest(&png_data));
     let filename = format!("{}.png", &hash[..16]);
     let final_path = images_dir.join(&filename);
     
     if final_path.exists() {
-        std::fs::remove_file(&temp_file).ok();
-    } else {
-        std::fs::rename(&temp_file, &final_path).map_err(|e| e.to_string())?;
+        return Ok(format!("clipboard_images/{}", filename));
     }
+    
+    std::fs::write(&final_path, &png_data).map_err(|e| e.to_string())?;
     
     Ok(format!("clipboard_images/{}", filename))
 }
@@ -107,7 +113,7 @@ impl ClipboardContent {
         
         // 获取图片
         if let Ok(rust_image) = ctx.get_image() {
-            if let Ok(image_path) = save_clipboard_image(&rust_image) {
+            if let Ok(image_path) = save_clipboard_image(rust_image) {
                 results.push(ClipboardContent {
                     content_type: ContentType::Files,
                     text: Some(image_path.clone()),
