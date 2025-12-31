@@ -48,6 +48,22 @@ fn save_clipboard_image(rust_image: &impl RustImage) -> Result<String, String> {
 impl ClipboardContent {
     // 从剪贴板捕获内容
     pub fn capture() -> Result<Vec<Self>, String> {
+        for attempt in 0..3 {
+            if attempt > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(50 * (attempt as u64 + 1)));
+            }
+            
+            match Self::capture_internal() {
+                Ok(results) if !results.is_empty() => return Ok(results),
+                Ok(_) => {}
+                Err(_) => {}
+            }
+        }
+        
+        Ok(vec![])
+    }
+    
+    fn capture_internal() -> Result<Vec<Self>, String> {
         let ctx = ClipboardContext::new()
             .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
         
@@ -101,6 +117,21 @@ impl ClipboardContent {
             }
         }
 
+        // 如果同时有图片文件和纯图片HTML（无文本内容），移除HTML版本
+        let has_image_file = results.iter().any(|r| {
+            r.content_type == ContentType::Files && 
+            r.files.as_ref().map(|f| f.len() == 1 && is_image_path(&f[0])).unwrap_or(false)
+        });
+        
+        if has_image_file {
+            results.retain(|r| {
+                if r.content_type != ContentType::RichText {
+                    return true;
+                }
+                r.text.as_ref().map(|t| !t.trim().is_empty()).unwrap_or(false)
+            });
+        }
+
         Ok(results)
     }
     
@@ -133,4 +164,11 @@ impl ClipboardContent {
         
         format!("{:x}", hasher.finalize())
     }
+}
+
+// 检查路径是否是图片文件
+fn is_image_path(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    lower.ends_with(".png") || lower.ends_with(".jpg") || lower.ends_with(".jpeg") 
+        || lower.ends_with(".gif") || lower.ends_with(".webp") || lower.ends_with(".bmp")
 }
