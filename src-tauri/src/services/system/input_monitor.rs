@@ -178,7 +178,7 @@ fn handle_key_press(key: Key, _event: &Event) -> bool {
     // Shift+Insert 粘贴音效
     if matches!(key, Key::Insert) {
         if let Some(state) = KEYBOARD_STATE.try_lock() {
-            if state.shift && !state.ctrl && !state.alt && !state.meta {
+            if state.shift {
                 crate::AppSounds::play_paste();
             }
         }
