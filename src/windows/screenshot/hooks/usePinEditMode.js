@@ -60,6 +60,7 @@ export function usePinEditMode() {
           originalImagePath: pinEditData.original_image_path || null,
           editData: editDataJson || null,
         });
+        await new Promise(r => setTimeout(r, 150));
       } else {
         await invoke('confirm_pin_edit', {
           newFilePath,
@@ -196,8 +197,7 @@ export function usePinEditMode() {
             setScreenInfos(screens);
             setIsPinEditMode(true);
             const { emit } = await import('@tauri-apps/api/event');
-            await new Promise(r => setTimeout(r, 50));
-            await emit('pin-edit-ready');
+            emit('pin-edit-ready');
           }
         }
       } catch (error) {
@@ -217,7 +217,7 @@ export function usePinEditMode() {
           await handleEnterPinEditMode();
         });
 
-        await handleEnterPinEditMode();
+        handleEnterPinEditMode();
       } catch (err) {
         console.error('监听 pin-edit-mode 事件失败:', err);
         if (mounted) {

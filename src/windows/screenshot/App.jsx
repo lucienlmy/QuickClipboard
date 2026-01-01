@@ -358,7 +358,7 @@ function App() {
 
   // 初始化
   useEffect(() => {
-    if (pinEditMode.isChecking || isPinEdit) return;
+    if (isPinEdit) return;
     let unlisten;
     const init = async () => {
       await Promise.all([reloadFromLastCapture(), ensureAutoSelectionStarted()]);
@@ -375,7 +375,9 @@ function App() {
       try {
         const win = getCurrentWebviewWindow();
         unlisten = await win.listen('screenshot:new-session', init);
-        await init();
+        if (!pinEditMode.isChecking) {
+          init();
+        }
       } catch (err) {
         console.error('初始化截屏失败:', err);
       }

@@ -551,7 +551,14 @@ async fn start_edit_mode(app: &AppHandle, window_id: u64) -> Result<(), String> 
         *editing = Some(window_id);
     }
     
-    gpu_image_viewer::window::set_visible(window_id, false)?;
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    let _unlisten = app.once("pin-edit-ready", move |_| {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            let _ = gpu_image_viewer::window::set_visible(window_id, false);
+        });
+        let _ = tx.send(());
+    });
     
     crate::windows::screenshot_window::start_pin_edit_mode(
         app,

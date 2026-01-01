@@ -7,11 +7,11 @@ import '@shared/i18n';
 import { initStores } from '@shared/store';
 import App from './App';
 
-initStores().then(() => {
-  const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-});
+initStores();
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
