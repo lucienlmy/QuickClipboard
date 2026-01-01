@@ -55,6 +55,7 @@ pub fn show_quickpaste_window(app: &AppHandle) -> Result<(), String> {
     let window = get_or_create_window(app)?;
     center_at_cursor(&window)?;
     let _ = window.show();
+    let _ = window.set_always_on_top(false);
     let _ = window.set_always_on_top(true);
     set_visible(true);
     
