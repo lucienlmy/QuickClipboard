@@ -50,9 +50,6 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
     return hasDuplicate(key) || (backendId && hasBackendError(backendId));
   };
 
-  const tabs = ['globalHotkey', 'screenshotHotkey', 'pinOps', 'navigation', 'quickActions'];
-  const activeIndex = tabs.indexOf(activeTab);
-
   const numberKeyTypeOptions = [
     { value: '1~9', label: '1~9' },
     { value: 'F', label: 'F1~F9' },
@@ -63,14 +60,10 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
     { value: 'long_press', label: t('settings.shortcuts.mouseMiddleTriggerLongPress') }
   ];
 
-  return (
-    <div className="overflow-hidden">
-      <div 
-        className={`flex ${uiAnimationEnabled ? 'transition-transform duration-300 ease-out' : ''}`}
-        style={{ transform: `translateX(-${activeIndex * 100}%)` }}
-      >
-        {/* 全局热键 */}
-        <div className="w-full flex-shrink-0">
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'globalHotkey':
+        return (
           <SettingsSection title={t('settings.shortcuts.globalTitle')} description={t('settings.shortcuts.globalDesc')}>
             <SettingItem label={t('settings.shortcuts.toggleWindow')} description={t('settings.shortcuts.toggleWindowDesc')}>
               <div className="flex flex-col items-end gap-1">
@@ -112,63 +105,65 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
               <ShortcutComboInput value={settings.pastePlainTextShortcut} onChange={value => handleShortcutChange('pastePlainTextShortcut', value)} modifierOptions={['Ctrl', 'Shift']} fixedModifiers={['Ctrl']} disabledKeys={['V', 'C', 'X', 'A', 'Z', 'Y']} hasError={hasErrorStatus('pastePlainTextShortcut', 'paste_plain_text')} errorMessage={getErrorMessage('pastePlainTextShortcut', 'paste_plain_text')} />
             </SettingItem>
           </SettingsSection>
-        </div>
+        );
 
-        {/* 截图热键 */}
-        <div className="w-full flex-shrink-0">
-          <SettingsSection title={t('settings.shortcuts.screenshotTitle')} description={t('settings.shortcuts.screenshotSectionDesc')}>
-            <SettingItem label={t('settings.shortcuts.screenshot')} description={t('settings.shortcuts.screenshotDesc')}>
-              <ShortcutInput value={settings.screenshotShortcut} onChange={value => handleShortcutChange('screenshotShortcut', value)} onReset={() => handleShortcutChange('screenshotShortcut', 'Ctrl+Shift+A')} hasError={hasErrorStatus('screenshotShortcut', 'screenshot')} errorMessage={getErrorMessage('screenshotShortcut', 'screenshot')} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotQuickSave')} description={t('settings.shortcuts.screenshotQuickSaveDesc')}>
-              <ShortcutInput value={settings.screenshotQuickSaveShortcut} onChange={value => handleShortcutChange('screenshotQuickSaveShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickSaveShortcut', '')} hasError={hasErrorStatus('screenshotQuickSaveShortcut', 'screenshot_quick_save')} errorMessage={getErrorMessage('screenshotQuickSaveShortcut', 'screenshot_quick_save')} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotQuickPin')} description={t('settings.shortcuts.screenshotQuickPinDesc')}>
-              <ShortcutInput value={settings.screenshotQuickPinShortcut} onChange={value => handleShortcutChange('screenshotQuickPinShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickPinShortcut', '')} hasError={hasErrorStatus('screenshotQuickPinShortcut', 'screenshot_quick_pin')} errorMessage={getErrorMessage('screenshotQuickPinShortcut', 'screenshot_quick_pin')} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotQuickOcr')} description={t('settings.shortcuts.screenshotQuickOcrDesc')}>
-              <ShortcutInput value={settings.screenshotQuickOcrShortcut} onChange={value => handleShortcutChange('screenshotQuickOcrShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickOcrShortcut', '')} hasError={hasErrorStatus('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} errorMessage={getErrorMessage('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} />
-            </SettingItem>
-          </SettingsSection>
-          <SettingsSection title={t('settings.shortcuts.screenshotInternalTitle')} description={t('settings.shortcuts.screenshotInternalDesc')}>
-            <SettingItem label={t('settings.shortcuts.screenshotToolSwitch')} description={t('settings.shortcuts.screenshotToolSwitchDesc')}>
-              <ReadonlyShortcut keys={['1-9']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotUndo')} description={t('settings.shortcuts.screenshotUndoDesc')}>
-              <ReadonlyShortcut keys={['Ctrl', 'Z']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotRedo')} description={t('settings.shortcuts.screenshotRedoDesc')}>
-              <ReadonlyShortcut keys={['Ctrl', 'Y']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotDelete')} description={t('settings.shortcuts.screenshotDeleteDesc')}>
-              <ReadonlyShortcut keys={['Delete']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotClearCanvas')} description={t('settings.shortcuts.screenshotClearCanvasDesc')}>
-              <ReadonlyShortcut keys={['Ctrl', 'Shift', 'C']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotCancel')} description={t('settings.shortcuts.screenshotCancelDesc')}>
-              <ReadonlyShortcut groups={[['Esc'], [t('settings.shortcuts.screenshotKeys.rightClick')]]} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotSave')} description={t('settings.shortcuts.screenshotSaveDesc')}>
-              <ReadonlyShortcut keys={['Ctrl', 'S']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotConfirm')} description={t('settings.shortcuts.screenshotConfirmDesc')}>
-              <ReadonlyShortcut groups={[['Enter'], [t('settings.shortcuts.screenshotKeys.doubleClick')]]} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotPinAction')} description={t('settings.shortcuts.screenshotPinActionDesc')}>
-              <ReadonlyShortcut keys={['Ctrl', 'P']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotSelectAll')} description={t('settings.shortcuts.screenshotSelectAllDesc')}>
-              <ReadonlyShortcut keys={['Ctrl', 'A']} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.screenshotRadialPicker')} description={t('settings.shortcuts.screenshotRadialPickerDesc')}>
-              <ReadonlyShortcut keys={['Tab']} />
-            </SettingItem>
-          </SettingsSection>
-        </div>
+      case 'screenshotHotkey':
+        return (
+          <>
+            <SettingsSection title={t('settings.shortcuts.screenshotTitle')} description={t('settings.shortcuts.screenshotSectionDesc')}>
+              <SettingItem label={t('settings.shortcuts.screenshot')} description={t('settings.shortcuts.screenshotDesc')}>
+                <ShortcutInput value={settings.screenshotShortcut} onChange={value => handleShortcutChange('screenshotShortcut', value)} onReset={() => handleShortcutChange('screenshotShortcut', 'Ctrl+Shift+A')} hasError={hasErrorStatus('screenshotShortcut', 'screenshot')} errorMessage={getErrorMessage('screenshotShortcut', 'screenshot')} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotQuickSave')} description={t('settings.shortcuts.screenshotQuickSaveDesc')}>
+                <ShortcutInput value={settings.screenshotQuickSaveShortcut} onChange={value => handleShortcutChange('screenshotQuickSaveShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickSaveShortcut', '')} hasError={hasErrorStatus('screenshotQuickSaveShortcut', 'screenshot_quick_save')} errorMessage={getErrorMessage('screenshotQuickSaveShortcut', 'screenshot_quick_save')} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotQuickPin')} description={t('settings.shortcuts.screenshotQuickPinDesc')}>
+                <ShortcutInput value={settings.screenshotQuickPinShortcut} onChange={value => handleShortcutChange('screenshotQuickPinShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickPinShortcut', '')} hasError={hasErrorStatus('screenshotQuickPinShortcut', 'screenshot_quick_pin')} errorMessage={getErrorMessage('screenshotQuickPinShortcut', 'screenshot_quick_pin')} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotQuickOcr')} description={t('settings.shortcuts.screenshotQuickOcrDesc')}>
+                <ShortcutInput value={settings.screenshotQuickOcrShortcut} onChange={value => handleShortcutChange('screenshotQuickOcrShortcut', value)} onReset={() => handleShortcutChange('screenshotQuickOcrShortcut', '')} hasError={hasErrorStatus('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} errorMessage={getErrorMessage('screenshotQuickOcrShortcut', 'screenshot_quick_ocr')} />
+              </SettingItem>
+            </SettingsSection>
+            <SettingsSection title={t('settings.shortcuts.screenshotInternalTitle')} description={t('settings.shortcuts.screenshotInternalDesc')}>
+              <SettingItem label={t('settings.shortcuts.screenshotToolSwitch')} description={t('settings.shortcuts.screenshotToolSwitchDesc')}>
+                <ReadonlyShortcut keys={['1-9']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotRadialPicker')} description={t('settings.shortcuts.screenshotRadialPickerDesc')}>
+                <ReadonlyShortcut keys={['Tab']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotUndo')} description={t('settings.shortcuts.screenshotUndoDesc')}>
+                <ReadonlyShortcut keys={['Ctrl', 'Z']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotRedo')} description={t('settings.shortcuts.screenshotRedoDesc')}>
+                <ReadonlyShortcut keys={['Ctrl', 'Y']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotDelete')} description={t('settings.shortcuts.screenshotDeleteDesc')}>
+                <ReadonlyShortcut keys={['Delete']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotClearCanvas')} description={t('settings.shortcuts.screenshotClearCanvasDesc')}>
+                <ReadonlyShortcut keys={['Ctrl', 'Shift', 'C']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotSelectAll')} description={t('settings.shortcuts.screenshotSelectAllDesc')}>
+                <ReadonlyShortcut keys={['Ctrl', 'A']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotConfirm')} description={t('settings.shortcuts.screenshotConfirmDesc')}>
+                <ReadonlyShortcut groups={[['Enter'], [t('settings.shortcuts.screenshotKeys.doubleClick')]]} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotCancel')} description={t('settings.shortcuts.screenshotCancelDesc')}>
+                <ReadonlyShortcut groups={[['Esc'], [t('settings.shortcuts.screenshotKeys.rightClick')]]} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotSave')} description={t('settings.shortcuts.screenshotSaveDesc')}>
+                <ReadonlyShortcut keys={['Ctrl', 'S']} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.screenshotPinAction')} description={t('settings.shortcuts.screenshotPinActionDesc')}>
+                <ReadonlyShortcut keys={['Ctrl', 'P']} />
+              </SettingItem>
+            </SettingsSection>
+          </>
+        );
 
-        {/* 贴图操作 */}
-        <div className="w-full flex-shrink-0">
+      case 'pinOps':
+        return (
           <SettingsSection title={t('settings.shortcuts.pinTitle')} description={t('settings.shortcuts.pinDesc')}>
             <SettingItem label={t('settings.shortcuts.pinDrag')} description={t('settings.shortcuts.pinDragDesc')}>
               <ReadonlyShortcut keys={[t('settings.shortcuts.pinKeys.leftDrag')]} />
@@ -201,10 +196,10 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
               <ReadonlyShortcut keys={['Alt', t('settings.shortcuts.pinKeys.leftDrag')]} />
             </SettingItem>
           </SettingsSection>
-        </div>
+        );
 
-        {/* 界面导航 */}
-        <div className="w-full flex-shrink-0">
+      case 'navigation':
+        return (
           <SettingsSection title={t('settings.shortcuts.windowTitle')} description={t('settings.shortcuts.windowDesc')}>
             <SettingItem label={t('settings.shortcuts.navigateUp')} description={t('settings.shortcuts.navigateUpDesc')}>
               <ShortcutInput value={settings.navigateUpShortcut} onChange={value => onSettingChange('navigateUpShortcut', value)} onReset={() => onSettingChange('navigateUpShortcut', 'ArrowUp')} hasError={hasErrorStatus('navigateUpShortcut')} errorMessage={getErrorMessage('navigateUpShortcut')} />
@@ -237,44 +232,54 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
               <ShortcutInput value={settings.togglePinShortcut} onChange={value => onSettingChange('togglePinShortcut', value)} onReset={() => onSettingChange('togglePinShortcut', 'Ctrl+P')} hasError={hasErrorStatus('togglePinShortcut')} errorMessage={getErrorMessage('togglePinShortcut')} />
             </SettingItem>
           </SettingsSection>
-        </div>
+        );
 
-        {/* 快捷操作 */}
-        <div className="w-full flex-shrink-0">
-          <SettingsSection title={t('settings.shortcuts.numberTitle')} description={t('settings.shortcuts.numberDesc')}>
-            <SettingItem label={t('settings.shortcuts.enableNumber')} description={t('settings.shortcuts.enableNumberDesc')}>
-              <Toggle checked={settings.numberShortcuts} onChange={checked => onSettingChange('numberShortcuts', checked)} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.numberModifier')} description={t('settings.shortcuts.numberModifierDesc')}>
-              <ShortcutComboInput value={settings.numberShortcutsModifier} onChange={value => onSettingChange('numberShortcutsModifier', value)} modifierOptions={['Ctrl', 'Shift']} fixedKeyOptions={numberKeyTypeOptions} />
-            </SettingItem>
-            {hasBackendError('number_shortcuts') && (
-              <div className="px-4 py-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md">
-                <span className="font-medium">{t('settings.shortcuts.numberRegistrationFailed')}：</span>
-                {statuses['number_shortcuts']?.shortcut}
-              </div>
-            )}
-          </SettingsSection>
-          <SettingsSection title={t('settings.shortcuts.mouseTitle')} description={t('settings.shortcuts.mouseDesc')}>
-            <SettingItem label={t('settings.shortcuts.enableMouseMiddle')} description={t('settings.shortcuts.enableMouseMiddleDesc')}>
-              <Toggle checked={settings.mouseMiddleButtonEnabled} onChange={checked => onSettingChange('mouseMiddleButtonEnabled', checked)} />
-            </SettingItem>
-            <SettingItem label={t('settings.shortcuts.mouseMiddleModifier')} description={t('settings.shortcuts.mouseMiddleModifierDesc')}>
-              <ShortcutComboInput value={settings.mouseMiddleButtonModifier === 'None' ? '' : settings.mouseMiddleButtonModifier} onChange={value => onSettingChange('mouseMiddleButtonModifier', value || 'None')} modifierOptions={mouseModifierOptions} fixedKey={t('settings.shortcuts.middleButton')} allowEmpty />
-            </SettingItem>
-            {settings.mouseMiddleButtonModifier === 'None' && (
-              <SettingItem label={t('settings.shortcuts.mouseMiddleTrigger')} description={t('settings.shortcuts.mouseMiddleTriggerDesc')}>
-                <Select value={settings.mouseMiddleButtonTrigger} onChange={value => onSettingChange('mouseMiddleButtonTrigger', value)} options={mouseTriggerOptions} className="w-56" />
+      case 'quickActions':
+        return (
+          <>
+            <SettingsSection title={t('settings.shortcuts.numberTitle')} description={t('settings.shortcuts.numberDesc')}>
+              <SettingItem label={t('settings.shortcuts.enableNumber')} description={t('settings.shortcuts.enableNumberDesc')}>
+                <Toggle checked={settings.numberShortcuts} onChange={checked => onSettingChange('numberShortcuts', checked)} />
               </SettingItem>
-            )}
-            {settings.mouseMiddleButtonModifier === 'None' && (
-              <SettingItem label={t('settings.shortcuts.mouseMiddleLongPressThreshold')} description={t('settings.shortcuts.mouseMiddleLongPressThresholdDesc')}>
-                <Slider value={settings.mouseMiddleButtonLongPressMs} onChange={value => onSettingChange('mouseMiddleButtonLongPressMs', value)} min={100} max={1000} step={50} unit="ms" />
+              <SettingItem label={t('settings.shortcuts.numberModifier')} description={t('settings.shortcuts.numberModifierDesc')}>
+                <ShortcutComboInput value={settings.numberShortcutsModifier} onChange={value => onSettingChange('numberShortcutsModifier', value)} modifierOptions={['Ctrl', 'Shift']} fixedKeyOptions={numberKeyTypeOptions} />
               </SettingItem>
-            )}
-          </SettingsSection>
-        </div>
-      </div>
+              {hasBackendError('number_shortcuts') && (
+                <div className="px-4 py-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md">
+                  <span className="font-medium">{t('settings.shortcuts.numberRegistrationFailed')}：</span>
+                  {statuses['number_shortcuts']?.shortcut}
+                </div>
+              )}
+            </SettingsSection>
+            <SettingsSection title={t('settings.shortcuts.mouseTitle')} description={t('settings.shortcuts.mouseDesc')}>
+              <SettingItem label={t('settings.shortcuts.enableMouseMiddle')} description={t('settings.shortcuts.enableMouseMiddleDesc')}>
+                <Toggle checked={settings.mouseMiddleButtonEnabled} onChange={checked => onSettingChange('mouseMiddleButtonEnabled', checked)} />
+              </SettingItem>
+              <SettingItem label={t('settings.shortcuts.mouseMiddleModifier')} description={t('settings.shortcuts.mouseMiddleModifierDesc')}>
+                <ShortcutComboInput value={settings.mouseMiddleButtonModifier === 'None' ? '' : settings.mouseMiddleButtonModifier} onChange={value => onSettingChange('mouseMiddleButtonModifier', value || 'None')} modifierOptions={mouseModifierOptions} fixedKey={t('settings.shortcuts.middleButton')} allowEmpty />
+              </SettingItem>
+              {settings.mouseMiddleButtonModifier === 'None' && (
+                <SettingItem label={t('settings.shortcuts.mouseMiddleTrigger')} description={t('settings.shortcuts.mouseMiddleTriggerDesc')}>
+                  <Select value={settings.mouseMiddleButtonTrigger} onChange={value => onSettingChange('mouseMiddleButtonTrigger', value)} options={mouseTriggerOptions} className="w-56" />
+                </SettingItem>
+              )}
+              {settings.mouseMiddleButtonModifier === 'None' && (
+                <SettingItem label={t('settings.shortcuts.mouseMiddleLongPressThreshold')} description={t('settings.shortcuts.mouseMiddleLongPressThresholdDesc')}>
+                  <Slider value={settings.mouseMiddleButtonLongPressMs} onChange={value => onSettingChange('mouseMiddleButtonLongPressMs', value)} min={100} max={1000} step={50} unit="ms" />
+                </SettingItem>
+              )}
+            </SettingsSection>
+          </>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className={uiAnimationEnabled ? 'animate-slide-in-left-fast' : ''} key={activeTab}>
+      {renderTabContent()}
     </div>
   );
 }
