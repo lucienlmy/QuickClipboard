@@ -29,7 +29,12 @@ export function usePinEditMode() {
   // 退出编辑模式
   const exitPinEditMode = useCallback(async () => {
     try {
-      await invoke('cancel_pin_edit');
+      if (pinEditData?.window_label?.startsWith('native-pin-')) {
+        const windowId = parseInt(pinEditData.window_label.replace('native-pin-', ''), 10);
+        await invoke('cancel_native_pin_edit', { windowId });
+      } else {
+        await invoke('cancel_pin_edit');
+      }
       await invoke('clear_pin_edit_mode');
       
       const { cancelScreenshotSession } = await import('@shared/api/system');
@@ -42,15 +47,25 @@ export function usePinEditMode() {
     setPinImage(null);
     setOriginalImage(null);
     setInitialShapes(null);
-  }, []);
+  }, [pinEditData]);
 
   // 确认编辑
   const confirmPinEdit = useCallback(async (newFilePath, editDataJson) => {
     try {
-      await invoke('confirm_pin_edit', {
-        newFilePath,
-        editDataJson: editDataJson || null,
-      });
+      if (pinEditData?.window_label?.startsWith('native-pin-')) {
+        const windowId = parseInt(pinEditData.window_label.replace('native-pin-', ''), 10);
+        await invoke('confirm_native_pin_edit', {
+          windowId,
+          newFilePath,
+          originalImagePath: pinEditData.original_image_path || null,
+          editData: editDataJson || null,
+        });
+      } else {
+        await invoke('confirm_pin_edit', {
+          newFilePath,
+          editDataJson: editDataJson || null,
+        });
+      }
       await invoke('clear_pin_edit_mode');
 
       const { cancelScreenshotSession } = await import('@shared/api/system');
@@ -63,7 +78,7 @@ export function usePinEditMode() {
     setPinImage(null);
     setOriginalImage(null);
     setInitialShapes(null);
-  }, []);
+  }, [pinEditData]);
 
   const calculateSelection = useCallback((data, image) => {
     if (!data || !image) return null;

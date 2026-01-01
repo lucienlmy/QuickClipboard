@@ -575,10 +575,6 @@ pub fn confirm_native_pin_edit(
     _app: AppHandle,
     window_id: u64,
     new_file_path: String,
-    x: i32,
-    y: i32,
-    width: u32,
-    height: u32,
     original_image_path: Option<String>,
     edit_data: Option<String>,
 ) -> Result<(), String> {
@@ -594,16 +590,7 @@ pub fn confirm_native_pin_edit(
         }
     }
     
-    const SHADOW_PADDING: i32 = 12;
-    
-    let window_x = x - SHADOW_PADDING;
-    let window_y = y - SHADOW_PADDING;
-    let window_width = width + SHADOW_PADDING as u32 * 2;
-    let window_height = height + SHADOW_PADDING as u32 * 2;
-    
     gpu_image_viewer::window::update_image(window_id, new_file_path.clone())?;
-    gpu_image_viewer::window::set_position(window_id, window_x, window_y)?;
-    gpu_image_viewer::window::set_size(window_id, window_width, window_height)?;
     gpu_image_viewer::window::set_visible(window_id, true)?;
     
     {

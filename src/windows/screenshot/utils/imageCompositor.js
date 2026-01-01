@@ -135,7 +135,8 @@ function drawStageLayers(ctx, stage, rect, pixelRatio, options = {}) {
 
   const transformers = stage.find?.('Transformer') || [];
   const selectionHandles = stage.find?.('.selection-handle') || [];
-  const hiddenNodes = [...transformers, ...selectionHandles];
+  const shapeAnchors = stage.find?.('.shape-anchor') || [];
+  const hiddenNodes = [...transformers, ...selectionHandles, ...shapeAnchors];
   const nodeStates = hiddenNodes.map(node => ({ node, visible: node.visible() }));
   hiddenNodes.forEach(node => node.visible(false));
 
@@ -260,7 +261,8 @@ export function compositePinEditImage({ stage, selection, originalImage }) {
   if (editingLayer && editingLayer.visible()) {
     const transformers = stage.find?.('Transformer') || [];
     const selectionHandles = stage.find?.('.selection-handle') || [];
-    const hiddenNodes = [...transformers, ...selectionHandles];
+    const shapeAnchors = stage.find?.('.shape-anchor') || [];
+    const hiddenNodes = [...transformers, ...selectionHandles, ...shapeAnchors];
     const nodeStates = hiddenNodes.map(node => ({ node, visible: node.visible() }));
     hiddenNodes.forEach(node => node.visible(false));
     

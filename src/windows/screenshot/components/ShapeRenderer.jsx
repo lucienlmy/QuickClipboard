@@ -189,7 +189,7 @@ export const ShapeRenderer = ({
         {isSelected && !isDragging && [0, 2, 4].map((offset, i) => (
           <Circle
             key={`handle-${index}-${i}`}
-            name={`shape-curveArrow-${index}`}
+            name={`shape-anchor shape-curveArrow-${index}`}
             x={absPoints[offset]}
             y={absPoints[offset + 1]}
             radius={5}
@@ -297,7 +297,7 @@ export const ShapeRenderer = ({
             return (
               <Circle
                 key={`handle-${index}-${i}`}
-                name={`shape-polyline-${index}`}
+                name={`shape-anchor shape-polyline-${index}`}
                 x={absPoints[offset]}
                 y={absPoints[offset + 1]}
                 radius={5}
