@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSnapshot } from 'valtio';
 import { Group, Rect, Text, Image } from 'react-konva';
 import { mouseStore } from '../store/mouseStore';
@@ -13,7 +13,7 @@ const PADDING = 8;
 const MAGNIFIER_WIDTH = GRID_WIDTH + PADDING * 2;
 const COLOR_BAR_WIDTH = MAGNIFIER_WIDTH - PADDING * 2;
 
-function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate, isDark = false }) {
+function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate, isDark = false, getScaleForPosition }) {
   const { position: mousePos } = useSnapshot(mouseStore);
   const [colorFormat, setColorFormat] = useState('hex');
   const screenImageDataRef = useRef(new Map());
@@ -194,8 +194,13 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     stageRegionManager.isRectInBounds({ ...p, width: MAGNIFIER_WIDTH, height: totalHeight })
   ) || positions[0];
 
+  const uiScale = useMemo(() => {
+    if (!getScaleForPosition) return 1;
+    return getScaleForPosition(magnifierX, magnifierY);
+  }, [getScaleForPosition, magnifierX, magnifierY]);
+
   return (
-    <Group ref={groupRef} x={magnifierX} y={magnifierY} listening={false}>
+    <Group ref={groupRef} x={magnifierX} y={magnifierY} scaleX={uiScale} scaleY={uiScale} listening={false}>
       {/* 背景 */}
       <Rect
         x={0}

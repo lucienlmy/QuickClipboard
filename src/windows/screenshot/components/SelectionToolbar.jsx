@@ -1,4 +1,4 @@
-import { useRef, useState, useLayoutEffect, useCallback } from 'react';
+import { useRef, useState, useLayoutEffect, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { DRAWING_TOOLS, HISTORY_TOOLS, ACTION_TOOLS } from '../constants/tools';
@@ -23,6 +23,7 @@ function SelectionToolbar({
   // 贴图编辑模式
   pinEditMode = false,
   screens,
+  getScaleForPosition,
 }) {
   const toolbarRef = useRef(null);
   const [toolbarSize, setToolbarSize] = useState({ width: 340, height: 35 });
@@ -256,6 +257,11 @@ function SelectionToolbar({
   const autoPosition = getToolbarPosition();
   const finalPosition = lockedPosition || { x: autoPosition.x - toolbarSize.width, y: autoPosition.y };
 
+  const uiScale = useMemo(() => {
+    if (!getScaleForPosition) return 1;
+    return getScaleForPosition(finalPosition.x, finalPosition.y);
+  }, [getScaleForPosition, finalPosition.x, finalPosition.y]);
+
   return (
     <div
       ref={toolbarRef}
@@ -268,7 +274,8 @@ function SelectionToolbar({
         position: 'absolute',
         left: lockedPosition ? finalPosition.x : autoPosition.x,
         top: finalPosition.y,
-        transform: lockedPosition ? 'none' : 'translateX(-100%)',
+        transform: `${lockedPosition ? '' : 'translateX(-100%)'} scale(${uiScale})`,
+        transformOrigin: lockedPosition ? 'top left' : 'top right',
         pointerEvents: disablePointerEvents ? 'none' : 'auto',
         opacity: disablePointerEvents ? 0.5 : 1,
         transition: disablePointerEvents 

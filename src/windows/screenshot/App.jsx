@@ -8,12 +8,14 @@ import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { getEffectiveTheme } from '@shared/hooks/useTheme';
 import useScreenshotStage from './hooks/useScreenshotStage';
 import useCursorMovement from './hooks/useCursorMovement';
+import useUIScale from './hooks/useUIScale';
 import WebGLBackgroundLayer from './components/WebGLBackgroundLayer';
 import SelectionOverlay from './components/SelectionOverlay';
 import Magnifier from './components/Magnifier';
 import SelectionInfoBar from './components/SelectionInfoBar';
 import SelectionToolbar from './components/SelectionToolbar';
 import EditingLayer from './components/EditingLayer';
+import ZoomIndicator from './components/ZoomIndicator';
 import useScreenshotEditing from './hooks/useScreenshotEditing';
 import { useScreenshotSession } from './hooks/useScreenshotSession';
 import useLongScreenshot from './hooks/useLongScreenshot';
@@ -29,10 +31,12 @@ import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import RadialToolPicker from './components/RadialToolPicker';
 import { checkHandleHit, isRadiusHandle } from './utils/handleDetection';
 import { calculateRadiusDelta, calculateNewRadius } from './utils/selectionOperations';
+import { mouseStore } from './store/mouseStore';
 
 function App() {
   useSettingsSync();
   const settings = useSnapshot(settingsStore);
+  const { position: mousePos } = useSnapshot(mouseStore);
   const effectiveTheme = getEffectiveTheme(settings.theme, settings.systemIsDark);
   const isDark = effectiveTheme === 'dark';
 
@@ -118,6 +122,8 @@ function App() {
   }, [isPinEdit, pinEditMode.screenInfos, virtualScreenOffset]);
 
   const stageRegionManager = isPinEdit ? pinEditStageRegionManager : screenshotStageRegionManager;
+
+  const { scale: uiBaseScale, getScaleForPosition, resetScale, isLocked: uiScaleLocked, toggleLock: toggleUiScaleLock } = useUIScale(stageRegionManager);
 
   const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager);
   
@@ -393,7 +399,19 @@ function App() {
   }, [isPinEdit, pinEditSelection, pinEditMode, virtualScreenOffset]);
 
   return (
-    <div className={`w-screen h-screen bg-transparent relative ${isDark ? 'dark' : ''}`}>
+    <div 
+      className={`w-screen h-screen bg-transparent relative ${isDark ? 'dark' : ''}`}
+      style={{ '--ui-scale': uiBaseScale }}
+    >
+      {/* 缩放指示器 */}
+      <ZoomIndicator 
+        scale={uiBaseScale} 
+        onReset={resetScale} 
+        isLocked={uiScaleLocked}
+        onToggleLock={toggleUiScaleLock}
+        stageRegionManager={stageRegionManager}
+      />
+
       {/* 背景层 */}
       {!longScreenshot.isActive && (
         <WebGLBackgroundLayer screens={effectiveScreens} stageWidth={stageSize.width} stageHeight={stageSize.height} />
@@ -471,6 +489,7 @@ function App() {
             colorIncludeFormat={settings.screenshotColorIncludeFormat}
             onMousePosUpdate={(fn) => { magnifierUpdateRef.current = fn; }}
             isDark={isDark}
+            getScaleForPosition={getScaleForPosition}
           />
         </Layer>
       </Stage>
@@ -490,6 +509,7 @@ function App() {
           onCornerRadiusChange={session.updateCornerRadius}
           onAspectRatioChange={session.updateAspectRatio}
           onSizeChange={session.updateSelectionSize}
+          getScaleForPosition={getScaleForPosition}
         />
       )}
 
@@ -526,6 +546,7 @@ function App() {
           onLongScreenshotCancel={longScreenshot.cancel}
           pinEditMode={isPinEdit}
           screens={screens}
+          getScaleForPosition={getScaleForPosition}
         />
       )}
 
@@ -558,6 +579,7 @@ function App() {
               }
             }
           }}
+          getScaleForPosition={getScaleForPosition}
         />
       )}
 
@@ -572,6 +594,7 @@ function App() {
           previewSize={longScreenshot.previewSize}
           capturedCount={longScreenshot.capturedCount}
           screens={screens}
+          getScaleForPosition={getScaleForPosition}
         />
       )}
 
@@ -588,6 +611,7 @@ function App() {
           isDrawing={session.isDrawing}
           isInteracting={session.isInteracting}
           selection={session.selection}
+          getScaleForPosition={getScaleForPosition}
         />
       )}
 

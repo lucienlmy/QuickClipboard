@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
@@ -12,6 +12,7 @@ export default function LongScreenshotPanel({
   previewSize = { width: 0, height: 0 },
   capturedCount = 0,
   screens,
+  getScaleForPosition,
 }) {
   const panelRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -213,13 +214,23 @@ export default function LongScreenshotPanel({
 
   const viewportBoxStyle = getViewportBoxStyle();
 
+  const uiScale = useMemo(() => {
+    if (!getScaleForPosition) return 1;
+    return getScaleForPosition(position.x, position.y);
+  }, [getScaleForPosition, position.x, position.y]);
+
   if (!selection) return null;
 
   return (
     <div
       ref={panelRef}
       className="absolute z-20 select-none"
-      style={{ left: position.x, top: position.y }}
+      style={{ 
+        left: position.x, 
+        top: position.y,
+        transform: `scale(${uiScale})`,
+        transformOrigin: 'top left',
+      }}
     >
       <div className="w-[240px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden flex flex-col relative">
         {/* 标题栏 */}

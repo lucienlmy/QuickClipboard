@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 
 function SelectionInfoBar({ 
@@ -13,6 +13,7 @@ function SelectionInfoBar({
   onCornerRadiusChange, 
   onAspectRatioChange,
   onSizeChange,
+  getScaleForPosition,
 }) {
   const [showSizeEditor, setShowSizeEditor] = useState(false);
   const [editWidth, setEditWidth] = useState('');
@@ -83,6 +84,7 @@ function SelectionInfoBar({
 
     let x = selection.x;
     let y = selection.y - infoBarHeight - padding;
+    let isInsideSelection = false; // 标记是否在选区内部
     
     if (stageRegionManager) {
       const centerX = selection.x + selection.width / 2;
@@ -103,6 +105,7 @@ function SelectionInfoBar({
           if (!hasTopSpaceForInfoBar) {
              x = selection.x + padding;
              y = selection.y + padding;
+             isInsideSelection = true;
           }
         } else {
           if (hasTopSpaceForToolbar) {
@@ -111,15 +114,18 @@ function SelectionInfoBar({
                 if (selection.width < totalWidthNeeded) {
                    x = selection.x + padding;
                    y = selection.y + padding;
+                   isInsideSelection = true;
                 }
              } else {
                 x = selection.x + padding;
                 y = selection.y + padding;
+                isInsideSelection = true;
              }
           } else {
              if (!hasTopSpaceForInfoBar) {
                 x = selection.x + padding;
                 y = selection.y + padding;
+                isInsideSelection = true;
              }
           }
         }
@@ -135,10 +141,11 @@ function SelectionInfoBar({
       if (y < 10) {
         x = selection.x + padding;
         y = selection.y + padding;
+        isInsideSelection = true;
       }
     }
     
-    return { x, y };
+    return { x, y, isInsideSelection };
   };
 
   const handleCornerRadiusInput = (e) => {
@@ -152,9 +159,15 @@ function SelectionInfoBar({
     onAspectRatioChange(e.target.value, bounds);
   };
 
-  const { x, y } = getInfoBarPosition();
+  const { x, y, isInsideSelection } = getInfoBarPosition();
   const disablePointerEvents = isDrawing || isResizing || isDrawingShape;
   const isAspectLocked = aspectRatio !== 'free';
+  const transformOrigin = isInsideSelection ? 'top left' : 'bottom left';
+  
+  const uiScale = useMemo(() => {
+    if (!getScaleForPosition) return 1;
+    return getScaleForPosition(x, y);
+  }, [getScaleForPosition, x, y]);
 
   const handleToggleAspectLock = () => {
     if (isAspectLocked) {
@@ -174,6 +187,8 @@ function SelectionInfoBar({
         position: 'absolute', 
         left: x, 
         top: y, 
+        transform: `scale(${uiScale})`,
+        transformOrigin,
         pointerEvents: disablePointerEvents ? 'none' : 'auto',
         opacity: disablePointerEvents ? 0.5 : 1,
         transition: disablePointerEvents 

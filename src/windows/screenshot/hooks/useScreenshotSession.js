@@ -138,6 +138,7 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
 
   const handleWheel = useCallback((e) => {
     if (hasValidSelection || isInteracting) return;
+    if (e.evt.ctrlKey) return;
     const delta = e.evt.deltaY;
     if (delta < 0) {
       navigateHierarchy(1);

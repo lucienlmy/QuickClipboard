@@ -112,6 +112,7 @@ export default function ToolParameterPanel({
   onParameterChange,
   onAction,
   onTogglePersistence,
+  getScaleForPosition,
 }) {
   const panelRef = useRef(null);
   const contentRef = useRef(null);
@@ -206,6 +207,13 @@ export default function ToolParameterPanel({
     };
   }, [stageRegionManager]);
 
+  const tempPosition = lockedPosition || autoPosition;
+  
+  const uiScale = useMemo(() => {
+    if (!getScaleForPosition) return 1;
+    return getScaleForPosition(tempPosition.x, tempPosition.y);
+  }, [getScaleForPosition, tempPosition.x, tempPosition.y]);
+
   useEffect(() => {
     if (!selection || !activeTool || !panelSize) return;
     if (lockedPosition) return;
@@ -214,9 +222,12 @@ export default function ToolParameterPanel({
     const centerX = selection.x + selection.width / 2;
     const centerY = selection.y + selection.height / 2;
     
+    const scaledWidth = panelSize.width * uiScale;
+    const scaledHeight = panelSize.height * uiScale;
+    
     const within = getScreenBoundsForPosition(centerX, centerY);
     const maxAvailableHeight = (within.bottom - within.top) - 40;
-    const effectivePanelHeight = Math.min(panelSize.height, maxAvailableHeight);
+    const effectivePanelHeight = Math.min(scaledHeight, maxAvailableHeight);
 
     const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -225,23 +236,23 @@ export default function ToolParameterPanel({
         key: 'right',
         x: selection.x + selection.width + padding,
         y: centerY - effectivePanelHeight / 2,
-        fits: (selection.x + selection.width + padding + panelSize.width) <= within.right,
+        fits: (selection.x + selection.width + padding + scaledWidth) <= within.right,
       },
       {
         key: 'left',
-        x: selection.x - panelSize.width - padding,
+        x: selection.x - scaledWidth - padding,
         y: centerY - effectivePanelHeight / 2,
-        fits: (selection.x - padding - panelSize.width) >= within.left,
+        fits: (selection.x - padding - scaledWidth) >= within.left,
       },
       {
         key: 'bottom',
-        x: centerX - panelSize.width / 2,
+        x: centerX - scaledWidth / 2,
         y: selection.y + selection.height + padding,
         fits: (selection.y + selection.height + padding + effectivePanelHeight) <= within.bottom,
       },
       {
         key: 'top',
-        x: centerX - panelSize.width / 2,
+        x: centerX - scaledWidth / 2,
         y: selection.y - effectivePanelHeight - padding,
         fits: (selection.y - padding - effectivePanelHeight) >= within.top,
       },
@@ -251,11 +262,11 @@ export default function ToolParameterPanel({
     let { x, y } = chosen;
 
     if (!stageRegionManager) {
-      x = clamp(x, within.left + 4, within.right - panelSize.width - 4);
+      x = clamp(x, within.left + 4, within.right - scaledWidth - 4);
       y = clamp(y, within.top + 4, within.bottom - effectivePanelHeight - 4);
     } else {
       const constrained = stageRegionManager.constrainRect(
-        { x, y, width: panelSize.width, height: effectivePanelHeight },
+        { x, y, width: scaledWidth, height: effectivePanelHeight },
         'move'
       );
       x = constrained.x;
@@ -264,10 +275,10 @@ export default function ToolParameterPanel({
 
     setAutoPosition({ x, y });
 
-    const finalWithin = getScreenBoundsForPosition(x + panelSize.width / 2, y);
+    const finalWithin = getScreenBoundsForPosition(x + scaledWidth / 2, y);
     const availableHeight = finalWithin.bottom - y;
-    setMaxPanelHeight(Math.max(200, availableHeight));
-  }, [selection, activeTool, panelSize.width, panelSize.height, stageRegionManager, lockedPosition, getScreenBoundsForPosition]);
+    setMaxPanelHeight(Math.max(200, availableHeight / uiScale));
+  }, [selection, activeTool, panelSize.width, panelSize.height, stageRegionManager, lockedPosition, getScreenBoundsForPosition, uiScale]);
 
   // 找出第一个颜色参数
   const firstColorParamId = useMemo(() => {
@@ -324,6 +335,8 @@ export default function ToolParameterPanel({
       style={{ 
         left: finalPosition.x, 
         top: finalPosition.y,
+        transform: `scale(${uiScale})`,
+        transformOrigin: 'top left',
         pointerEvents: isDrawingShape ? 'none' : 'auto',
         opacity: isDrawingShape ? 0.5 : 1,
         transition: isDrawingShape 

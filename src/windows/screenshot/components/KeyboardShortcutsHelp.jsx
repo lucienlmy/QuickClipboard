@@ -4,14 +4,31 @@ import { KEYBOARD_SHORTCUTS, getToolShortcuts } from '../constants/keyboardShort
 import { DRAWING_TOOLS } from '../constants/tools';
 import { mouseStore } from '../store/mouseStore';
 
-export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape, hasValidSelection, selection }) {
-  const { position: mousePos } = useSnapshot(mouseStore);
+export default function KeyboardShortcutsHelp({ stageRegionManager, longScreenshotMode, isDrawingShape, hasValidSelection, selection, getScaleForPosition }) {
   const [visible, setVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isHintHovered, setIsHintHovered] = useState(false);
   const hintRef = useRef(null);
+  const [currentScreen, setCurrentScreen] = useState(null);
 
   const disablePointerEvents = isDrawingShape;
+
+  const { position: mousePos } = useSnapshot(mouseStore);
+  
+  useEffect(() => {
+    if (!stageRegionManager || !mousePos) return;
+    
+    const screen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
+    if (!screen) return;
+    
+    if (!currentScreen || 
+        screen.x !== currentScreen.x || 
+        screen.y !== currentScreen.y ||
+        screen.width !== currentScreen.width ||
+        screen.height !== currentScreen.height) {
+      setCurrentScreen(screen);
+    }
+  }, [mousePos, stageRegionManager, currentScreen]);
 
   // 检测提示面板是否被选区覆盖
   const checkOverlap = () => {
@@ -79,12 +96,7 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
 
   // 计算帮助面板应该显示在哪个屏幕的中心
   const panelPosition = useMemo(() => {
-    if (!mousePos || !stageRegionManager) {
-      return { left: '50%', top: '50%' };
-    }
-
-    // 获取鼠标所在屏幕
-    const targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
+    const targetScreen = currentScreen;
 
     if (!targetScreen) {
       return { left: '50%', top: '50%' };
@@ -102,13 +114,10 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
       hintLeft,
       hintBottom,
     };
-  }, [mousePos, stageRegionManager]);
+  }, [currentScreen]);
 
   const hintPosition = useMemo(() => {
-    let targetScreen = null;
-    if (mousePos && stageRegionManager) {
-      targetScreen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
-    }
+    let targetScreen = currentScreen;
     
     if (!targetScreen && stageRegionManager) {
       const bounds = stageRegionManager.getTotalBounds();
@@ -118,7 +127,7 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
     }
 
     if (!targetScreen) {
-      return { bottom: '16px', left: '16px' };
+      return { bottom: '16px', left: '16px', screenBottom: 16, screenLeft: 16 };
     }
 
     const bottom = targetScreen.y + targetScreen.height - 16;
@@ -127,8 +136,15 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
     return {
       bottom: `calc(100% - ${bottom}px)`,
       left: `${left}px`,
+      screenBottom: bottom,
+      screenLeft: left,
     };
-  }, [mousePos, stageRegionManager]);
+  }, [currentScreen, stageRegionManager]);
+
+  const uiScale = useMemo(() => {
+    if (!getScaleForPosition) return 1;
+    return getScaleForPosition(hintPosition.screenLeft || 16, hintPosition.screenBottom || 16);
+  }, [getScaleForPosition, hintPosition.screenLeft, hintPosition.screenBottom]);
 
   const handleClose = () => {
     setIsAnimating(false);
@@ -149,6 +165,8 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
         className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-3 py-2 pointer-events-none select-none"
         style={{
           ...hintPosition,
+          transform: `scale(${uiScale})`,
+          transformOrigin: 'bottom left',
           opacity: hintFinalOpacity,
           transition: disablePointerEvents
             ? 'opacity 1500ms ease-out'
@@ -181,6 +199,10 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
               <div className="flex items-center gap-2">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Ctrl+S</kbd>
                 <span>保存为文件</span>
+              </div>
+               <div className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded font-mono text-[10px]">Ctrl+鼠标滚轮</kbd>
+                <span>缩放显示大小</span>
               </div>
             </>
           ) : (
