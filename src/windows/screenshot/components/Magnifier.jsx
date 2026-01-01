@@ -211,27 +211,29 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     return () => window.removeEventListener('keydown', handleKey);
   }, [visible, colorFormat, colorIncludeFormat, getColorString]);
 
-
-  if (!visible || !mousePos) return null;
-
   const offset = 20;
-  const positions = [
-    { x: mousePos.x + offset, y: mousePos.y + offset },
-    { x: mousePos.x - MAGNIFIER_WIDTH - offset, y: mousePos.y + offset },
-    { x: mousePos.x + offset, y: mousePos.y - TOTAL_HEIGHT - offset },
-    { x: mousePos.x - MAGNIFIER_WIDTH - offset, y: mousePos.y - TOTAL_HEIGHT - offset }
-  ];
-  const { x: magnifierX, y: magnifierY } = positions.find(p => 
-    stageRegionManager.isRectInBounds({ ...p, width: MAGNIFIER_WIDTH, height: TOTAL_HEIGHT })
-  ) || positions[0];
+  const magnifierPosition = useMemo(() => {
+    if (!mousePos || !stageRegionManager) return { x: 0, y: 0 };
+    const positions = [
+      { x: mousePos.x + offset, y: mousePos.y + offset },
+      { x: mousePos.x - MAGNIFIER_WIDTH - offset, y: mousePos.y + offset },
+      { x: mousePos.x + offset, y: mousePos.y - TOTAL_HEIGHT - offset },
+      { x: mousePos.x - MAGNIFIER_WIDTH - offset, y: mousePos.y - TOTAL_HEIGHT - offset }
+    ];
+    return positions.find(p => 
+      stageRegionManager.isRectInBounds({ ...p, width: MAGNIFIER_WIDTH, height: TOTAL_HEIGHT })
+    ) || positions[0];
+  }, [mousePos, stageRegionManager]);
 
   const uiScale = useMemo(() => {
     if (!getScaleForPosition) return 1;
-    return getScaleForPosition(magnifierX, magnifierY);
-  }, [getScaleForPosition, magnifierX, magnifierY]);
+    return getScaleForPosition(magnifierPosition.x, magnifierPosition.y);
+  }, [getScaleForPosition, magnifierPosition.x, magnifierPosition.y]);
+
+  if (!visible || !mousePos) return null;
 
   return (
-    <Group ref={groupRef} x={magnifierX} y={magnifierY} scaleX={uiScale} scaleY={uiScale} listening={false}>
+    <Group ref={groupRef} x={magnifierPosition.x} y={magnifierPosition.y} scaleX={uiScale} scaleY={uiScale} listening={false}>
       {/* 背景 */}
       <Rect
         x={0}

@@ -220,18 +220,36 @@ export default function LongScreenshotPanel({
   }, [getScaleForPosition, position.x, position.y]);
 
   if (!selection) return null;
+  const hoverPreview = hoverInfo && previewImage && selection && imageSize.naturalWidth > 0 ? (
+    <div
+      className="fixed overflow-hidden pointer-events-none z-50"
+      style={{
+        left: selection.x + 3,
+        top: selection.y + 3,
+        width: selection.width - 6,
+        height: selection.height - 6,
+        backgroundImage: `url(${previewImage})`,
+        backgroundSize: `${imageSize.naturalWidth / hoverInfo.imgScale}px auto`,
+        backgroundPosition: `0px ${-hoverInfo.viewportY / hoverInfo.imgScale}px`,
+        backgroundRepeat: 'no-repeat',
+        imageRendering: 'pixelated',
+      }}
+    />
+  ) : null;
 
   return (
-    <div
-      ref={panelRef}
-      className="absolute z-20 select-none"
-      style={{ 
-        left: position.x, 
-        top: position.y,
-        transform: `scale(${uiScale})`,
-        transformOrigin: 'top left',
-      }}
-    >
+    <>
+      {hoverPreview}
+      <div
+        ref={panelRef}
+        className="absolute z-20 select-none"
+        style={{ 
+          left: position.x, 
+          top: position.y,
+          transform: `scale(${uiScale})`,
+          transformOrigin: 'top left',
+        }}
+      >
       <div className="w-[240px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden flex flex-col relative">
         {/* 标题栏 */}
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200 dark:border-gray-700">
@@ -341,24 +359,7 @@ export default function LongScreenshotPanel({
           </div>
         )}
       </div>
-
-      {/* 悬停放大预览 */}
-      {hoverInfo && previewImage && selection && imageSize.naturalWidth > 0 && (
-        <div
-          className="fixed overflow-hidden pointer-events-none z-50"
-          style={{
-            left: selection.x + 3,
-            top: selection.y + 3,
-            width: selection.width - 6,
-            height: selection.height - 6,
-            backgroundImage: `url(${previewImage})`,
-            backgroundSize: `${imageSize.naturalWidth / hoverInfo.imgScale}px auto`,
-            backgroundPosition: `0px ${-hoverInfo.viewportY / hoverInfo.imgScale}px`,
-            backgroundRepeat: 'no-repeat',
-            imageRendering: 'pixelated',
-          }}
-        />
-      )}
     </div>
+    </>
   );
 }
