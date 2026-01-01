@@ -167,7 +167,12 @@ fn register_window(
 
 pub fn unregister_window(id: u64) {
     let mut map = WINDOW_DATA.lock().unwrap();
-    map.remove(&id);
+    if let Some(data) = map.remove(&id) {
+        let is_same_as_original = data.original_image_path.as_ref() == Some(&data.file_path);
+        if !is_same_as_original {
+            let _ = std::fs::remove_file(&data.file_path);
+        }
+    }
 }
 
 pub fn get_window_data(id: u64) -> Option<NativePinData> {
