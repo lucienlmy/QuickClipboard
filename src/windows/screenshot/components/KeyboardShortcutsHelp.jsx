@@ -9,6 +9,7 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
   const [isAnimating, setIsAnimating] = useState(false);
   const [isHintHovered, setIsHintHovered] = useState(false);
   const hintRef = useRef(null);
+  const currentScreenRef = useRef(null);
   const [currentScreen, setCurrentScreen] = useState(null);
 
   const disablePointerEvents = isDrawingShape;
@@ -21,14 +22,16 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
     const screen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
     if (!screen) return;
     
-    if (!currentScreen || 
-        screen.x !== currentScreen.x || 
-        screen.y !== currentScreen.y ||
-        screen.width !== currentScreen.width ||
-        screen.height !== currentScreen.height) {
+    const prev = currentScreenRef.current;
+    if (!prev || 
+        screen.x !== prev.x || 
+        screen.y !== prev.y ||
+        screen.width !== prev.width ||
+        screen.height !== prev.height) {
+      currentScreenRef.current = screen;
       setCurrentScreen(screen);
     }
-  }, [mousePos, stageRegionManager, currentScreen]);
+  }, [mousePos, stageRegionManager]);
 
   // 检测提示面板是否被选区覆盖
   const checkOverlap = () => {

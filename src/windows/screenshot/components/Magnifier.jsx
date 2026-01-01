@@ -12,12 +12,15 @@ const INFO_HEIGHT = 60;
 const PADDING = 8;
 const MAGNIFIER_WIDTH = GRID_WIDTH + PADDING * 2;
 const COLOR_BAR_WIDTH = MAGNIFIER_WIDTH - PADDING * 2;
+const TOTAL_HEIGHT = GRID_HEIGHT + INFO_HEIGHT + PADDING * 2;
+const CENTER_ROW = 3; 
+const CENTER_COL = 5; 
 
 function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = true, onMousePosUpdate, isDark = false, getScaleForPosition }) {
   const { position: mousePos } = useSnapshot(mouseStore);
   const [colorFormat, setColorFormat] = useState('hex');
-  const screenImageDataRef = useRef(new Map());
-  const screenCacheRef = useRef({ screens: null, data: new Map() });
+  const screenImageDataRef = useRef([]);
+  const screenCacheRef = useRef({ screens: null });
   const groupRef = useRef(null);
   const gridImageRef = useRef(null);
   const gridCanvasRef = useRef(null);
@@ -25,12 +28,13 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
   const colorTextRef = useRef(null);
   const coordTextRef = useRef(null);
   const centerColorRef = useRef({ r: 0, g: 0, b: 0 });
+  const uiScaleRef = useRef(1);
 
   useEffect(() => {
     if (!screens?.length || screenCacheRef.current.screens === screens) return;
     screenCacheRef.current.screens = screens;
-    const dataMap = new Map();
-    screens.forEach((screen, i) => {
+    const dataArray = [];
+    screens.forEach((screen) => {
       if (!screen.image) return;
       const canvas = document.createElement('canvas');
       const img = screen.image;
@@ -39,18 +43,18 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      dataMap.set(i, {
-        imageData,
+      dataArray.push({
+        data: imageData.data,
         screen,
         scaleX: canvas.width / screen.width,
         scaleY: canvas.height / screen.height,
         imageWidth: canvas.width,
         imageHeight: canvas.height,
-        bounds: { x1: screen.x, y1: screen.y, x2: screen.x + screen.width, y2: screen.y + screen.height }
+        x1: screen.x, y1: screen.y,
+        x2: screen.x + screen.width, y2: screen.y + screen.height
       });
     });
-    screenImageDataRef.current = dataMap;
-    screenCacheRef.current.data = dataMap;
+    screenImageDataRef.current = dataArray;
     if (!gridCanvasRef.current) {
       gridCanvasRef.current = document.createElement('canvas');
       gridCanvasRef.current.width = GRID_WIDTH;
@@ -58,53 +62,69 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     }
   }, [screens]);
 
-  const getPixelColor = useCallback((x, y) => {
-    for (const [, data] of screenImageDataRef.current) {
-      const { imageData, bounds, scaleX, scaleY, imageWidth, imageHeight } = data;
-      if (x >= bounds.x1 && x < bounds.x2 && y >= bounds.y1 && y < bounds.y2) {
-        const pixelX = Math.floor((x - bounds.x1) * scaleX + 0.05);
-        const pixelY = Math.floor((y - bounds.y1) * scaleY + 0.05);
-        if (pixelX >= 0 && pixelX < imageWidth && pixelY >= 0 && pixelY < imageHeight) {
-          const idx = (pixelY * imageWidth + pixelX) * 4;
-          return { r: imageData.data[idx] ?? 0, g: imageData.data[idx + 1] ?? 0, b: imageData.data[idx + 2] ?? 0 };
-        }
-      }
-    }
-    return { r: 0, g: 0, b: 0 };
-  }, []);
-
   const drawGridToCanvas = useCallback((pos) => {
     const canvas = gridCanvasRef.current;
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
-    const centerRow = Math.floor(GRID_ROWS / 2), centerCol = Math.floor(GRID_COLS / 2);
-    let centerColor = { r: 0, g: 0, b: 0 };
+    const dataArray = screenImageDataRef.current;
+    const len = dataArray.length;
     
     const dpr = window.devicePixelRatio || 1;
     const step = 1 / dpr;
+    const baseX = pos.x - CENTER_COL * step;
+    const baseY = pos.y - CENTER_ROW * step;
+    const gridColor = isDark ? '#4b5563' : '#d1d5db';
+    
+    let centerR = 0, centerG = 0, centerB = 0;
 
     for (let row = 0; row < GRID_ROWS; row++) {
+      const py = baseY + row * step;
+      const cellY = row * CELL_SIZE;
       for (let col = 0; col < GRID_COLS; col++) {
-        const color = getPixelColor(
-            pos.x + (col - centerCol) * step, 
-            pos.y + (row - centerRow) * step
-        );
+        const px = baseX + col * step;
+        let r = 0, g = 0, b = 0;
+
+        for (let i = 0; i < len; i++) {
+          const d = dataArray[i];
+          if (px >= d.x1 && px < d.x2 && py >= d.y1 && py < d.y2) {
+            const pixelX = ((px - d.x1) * d.scaleX + 0.5) | 0;
+            const pixelY = ((py - d.y1) * d.scaleY + 0.5) | 0;
+            if (pixelX >= 0 && pixelX < d.imageWidth && pixelY >= 0 && pixelY < d.imageHeight) {
+              const idx = (pixelY * d.imageWidth + pixelX) << 2;
+              r = d.data[idx];
+              g = d.data[idx + 1];
+              b = d.data[idx + 2];
+            }
+            break;
+          }
+        }
         
-        ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
-        ctx.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-        if (row === centerRow && col === centerCol) centerColor = color;
-        if (row !== centerRow || col !== centerCol) {
-          ctx.strokeStyle = isDark ? '#4b5563' : '#d1d5db';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(col * CELL_SIZE, cellY, CELL_SIZE, CELL_SIZE);
+        
+        if (row === CENTER_ROW && col === CENTER_COL) {
+          centerR = r; centerG = g; centerB = b;
         }
       }
     }
+
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 0.5;
+    for (let row = 0; row < GRID_ROWS; row++) {
+      const cellY = row * CELL_SIZE;
+      for (let col = 0; col < GRID_COLS; col++) {
+        if (row !== CENTER_ROW || col !== CENTER_COL) {
+          ctx.strokeRect(col * CELL_SIZE, cellY, CELL_SIZE, CELL_SIZE);
+        }
+      }
+    }
+    
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2;
-    ctx.strokeRect(centerCol * CELL_SIZE, centerRow * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-    return centerColor;
-  }, [getPixelColor, isDark]);
+    ctx.strokeRect(CENTER_COL * CELL_SIZE, CENTER_ROW * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    
+    return { r: centerR, g: centerG, b: centerB };
+  }, [isDark]);
 
   const getColorString = useCallback((color, format, includeFormat = true) => {
     const { r = 0, g = 0, b = 0 } = color;
@@ -122,31 +142,41 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
   , []);
 
   const updateMagnifier = useCallback((pos) => {
-    if (!groupRef.current || !gridImageRef.current || screenImageDataRef.current.size === 0) return;
-    const totalHeight = GRID_HEIGHT + INFO_HEIGHT + PADDING * 2, offset = 20;
+    if (!groupRef.current || !gridImageRef.current) return;
+    const dataArray = screenImageDataRef.current;
+    if (dataArray.length === 0) return;
+    
+    const offset = 20;
     const positions = [
       { x: pos.x + offset, y: pos.y + offset },
       { x: pos.x - MAGNIFIER_WIDTH - offset, y: pos.y + offset },
-      { x: pos.x + offset, y: pos.y - totalHeight - offset },
-      { x: pos.x - MAGNIFIER_WIDTH - offset, y: pos.y - totalHeight - offset }
+      { x: pos.x + offset, y: pos.y - TOTAL_HEIGHT - offset },
+      { x: pos.x - MAGNIFIER_WIDTH - offset, y: pos.y - TOTAL_HEIGHT - offset }
     ];
-    const validPos = positions.find(p => stageRegionManager.isRectInBounds({ ...p, width: MAGNIFIER_WIDTH, height: totalHeight })) || positions[0];
+    const validPos = positions.find(p => stageRegionManager.isRectInBounds({ ...p, width: MAGNIFIER_WIDTH, height: TOTAL_HEIGHT })) || positions[0];
     groupRef.current.position(validPos);
+
+    if (getScaleForPosition) {
+      const newScale = getScaleForPosition(validPos.x, validPos.y);
+      if (newScale !== uiScaleRef.current) {
+        uiScaleRef.current = newScale;
+        groupRef.current.scaleX(newScale);
+        groupRef.current.scaleY(newScale);
+      }
+    }
 
     const centerColor = drawGridToCanvas(pos) || centerColorRef.current;
     centerColorRef.current = centerColor;
-    gridImageRef.current.getLayer()?.batchDraw();
 
     const dpr = window.devicePixelRatio || 1;
-    let physicalX = Math.floor(pos.x * dpr);
-    let physicalY = Math.floor(pos.y * dpr);
-    for (const [, data] of screenImageDataRef.current) {
-      const { bounds, scaleX, scaleY, screen } = data;
-      if (pos.x >= bounds.x1 && pos.x < bounds.x2 && pos.y >= bounds.y1 && pos.y < bounds.y2) {
-        const offsetX = pos.x - screen.x;
-        const offsetY = pos.y - screen.y;
-        physicalX = Math.floor(screen.physicalX + offsetX * scaleX);
-        physicalY = Math.floor(screen.physicalY + offsetY * scaleY);
+    let physicalX = (pos.x * dpr) | 0;
+    let physicalY = (pos.y * dpr) | 0;
+    const len = dataArray.length;
+    for (let i = 0; i < len; i++) {
+      const d = dataArray[i];
+      if (pos.x >= d.x1 && pos.x < d.x2 && pos.y >= d.y1 && pos.y < d.y2) {
+        physicalX = (d.screen.physicalX + (pos.x - d.screen.x) * d.scaleX) | 0;
+        physicalY = (d.screen.physicalY + (pos.y - d.screen.y) * d.scaleY) | 0;
         break;
       }
     }
@@ -155,8 +185,9 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     colorTextRef.current?.text(getColorString(centerColor, colorFormat, true));
     colorTextRef.current?.fill(getTextColor(centerColor));
     coordTextRef.current?.text(`X: ${physicalX}  Y: ${physicalY}`);
+
     groupRef.current.getLayer()?.batchDraw();
-  }, [stageRegionManager, drawGridToCanvas, getColorString, colorFormat, getTextColor]);
+  }, [stageRegionManager, drawGridToCanvas, getColorString, colorFormat, getTextColor, getScaleForPosition]);
 
   useEffect(() => { onMousePosUpdate?.(updateMagnifier); }, [onMousePosUpdate, updateMagnifier]);
 
@@ -183,15 +214,15 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
 
   if (!visible || !mousePos) return null;
 
-  const totalHeight = GRID_HEIGHT + INFO_HEIGHT + PADDING * 2, offset = 20;
+  const offset = 20;
   const positions = [
     { x: mousePos.x + offset, y: mousePos.y + offset },
     { x: mousePos.x - MAGNIFIER_WIDTH - offset, y: mousePos.y + offset },
-    { x: mousePos.x + offset, y: mousePos.y - totalHeight - offset },
-    { x: mousePos.x - MAGNIFIER_WIDTH - offset, y: mousePos.y - totalHeight - offset }
+    { x: mousePos.x + offset, y: mousePos.y - TOTAL_HEIGHT - offset },
+    { x: mousePos.x - MAGNIFIER_WIDTH - offset, y: mousePos.y - TOTAL_HEIGHT - offset }
   ];
   const { x: magnifierX, y: magnifierY } = positions.find(p => 
-    stageRegionManager.isRectInBounds({ ...p, width: MAGNIFIER_WIDTH, height: totalHeight })
+    stageRegionManager.isRectInBounds({ ...p, width: MAGNIFIER_WIDTH, height: TOTAL_HEIGHT })
   ) || positions[0];
 
   const uiScale = useMemo(() => {
@@ -206,7 +237,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
         x={0}
         y={0}
         width={MAGNIFIER_WIDTH}
-        height={totalHeight}
+        height={TOTAL_HEIGHT}
         fill={isDark ? '#1f2937' : 'white'}
         stroke={isDark ? '#374151' : '#e5e7eb'}
         strokeWidth={1}
