@@ -73,23 +73,25 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      - name: Add forceUpdate field to latest.json
+      - name: Download and modify latest.json
         run: |
-          $jsonPath = "src-tauri/target/release/bundle/nsis/latest.json"
-          $json = Get-Content $jsonPath -Raw | ConvertFrom-Json
-          $json | Add-Member -NotePropertyName "forceUpdate" -NotePropertyValue $false
-          $json | ConvertTo-Json -Depth 10 | Set-Content $jsonPath -Encoding UTF8
+
+          $releases = gh api repos/${{ github.repository }}/releases --jq '.[] | select(.draft==true and .tag_name=="${{ github.ref_name }}")'
+          $releaseId = ($releases | ConvertFrom-Json).id
+
+          gh release download ${{ github.ref_name }} -p "latest.json" -D . --clobber
+
+          $json = Get-Content "latest.json" -Raw | ConvertFrom-Json
+          $json | Add-Member -NotePropertyName "forceUpdate" -NotePropertyValue $false -Force
+          $json | ConvertTo-Json -Depth 10 | Set-Content "latest.json" -Encoding UTF8
+
+          gh release delete-asset ${{ github.ref_name }} "latest.json" -y || true
+          gh release upload ${{ github.ref_name }} "latest.json" --clobber
+          
           echo "Added forceUpdate: false to latest.json"
         shell: pwsh
-
-      - name: Upload modified latest.json to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          draft: true
-          files: src-tauri/target/release/bundle/nsis/latest.json
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare portable versions
         run: |
