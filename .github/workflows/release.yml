@@ -65,3 +65,53 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           updaterJsonKeepUniversal: true
+
+      - name: Get version from tag
+        id: version
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Add forceUpdate field to latest.json
+        run: |
+          $jsonPath = "src-tauri/target/release/bundle/nsis/latest.json"
+          $json = Get-Content $jsonPath -Raw | ConvertFrom-Json
+          $json | Add-Member -NotePropertyName "forceUpdate" -NotePropertyValue $false
+          $json | ConvertTo-Json -Depth 10 | Set-Content $jsonPath -Encoding UTF8
+          echo "Added forceUpdate: false to latest.json"
+        shell: pwsh
+
+      - name: Upload modified latest.json to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: src-tauri/target/release/bundle/nsis/latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare portable versions
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $srcExe = "src-tauri/target/release/QuickClipboard.exe"
+          $portableExe = "QuickClipboard_${version}_portable.exe"
+          $plainExe = "QuickClipboard_${version}.exe"
+          
+          Copy-Item $srcExe $portableExe
+          Copy-Item $srcExe $plainExe
+          
+          echo "Created: $portableExe"
+          echo "Created: $plainExe"
+        shell: pwsh
+
+      - name: Upload portable versions to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: |
+            QuickClipboard_${{ steps.version.outputs.VERSION }}_portable.exe
+            QuickClipboard_${{ steps.version.outputs.VERSION }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
