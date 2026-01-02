@@ -35,6 +35,23 @@ pub use services::low_memory::{is_low_memory_mode, enter_low_memory_mode, exit_l
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     security::check_webview_security();
+    #[cfg(windows)]
+    {
+        if let Ok(settings) = services::settings::load_settings_from_file() {
+            if settings.run_as_admin {
+                let is_admin = services::system::is_running_as_admin();
+                
+                if is_admin {
+                    let _ = services::system::create_scheduled_task();
+                } else {
+                    if services::system::elevate::try_elevate_and_restart() {
+                        std::process::exit(0);
+                    }
+                }
+            }
+        }
+    }
+    
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if services::low_memory::is_low_memory_mode() {
@@ -122,6 +139,7 @@ pub fn run() {
                 commands::set_run_as_admin,
                 commands::get_run_as_admin_status,
                 commands::is_running_as_admin,
+                commands::is_admin_task_ready,
                 commands::restart_as_admin,
                 commands::reload_hotkeys,
                 commands::enable_hotkeys,
@@ -231,16 +249,6 @@ pub fn run() {
         
     .setup(|app| {
                 services::store::init(app.handle());
-                #[cfg(windows)]
-                {
-                    let settings = get_settings();
-                    if settings.run_as_admin && !commands::is_running_as_admin() {
-                        if services::system::elevate::try_elevate_and_restart() {
-                            std::process::exit(0);
-                        }
-                    }
-                }
-
                 #[cfg(desktop)]
                 {
                     use tauri_plugin_autostart::MacosLauncher;

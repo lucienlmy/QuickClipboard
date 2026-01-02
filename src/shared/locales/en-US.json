@@ -194,6 +194,7 @@
       "runAsAdminFailed": "Failed to set administrator privileges",
       "runAsAdminRestartConfirm": "A restart is required to run as administrator. Restart now?",
       "runAsAdminRestartFailed": "Restart failed, please restart manually",
+      "runningAsAdmin": "Running as Admin",
       "startupNotification": "Startup Notification",
       "startupNotificationDesc": "Show system notification when app starts",
       "historyLimit": "History Limit",

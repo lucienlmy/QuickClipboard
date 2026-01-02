@@ -194,6 +194,7 @@
       "runAsAdminFailed": "设置管理员权限失败",
       "runAsAdminRestartConfirm": "需要重启程序才能以管理员权限运行，是否立即重启？",
       "runAsAdminRestartFailed": "重启失败，请手动重启程序",
+      "runningAsAdmin": "管理员运行中",
       "startupNotification": "启动通知",
       "startupNotificationDesc": "应用启动时显示系统通知",
       "historyLimit": "剪贴板历史数量",

@@ -20,6 +20,7 @@ function GeneralSection({
   const [autoStartSynced, setAutoStartSynced] = useState(false);
   const [autoStartMismatch, setAutoStartMismatch] = useState(false);
   const [runAsAdminLoading, setRunAsAdminLoading] = useState(false);
+  const [currentlyRunningAsAdmin, setCurrentlyRunningAsAdmin] = useState(false);
 
   // 初同步自启动状态和管理员权限状态
   useEffect(() => {
@@ -45,6 +46,13 @@ function GeneralSection({
         }
       } catch (error) {
         console.error('获取管理员权限状态失败:', error);
+      }
+
+      try {
+        const isAdmin = await isRunningAsAdmin();
+        setCurrentlyRunningAsAdmin(isAdmin);
+      } catch (error) {
+        console.error('检查管理员权限状态失败:', error);
       }
     };
     syncStatuses();
@@ -131,7 +139,19 @@ function GeneralSection({
         <Toggle checked={settings.autoStart} onChange={handleAutoStartChange} disabled={autoStartLoading} />
       </SettingItem>
 
-      <SettingItem label={t('settings.general.runAsAdmin')} description={t('settings.general.runAsAdminDesc')}>
+      <SettingItem 
+        label={
+          <span className="flex items-center gap-2">
+            {t('settings.general.runAsAdmin')}
+            {currentlyRunningAsAdmin && (
+              <span className="px-1.5 py-0.5 text-xs rounded bg-green-500/20 text-green-500 leading-none flex items-center">
+                {t('settings.general.runningAsAdmin')}
+              </span>
+            )}
+          </span>
+        } 
+        description={t('settings.general.runAsAdminDesc')}
+      >
         <Toggle checked={settings.runAsAdmin} onChange={handleRunAsAdminChange} disabled={runAsAdminLoading} />
       </SettingItem>
 

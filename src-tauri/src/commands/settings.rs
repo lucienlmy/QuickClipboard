@@ -288,6 +288,12 @@ pub fn save_quickpaste_window_size(width: u32, height: u32) -> Result<(), String
 // 设置管理员权限运行
 #[tauri::command]
 pub fn set_run_as_admin(enabled: bool) -> Result<(), String> {
+    use crate::services::system::{delete_scheduled_task, is_running_as_admin};
+
+    if !enabled && is_running_as_admin() {
+        let _ = delete_scheduled_task();
+    }
+    
     let mut settings = get_settings();
     settings.run_as_admin = enabled;
     update_settings(settings)?;
@@ -304,6 +310,12 @@ pub fn get_run_as_admin_status() -> Result<bool, String> {
 #[tauri::command]
 pub fn is_running_as_admin() -> bool {
     crate::services::system::is_running_as_admin()
+}
+
+// 检查计划任务是否存在
+#[tauri::command]
+pub fn is_admin_task_ready() -> bool {
+    crate::services::system::is_scheduled_task_exists()
 }
 
 // 以管理员权限重启程序
