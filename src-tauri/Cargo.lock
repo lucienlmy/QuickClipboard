@@ -2888,7 +2888,7 @@ dependencies = [
 [[package]]
 name = "gpu-image-viewer"
 version = "0.1.0"
-source = "git+ssh://git@github.com/mosheng1/gpu-image-viewer.git#2171fb2e991a5c061f9143127e39a4fa228702a5"
+source = "git+ssh://git@github.com/mosheng1/gpu-image-viewer.git#7782323889f7969947448d9a02a472f7fb19a3b1"
 dependencies = [
  "bytemuck",
  "fast_image_resize",
