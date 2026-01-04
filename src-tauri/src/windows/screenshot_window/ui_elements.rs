@@ -7,8 +7,6 @@ use rstar::{RTree, AABB, RTreeObject, PointDistance};
 use uiautomation::core::UICacheRequest;
 use uiautomation::types::{TreeScope, UIProperty};
 use uiautomation::{UIAutomation, UIElement, UITreeWalker};
-use windows::Win32::Foundation::HWND;
-
 use super::element_rect::ElementRect;
 use super::ui_automation_types::ElementLevel;
 
@@ -75,6 +73,17 @@ impl UiElementIndex {
             [r.get_left() as f64, r.get_top() as f64],
             [r.get_right() as f64, r.get_bottom() as f64],
         )
+    }
+
+    /// 计算窗口阴影内缩矩形
+    fn shadow_inset_rect(rect: &ElementRect) -> ElementRect {
+        const SHADOW_MARGIN: i32 = 10;
+        ElementRect {
+            min_x: rect.min_x + SHADOW_MARGIN,
+            min_y: rect.min_y,
+            max_x: rect.max_x - SHADOW_MARGIN,
+            max_y: rect.max_y - SHADOW_MARGIN,
+        }
     }
 
     pub fn init(&mut self) -> Result<(), String> {
@@ -320,42 +329,44 @@ impl UiElementIndex {
             .map(|(elem, tok)| (elem.clone(), best_level, bounds, *tok))
     }
 
-    pub fn query_window_at_point(
-        &self,
-        mx: i32,
-        my: i32,
-    ) -> Result<Vec<ElementRect>, String> {
-        let point = [mx as f64, my as f64];
-        let matches = self.spatial_index.locate_all_at_point(&point);
-        
-        for hit in matches {
-            let level = &hit.level;
-            if level.element_level == 1 {
-                if let Some(win_rect) = self.window_bounds.get(level) {
-                    let outer_rect = ElementRect::from(*win_rect);
-                    
-                    // 计算内缩矩形（去除窗口阴影）
-                    const SHADOW_MARGIN: i32 = 10;
-                    let inner_rect = ElementRect {
-                        min_x: outer_rect.min_x + SHADOW_MARGIN,
-                        min_y: outer_rect.min_y,
-                        max_x: outer_rect.max_x - SHADOW_MARGIN,
-                        max_y: outer_rect.max_y - SHADOW_MARGIN,
-                    };
-                    
-                    return Ok(vec![inner_rect, outer_rect]);
-                }
-            }
-        }
-        
-        Ok(Vec::new())
-    }
-
     pub fn query_chain_at_point(
         &mut self,
         mx: i32,
         my: i32,
+        window_only: bool,
     ) -> Result<Vec<ElementRect>, String> {
+        if window_only {
+            let point = [mx as f64, my as f64];
+            let matches: Vec<_> = self.spatial_index.locate_all_at_point(&point).collect();
+            
+            let mut best_window: Option<(&ElementLevel, &uiautomation::types::Rect)> = None;
+            
+            for hit in &matches {
+                let level = &hit.level;
+                if level.element_level == 1 {
+                    if let Some(win_rect) = self.window_bounds.get(level) {
+                        match &best_window {
+                            None => best_window = Some((level, win_rect)),
+                            Some((best_level, _)) => {
+                                if level.window_index < best_level.window_index {
+                                    best_window = Some((level, win_rect));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if let Some((_, win_rect)) = best_window {
+                let outer_rect = ElementRect::from(*win_rect);
+                let inner_rect = Self::shadow_inset_rect(&outer_rect);
+                
+                return Ok(vec![inner_rect, outer_rect]);
+            }
+            
+            return Ok(Vec::new());
+        }
+        
         let walker = self.walker.clone().unwrap();
         let (mut parent_elem, mut parent_lvl, mut parent_bounds, mut parent_tok) =
             self.find_cached_at(mx, my).unwrap_or_else(|| {
@@ -498,6 +509,24 @@ impl UiElementIndex {
             }
             rects.push(r);
             prev = r;
+        }
+        
+        let mut window_rects_to_add = Vec::new();
+        
+        for rect in &rects {
+            for win_rect in self.window_bounds.values() {
+                let win_elem_rect = ElementRect::from(*win_rect);
+                if *rect == win_elem_rect {
+                    window_rects_to_add.push((Self::shadow_inset_rect(rect), *rect));
+                    break;
+                }
+            }
+        }
+        
+        for (inner, outer) in window_rects_to_add {
+            if let Some(pos) = rects.iter().position(|r| *r == outer) {
+                rects.insert(pos, inner);
+            }
         }
         
         Ok(rects)
