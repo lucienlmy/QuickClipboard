@@ -144,6 +144,9 @@ impl UiElementIndex {
             automation.automation.get_root_element()
                 .map_err(|e| format!("获取根元素失败: {:?}", e))?
         );
+        
+        let top_windows = Self::enum_top_windows_fast(exclude_hwnd, &automation.automation);
+        
         let root = self.desktop_root.as_ref().unwrap().clone();
 
         self.rect_tree = Arena::new();
@@ -165,27 +168,6 @@ impl UiElementIndex {
             root_bounds,
             level,
         );
-        let tree_walker = self.walker.as_ref().unwrap().clone();
-        let mut top_windows = Vec::new();
-
-        let mut current = tree_walker.get_first_child(&root).ok();
-        while let Some(win_elem) = current {
-            if let Some(hwnd_filter) = exclude_hwnd {
-                if let Ok(h) = win_elem.get_native_window_handle() {
-                    let win_hwnd: HWND = h.into();
-                    if win_hwnd.0 as isize == hwnd_filter {
-                        current = tree_walker.get_next_sibling(&win_elem).ok();
-                        continue;
-                    }
-                }
-            }
-
-            if let Ok(bounds) = win_elem.get_bounding_rectangle() {
-                top_windows.push((win_elem.clone(), bounds));
-            }
-
-            current = tree_walker.get_next_sibling(&win_elem).ok();
-        }
 
         level.window_index = 0;
         level.next_level();
@@ -206,6 +188,74 @@ impl UiElementIndex {
         }
 
         Ok(())
+    }
+    
+    fn enum_top_windows_fast(
+        exclude_hwnd: Option<isize>,
+        automation: &uiautomation::UIAutomation,
+    ) -> Vec<(UIElement, uiautomation::types::Rect)> {
+        use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+        use windows::Win32::UI::WindowsAndMessaging::{
+            EnumWindows, GetWindowRect, IsWindowVisible,
+        };
+        use windows::core::BOOL;
+        
+        struct EnumData {
+            windows: Vec<(HWND, RECT)>,
+            exclude: Option<isize>,
+        }
+        
+        unsafe extern "system" fn enum_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+            let data = &mut *(lparam.0 as *mut EnumData);
+            
+            // 跳过排除的窗口
+            if let Some(ex) = data.exclude {
+                if hwnd.0 as isize == ex {
+                    return BOOL(1);
+                }
+            }
+            
+            if IsWindowVisible(hwnd).as_bool() {
+                let mut rect = RECT::default();
+                if GetWindowRect(hwnd, &mut rect).is_ok() {
+                    let w = rect.right - rect.left;
+                    let h = rect.bottom - rect.top;
+                    if w > 1 && h > 1 {
+                        data.windows.push((hwnd, rect));
+                    }
+                }
+            }
+            
+            BOOL(1)
+        }
+        
+        let mut data = EnumData {
+            windows: Vec::new(),
+            exclude: exclude_hwnd,
+        };
+        
+        unsafe {
+            let _ = EnumWindows(
+                Some(enum_callback),
+                LPARAM(&mut data as *mut _ as isize),
+            );
+        }
+        
+        // 转换为 UIElement
+        let mut result = Vec::with_capacity(data.windows.len());
+        for (hwnd, rect) in data.windows {
+            if let Ok(elem) = automation.element_from_handle(hwnd.into()) {
+                let bounds = uiautomation::types::Rect::new(
+                    rect.left,
+                    rect.top,
+                    rect.right,
+                    rect.bottom,
+                );
+                result.push((elem, bounds));
+            }
+        }
+        
+        result
     }
 
 
@@ -384,7 +434,7 @@ impl UiElementIndex {
                     cur_bounds.get_right(),
                     cur_bounds.get_bottom(),
                 );
-
+                
                 if !(l == 0 && r == 0 && t == 0 && b == 0) {
                     (cur_bounds, cur_tok) = self.add_to_index(
                         &mut parent_tok,
@@ -432,10 +482,10 @@ impl UiElementIndex {
                 }
                 Err(_) => {
                     self.child_cache.insert(parent_lvl, None);
+                    }
                 }
             }
-        }
-
+            
         let chain = result_tok.ancestors(&self.rect_tree);
         let mut rects = Vec::with_capacity(16);
         let mut prev = ElementRect::from(result_bounds);
@@ -449,7 +499,7 @@ impl UiElementIndex {
             rects.push(r);
             prev = r;
         }
-
+        
         Ok(rects)
     }
 }
