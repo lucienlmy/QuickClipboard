@@ -1,220 +1,116 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { getLastScreenshotCaptures } from '@shared/api/system';
 import { createStageRegionManager } from '../utils/stageRegionManager';
 
 const workerUrl = new URL('../workers/bmpDecodeWorker.js', import.meta.url);
 
-export default function useScreenshotStage() {
-  const [screens, setScreens] = useState([]);
-  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+const DEFAULT_STAGE_SIZE = { width: 1, height: 1 };
 
-  const stageRegionManager = useMemo(() => createStageRegionManager(screens), [screens]);
-  const maxConcurrentWorkers = useMemo(() => {
-    if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-      return Math.max(1, Math.min(4, navigator.hardwareConcurrency));
-    }
-    return 2;
-  }, []);
+const maxWorkers = typeof navigator !== 'undefined' && navigator.hardwareConcurrency
+  ? Math.max(1, Math.min(4, navigator.hardwareConcurrency))
+  : 2;
 
-  const workerPoolRef = useRef([]);
-  const requestIdRef = useRef(0);
-  const decodeQueueRef = useRef([]);
+function createWorkerPool() {
+  const workers = [];
+  const queue = [];
+  let reqId = 0;
 
-  const terminateWorkers = useCallback(() => {
-    workerPoolRef.current.forEach((entry) => {
-      try {
-        entry.worker.terminate();
-      } catch {
-      }
-    });
-    workerPoolRef.current = [];
-    decodeQueueRef.current = [];
-  }, []);
-
-  const removeWorkerEntry = (target) => {
-    workerPoolRef.current = workerPoolRef.current.filter((entry) => entry !== target);
-  };
-
-  const createWorkerEntry = () => {
-    if (typeof window === 'undefined' || typeof Worker === 'undefined') {
-      throw new Error('Worker 不可用');
-    }
-
-    const worker = new Worker(workerUrl, { type: 'module' });
-    const entry = {
-      worker,
-      busy: false,
-      task: null,
-    };
-
-    worker.onmessage = (event) => {
-      const { success, bitmap, error } = event.data || {};
-      const currentTask = entry.task;
-      entry.task = null;
-      entry.busy = false;
-
-      if (currentTask) {
-        if (success) {
-          currentTask.resolve(bitmap);
-        } else {
-          currentTask.reject(new Error(error || 'Worker 解码失败'));
-        }
-      }
-
-      processDecodeQueue();
-    };
-
-    worker.onerror = (event) => {
-      const currentTask = entry.task;
-      entry.task = null;
-      entry.busy = false;
-      removeWorkerEntry(entry);
-      try {
-        worker.terminate();
-      } catch {}
-      if (currentTask) {
-        currentTask.reject(new Error(event?.message || 'Worker error'));
-      }
-      processDecodeQueue();
-    };
-
-    workerPoolRef.current.push(entry);
-    return entry;
-  };
-
-  const ensureWorkerPool = useCallback(() => {
-    if (typeof window === 'undefined' || typeof Worker === 'undefined') {
-      return false;
-    }
-    while (workerPoolRef.current.length < maxConcurrentWorkers) {
-      try {
-        createWorkerEntry();
-      } catch (error) {
-        console.error('[BMP Worker] 初始化失败:', error);
-        break;
-      }
-    }
-    return workerPoolRef.current.length > 0;
-  }, [maxConcurrentWorkers]);
-
-  const processDecodeQueue = useCallback(() => {
-    if (!decodeQueueRef.current.length) return;
-
-    workerPoolRef.current.forEach((entry) => {
-      if (!decodeQueueRef.current.length) return;
-      if (entry.busy) return;
-
-      const task = decodeQueueRef.current.shift();
-      if (!task) return;
-
+  function processQueue() {
+    if (!queue.length) return;
+    for (const entry of workers) {
+      if (!queue.length || entry.busy) continue;
+      const task = queue.shift();
       entry.busy = true;
       entry.task = task;
+      entry.worker.postMessage({ id: task.id, rawUrl: task.rawUrl, width: task.width, height: task.height });
+    }
+  }
+
+  for (let i = 0; i < maxWorkers; i++) {
+    const worker = new Worker(workerUrl, { type: 'module' });
+    const entry = { worker, busy: false, task: null };
+    worker.onmessage = (e) => {
+      const { success, bitmap, error } = e.data || {};
+      const task = entry.task;
+      entry.task = null;
+      entry.busy = false;
+      if (task) success ? task.resolve(bitmap) : task.reject(new Error(error || 'decode failed'));
+      processQueue();
+    };
+    worker.onerror = (e) => {
+      const task = entry.task;
+      entry.task = null;
+      entry.busy = false;
+      if (task) task.reject(new Error(e?.message || 'worker error'));
+      processQueue();
+    };
+    workers.push(entry);
+  }
+
+  return {
+    decode: (rawUrl, width, height) => new Promise((resolve, reject) => {
+      queue.push({ id: reqId++, rawUrl, width, height, resolve, reject });
+      processQueue();
+    }),
+    terminate: () => workers.forEach(e => e.worker.terminate()),
+  };
+}
+
+export default function useScreenshotStage() {
+  const [screens, setScreens] = useState([]);
+  const [stageSize, setStageSize] = useState(DEFAULT_STAGE_SIZE);
+  const stageRegionManager = useMemo(() => createStageRegionManager(screens), [screens]);
+
+  async function reloadFromLastCapture() {
+    const maxRetries = 100, retryDelay = 50;
+    let infos = null;
+    for (let i = 0; i < maxRetries; i++) {
       try {
-        entry.worker.postMessage({ id: task.id, url: task.url });
-      } catch (error) {
-        entry.busy = false;
-        entry.task = null;
-        task.reject(error);
-        removeWorkerEntry(entry);
-      }
-    });
-
-    if (decodeQueueRef.current.length && workerPoolRef.current.every((entry) => entry.busy)) {
-      return;
+        infos = await getLastScreenshotCaptures();
+        if (infos?.length) break;
+      } catch {}
+      await new Promise(r => setTimeout(r, retryDelay));
     }
-  }, []);
+    if (!infos?.length) return;
 
-  const decodeWithWorker = useCallback((url) => {
-    return new Promise((resolve, reject) => {
-      if (!ensureWorkerPool()) {
-        reject(new Error('Worker 不可用'));
-        return;
-      }
-      const id = requestIdRef.current++;
-      decodeQueueRef.current.push({ id, url, resolve, reject });
-      processDecodeQueue();
-    });
-  }, [processDecodeQueue, ensureWorkerPool]);
+    const dpr = window.devicePixelRatio || 1;
+    const physicalMinX = Math.min(...infos.map(m => m.physical_x));
+    const physicalMinY = Math.min(...infos.map(m => m.physical_y));
+    const physicalMaxX = Math.max(...infos.map(m => m.physical_x + m.physical_width));
+    const physicalMaxY = Math.max(...infos.map(m => m.physical_y + m.physical_height));
+    const physicalOffsetX = isFinite(physicalMinX) ? physicalMinX : 0;
+    const physicalOffsetY = isFinite(physicalMinY) ? physicalMinY : 0;
 
-  const loadImageFallback = useCallback((url) => {
-    return new Promise((resolve, reject) => {
-      const img = new window.Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = (e) => reject(e);
-      img.src = url;
-    });
-  }, []);
+    const newStageSize = {
+      width: (physicalMaxX - physicalOffsetX) / dpr,
+      height: (physicalMaxY - physicalOffsetY) / dpr,
+    };
+    setStageSize(newStageSize);
 
-  const loadScreenBitmap = useCallback(async (url) => {
+    const pool = createWorkerPool();
     try {
-      return await decodeWithWorker(url);
-    } catch (error) {
-      console.warn('[Screenshot] Worker解码失败，使用 Image:', error);
-      return loadImageFallback(url);
-    }
-  }, [decodeWithWorker, loadImageFallback]);
-
-  useEffect(() => () => terminateWorkers(), [terminateWorkers]);
-
-  const reloadFromLastCapture = useCallback(async () => {
-    try {
-      const infos = await getLastScreenshotCaptures();
-
-      if (!infos || !infos.length) {
-        return;
-      }
-
-      const dpr = window.devicePixelRatio || 1;
-
-      const physicalMinX = Math.min(...infos.map((m) => m.physical_x));
-      const physicalMinY = Math.min(...infos.map((m) => m.physical_y));
-      const physicalMaxX = Math.max(...infos.map((m) => m.physical_x + m.physical_width));
-      const physicalMaxY = Math.max(...infos.map((m) => m.physical_y + m.physical_height));
-
-      const physicalOffsetX = isFinite(physicalMinX) ? physicalMinX : 0;
-      const physicalOffsetY = isFinite(physicalMinY) ? physicalMinY : 0;
-      const physicalWidth = physicalMaxX - physicalOffsetX;
-      const physicalHeight = physicalMaxY - physicalOffsetY;
-
-      const stageWidth = physicalWidth / dpr;
-      const stageHeight = physicalHeight / dpr;
-
-      setStageSize({ width: stageWidth, height: stageHeight });
-
-      const loadedScreens = await Promise.all(
-        infos.map(async (m) => {
-          const imageSource = await loadScreenBitmap(m.file_path);
-          const cssX = (m.physical_x - physicalOffsetX) / dpr;
-          const cssY = (m.physical_y - physicalOffsetY) / dpr;
-          const cssWidth = m.physical_width / dpr;
-          const cssHeight = m.physical_height / dpr;
-          
-          return {
-            image: imageSource,
-            // CSS坐标（用于Konva渲染）
-            x: cssX,
-            y: cssY,
-            width: cssWidth,
-            height: cssHeight,
-            // 物理坐标（用于坐标显示、导出等）
-            physicalX: m.physical_x,
-            physicalY: m.physical_y,
-            physicalWidth: m.physical_width,
-            physicalHeight: m.physical_height,
-            // 物理偏移（用于坐标转换）
-            physicalOffsetX,
-            physicalOffsetY,
-            scaleFactor: m.scale_factor,
-          };
-        })
-      );
-
+      const loadedScreens = await Promise.all(infos.map(async (m) => {
+        const image = await pool.decode(m.raw_path, m.physical_width, m.physical_height);
+        return {
+          image,
+          x: (m.physical_x - physicalOffsetX) / dpr,
+          y: (m.physical_y - physicalOffsetY) / dpr,
+          width: m.physical_width / dpr,
+          height: m.physical_height / dpr,
+          physicalX: m.physical_x,
+          physicalY: m.physical_y,
+          physicalWidth: m.physical_width,
+          physicalHeight: m.physical_height,
+          physicalOffsetX,
+          physicalOffsetY,
+          scaleFactor: m.scale_factor,
+        };
+      }));
       setScreens(loadedScreens);
-    } catch (error) {
-      console.error('加载截屏数据失败:', error);
+    } finally {
+      pool.terminate();
     }
-  }, []);
+  }
 
   return { screens, stageSize, stageRegionManager, reloadFromLastCapture };
 }

@@ -1,4 +1,4 @@
-use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindow,WebviewWindowBuilder,Emitter,Position,PhysicalPosition,};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Emitter, Position, PhysicalPosition};
 use crate::utils::image_http_server::{PinEditData, set_pin_edit_data, clear_pin_edit_data, get_pin_edit_data};
 use serde_json::json;
 use once_cell::sync::Lazy;
@@ -6,6 +6,7 @@ use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::thread;
 use std::time::Duration;
+use tokio::sync::Notify;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HWND;
@@ -18,6 +19,8 @@ use windows::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WINDOW_D
 // 2: 快速贴图模式（选区完成后直接贴图）
 // 3: 快速OCR模式（选区完成后直接OCR识别并复制）
 static SCREENSHOT_MODE: AtomicU8 = AtomicU8::new(0);
+static INIT_GATE_SESSION: Lazy<std::sync::atomic::AtomicU64> = Lazy::new(|| std::sync::atomic::AtomicU64::new(0));
+static INIT_GATE_NOTIFY: Lazy<Notify> = Lazy::new(Notify::new);
 
 #[derive(Debug, Clone, Copy)]
 struct PhysicalRect {
@@ -104,6 +107,16 @@ fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
     let _ = window.show();
     let _ = window.set_focus();
 
+    INIT_GATE_SESSION.fetch_add(1, Ordering::SeqCst);
+    INIT_GATE_NOTIFY.notify_waiters();
+
+    let app_for_auto = app.clone();
+    thread::spawn(move || {
+        if let Err(e) = crate::windows::screenshot_window::auto_selection::start_auto_selection(app_for_auto) {
+            eprintln!("无法启动自动选区: {}", e);
+        }
+    });
+
     let app_clone = app.clone();
     thread::spawn(move || {
         let capture_result = crate::services::screenshot::capture_and_store_last(&app_clone);
@@ -113,13 +126,7 @@ fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
             if let Some(window) = app_for_main.get_webview_window("screenshot") {
                 set_window_exclude_from_capture(&window, false);
                 
-                if capture_result.is_ok() {
-                    let _ = window.emit("screenshot:new-session", json!({ "screenshotMode": mode }));
-                    
-                    if let Err(e) = crate::windows::screenshot_window::auto_selection::start_auto_selection(app_for_main.clone()) {
-                        eprintln!("无法启动自动选区: {}", e);
-                    }
-                } else if let Err(ref e) = capture_result {
+                if let Err(ref e) = capture_result {
                     eprintln!("截屏失败: {}", e);
                 }
             }
@@ -149,6 +156,17 @@ pub fn start_screenshot_quick_ocr(app: &AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn get_screenshot_mode() -> u8 {
     SCREENSHOT_MODE.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+pub async fn wait_for_screenshot_init(last_session: u64) -> (u64, u8) {
+    let current = INIT_GATE_SESSION.load(Ordering::SeqCst);
+    if current == last_session {
+        INIT_GATE_NOTIFY.notified().await;
+    }
+    let new_session = INIT_GATE_SESSION.load(Ordering::SeqCst);
+    let mode = SCREENSHOT_MODE.load(Ordering::SeqCst);
+    (new_session, mode)
 }
 
 // 重置截屏模式

@@ -8,7 +8,6 @@ use parking_lot::Mutex;
 // 单个显示器截图的信息
 #[derive(Serialize, Clone)]
 pub struct MonitorScreenshotInfo {
-    pub file_path: String,
     pub physical_x: i32,
     pub physical_y: i32,
     pub physical_width: u32,
@@ -18,6 +17,7 @@ pub struct MonitorScreenshotInfo {
     pub logical_width: u32,
     pub logical_height: u32,
     pub scale_factor: f64,
+    pub raw_path: String,
 }
 
 // 最近一次截屏结果缓存
@@ -88,7 +88,7 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
     let results: Result<Vec<(MonitorScreenshotInfo, Vec<u8>)>, String> = monitor_metas
         .into_par_iter()
         .enumerate()
-        .map(|(index, meta)| {
+        .map(|(_index, meta)| {
             let xcap_list = Monitor::all().map_err(|e| format!("枚举显示器失败: {}", e))?;
             let mut target: Option<Monitor> = None;
             for m in xcap_list {
@@ -113,43 +113,9 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
                 )
             })?;
 
-            let img = monitor
-                .capture_image()
+            let raw = monitor
+                .capture_image_raw()
                 .map_err(|e| format!("截取屏幕失败: {}", e))?;
-
-            // 构建 BMP buffer
-            let (width, height) = img.dimensions();
-            let raw = img.as_raw();
-
-            let pixel_data_size = width * height * 4;
-            let file_size = 14 + 40 + pixel_data_size;
-
-            let mut buf = vec![0u8; file_size as usize];
-
-            buf[0..2].copy_from_slice(b"BM");
-            buf[2..6].copy_from_slice(&(file_size as u32).to_le_bytes());
-            buf[10..14].copy_from_slice(&54u32.to_le_bytes());
-
-            buf[14..18].copy_from_slice(&40u32.to_le_bytes());
-            buf[18..22].copy_from_slice(&(width as i32).to_le_bytes());
-            buf[22..26].copy_from_slice(&(-(height as i32)).to_le_bytes());
-            buf[26..28].copy_from_slice(&1u16.to_le_bytes());
-            buf[28..30].copy_from_slice(&32u16.to_le_bytes());
-            buf[34..38].copy_from_slice(&(pixel_data_size as u32).to_le_bytes());
-
-            unsafe {
-                let raw_ptr = raw.as_ptr();
-                let buf_ptr = buf.as_mut_ptr().add(54);
-                let pixel_count = (width * height) as usize;
-                for i in 0..pixel_count {
-                    let src_offset = i * 4;
-                    let dst_offset = i * 4;
-                    *buf_ptr.add(dst_offset) = *raw_ptr.add(src_offset + 2); // B
-                    *buf_ptr.add(dst_offset + 1) = *raw_ptr.add(src_offset + 1); // G
-                    *buf_ptr.add(dst_offset + 2) = *raw_ptr.add(src_offset); // R
-                    *buf_ptr.add(dst_offset + 3) = *raw_ptr.add(src_offset + 3); // A
-                }
-            }
 
             // 计算逻辑坐标信息
             let physical_x = meta.physical_x;
@@ -173,7 +139,6 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
             }
 
             let info = MonitorScreenshotInfo {
-                file_path: String::new(),
                 physical_x,
                 physical_y,
                 physical_width,
@@ -183,23 +148,23 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
                 logical_width,
                 logical_height,
                 scale_factor,
+                raw_path: String::new(),
             };
 
-            Ok((info, buf))
+            Ok((info, raw))
         })
         .collect();
 
     let results = results?;
 
-    // 将所有 BMP 数据写入 HTTP 图像缓存，并获取服务器端口
-    let images: Vec<Vec<u8>> = results.iter().map(|(_, buf)| buf.clone()).collect();
-    let port = crate::utils::image_http_server::set_images(images)?;
+    let raw_images: Vec<Vec<u8>> = results.iter().map(|(_, raw)| raw.clone()).collect();
+    let port = crate::utils::image_http_server::set_raw_images(raw_images)?;
 
     let infos: Vec<MonitorScreenshotInfo> = results
         .into_iter()
         .enumerate()
-        .map(|(index, (mut info, _buf))| {
-            info.file_path = format!("http://127.0.0.1:{}/screen/{}.bmp", port, index);
+        .map(|(index, (mut info, _))| {
+            info.raw_path = format!("http://127.0.0.1:{}/screen/{}.raw", port, index);
             info
         })
         .collect();

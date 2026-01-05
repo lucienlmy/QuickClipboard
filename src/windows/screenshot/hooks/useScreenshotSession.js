@@ -1,5 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useCallback, useEffect, useRef } from 'react';
 import { cancelScreenshotSession } from '@shared/api/system';
 import { useSelection } from './useSelection';
 import { useSelectionInteraction } from './useSelectionInteraction';
@@ -7,10 +6,11 @@ import { useAutoSelection } from './useAutoSelection';
 import { exportToClipboard, exportToPin, exportToFile } from '../utils/exportUtils';
 import { recognizeSelectionOcr } from '../utils/ocrUtils';
 
-export function useScreenshotSession(stageRef, stageRegionManager, { screens = [], onQuickPin = null } = {}) {
-  // 截屏模式：0-普通, 1-快速复制, 2-快速贴图, 3-快速OCR
-  const [screenshotMode, setScreenshotMode] = useState(0);
+export function useScreenshotSession(stageRef, stageRegionManager, { screens = [], onQuickPin = null, screenshotMode = 0 } = {}) {
   const screenshotModeExecutedRef = useRef(false);
+  useEffect(() => {
+    screenshotModeExecutedRef.current = false;
+  }, [screenshotMode]);
   
   const {
     selection,
@@ -88,38 +88,6 @@ export function useScreenshotSession(stageRef, stageRegionManager, { screens = [
   }, [interactionMouseUp, autoSelectionRect, updateSelection, clearAutoSelection]);
 
   const isSelectionComplete = hasValidSelection && !isDrawing && !isMoving && !isResizing;
-
-  // 初始化截屏模式
-  useEffect(() => {
-    let unlisten;
-    let mounted = true;
-    
-    (async () => {
-      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      const win = getCurrentWebviewWindow();
-      unlisten = await win.listen('screenshot:new-session', (event) => {
-        if (!mounted) return;
-        const mode = event.payload?.screenshotMode ?? 0;
-        setScreenshotMode(mode);
-        screenshotModeExecutedRef.current = false;
-      });
-
-      try {
-        const mode = await invoke('get_screenshot_mode');
-        if (mounted) {
-          setScreenshotMode(mode);
-          screenshotModeExecutedRef.current = false;
-        }
-      } catch (err) {
-        console.error('获取截屏模式失败:', err);
-      }
-    })();
-    
-    return () => {
-      mounted = false;
-      unlisten?.();
-    };
-  }, []);
 
   const handleRightClick = useCallback(async (e) => {
     e.evt?.preventDefault?.();

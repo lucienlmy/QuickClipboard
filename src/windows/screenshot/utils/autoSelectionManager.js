@@ -1,7 +1,8 @@
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 
-let listening = false
+let listenersInitialized = false
+let listenersInitializing = false
 let unlistenHierarchy = null
 let unlistenClear = null
 
@@ -39,7 +40,8 @@ function notifySubscribers() {
 }
 
 async function ensureListeners() {
-  if (listening) return
+  if (listenersInitialized || listenersInitializing) return
+  listenersInitializing = true
 
   try {
     unlistenHierarchy = await listen('auto-selection-hierarchy', (event) => {
@@ -69,9 +71,11 @@ async function ensureListeners() {
       }
     })
 
-    listening = true
+    listenersInitialized = true
   } catch (e) {
     console.error('[autoSelectionManager] failed to setup listeners:', e)
+  } finally {
+    listenersInitializing = false
   }
 }
 
@@ -94,7 +98,7 @@ export async function stopAutoSelection() {
     unlistenClear = null
   }
 
-  listening = false
+  listenersInitialized = false
   currentHierarchy = null
   subscribers.clear()
 }

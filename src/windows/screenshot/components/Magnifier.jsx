@@ -31,7 +31,19 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
   const uiScaleRef = useRef(1);
 
   useEffect(() => {
-    if (!screens?.length || screenCacheRef.current.screens === screens) return;
+    if (!screens?.length) return;
+
+    const hasAnyImage = screens.some(s => s.image);
+    if (!hasAnyImage) return;
+
+    const cachedScreens = screenCacheRef.current.screens;
+    if (cachedScreens === screens) return;
+
+    if (cachedScreens?.length === screens.length) {
+      const imagesChanged = screens.some((s, i) => s.image !== cachedScreens[i]?.image);
+      if (!imagesChanged) return;
+    }
+    
     screenCacheRef.current.screens = screens;
     const dataArray = [];
     screens.forEach((screen) => {

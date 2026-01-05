@@ -1,48 +1,63 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { WebGLRenderer } from '../utils/webglRenderer';
 
 function WebGLBackgroundLayer({ screens, stageWidth, stageHeight }) {
   const canvasRef = useRef(null);
   const rendererRef = useRef(null);
   const [error, setError] = useState(null);
+  const lastRenderRef = useRef({ screens: null, width: 0, height: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    let renderer;
-    try {
-      renderer = new WebGLRenderer();
-      renderer.initialize(canvas);
-      const dpr = window.devicePixelRatio || 1;
-      renderer.resize(stageWidth, stageHeight, dpr);
-      rendererRef.current = renderer;
-      setError(null);
-    } catch (err) {
-      console.error('[WebGL] 初始化失败:', err);
-      setError(err.message || 'WebGL 初始化失败');
+    if (!rendererRef.current) {
+      try {
+        rendererRef.current = new WebGLRenderer();
+        rendererRef.current.initialize(canvas);
+        setError(null);
+      } catch (err) {
+        console.error('[WebGL] 初始化失败:', err);
+        setError(err.message || 'WebGL 初始化失败');
+        return;
+      }
     }
 
+    if (rendererRef.current && stageWidth > 0 && stageHeight > 0) {
+      const dpr = window.devicePixelRatio || 1;
+      rendererRef.current.resize(stageWidth, stageHeight, dpr);
+    }
+    
     return () => {
       if (rendererRef.current) {
-        rendererRef.current.destroy();
+        try {
+          rendererRef.current.destroy();
+        } catch {}
         rendererRef.current = null;
       }
     };
   }, [stageWidth, stageHeight]);
 
   useEffect(() => {
-    const renderer = rendererRef.current;
-    if (!renderer || !screens || screens.length === 0 || error) return;
+    if (!rendererRef.current || !screens || screens.length === 0 || error) return;
+    if (stageWidth <= 0 || stageHeight <= 0) return;
+
+    const validScreens = screens.filter(s => s.image);
+    if (validScreens.length === 0) return;
+
+    const last = lastRenderRef.current;
+    if (last.screens === screens && last.width === stageWidth && last.height === stageHeight) {
+      return;
+    }
+    lastRenderRef.current = { screens, width: stageWidth, height: stageHeight };
 
     const dpr = window.devicePixelRatio || 1;
-    renderer.resize(stageWidth, stageHeight, dpr);
-    renderer.setScreens(screens, stageWidth, stageHeight);
-    renderer.render();
+    rendererRef.current.resize(stageWidth, stageHeight, dpr);
+    rendererRef.current.setScreens(validScreens, stageWidth, stageHeight);
+    rendererRef.current.render();
   }, [screens, stageWidth, stageHeight, error]);
 
   if (error) {
-    console.warn('[WebGL 背景层] 启用兼容路径:', error);
     return null;
   }
 
@@ -63,4 +78,4 @@ function WebGLBackgroundLayer({ screens, stageWidth, stageHeight }) {
   );
 }
 
-export default WebGLBackgroundLayer;
+export default memo(WebGLBackgroundLayer);

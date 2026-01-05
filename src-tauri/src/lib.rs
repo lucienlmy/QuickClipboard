@@ -222,6 +222,7 @@ pub fn run() {
                 windows::screenshot_window::disable_pin_edit_passthrough,
                 windows::screenshot_window::update_pin_edit_passthrough_rects,
                 windows::screenshot_window::get_screenshot_mode,
+                windows::screenshot_window::wait_for_screenshot_init,
                 windows::screenshot_window::reset_screenshot_mode,
                 utils::screen::get_all_screens,
                 utils::system::get_system_text_scale,

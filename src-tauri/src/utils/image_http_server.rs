@@ -5,7 +5,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 struct HttpImageStore {
-    images: Vec<Vec<u8>>,
+    raw_images: Vec<Vec<u8>>,
 }
 
 static IMAGE_STORE: Lazy<Mutex<Option<HttpImageStore>>> =
@@ -49,32 +49,32 @@ fn send_http_404(mut stream: TcpStream) {
     let _ = stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
 }
 
-fn send_http_image(mut stream: TcpStream, index: usize) {
+fn send_http_raw_image(mut stream: TcpStream, index: usize) {
     let store_guard = IMAGE_STORE.lock();
     let Some(store) = store_guard.as_ref() else {
         send_http_404(stream);
         return;
     };
 
-    let Some(image_data) = store.images.get(index) else {
+    let Some(raw_data) = store.raw_images.get(index) else {
         send_http_404(stream);
         return;
     };
 
     let header = format!(
         "HTTP/1.1 200 OK\r\n\
-        Content-Type: image/bmp\r\n\
+        Content-Type: application/octet-stream\r\n\
         Content-Length: {}\r\n\
         Access-Control-Allow-Origin: *\r\n\
         Access-Control-Allow-Methods: GET, OPTIONS\r\n\
         Access-Control-Allow-Headers: *\r\n\
         Cache-Control: no-cache\r\n\
         Connection: close\r\n\r\n",
-        image_data.len()
+        raw_data.len()
     );
 
     let _ = stream.write_all(header.as_bytes());
-    let _ = stream.write_all(image_data);
+    let _ = stream.write_all(raw_data);
     let _ = stream.flush();
 }
 
@@ -149,10 +149,10 @@ fn handle_http_request(mut stream: TcpStream) {
         return;
     }
 
-    if path_without_query.starts_with("/screen/") && path_without_query.ends_with(".bmp") {
+    if path_without_query.starts_with("/screen/") && path_without_query.ends_with(".raw") {
         let idx_str = &path_without_query[8..path_without_query.len() - 4];
         if let Ok(index) = idx_str.parse::<usize>() {
-            send_http_image(stream, index);
+            send_http_raw_image(stream, index);
             return;
         }
     }
@@ -196,10 +196,10 @@ fn ensure_http_server_started() -> Result<u16, String> {
     Ok(port)
 }
 
-pub fn set_images(images: Vec<Vec<u8>>) -> Result<u16, String> {
+pub fn set_raw_images(raw_images: Vec<Vec<u8>>) -> Result<u16, String> {
     let port = ensure_http_server_started()?;
     let mut guard = IMAGE_STORE.lock();
-    *guard = Some(HttpImageStore { images });
+    *guard = Some(HttpImageStore { raw_images });
     Ok(port)
 }
 

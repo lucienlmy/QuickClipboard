@@ -17,9 +17,10 @@ export default function KeyboardShortcutsHelp({ stageRegionManager, longScreensh
   const { position: mousePos } = useSnapshot(mouseStore);
   
   useEffect(() => {
-    if (!stageRegionManager || !mousePos) return;
+    if (!stageRegionManager) return;
+    const pos = mousePos || { x: 0, y: 0 };
     
-    const screen = stageRegionManager.getNearestScreen(mousePos.x, mousePos.y);
+    const screen = stageRegionManager.getNearestScreen(pos.x, pos.y);
     if (!screen) return;
     
     const prev = currentScreenRef.current;

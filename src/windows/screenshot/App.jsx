@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
 
 import { Stage, Layer } from 'react-konva';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { invoke } from '@tauri-apps/api/core';
 import { settingsStore } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { getEffectiveTheme } from '@shared/hooks/useTheme';
@@ -31,22 +31,21 @@ import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import RadialToolPicker from './components/RadialToolPicker';
 import { checkHandleHit, isRadiusHandle } from './utils/handleDetection';
 import { calculateRadiusDelta, calculateNewRadius } from './utils/selectionOperations';
-import { mouseStore } from './store/mouseStore';
 
 function App() {
   useSettingsSync();
   const settings = useSnapshot(settingsStore);
-  const { position: mousePos } = useSnapshot(mouseStore);
   const effectiveTheme = getEffectiveTheme(settings.theme, settings.systemIsDark);
   const isDark = effectiveTheme === 'dark';
 
-  const { screens, stageSize: screenshotStageSize, stageRegionManager: screenshotStageRegionManager, reloadFromLastCapture } = useScreenshotStage();
+  const { screens, stageSize: screenshotStageSize, stageRegionManager: screenshotStageRegionManager, reloadFromLastCapture, imagesLoaded } = useScreenshotStage();
   const pinEditMode = usePinEditMode();
   const isPinEdit = pinEditMode.isPinEditMode;
 
   const stageRef = useRef(null);
   const magnifierUpdateRef = useRef(null);
   const [ocrResult, setOcrResult] = useState(null);
+  const [screenshotMode, setScreenshotMode] = useState(0);
   const lastClickRef = useRef({ x: 0, y: 0, time: 0 });
 
   const virtualScreenOffset = useMemo(() => {
@@ -137,6 +136,7 @@ function App() {
   const session = useScreenshotSession(stageRef, stageRegionManager, { 
     screens,
     onQuickPin: () => quickPinCallbackRef.current?.(),
+    screenshotMode,
   });
   const longScreenshot = useLongScreenshot(session.selection, screens, stageRegionManager);
   const editing = useScreenshotEditing(effectiveScreens, stageRef, {
@@ -363,11 +363,23 @@ function App() {
   }, [editing.activeToolId, effectiveSelection, ocrResult, editing, effectiveScreens]);
 
   // 初始化
+  const sessionIdRef = useRef(0);
+  
   useEffect(() => {
     if (isPinEdit) return;
-    let unlisten;
+    
+    let cancelled = false;
+    
     const init = async () => {
+      const [newSessionId, mode] = await invoke('wait_for_screenshot_init', { lastSession: sessionIdRef.current });
+      if (cancelled) return;
+      
+      sessionIdRef.current = newSessionId;
+      setScreenshotMode(mode);
+      
       await Promise.all([reloadFromLastCapture(), ensureAutoSelectionStarted()]);
+      if (cancelled) return;
+      
       setTimeout(() => {
         const stage = stageRef.current;
         const pos = stage?.getPointerPosition?.();
@@ -377,19 +389,25 @@ function App() {
         }
       }, 0);
     };
-    (async () => {
-      try {
-        const win = getCurrentWebviewWindow();
-        unlisten = await win.listen('screenshot:new-session', init);
-        if (!pinEditMode.isChecking) {
-          init();
+
+    init();
+    
+    return () => { cancelled = true; };
+  }, [reloadFromLastCapture, isPinEdit]);
+
+  useEffect(() => {
+    if (!imagesLoaded || isPinEdit) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const stage = stageRef.current;
+        const pos = stage?.getPointerPosition?.();
+        if (pos && magnifierUpdateRef.current) {
+          magnifierUpdateRef.current(pos);
         }
-      } catch (err) {
-        console.error('初始化截屏失败:', err);
-      }
-    })();
-    return () => unlisten?.();
-  }, [reloadFromLastCapture, isPinEdit, pinEditMode.isChecking]);
+        ensureAutoSelectionStarted();
+      });
+    });
+  }, [imagesLoaded, isPinEdit]);
 
   // 贴图编辑模式穿透控制
   useEffect(() => {
