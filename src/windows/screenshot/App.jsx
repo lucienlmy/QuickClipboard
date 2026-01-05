@@ -502,7 +502,7 @@ function App() {
         <Layer id="screenshot-ui-layer" listening={false}>
           <Magnifier
             screens={screens}
-            visible={settings.screenshotMagnifierEnabled && !session.hasValidSelection && !session.isInteracting && !editing.activeToolId && !isPinEdit}
+            visible={settings.screenshotMagnifierEnabled && (!session.hasValidSelection || session.isDrawing) && !session.isMoving && !session.isResizing && !editing.activeToolId && !isPinEdit}
             stageRegionManager={stageRegionManager}
             colorIncludeFormat={settings.screenshotColorIncludeFormat}
             onMousePosUpdate={(fn) => { magnifierUpdateRef.current = fn; }}
