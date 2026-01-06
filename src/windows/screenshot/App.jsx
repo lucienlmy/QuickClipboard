@@ -38,7 +38,7 @@ function App() {
   const effectiveTheme = getEffectiveTheme(settings.theme, settings.systemIsDark);
   const isDark = effectiveTheme === 'dark';
 
-  const { screens, stageSize: screenshotStageSize, stageRegionManager: screenshotStageRegionManager, reloadFromLastCapture, imagesLoaded } = useScreenshotStage();
+  const { screens, stageSize: screenshotStageSize, stageRegionManager: screenshotStageRegionManager, reloadFromLastCapture } = useScreenshotStage();
   const pinEditMode = usePinEditMode();
   const isPinEdit = pinEditMode.isPinEditMode;
 
@@ -396,7 +396,7 @@ function App() {
   }, [reloadFromLastCapture, isPinEdit]);
 
   useEffect(() => {
-    if (!imagesLoaded || isPinEdit) return;
+    if (!screens.length || isPinEdit) return;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const stage = stageRef.current;
@@ -407,7 +407,7 @@ function App() {
         ensureAutoSelectionStarted();
       });
     });
-  }, [imagesLoaded, isPinEdit]);
+  }, [screens.length, isPinEdit]);
 
   // 贴图编辑模式穿透控制
   useEffect(() => {

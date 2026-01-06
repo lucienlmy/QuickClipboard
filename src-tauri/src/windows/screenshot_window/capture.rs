@@ -5,6 +5,22 @@ use rayon::prelude::*;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 
+// BGRA -> RGBA
+fn bgra_to_rgba(bgra: &[u8]) -> Vec<u8> {
+    let mut rgba = vec![0u8; bgra.len()];
+    
+    bgra.chunks_exact(4)
+        .zip(rgba.chunks_exact_mut(4))
+        .for_each(|(src, dst)| {
+            dst[0] = src[2]; // R <- B
+            dst[1] = src[1]; // G
+            dst[2] = src[0]; // B <- R
+            dst[3] = src[3]; // A
+        });
+    
+    rgba
+}
+
 // 单个显示器截图的信息
 #[derive(Serialize, Clone)]
 pub struct MonitorScreenshotInfo {
@@ -116,8 +132,9 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
             let raw = monitor
                 .capture_image_raw()
                 .map_err(|e| format!("截取屏幕失败: {}", e))?;
+            
+            let rgba = bgra_to_rgba(&raw);
 
-            // 计算逻辑坐标信息
             let physical_x = meta.physical_x;
             let physical_y = meta.physical_y;
             let physical_width = meta.physical_width;
@@ -151,7 +168,7 @@ pub fn capture_all_monitors_to_files(app: &AppHandle) -> Result<Vec<MonitorScree
                 raw_path: String::new(),
             };
 
-            Ok((info, raw))
+            Ok((info, rgba))
         })
         .collect();
 
