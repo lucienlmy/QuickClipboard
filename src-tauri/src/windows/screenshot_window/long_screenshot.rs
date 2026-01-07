@@ -88,6 +88,7 @@ pub fn enable_passthrough(
 // 禁用长截屏模式
 pub fn disable_passthrough() {
     stop_capturing();
+    stop_auto_scroll();
     LONG_SCREENSHOT_ACTIVE.store(false, Ordering::Relaxed);
     CAPTURE_EXCLUDE_ENABLED.store(false, Ordering::Relaxed);
     *SCREENSHOT_SELECTION.lock() = None;
@@ -102,6 +103,55 @@ pub fn disable_passthrough() {
     *SCREENSHOT_WINDOW.lock() = None;
     STITCH_MANAGER.lock().reset();
     crate::utils::image_http_server::clear_long_screenshot_preview();
+}
+
+// 获取选区中心位置
+pub fn get_selection_center() -> Option<(i32, i32)> {
+    SCREENSHOT_SELECTION.lock().map(|s| {
+        let cx = (s.x + s.width / 2.0) as i32;
+        let cy = (s.y + s.height / 2.0) as i32;
+        (cx, cy)
+    })
+}
+
+// 自动滚动状态
+static AUTO_SCROLL_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+// 开始自动滚动
+pub fn start_auto_scroll() {
+    if AUTO_SCROLL_ACTIVE.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    if let Some((cx, cy)) = get_selection_center() {
+        let _ = crate::mouse::set_cursor_position(cx, cy);
+    }
+    
+    thread::spawn(|| {
+        while AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst) {
+            let _ = crate::mouse::simulate_scroll_raw(-5);
+            thread::sleep(Duration::from_millis(16));
+        }
+    });
+}
+
+// 停止自动滚动
+pub fn stop_auto_scroll() {
+    AUTO_SCROLL_ACTIVE.store(false, Ordering::SeqCst);
+}
+
+// 切换自动滚动
+pub fn toggle_auto_scroll() {
+    if AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst) {
+        stop_auto_scroll();
+    } else {
+        start_auto_scroll();
+    }
+}
+
+// 自动滚动是否激活
+pub fn is_auto_scrolling() -> bool {
+    AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst)
 }
 
 // 更新预览面板位置

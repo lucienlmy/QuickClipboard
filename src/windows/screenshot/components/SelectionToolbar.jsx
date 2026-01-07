@@ -13,6 +13,7 @@ function SelectionToolbar({
   longScreenshotMode,
   isLongScreenshotCapturing,
   isLongScreenshotSaving,
+  isLongScreenshotAutoScrolling,
   hasLongScreenshotPreview,
   onLongScreenshotEnter,
   onLongScreenshotStart,
@@ -20,6 +21,7 @@ function SelectionToolbar({
   onLongScreenshotCopy,
   onLongScreenshotSave,
   onLongScreenshotCancel,
+  onLongScreenshotToggleAutoScroll,
   // 贴图编辑模式
   pinEditMode = false,
   screens,
@@ -194,6 +196,14 @@ function SelectionToolbar({
       onClick: onLongScreenshotSave,
       variant: 'default',
       disabled: isLongScreenshotSaving || !hasLongScreenshotPreview,
+    },
+    {
+      id: 'longScreenshot-autoScroll',
+      icon: isLongScreenshotAutoScrolling ? 'ti ti-player-pause' : 'ti ti-chevrons-down',
+      title: isLongScreenshotAutoScrolling ? '停止自动滚动' : '自动滚动',
+      onClick: onLongScreenshotToggleAutoScroll,
+      variant: isLongScreenshotAutoScrolling ? 'primary' : 'default',
+      disabled: isLongScreenshotSaving || !isLongScreenshotCapturing,
     },
     {
       id: 'longScreenshot-toggle',

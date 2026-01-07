@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { updateMousePosition } from '../store/mouseStore';
 
-export default function useCursorMovement(screens, magnifierUpdateRef, stageRegionManager) {
+export default function useCursorMovement(screens, magnifierUpdateRef, stageRegionManager, { arrowKeyEnabled = true } = {}) {
   const pressedKeysRef = useRef(new Set());
   const animationFrameRef = useRef(null);
   const lastTimeRef = useRef(0);
@@ -112,6 +112,8 @@ export default function useCursorMovement(screens, magnifierUpdateRef, stageRegi
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (!arrowKeyEnabled) return;
+      
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
         if (e.repeat) return; 
@@ -206,7 +208,7 @@ export default function useCursorMovement(screens, magnifierUpdateRef, stageRegi
       window.removeEventListener('keyup', handleKeyUp);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [stageOffset]); 
+  }, [stageOffset, arrowKeyEnabled]); 
 
   return { handleMouseMove, initializePosition };
 }

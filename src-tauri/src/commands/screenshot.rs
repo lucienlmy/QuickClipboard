@@ -145,6 +145,12 @@ pub async fn copy_long_screenshot_to_clipboard() -> Result<(), String> {
     .map_err(|e| format!("任务执行失败: {}", e))?
 }
 
+// 长截屏自动滚动
+#[tauri::command]
+pub fn long_screenshot_auto_scroll() {
+    crate::windows::screenshot_window::long_screenshot::toggle_auto_scroll();
+}
+
 // OCR识别结果结构
 #[derive(Debug, serde::Serialize)]
 pub struct OcrWord {

@@ -124,13 +124,6 @@ function App() {
 
   const { scale: uiBaseScale, getScaleForPosition, resetScale, isLocked: uiScaleLocked, toggleLock: toggleUiScaleLock } = useUIScale(stageRegionManager);
 
-  const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager);
-  
-  const initializePositionRef = useRef(initializePosition);
-  useEffect(() => {
-    initializePositionRef.current = initializePosition;
-  }, [initializePosition]);
-  
   const quickPinCallbackRef = useRef(null);
   
   const session = useScreenshotSession(stageRef, stageRegionManager, { 
@@ -143,6 +136,14 @@ function App() {
     clipBounds: isPinEdit ? pinEditSelection : null,
     initialShapes: isPinEdit ? pinEditMode.initialShapes : null,
   });
+
+  const arrowKeyEnabled = settings.screenshotMagnifierEnabled && (!session.hasValidSelection || session.isDrawing) && !session.isMoving && !session.isResizing && !editing.activeToolId && !isPinEdit;
+  const { handleMouseMove: handleCursorMove, initializePosition } = useCursorMovement(screens, magnifierUpdateRef, stageRegionManager, { arrowKeyEnabled });
+  
+  const initializePositionRef = useRef(initializePosition);
+  useEffect(() => {
+    initializePositionRef.current = initializePosition;
+  }, [initializePosition]);
 
   const effectiveSelection = isPinEdit ? pinEditSelection : session.selection;
   const effectiveHasValidSelection = isPinEdit ? !!pinEditSelection : session.hasValidSelection;
@@ -555,6 +556,7 @@ function App() {
           longScreenshotMode={longScreenshot.isActive}
           isLongScreenshotCapturing={longScreenshot.isCapturing}
           isLongScreenshotSaving={longScreenshot.isSaving}
+          isLongScreenshotAutoScrolling={longScreenshot.isAutoScrolling}
           hasLongScreenshotPreview={!!longScreenshot.preview}
           onLongScreenshotEnter={longScreenshot.enter}
           onLongScreenshotStart={longScreenshot.start}
@@ -562,6 +564,7 @@ function App() {
           onLongScreenshotCopy={longScreenshot.copy}
           onLongScreenshotSave={longScreenshot.save}
           onLongScreenshotCancel={longScreenshot.cancel}
+          onLongScreenshotToggleAutoScroll={longScreenshot.toggleAutoScroll}
           pinEditMode={isPinEdit}
           screens={screens}
           getScaleForPosition={getScaleForPosition}

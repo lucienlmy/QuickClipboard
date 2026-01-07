@@ -11,6 +11,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const [capturedCount, setCapturedCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
 
   // 进入长截屏模式
   const enter = useCallback(async (toolbarPosition) => {
@@ -85,10 +86,45 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     try {
       await invoke('stop_long_screenshot_capture');
       setIsCapturing(false);
+      if (isAutoScrolling) {
+        await invoke('long_screenshot_auto_scroll');
+        setIsAutoScrolling(false);
+      }
     } catch (err) {
       console.error('停止捕获失败:', err);
     }
+  }, [isAutoScrolling]);
+
+  // 停止自动滚动
+  const stopAutoScroll = useCallback(async () => {
+    if (!isAutoScrolling) return;
+    try {
+      await invoke('long_screenshot_auto_scroll');
+    } catch (e) {
+      console.error('停止自动滚动失败:', e);
+    }
+    setIsAutoScrolling(false);
+  }, [isAutoScrolling]);
+
+  // 开始自动滚动
+  const startAutoScroll = useCallback(async () => {
+    setIsAutoScrolling(true);
+    try {
+      await invoke('long_screenshot_auto_scroll');
+    } catch (e) {
+      console.error('启动自动滚动失败:', e);
+      setIsAutoScrolling(false);
+    }
   }, []);
+
+  // 切换自动滚动
+  const toggleAutoScroll = useCallback(() => {
+    if (isAutoScrolling) {
+      stopAutoScroll();
+    } else {
+      startAutoScroll();
+    }
+  }, [isAutoScrolling, startAutoScroll, stopAutoScroll]);
 
   // 复制到剪贴板
   const copyToClipboard = useCallback(async () => {
@@ -173,6 +209,11 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
       if (isCapturing) {
         await invoke('stop_long_screenshot_capture');
       }
+
+      if (isAutoScrolling) {
+        await invoke('long_screenshot_auto_scroll');
+        setIsAutoScrolling(false);
+      }
       
       setIsActive(false);
       setIsCapturing(false);
@@ -183,7 +224,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     } catch (err) {
       console.error('取消失败:', err);
     }
-  }, [isCapturing]);
+  }, [isCapturing, isAutoScrolling]);
 
   // 监听后端进度和预览事件
   useEffect(() => {
@@ -216,6 +257,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     isActive,
     isCapturing,
     isSaving,
+    isAutoScrolling,
     preview,
     previewSize,
     capturedCount,
@@ -225,5 +267,6 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     copy: copyToClipboard,
     save: saveScreenshot,
     cancel,
+    toggleAutoScroll,
   };
 }

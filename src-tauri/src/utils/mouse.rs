@@ -43,3 +43,52 @@ pub fn set_cursor_position(x: i32, y: i32) -> Result<(), String> {
     Ok(())
 }
 
+// 模拟鼠标滚轮
+pub fn simulate_scroll(delta: i32) -> Result<(), String> {
+    use enigo::{Enigo, Mouse, Settings, Axis};
+    
+    let mut enigo = Enigo::new(&Settings::default())
+        .map_err(|e| format!("初始化输入控制器失败: {}", e))?;
+    
+    enigo.scroll(delta, Axis::Vertical)
+        .map_err(|e| format!("模拟滚轮失败: {}", e))?;
+    
+    Ok(())
+}
+
+// 模拟精细滚轮
+#[cfg(target_os = "windows")]
+pub fn simulate_scroll_raw(delta: i32) -> Result<(), String> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_MOUSE, MOUSEINPUT, MOUSEEVENTF_WHEEL,
+    };
+    
+    let input = INPUT {
+        r#type: INPUT_MOUSE,
+        Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+            mi: MOUSEINPUT {
+                dx: 0,
+                dy: 0,
+                mouseData: delta as u32,
+                dwFlags: MOUSEEVENTF_WHEEL,
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+    
+    let result = unsafe { SendInput(&[input], std::mem::size_of::<INPUT>() as i32) };
+    
+    if result == 0 {
+        Err("SendInput 失败".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn simulate_scroll_raw(delta: i32) -> Result<(), String> {
+    // 非 Windows 平台回退到普通滚动
+    simulate_scroll(delta / 120)
+}
+
