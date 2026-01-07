@@ -130,7 +130,7 @@ pub fn start_auto_scroll() {
     thread::spawn(|| {
         while AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst) {
             let _ = crate::mouse::simulate_scroll_raw(-5);
-            thread::sleep(Duration::from_millis(16));
+            thread::sleep(Duration::from_millis(16)); 
         }
     });
 }
@@ -218,49 +218,52 @@ pub fn save_long_screenshot(path: String) -> Result<(), String> {
 // 监听鼠标位置，动态控制穿透
 fn monitor_mouse_position() {
     while LONG_SCREENSHOT_ACTIVE.load(Ordering::Relaxed) {
-        if let Some(selection) = *SCREENSHOT_SELECTION.lock() {
-            if let Some(window) = SCREENSHOT_WINDOW.lock().as_ref() {
-                let (x, y) = crate::mouse::get_cursor_position();
-                let (x, y) = (x as f64, y as f64);
+        let selection = *SCREENSHOT_SELECTION.lock();
+        let window = SCREENSHOT_WINDOW.lock().clone();
+        let preview = *PREVIEW_PANEL.lock();
+        let toolbar = *SCREENSHOT_TOOLBAR.lock();
+        
+        if let (Some(selection), Some(window)) = (selection, window) {
+            let (x, y) = crate::mouse::get_cursor_position();
+            let (x, y) = (x as f64, y as f64);
 
-                // 预览面板优先级最高，在预览面板内不穿透
-                let in_preview = PREVIEW_PANEL.lock().map_or(false, |p| {
-                    x >= p.x && x <= p.x + p.width && y >= p.y && y <= p.y + p.height
-                });
+            // 预览面板优先级最高，在预览面板内不穿透
+            let in_preview = preview.map_or(false, |p| {
+                x >= p.x && x <= p.x + p.width && y >= p.y && y <= p.y + p.height
+            });
 
-                // 工具栏次优先
-                let in_toolbar = SCREENSHOT_TOOLBAR.lock().map_or(false, |t| {
-                    x >= t.x && x <= t.x + t.width && y >= t.y && y <= t.y + t.height
-                });
+            // 工具栏次优先
+            let in_toolbar = toolbar.map_or(false, |t| {
+                x >= t.x && x <= t.x + t.width && y >= t.y && y <= t.y + t.height
+            });
 
-                // 选区内穿透，但预览面板和工具栏区域不穿透
-                let in_selection = x >= selection.x && x <= selection.x + selection.width
-                    && y >= selection.y && y <= selection.y + selection.height;
+            // 选区内穿透，但预览面板和工具栏区域不穿透
+            let in_selection = x >= selection.x && x <= selection.x + selection.width
+                && y >= selection.y && y <= selection.y + selection.height;
 
-                let should_passthrough = in_selection && !in_toolbar && !in_preview;
-                let _ = window.set_ignore_cursor_events(should_passthrough);
+            let should_passthrough = in_selection && !in_toolbar && !in_preview;
+            let _ = window.set_ignore_cursor_events(should_passthrough);
 
-                // 检查工具栏或预览面板是否与选区重叠
-                let toolbar_overlaps = SCREENSHOT_TOOLBAR.lock().map_or(false, |t| {
-                    rects_overlap(
-                        selection.x, selection.y, selection.width, selection.height,
-                        t.x, t.y, t.width, t.height
-                    )
-                });
-                let preview_overlaps = PREVIEW_PANEL.lock().map_or(false, |p| {
-                    rects_overlap(
-                        selection.x, selection.y, selection.width, selection.height,
-                        p.x, p.y, p.width, p.height
-                    )
-                });
+            // 检查工具栏或预览面板是否与选区重叠
+            let toolbar_overlaps = toolbar.map_or(false, |t| {
+                rects_overlap(
+                    selection.x, selection.y, selection.width, selection.height,
+                    t.x, t.y, t.width, t.height
+                )
+            });
+            let preview_overlaps = preview.map_or(false, |p| {
+                rects_overlap(
+                    selection.x, selection.y, selection.width, selection.height,
+                    p.x, p.y, p.width, p.height
+                )
+            });
 
-                let should_exclude = toolbar_overlaps || preview_overlaps;
-                let currently_excluded = CAPTURE_EXCLUDE_ENABLED.load(Ordering::Relaxed);
+            let should_exclude = toolbar_overlaps || preview_overlaps;
+            let currently_excluded = CAPTURE_EXCLUDE_ENABLED.load(Ordering::Relaxed);
 
-                if should_exclude != currently_excluded {
-                    set_window_exclude_from_capture(window, should_exclude);
-                    CAPTURE_EXCLUDE_ENABLED.store(should_exclude, Ordering::Relaxed);
-                }
+            if should_exclude != currently_excluded {
+                set_window_exclude_from_capture(&window, should_exclude);
+                CAPTURE_EXCLUDE_ENABLED.store(should_exclude, Ordering::Relaxed);
             }
         }
         thread::sleep(Duration::from_millis(16));
@@ -454,20 +457,36 @@ fn capture_loop() {
                 if changed {
                     let mut mgr = STITCH_MANAGER.lock();
                     let process_result = mgr.process_frame(&frame, top_pad, content_h);
-                    let (count, w, h, data) = (mgr.frame_count, mgr.width, mgr.height, mgr.data.clone());
+                    let count = mgr.frame_count;
+                    let w = mgr.width;
+                    let h = mgr.height;
+                    
+                    let should_update = last_update.elapsed() > Duration::from_millis(100);
+                    let preview_data = if should_update && h > 0 {
+                        Some(mgr.data.clone())
+                    } else {
+                        None
+                    };
                     drop(mgr);
 
-                    if last_update.elapsed() > Duration::from_millis(100) {
+                    if let Some(data) = preview_data {
                         match process_result {
                             ProcessResult::Added => {
-                                update_preview(&data, w, h, count, None);
+                                thread::spawn(move || {
+                                    update_preview(&data, w, h, count, None);
+                                });
                             }
                             ProcessResult::NoMatch => {
                                 let rt_data = extract_content_bgra(&frame, top_pad, content_h);
-                                update_preview(&data, w, h, count, Some((&rt_data, frame.width(), content_h)));
+                                let frame_w = frame.width();
+                                thread::spawn(move || {
+                                    update_preview(&data, w, h, count, Some((&rt_data, frame_w, content_h)));
+                                });
                             }
                             _ => {
-                                update_preview(&data, w, h, count, None);
+                                thread::spawn(move || {
+                                    update_preview(&data, w, h, count, None);
+                                });
                             }
                         }
                         last_update = Instant::now();
