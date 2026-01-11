@@ -2,6 +2,7 @@
 
 use image::RgbaImage;
 use rayon::prelude::*;
+use std::sync::Arc;
 
 // 基础参数
 const BASE_TEMPLATE_HEIGHT: u32 = 48;  // 模板高度，动态范围 48-120
@@ -17,8 +18,8 @@ const MIN_NEW_CONTENT: u32 = 8;              // 最小新内容高度
 
 // 低纹理场景参数
 const LOW_TEXTURE_VARIANCE_THRESHOLD: f64 = 50.0;  // 低纹理判定阈值
-const PIXEL_SAD_THRESHOLD: f64 = 1.2;              // SAD 匹配阈值
-const PIXEL_SAD_GOOD: f64 = 0.5;                   // SAD 优秀阈值
+const PIXEL_SAD_THRESHOLD: f64 = 0.8;              // SAD 匹配阈值
+const PIXEL_SAD_GOOD: f64 = 0.3;                   // SAD 优秀阈值
 
 fn calc_template_height(content_height: u32) -> u32 {
     (content_height / 12).clamp(BASE_TEMPLATE_HEIGHT, 120)
@@ -26,6 +27,20 @@ fn calc_template_height(content_height: u32) -> u32 {
 
 fn calc_layer_step(content_height: u32) -> u32 {
     (content_height / 10).clamp(BASE_LAYER_STEP, 150)
+}
+
+// BGRA -> RGBA
+fn bgra_to_rgba(bgra: &[u8]) -> Vec<u8> {
+    let mut rgba = vec![0u8; bgra.len()];
+    bgra.chunks_exact(4)
+        .zip(rgba.chunks_exact_mut(4))
+        .for_each(|(src, dst)| {
+            dst[0] = src[2]; // R <- B
+            dst[1] = src[1]; // G
+            dst[2] = src[0]; // B <- R
+            dst[3] = src[3]; // A
+        });
+    rgba
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,7 +52,10 @@ pub enum ProcessResult {
 }
 
 pub struct StitchManager {
-    pub data: Vec<u8>,           // BGRA 像素数据
+    data: Vec<u8>,               // BGRA 像素数据（内部计算）
+    rgba_data: Vec<u8>,          // RGBA 像素数据（预览）
+    rgba_snapshot: Arc<Vec<u8>>, // RGBA 共享快照
+    snapshot_dirty: bool,        // 快照是否需要更新
     pub width: u32,
     pub height: u32,             // 已拼接高度
     pub frame_count: u32,
@@ -47,12 +65,16 @@ pub struct StitchManager {
     cached_height: u32,
     template_height: u32,        // 动态模板高度
     layer_step: u32,             // 动态层间距
+    last_match_y: Option<u32>,   // 上一帧的匹配位置（连续性约束）
 }
 
 impl StitchManager {
     pub fn new() -> Self {
         Self {
             data: Vec::new(),
+            rgba_data: Vec::new(),
+            rgba_snapshot: Arc::new(Vec::new()),
+            snapshot_dirty: false,
             width: 0,
             height: 0,
             frame_count: 0,
@@ -62,11 +84,15 @@ impl StitchManager {
             cached_height: 0,
             template_height: BASE_TEMPLATE_HEIGHT,
             layer_step: BASE_LAYER_STEP,
+            last_match_y: None,
         }
     }
 
     pub fn reset(&mut self) {
         self.data.clear();
+        self.rgba_data.clear();
+        self.rgba_snapshot = Arc::new(Vec::new());
+        self.snapshot_dirty = false;
         self.width = 0;
         self.height = 0;
         self.frame_count = 0;
@@ -76,10 +102,20 @@ impl StitchManager {
         self.cached_height = 0;
         self.template_height = BASE_TEMPLATE_HEIGHT;
         self.layer_step = BASE_LAYER_STEP;
+        self.last_match_y = None;
     }
 
     pub fn is_empty(&self) -> bool {
         self.height == 0
+    }
+
+    /// 获取 RGBA 数据快照
+    pub fn get_rgba_snapshot(&mut self) -> Arc<Vec<u8>> {
+        if self.snapshot_dirty {
+            self.rgba_snapshot = Arc::new(self.rgba_data.clone());
+            self.snapshot_dirty = false;
+        }
+        Arc::clone(&self.rgba_snapshot)
     }
 
     pub fn process_frame(
@@ -118,11 +154,14 @@ impl StitchManager {
         // 第一帧
         if self.frame_count == 0 {
             self.width = width;
-            self.data = extract_bgra(frame, content_start, actual_height);
+            let bgra = extract_bgra(frame, content_start, actual_height);
+            self.rgba_data = bgra_to_rgba(&bgra);
+            self.data = bgra;
             self.height = actual_height;
             self.frame_count = 1;
             self.template_height = template_height;
             self.layer_step = layer_step;
+            self.snapshot_dirty = true;
             self.invalidate_cache();
             return ProcessResult::Added;
         }
@@ -146,7 +185,7 @@ impl StitchManager {
 
         let mut best_match: Option<(u32, u32, f64)> = None;
         let mut all_templates_blank = true;
-
+        let mut all_sad_too_low = true;
         for layer in 0..TEMPLATE_LAYERS {
             let layer_idx = layer as usize;
             if layer_idx >= self.cached_edges.len() {
@@ -198,15 +237,17 @@ impl StitchManager {
                     })
                     .collect();
 
-                // 低纹理场景：选择 SAD 最小且位置最靠前的匹配
+                // 低纹理场景：选择 SAD 最小的匹配
                 if !results.is_empty() {
-                    let min_sad = results.iter().map(|(_, s)| *s).fold(f64::MAX, f64::min);
-                    let tolerance = 0.5; 
                     if let Some(&(match_y, sad)) = results
                         .iter()
-                        .filter(|(_, s)| *s <= min_sad + tolerance)
-                        .min_by_key(|(y, _)| *y)
+                        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                     {
+                        if sad < 0.1 {
+                            continue;
+                        }
+                        
+                        all_sad_too_low = false;
                         let score = 1.0 - (sad / PIXEL_SAD_THRESHOLD);
 
                         if best_match.is_none() || score > best_match.unwrap().2 {
@@ -219,6 +260,7 @@ impl StitchManager {
                     }
                 }
             } else {
+                all_sad_too_low = false;
                 // 正常纹理场景：使用边缘 NCC 匹配
                 let results: Vec<(u32, f64)> = (0..=max_search)
                     .into_par_iter()
@@ -241,10 +283,34 @@ impl StitchManager {
                     })
                     .collect();
 
-                if let Some(&(match_y, ncc)) = results
-                    .iter()
-                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-                {
+                let selected = if results.len() > 1 {
+                    let best_ncc = results
+                        .iter()
+                        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    
+                    if let Some(&(best_y, _)) = best_ncc {
+                        let has_ambiguous = results.iter().any(|(y, ncc)| {
+                            *ncc >= EDGE_NCC_THRESHOLD 
+                                && (*y as i32 - best_y as i32).abs() > 100
+                        });
+                        
+                        if has_ambiguous && self.last_match_y.is_some() {
+                            let last_y = self.last_match_y.unwrap();
+                            results
+                                .iter()
+                                .filter(|(_, ncc)| *ncc >= EDGE_NCC_THRESHOLD)
+                                .min_by_key(|(y, _)| (*y as i32 - last_y as i32).abs() as u32)
+                        } else {
+                            best_ncc
+                        }
+                    } else {
+                        results.first()
+                    }
+                } else {
+                    results.first()
+                };
+
+                if let Some(&(match_y, ncc)) = selected {
                     if best_match.is_none() || ncc > best_match.unwrap().2 {
                         best_match = Some((layer_offset, match_y, ncc));
                     }
@@ -278,6 +344,7 @@ impl StitchManager {
                     let new_data_len = (new_stitched_height * self.width * 4) as usize;
                     if new_data_len < self.data.len() {
                         self.data.truncate(new_data_len);
+                        self.rgba_data.truncate(new_data_len);
                         self.height = new_stitched_height;
                     }
                 }
@@ -289,14 +356,22 @@ impl StitchManager {
                 }
 
                 let new_data = extract_bgra(frame, extract_start, new_height);
+                let new_rgba = bgra_to_rgba(&new_data);
                 self.data.extend_from_slice(&new_data);
+                self.rgba_data.extend_from_slice(&new_rgba);
                 self.height = self.height.saturating_add(new_height);
                 self.frame_count += 1;
+                self.snapshot_dirty = true;
                 self.invalidate_cache();
+                self.last_match_y = Some(match_y);
 
                 ProcessResult::Added
             }
             None => {
+                if all_sad_too_low && !all_templates_blank {
+                    return ProcessResult::Duplicate;
+                }
+                
                 // 所有模板都是空白时，尝试空白区域恢复策略
                 if all_templates_blank {
                     if let Some(content_row) = find_first_content_row(&current_gray, width, actual_height) {
@@ -307,9 +382,12 @@ impl StitchManager {
                             let extract_start = content_start.saturating_add(new_start);
                             if extract_start + new_height <= frame_height {
                                 let new_data = extract_bgra(frame, extract_start, new_height);
+                                let new_rgba = bgra_to_rgba(&new_data);
                                 self.data.extend_from_slice(&new_data);
+                                self.rgba_data.extend_from_slice(&new_rgba);
                                 self.height = self.height.saturating_add(new_height);
                                 self.frame_count += 1;
+                                self.snapshot_dirty = true;
                                 self.invalidate_cache();
                                 return ProcessResult::Added;
                             }

@@ -557,7 +557,7 @@ function App() {
           isLongScreenshotCapturing={longScreenshot.isCapturing}
           isLongScreenshotSaving={longScreenshot.isSaving}
           isLongScreenshotAutoScrolling={longScreenshot.isAutoScrolling}
-          hasLongScreenshotPreview={!!longScreenshot.preview}
+          hasLongScreenshotPreview={longScreenshot.capturedCount > 0}
           onLongScreenshotEnter={longScreenshot.enter}
           onLongScreenshotStart={longScreenshot.start}
           onLongScreenshotStop={longScreenshot.stop}
@@ -611,11 +611,12 @@ function App() {
           stageRegionManager={stageRegionManager}
           isCapturing={longScreenshot.isCapturing}
           isSaving={longScreenshot.isSaving}
-          previewImage={longScreenshot.preview}
+          wsPort={longScreenshot.wsPort}
           previewSize={longScreenshot.previewSize}
           capturedCount={longScreenshot.capturedCount}
           screens={screens}
           getScaleForPosition={getScaleForPosition}
+          onPreviewSizeChange={longScreenshot.updatePreviewSize}
         />
       )}
 

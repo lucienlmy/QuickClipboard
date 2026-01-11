@@ -456,7 +456,21 @@ fn handle_mouse_move(x: f64, y: f64) {
 static LAST_WHEEL_TIME: Mutex<Option<Instant>> = Mutex::new(None);
 const WHEEL_THROTTLE_MS: u64 = 30;
 
+// 滚轮状态
+static SCROLL_DIRECTION: Mutex<i8> = Mutex::new(0); 
+pub fn get_scroll_direction() -> i8 {
+    *SCROLL_DIRECTION.lock()
+}
+
+// 重置滚轮方向状态
+pub fn reset_scroll_direction() {
+    *SCROLL_DIRECTION.lock() = 0;
+}
+
 fn handle_wheel_event(delta_y: i64) {
+    let dir = if delta_y > 0 { 1 } else if delta_y < 0 { -1 } else { 0 };
+    *SCROLL_DIRECTION.lock() = dir;
+
     use crate::windows::tray::{is_menu_visible, scroll_page};
 
     if !is_menu_visible() {

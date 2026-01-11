@@ -4,8 +4,9 @@ use image::RgbaImage;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tauri::{Emitter, WebviewWindow};
 
 use super::image_stitcher::{compare_frames, ProcessResult, StitchManager};
@@ -41,6 +42,7 @@ struct PreviewPanelRect {
 static LONG_SCREENSHOT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURING_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURE_EXCLUDE_ENABLED: AtomicBool = AtomicBool::new(false);
+static HAS_STITCH_BREAK: AtomicBool = AtomicBool::new(false);
 static SCREENSHOT_SELECTION: Lazy<Mutex<Option<SelectionRect>>> = Lazy::new(|| Mutex::new(None));
 static SCREENSHOT_TOOLBAR: Lazy<Mutex<Option<ToolbarRect>>> = Lazy::new(|| Mutex::new(None));
 static PREVIEW_PANEL: Lazy<Mutex<Option<PreviewPanelRect>>> = Lazy::new(|| Mutex::new(None));
@@ -60,7 +62,7 @@ pub fn enable_passthrough(
     physical_toolbar_width: f64,
     physical_toolbar_height: f64,
     selection_scale_factor: f64,
-) {
+) -> Result<u16, String> {
     *SCALE_FACTOR.lock() = selection_scale_factor;
     *SCREENSHOT_WINDOW.lock() = Some(window.clone());
 
@@ -80,9 +82,14 @@ pub fn enable_passthrough(
 
     LONG_SCREENSHOT_ACTIVE.store(true, Ordering::Relaxed);
     CAPTURE_EXCLUDE_ENABLED.store(false, Ordering::Relaxed);
+    HAS_STITCH_BREAK.store(false, Ordering::Relaxed);
     STITCH_MANAGER.lock().reset();
+    crate::services::system::input_monitor::reset_scroll_direction();
+    let port = crate::utils::ws_server::get_port()?;
 
     thread::spawn(monitor_mouse_position);
+    thread::spawn(monitor_scroll_back);
+    Ok(port)
 }
 
 // 禁用长截屏模式
@@ -91,6 +98,7 @@ pub fn disable_passthrough() {
     stop_auto_scroll();
     LONG_SCREENSHOT_ACTIVE.store(false, Ordering::Relaxed);
     CAPTURE_EXCLUDE_ENABLED.store(false, Ordering::Relaxed);
+    HAS_STITCH_BREAK.store(false, Ordering::Relaxed);
     *SCREENSHOT_SELECTION.lock() = None;
     *SCREENSHOT_TOOLBAR.lock() = None;
     *PREVIEW_PANEL.lock() = None;
@@ -102,7 +110,7 @@ pub fn disable_passthrough() {
 
     *SCREENSHOT_WINDOW.lock() = None;
     STITCH_MANAGER.lock().reset();
-    crate::utils::image_http_server::clear_long_screenshot_preview();
+    crate::utils::ws_server::clear();
 }
 
 // 获取选区中心位置
@@ -123,14 +131,26 @@ pub fn start_auto_scroll() {
         return;
     }
 
+    let selection_height = SCREENSHOT_SELECTION.lock().map(|s| s.height as u32).unwrap_or(500);
+
     if let Some((cx, cy)) = get_selection_center() {
         let _ = crate::mouse::set_cursor_position(cx, cy);
     }
     
-    thread::spawn(|| {
+    thread::spawn(move || {
+        let (delta, interval_ms) = if selection_height >= 500 {
+            (-5, 16)
+        } else {
+            let ratio = selection_height as f64 / 500.0;
+            let d = ((-5.0) * ratio).round() as i32;
+            let d = d.min(-1);
+            let i = (16.0 / ratio).min(30.0) as u64;
+            (d, i)
+        };
+        
         while AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst) {
-            let _ = crate::mouse::simulate_scroll_raw(-5);
-            thread::sleep(Duration::from_millis(16)); 
+            let _ = crate::mouse::simulate_scroll_raw(delta);
+            thread::sleep(Duration::from_millis(interval_ms));
         }
     });
 }
@@ -149,9 +169,26 @@ pub fn toggle_auto_scroll() {
     }
 }
 
-// 自动滚动是否激活
-pub fn is_auto_scrolling() -> bool {
-    AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst)
+// 监听滚轮回滚
+fn monitor_scroll_back() {
+    use crate::services::system::input_monitor::{get_scroll_direction, reset_scroll_direction};
+    
+    while LONG_SCREENSHOT_ACTIVE.load(Ordering::Relaxed) {
+        let dir = get_scroll_direction();
+        
+        if dir > 0 && !HAS_STITCH_BREAK.load(Ordering::Relaxed) {
+            stop_capturing();
+            stop_auto_scroll();
+            reset_scroll_direction();
+        } else if dir < 0 {
+            if !CAPTURING_ACTIVE.load(Ordering::Relaxed) {
+                let _ = start_capturing();
+            }
+            reset_scroll_direction();
+        }
+        
+        thread::sleep(Duration::from_millis(16));
+    }
 }
 
 // 更新预览面板位置
@@ -390,7 +427,6 @@ impl WgcCapturer {
 // 主捕获循环
 fn capture_loop() {
     let mut last_frame: Option<RgbaImage> = None;
-    let mut last_update = Instant::now();
 
     let selection_pos = SCREENSHOT_SELECTION.lock().map(|s| (s.x, s.y));
     // let mut wgc: Option<WgcCapturer> = None;
@@ -460,10 +496,9 @@ fn capture_loop() {
                     let count = mgr.frame_count;
                     let w = mgr.width;
                     let h = mgr.height;
-                    
-                    let should_update = last_update.elapsed() > Duration::from_millis(100);
-                    let preview_data = if should_update && h > 0 {
-                        Some(mgr.data.clone())
+
+                    let preview_data = if h > 0 {
+                        Some(mgr.get_rgba_snapshot())
                     } else {
                         None
                     };
@@ -472,24 +507,21 @@ fn capture_loop() {
                     if let Some(data) = preview_data {
                         match process_result {
                             ProcessResult::Added => {
+                                HAS_STITCH_BREAK.store(false, Ordering::Relaxed);
                                 thread::spawn(move || {
-                                    update_preview(&data, w, h, count, None);
+                                    update_preview(data, w, h, count, None);
                                 });
                             }
                             ProcessResult::NoMatch => {
+                                HAS_STITCH_BREAK.store(true, Ordering::Relaxed);
                                 let rt_data = extract_content_bgra(&frame, top_pad, content_h);
                                 let frame_w = frame.width();
                                 thread::spawn(move || {
-                                    update_preview(&data, w, h, count, Some((&rt_data, frame_w, content_h)));
+                                    update_preview(data, w, h, count, Some((rt_data, frame_w, content_h)));
                                 });
                             }
-                            _ => {
-                                thread::spawn(move || {
-                                    update_preview(&data, w, h, count, None);
-                                });
-                            }
+                            _ => {}
                         }
-                        last_update = Instant::now();
                     }
                     last_frame = Some(frame);
                 }
@@ -528,7 +560,7 @@ fn capture_with_xcap(selection: &SelectionRect) -> Result<RgbaImage, String> {
     let (sel_x, sel_y) = (selection.x as i32, selection.y as i32);
     let (sel_w, sel_h) = (selection.width as u32, selection.height as u32);
 
-    struct Region { monitor: Monitor, mx: i32, my: i32, ix: i32, iy: i32, iw: u32, ih: u32 }
+    struct Region { monitor: Monitor, mx: i32, my: i32, mw: u32, ix: i32, iy: i32, iw: u32, ih: u32 }
 
     let regions: Vec<Region> = monitors.into_iter().filter_map(|m| {
         let (mx, my, mw, mh) = (m.x().ok()?, m.y().ok()?, m.width().ok()?, m.height().ok()?);
@@ -537,7 +569,7 @@ fn capture_with_xcap(selection: &SelectionRect) -> Result<RgbaImage, String> {
         let ir = (sel_x + sel_w as i32).min(mx + mw as i32);
         let ib = (sel_y + sel_h as i32).min(my + mh as i32);
         (ix < ir && iy < ib).then(|| Region {
-            monitor: m, mx, my, ix, iy, iw: (ir - ix) as u32, ih: (ib - iy) as u32
+            monitor: m, mx, my, mw, ix, iy, iw: (ir - ix) as u32, ih: (ib - iy) as u32
         })
     }).collect();
 
@@ -547,68 +579,82 @@ fn capture_with_xcap(selection: &SelectionRect) -> Result<RgbaImage, String> {
 
     if regions.len() == 1 {
         let r = &regions[0];
-        return r.monitor.capture_region((r.ix - r.mx) as u32, (r.iy - r.my) as u32, r.iw, r.ih)
-            .map_err(|e| format!("截图失败: {}", e));
+        let raw = r.monitor.capture_image_raw()
+            .map_err(|e| format!("截图失败: {}", e))?;
+        
+        let crop_x = (r.ix - r.mx) as u32;
+        let crop_y = (r.iy - r.my) as u32;
+        let bgra = crop_bgra(&raw, r.mw, crop_x, crop_y, r.iw, r.ih);
+        let rgba = bgra_to_rgba(&bgra);
+        
+        return RgbaImage::from_raw(r.iw, r.ih, rgba)
+            .ok_or_else(|| "创建图像失败".to_string());
     }
 
     let mut img = RgbaImage::new(sel_w, sel_h);
     for r in regions {
-        let part = r.monitor.capture_region((r.ix - r.mx) as u32, (r.iy - r.my) as u32, r.iw, r.ih)
+        let raw = r.monitor.capture_image_raw()
             .map_err(|e| format!("截图失败: {}", e))?;
+        
+        let crop_x = (r.ix - r.mx) as u32;
+        let crop_y = (r.iy - r.my) as u32;
+        let bgra = crop_bgra(&raw, r.mw, crop_x, crop_y, r.iw, r.ih);
+        let rgba = bgra_to_rgba(&bgra);
+        
         let (dx, dy) = ((r.ix - sel_x) as u32, (r.iy - sel_y) as u32);
         for y in 0..r.ih {
             for x in 0..r.iw {
-                img.put_pixel(dx + x, dy + y, *part.get_pixel(x, y));
+                let off = (y * r.iw + x) as usize * 4;
+                img.put_pixel(dx + x, dy + y, image::Rgba([rgba[off], rgba[off+1], rgba[off+2], rgba[off+3]]));
             }
         }
     }
     Ok(img)
 }
 
-fn encode_bmp(bgra: &[u8], width: u32, height: u32) -> Vec<u8> {
-    let size = width * height * 4;
-    let file_size = 54 + size;
-    let mut buf = vec![0u8; file_size as usize];
-
-    buf[0..2].copy_from_slice(b"BM");
-    buf[2..6].copy_from_slice(&file_size.to_le_bytes());
-    buf[10..14].copy_from_slice(&54u32.to_le_bytes());
-    buf[14..18].copy_from_slice(&40u32.to_le_bytes());
-    buf[18..22].copy_from_slice(&(width as i32).to_le_bytes());
-    buf[22..26].copy_from_slice(&(-(height as i32)).to_le_bytes());
-    buf[26..28].copy_from_slice(&1u16.to_le_bytes());
-    buf[28..30].copy_from_slice(&32u16.to_le_bytes());
-    buf[34..38].copy_from_slice(&size.to_le_bytes());
-    buf[54..].copy_from_slice(bgra);
-    buf
+// 裁剪区域
+fn crop_bgra(raw: &[u8], src_width: u32, x: u32, y: u32, w: u32, h: u32) -> Vec<u8> {
+    let row_stride = (src_width * 4) as usize;
+    let mut out = Vec::with_capacity((w * h * 4) as usize);
+    for row in 0..h {
+        let src_y = (y + row) as usize;
+        let start = src_y * row_stride + (x as usize) * 4;
+        let end = start + (w as usize) * 4;
+        if end <= raw.len() {
+            out.extend_from_slice(&raw[start..end]);
+        }
+    }
+    out
 }
 
-fn update_preview(data: &[u8], width: u32, height: u32, count: u32, realtime_data: Option<(&[u8], u32, u32)>) {
-    if height == 0 { return; }
-    let bmp = encode_bmp(data, width, height);
-    if let Ok(port) = crate::utils::image_http_server::update_long_screenshot_preview(bmp) {
-        if let Some(w) = SCREENSHOT_WINDOW.lock().as_ref() {
-            let url = format!("http://127.0.0.1:{}/long-screenshot/preview.bmp?t={}", port, count);
-            let _ = w.emit("long-screenshot-preview", serde_json::json!({
-                "url": url,
-                "width": width,
-                "height": height
-            }));
-            let _ = w.emit("long-screenshot-progress", count);
+// BGRA -> RGBA
+fn bgra_to_rgba(bgra: &[u8]) -> Vec<u8> {
+    let mut rgba = vec![0u8; bgra.len()];
+    bgra.chunks_exact(4)
+        .zip(rgba.chunks_exact_mut(4))
+        .for_each(|(src, dst)| {
+            dst[0] = src[2]; // R <- B
+            dst[1] = src[1]; // G
+            dst[2] = src[0]; // B <- R
+            dst[3] = src[3]; // A
+        });
+    rgba
+}
 
-            if let Some((rt, rw, rh)) = realtime_data {
-                if rh > 0 {
-                    let rt_bmp = encode_bmp(rt, rw, rh);
-                    if crate::utils::image_http_server::update_long_screenshot_realtime(rt_bmp).is_ok() {
-                        let ts = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis();
-                        let rt_url = format!("http://127.0.0.1:{}/long-screenshot/realtime.bmp?t={}", port, ts);
-                        let _ = w.emit("long-screenshot-realtime", rt_url);
-                    }
-                }
-            } else {
-                let _ = w.emit("long-screenshot-realtime", "");
-            }
+fn update_preview(data: Arc<Vec<u8>>, width: u32, height: u32, count: u32, realtime_data: Option<(Vec<u8>, u32, u32)>) {
+    if height == 0 { return; }
+    
+    crate::utils::ws_server::push_preview(data, width, height);
+    if let Some(w) = SCREENSHOT_WINDOW.lock().as_ref() {
+        let _ = w.emit("long-screenshot-progress", count);
+    }
+    
+    if let Some((rt, rw, rh)) = realtime_data {
+        if rh > 0 {
+            let rt_rgba = bgra_to_rgba(&rt);
+            crate::utils::ws_server::push_realtime(&rt_rgba, rw, rh);
         }
+    } else {
+        crate::utils::ws_server::clear_realtime();
     }
 }

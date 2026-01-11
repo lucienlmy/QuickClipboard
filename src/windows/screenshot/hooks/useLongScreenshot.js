@@ -7,7 +7,7 @@ import { cancelScreenshotSession } from '@shared/api/system';
 export default function useLongScreenshot(selection, screens, stageRegionManager) {
   const [isActive, setIsActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [wsPort, setWsPort] = useState(null);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const [capturedCount, setCapturedCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -17,7 +17,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
   const enter = useCallback(async (toolbarPosition) => {
     setIsActive(true);
     setIsCapturing(false);
-    setPreview(null);
+    setWsPort(null);
     setPreviewSize({ width: 0, height: 0 });
 
     // 启用后端鼠标穿透控制
@@ -53,7 +53,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
         const physicalToolbarWidth = Math.round(toolbarPosition.width * scaleX);
         const physicalToolbarHeight = Math.round(toolbarPosition.height * scaleY);
         
-        await invoke('enable_long_screenshot_passthrough', {
+        const port = await invoke('enable_long_screenshot_passthrough', {
           physicalX,
           physicalY,
           physicalWidth,
@@ -64,6 +64,10 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
           physicalToolbarHeight,
           selectionScaleFactor: scaleX,
         });
+
+        if (port) {
+          setWsPort(port);
+        }
       } catch (err) {
         console.error('启用鼠标穿透失败:', err);
       }
@@ -134,7 +138,6 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
         return;
       }
 
-      // 停止捕获
       if (isCapturing) {
         await invoke('stop_long_screenshot_capture');
         setIsCapturing(false);
@@ -146,7 +149,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
 
       setIsSaving(false);
       setIsActive(false);
-      setPreview(null);
+      setWsPort(null);
       setCapturedCount(0);
 
       await invoke('disable_long_screenshot_passthrough');
@@ -166,7 +169,6 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
         return;
       }
 
-      // 停止捕获
       if (isCapturing) {
         await invoke('stop_long_screenshot_capture');
         setIsCapturing(false);
@@ -191,7 +193,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
       
       setIsSaving(false);
       setIsActive(false);
-      setPreview(null);
+      setWsPort(null);
       setCapturedCount(0);
       
       await invoke('disable_long_screenshot_passthrough');
@@ -217,7 +219,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
       
       setIsActive(false);
       setIsCapturing(false);
-      setPreview(null);
+      setWsPort(null);
       setCapturedCount(0);
       
       await invoke('disable_long_screenshot_passthrough');
@@ -226,39 +228,31 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     }
   }, [isCapturing, isAutoScrolling]);
 
-  // 监听后端进度和预览事件
+  // 监听后端事件
   useEffect(() => {
     if (!isActive) return;
 
     const appWindow = getCurrentWebviewWindow();
     
     const unlistenProgress = appWindow.listen('long-screenshot-progress', (event) => {
-      const count = event.payload;
-      setCapturedCount(count);
-    });
-
-    const unlistenPreview = appWindow.listen('long-screenshot-preview', (event) => {
-      const previewData = event.payload;
-      if (typeof previewData === 'string') {
-        setPreview(previewData);
-      } else {
-        setPreview(previewData.url);
-        setPreviewSize({ width: previewData.width, height: previewData.height });
-      }
+      setCapturedCount(event.payload);
     });
 
     return () => {
       unlistenProgress.then(fn => fn());
-      unlistenPreview.then(fn => fn());
     };
   }, [isActive]);
+
+  const updatePreviewSize = useCallback((size) => {
+    setPreviewSize(size);
+  }, []);
 
   return {
     isActive,
     isCapturing,
     isSaving,
     isAutoScrolling,
-    preview,
+    wsPort,
     previewSize,
     capturedCount,
     enter,
@@ -268,5 +262,6 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     save: saveScreenshot,
     cancel,
     toggleAutoScroll,
+    updatePreviewSize,
   };
 }

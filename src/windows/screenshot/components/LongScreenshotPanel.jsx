@@ -1,46 +1,48 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
+import LongScreenshotPreview from './LongScreenshotPreview';
 
 export default function LongScreenshotPanel({
   selection,
   stageRegionManager,
   isCapturing,
   isSaving,
-  previewImage,
+  wsPort,
   previewSize = { width: 0, height: 0 },
   capturedCount = 0,
   screens,
   getScaleForPosition,
+  onPreviewSizeChange,
 }) {
   const panelRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const imgRef = useRef(null);
   const [position, setPosition] = useState({ x: -9999, y: -9999 });
-  const [realtimeImage, setRealtimeImage] = useState('');
+  const [realtimeData, setRealtimeData] = useState(null);
   const [maxPreviewHeight, setMaxPreviewHeight] = useState(300);
   const [panelHeight, setPanelHeight] = useState(200);
+  const [hasPreview, setHasPreview] = useState(false);
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 });
-
-  // 监听实时预览事件
-  useEffect(() => {
-    const unlisten = listen('long-screenshot-realtime', (event) => {
-      setRealtimeImage(event.payload || '');
-    });
-
-    return () => {
-      unlisten.then(fn => fn());
-    };
-  }, []);
+  const previewCanvasRef = useRef(null);
+  const largePreviewCanvasRef = useRef(null);
 
   useEffect(() => {
     if (!isCapturing) {
-      setRealtimeImage('');
+      setRealtimeData(null);
     }
   }, [isCapturing]);
+
+  const handlePreviewImageReady = useCallback((info) => {
+    previewCanvasRef.current = info;
+    setHasPreview(true);
+  }, []);
+
+  const handleRealtimeData = useCallback((data) => {
+    setRealtimeData(data);
+  }, []);
 
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
@@ -48,10 +50,10 @@ export default function LongScreenshotPanel({
     }
   };
 
-  // 每次帧数变化或图片变化时滚动到底部
+  // 变化时滚动到底部
   useEffect(() => {
     scrollToBottom();
-  }, [capturedCount, previewImage, realtimeImage]);
+  }, [capturedCount, realtimeData]);
 
   useEffect(() => {
     if (!panelRef.current) return;
@@ -90,7 +92,6 @@ export default function LongScreenshotPanel({
 
     y = Math.max(screenTop, Math.min(y, screenBottom - panelHeight));
 
-    // X 位置：选区右侧，放不下则左侧
     let x = selection.x + selection.width + padding;
     if (x + panelWidth > screenRight) {
       x = selection.x - panelWidth - padding;
@@ -132,16 +133,11 @@ export default function LongScreenshotPanel({
     setMaxPreviewHeight(Math.max(200, screenAvailable * 0.7));
   }, [selection, stageRegionManager]);
 
-  const handleImageLoad = useCallback((e) => {
+  const handleImageLoad = useCallback((size) => {
     scrollToBottom();
-    const img = e.target;
-    setImageSize({
-      width: img.clientWidth,
-      height: img.clientHeight,
-      naturalWidth: img.naturalWidth,
-      naturalHeight: img.naturalHeight,
-    });
-  }, []);
+    setImageSize(size);
+    onPreviewSizeChange?.({ width: size.naturalWidth, height: size.naturalHeight });
+  }, [onPreviewSizeChange]);
 
   const handleMouseEnter = useCallback(async () => {
     if (isCapturing) {
@@ -149,7 +145,6 @@ export default function LongScreenshotPanel({
     }
   }, [isCapturing]);
 
-  // 鼠标在预览图上移动
   const handleMouseMove = useCallback((e) => {
     if (!imgRef.current || !selection || imageSize.naturalHeight === 0) return;
 
@@ -170,7 +165,6 @@ export default function LongScreenshotPanel({
 
     setHoverInfo({ y, viewportY, viewportHeight, imgScale });
 
-    // 边缘自动滚动
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       const containerRect = container.getBoundingClientRect();
@@ -220,7 +214,38 @@ export default function LongScreenshotPanel({
   }, [getScaleForPosition, position.x, position.y]);
 
   if (!selection) return null;
-  const hoverPreview = hoverInfo && previewImage && selection && imageSize.naturalWidth > 0 ? (
+
+  useEffect(() => {
+    if (!hoverInfo || !previewCanvasRef.current || !largePreviewCanvasRef.current) return;
+    
+    const info = previewCanvasRef.current;
+    if (!info || !info.data || info.width === 0 || info.height === 0) return;
+    
+    const destCanvas = largePreviewCanvasRef.current;
+    const ctx = destCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const srcY = Math.round(hoverInfo.viewportY);
+    const srcHeight = Math.round(hoverInfo.viewportHeight);
+    const srcWidth = info.width;
+
+    destCanvas.width = srcWidth;
+    destCanvas.height = srcHeight;
+
+    const startByte = srcY * srcWidth * 4;
+    const byteLength = srcHeight * srcWidth * 4;
+    
+    if (startByte + byteLength <= info.data.length) {
+      const imageData = new ImageData(
+        new Uint8ClampedArray(info.data.buffer, info.data.byteOffset + startByte, byteLength),
+        srcWidth,
+        srcHeight
+      );
+      ctx.putImageData(imageData, 0, 0);
+    }
+  }, [hoverInfo]);
+  
+  const hoverPreview = hoverInfo && previewCanvasRef.current && selection && imageSize.naturalWidth > 0 ? (
     <div
       className="fixed overflow-hidden pointer-events-none z-50"
       style={{
@@ -228,13 +253,31 @@ export default function LongScreenshotPanel({
         top: selection.y + 3,
         width: selection.width - 6,
         height: selection.height - 6,
-        backgroundImage: `url(${previewImage})`,
-        backgroundSize: `${imageSize.naturalWidth / hoverInfo.imgScale}px auto`,
-        backgroundPosition: `0px ${-hoverInfo.viewportY / hoverInfo.imgScale}px`,
-        backgroundRepeat: 'no-repeat',
-        imageRendering: 'pixelated',
       }}
-    />
+    >
+      <canvas
+        ref={largePreviewCanvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          imageRendering: 'pixelated',
+        }}
+      />
+    </div>
+  ) : null;
+
+  // 实时帧渲染组件
+  const RealtimePreview = realtimeData ? (
+    <div className="relative border-t-2 border-dashed border-orange-400/70 bg-orange-50/50 dark:bg-orange-900/20">
+      <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400">
+        <i className="ti ti-alert-circle text-xs"></i>
+        <span className="text-[10px]">拼接中断，请回到中断位置继续</span>
+      </div>
+      <RealtimeCanvas data={realtimeData} />
+      <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-orange-500/80 rounded text-[10px] text-white">
+        待拼接
+      </div>
+    </div>
   ) : null;
 
   return (
@@ -251,7 +294,6 @@ export default function LongScreenshotPanel({
         }}
       >
       <div className="w-[240px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden flex flex-col relative">
-        {/* 标题栏 */}
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200 dark:border-gray-700">
           <i className="ti ti-capture text-sm text-gray-600 dark:text-gray-300"></i>
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
@@ -259,7 +301,6 @@ export default function LongScreenshotPanel({
           </span>
         </div>
 
-        {/* 状态栏 */}
         <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
@@ -290,26 +331,22 @@ export default function LongScreenshotPanel({
           </div>
         </div>
 
-        {/* 预览区域 */}
         <div
           ref={scrollContainerRef}
           className="flex-1 p-3 overflow-y-auto"
           style={{ maxHeight: maxPreviewHeight }}
         >
-          {previewImage ? (
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
-              {/* 主拼接图 */}
-              <div className="relative">
-                <img
-                  ref={imgRef}
-                  src={previewImage}
-                  alt="长截屏预览"
-                  className="w-full h-auto block"
-                  draggable={false}
+          {wsPort && (
+            <div className={`bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden ${hasPreview ? '' : 'hidden'}`}>
+              <div className="relative" ref={imgRef}>
+                <LongScreenshotPreview
+                  wsPort={wsPort}
                   onLoad={handleImageLoad}
                   onMouseEnter={handleMouseEnter}
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
+                  onImageReady={handlePreviewImageReady}
+                  onRealtimeData={handleRealtimeData}
                 />
                 {viewportBoxStyle && (
                   <div
@@ -318,28 +355,10 @@ export default function LongScreenshotPanel({
                   />
                 )}
               </div>
-              {/* 实时当前帧预览 */}
-              {realtimeImage && (
-                <div className="relative border-t-2 border-dashed border-orange-400/70 bg-orange-50/50 dark:bg-orange-900/20">
-                  {/* 提示用户回滚 */}
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400">
-                    <i className="ti ti-alert-circle text-xs"></i>
-                    <span className="text-[10px]">拼接中断，请回到中断位置继续</span>
-                  </div>
-                  <img
-                    src={realtimeImage}
-                    alt="实时预览"
-                    className="w-full h-auto block opacity-60"
-                    draggable={false}
-                    onLoad={scrollToBottom}
-                  />
-                  <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-orange-500/80 rounded text-[10px] text-white">
-                    待拼接
-                  </div>
-                </div>
-              )}
+              {RealtimePreview}
             </div>
-          ) : (
+          )}
+          {!hasPreview && (
             <div className="flex items-center justify-center h-full min-h-[100px] bg-gray-100 dark:bg-gray-800 rounded-lg">
               <div className="text-center text-gray-400 dark:text-gray-500">
                 <i className="ti ti-photo text-4xl mb-2 block"></i>
@@ -349,7 +368,6 @@ export default function LongScreenshotPanel({
           )}
         </div>
 
-        {/* 保存/复制中遮罩层 */}
         {isSaving && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
             <div className="text-center">
@@ -361,5 +379,41 @@ export default function LongScreenshotPanel({
       </div>
     </div>
     </>
+  );
+}
+
+// 实时帧 Canvas 渲染
+function RealtimeCanvas({ data }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!data || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = data.width;
+    canvas.height = data.height;
+
+    const imageData = new ImageData(
+      new Uint8ClampedArray(data.data.buffer, data.data.byteOffset, data.data.length),
+      data.width,
+      data.height
+    );
+    ctx.putImageData(imageData, 0, 0);
+  }, [data]);
+
+  if (!data) return null;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        display: 'block',
+        width: '100%',
+        height: 'auto',
+      }}
+    />
   );
 }

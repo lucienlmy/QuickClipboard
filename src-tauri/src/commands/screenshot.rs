@@ -50,17 +50,16 @@ pub fn enable_long_screenshot_passthrough(
     physical_toolbar_width: f64,
     physical_toolbar_height: f64,
     selection_scale_factor: f64,
-) -> Result<(), String> {
+) -> Result<u16, String> {
     if let Some(window) = app.get_webview_window("screenshot") {
         crate::windows::screenshot_window::long_screenshot::enable_passthrough(
             window,
             physical_x, physical_y, physical_width, physical_height,
             physical_toolbar_x, physical_toolbar_y, physical_toolbar_width, physical_toolbar_height,
             selection_scale_factor
-        );
-        Ok(())
+        )
     } else {
-        Err("Screenshot window not found".to_string())
+        Err("未找到截图窗口".to_string())
     }
 }
 
