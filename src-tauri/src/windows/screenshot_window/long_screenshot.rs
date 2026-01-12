@@ -43,6 +43,7 @@ static LONG_SCREENSHOT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURING_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURE_EXCLUDE_ENABLED: AtomicBool = AtomicBool::new(false);
 static HAS_STITCH_BREAK: AtomicBool = AtomicBool::new(false);
+static CURSOR_PASSTHROUGH: AtomicBool = AtomicBool::new(false);
 static SCREENSHOT_SELECTION: Lazy<Mutex<Option<SelectionRect>>> = Lazy::new(|| Mutex::new(None));
 static SCREENSHOT_TOOLBAR: Lazy<Mutex<Option<ToolbarRect>>> = Lazy::new(|| Mutex::new(None));
 static PREVIEW_PANEL: Lazy<Mutex<Option<PreviewPanelRect>>> = Lazy::new(|| Mutex::new(None));
@@ -175,6 +176,12 @@ fn monitor_scroll_back() {
     
     while LONG_SCREENSHOT_ACTIVE.load(Ordering::Relaxed) {
         let dir = get_scroll_direction();
+
+        if !CURSOR_PASSTHROUGH.load(Ordering::Relaxed) {
+            reset_scroll_direction();
+            thread::sleep(Duration::from_millis(16));
+            continue;
+        }
         
         if dir > 0 && !HAS_STITCH_BREAK.load(Ordering::Relaxed) {
             stop_capturing();
@@ -280,6 +287,7 @@ fn monitor_mouse_position() {
 
             let should_passthrough = in_selection && !in_toolbar && !in_preview;
             let _ = window.set_ignore_cursor_events(should_passthrough);
+            CURSOR_PASSTHROUGH.store(should_passthrough, Ordering::Relaxed);
 
             // 检查工具栏或预览面板是否与选区重叠
             let toolbar_overlaps = toolbar.map_or(false, |t| {
