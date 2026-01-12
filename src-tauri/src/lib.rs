@@ -175,7 +175,6 @@ pub fn run() {
                 commands::long_screenshot_auto_scroll,
                 commands::recognize_image_ocr,
                 commands::recognize_file_ocr,
-                windows::screenshot_window::auto_selection::start_auto_selection,
                 windows::screenshot_window::auto_selection::stop_auto_selection,
                 windows::screenshot_window::auto_selection::is_auto_selection_active,
                 windows::screenshot_window::auto_selection::request_auto_selection_emit,

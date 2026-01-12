@@ -62,40 +62,44 @@ impl AutoSelectionManager {
         }
     }
 
-    fn emit_hierarchy(app_handle: &Arc<Mutex<Option<AppHandle>>>, rects: &[ElementRect]) {
+    fn emit_hierarchy_to_window(window: &tauri::WebviewWindow, rects: &[ElementRect]) {
         if rects.is_empty() {
             return;
         }
 
+        let (virt_x, virt_y, _vw, _vh) =
+            crate::screen::ScreenUtils::get_virtual_screen_size()
+                .unwrap_or((0, 0, 1920, 1080));
+
+        let css_hierarchy: Vec<ElementBounds> = rects
+            .iter()
+            .map(|r| {
+                ElementBounds {
+                    x: r.min_x - virt_x,
+                    y: r.min_y - virt_y,
+                    width: r.max_x - r.min_x,
+                    height: r.max_y - r.min_y,
+                }
+            })
+            .collect();
+
+        if css_hierarchy.is_empty() {
+            return;
+        }
+
+        let hierarchy = ElementHierarchy {
+            hierarchy: css_hierarchy,
+            current_index: 0,
+        };
+
+        let _ = window.emit("auto-selection-hierarchy", &hierarchy);
+    }
+
+    fn emit_hierarchy(app_handle: &Arc<Mutex<Option<AppHandle>>>, rects: &[ElementRect]) {
         if let Some(app_guard) = app_handle.try_lock() {
             if let Some(app) = app_guard.as_ref() {
                 if let Some(window) = app.get_webview_window("screenshot") {
-                    let (virt_x, virt_y, _vw, _vh) =
-                        crate::screen::ScreenUtils::get_virtual_screen_size()
-                            .unwrap_or((0, 0, 1920, 1080));
-
-                    let css_hierarchy: Vec<ElementBounds> = rects
-                        .iter()
-                        .map(|r| {
-                            ElementBounds {
-                                x: r.min_x - virt_x,
-                                y: r.min_y - virt_y,
-                                width: r.max_x - r.min_x,
-                                height: r.max_y - r.min_y,
-                            }
-                        })
-                        .collect();
-
-                    if css_hierarchy.is_empty() {
-                        return;
-                    }
-
-                    let hierarchy = ElementHierarchy {
-                        hierarchy: css_hierarchy,
-                        current_index: 0,
-                    };
-
-                    let _ = window.emit("auto-selection-hierarchy", &hierarchy);
+                    Self::emit_hierarchy_to_window(&window, rects);
                 }
             }
         }
@@ -168,8 +172,6 @@ impl AutoSelectionManager {
             return Err(format!("初始化 UIAutomation 失败: {:?}", e));
         }
 
-        thread::sleep(Duration::from_millis(10));
-        
         let exclude_hwnd = *screenshot_hwnd.lock();
         if let Err(e) = ui_index.rebuild_index(exclude_hwnd) {
             eprintln!("auto_selection: 初始化元素缓存失败: {:?}", e);
@@ -236,7 +238,15 @@ impl AutoSelectionManager {
 
 pub static AUTO_SELECTION_MANAGER: Lazy<AutoSelectionManager> = Lazy::new(AutoSelectionManager::new);
 
-#[tauri::command]
+pub fn capture_initial_element(mx: i32, my: i32, mode: String) -> Option<Vec<ElementRect>> {
+    let detection_mode = DetectionMode::from_string(&mode);
+    super::ui_elements::capture_element_at_point(mx, my, detection_mode)
+}
+
+pub fn emit_initial_hierarchy(window: &tauri::WebviewWindow, rects: &[ElementRect]) {
+    AutoSelectionManager::emit_hierarchy_to_window(window, rects);
+}
+
 pub fn start_auto_selection(app: AppHandle) -> Result<(), String> {
     AUTO_SELECTION_MANAGER.start(app)
 }

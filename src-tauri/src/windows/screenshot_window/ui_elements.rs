@@ -52,6 +52,7 @@ struct UIAutomationWrapper {
 unsafe impl Send for UIAutomationWrapper {}
 unsafe impl Sync for UIAutomationWrapper {}
 
+
 impl UiElementIndex {
     pub fn new() -> Self {
         Self {
@@ -75,7 +76,6 @@ impl UiElementIndex {
         )
     }
 
-    /// 计算窗口阴影内缩矩形
     fn shadow_inset_rect(rect: &ElementRect) -> ElementRect {
         const SHADOW_MARGIN: i32 = 10;
         ElementRect {
@@ -90,48 +90,27 @@ impl UiElementIndex {
         if self.automation.is_some() {
             return Ok(());
         }
-
         let uia = UIAutomation::new().map_err(|e| format!("创建 UIAutomation 失败: {:?}", e))?;
-        let content_walker = uia.get_content_view_walker()
-            .map_err(|e| format!("获取 TreeWalker 失败: {:?}", e))?;
-
-        let mut cache = uia.create_cache_request()
-            .map_err(|e| format!("创建缓存请求失败: {:?}", e))?;
-        cache.add_property(UIProperty::BoundingRectangle)
-            .map_err(|e| format!("添加属性失败: {:?}", e))?;
-        cache.add_property(UIProperty::ControlType)
-            .map_err(|e| format!("添加属性失败: {:?}", e))?;
-        cache.add_property(UIProperty::IsOffscreen)
-            .map_err(|e| format!("添加属性失败: {:?}", e))?;
-        cache.set_tree_scope(TreeScope::Element)
-            .map_err(|e| format!("设置作用域失败: {:?}", e))?;
-
+        let content_walker = uia.get_content_view_walker().map_err(|e| format!("获取 TreeWalker 失败: {:?}", e))?;
+        let mut cache = uia.create_cache_request().map_err(|e| format!("创建缓存请求失败: {:?}", e))?;
+        cache.add_property(UIProperty::BoundingRectangle).map_err(|e| format!("添加属性失败: {:?}", e))?;
+        cache.add_property(UIProperty::ControlType).map_err(|e| format!("添加属性失败: {:?}", e))?;
+        cache.add_property(UIProperty::IsOffscreen).map_err(|e| format!("添加属性失败: {:?}", e))?;
+        cache.set_tree_scope(TreeScope::Element).map_err(|e| format!("设置作用域失败: {:?}", e))?;
         self.automation = Some(Arc::new(UIAutomationWrapper { automation: uia }));
         self.walker = Some(content_walker);
         self.cache_req = Some(cache);
-
         Ok(())
     }
 
     fn fix_inverted_rect(rect: uiautomation::types::Rect) -> uiautomation::types::Rect {
-        let (l, r) = if rect.get_left() > rect.get_right() {
-            (rect.get_right(), rect.get_left())
-        } else {
-            (rect.get_left(), rect.get_right())
-        };
-        let (t, b) = if rect.get_top() > rect.get_bottom() {
-            (rect.get_bottom(), rect.get_top())
-        } else {
-            (rect.get_top(), rect.get_bottom())
-        };
+        let (l, r) = if rect.get_left() > rect.get_right() { (rect.get_right(), rect.get_left()) } else { (rect.get_left(), rect.get_right()) };
+        let (t, b) = if rect.get_top() > rect.get_bottom() { (rect.get_bottom(), rect.get_top()) } else { (rect.get_top(), rect.get_bottom()) };
         uiautomation::types::Rect::new(l, t, r, b)
     }
 
     fn exceeds_bounds(child: uiautomation::types::Rect, parent: uiautomation::types::Rect) -> bool {
-        child.get_left() < parent.get_left()
-            || child.get_right() > parent.get_right()
-            || child.get_top() < parent.get_top()
-            || child.get_bottom() > parent.get_bottom()
+        child.get_left() < parent.get_left() || child.get_right() > parent.get_right() || child.get_top() < parent.get_top() || child.get_bottom() > parent.get_bottom()
     }
 
     fn constrain_to_parent(child: uiautomation::types::Rect, parent: uiautomation::types::Rect) -> uiautomation::types::Rect {
@@ -143,393 +122,205 @@ impl UiElementIndex {
         )
     }
 
+
     pub fn rebuild_index(&mut self, exclude_hwnd: Option<isize>) -> Result<(), String> {
-        let automation = self
-            .automation
-            .as_ref()
-            .ok_or_else(|| "UIAutomation 未初始化".to_string())?;
-
-        self.desktop_root.replace(
-            automation.automation.get_root_element()
-                .map_err(|e| format!("获取根元素失败: {:?}", e))?
-        );
-        
+        let automation = self.automation.as_ref().ok_or_else(|| "UIAutomation 未初始化".to_string())?;
+        self.desktop_root.replace(automation.automation.get_root_element().map_err(|e| format!("获取根元素失败: {:?}", e))?);
         let top_windows = Self::enum_top_windows_fast(exclude_hwnd, &automation.automation);
-        
         let root = self.desktop_root.as_ref().unwrap().clone();
-
         self.rect_tree = Arena::new();
         self.spatial_index = RTree::new();
         self.level_to_element.clear();
         self.child_cache.clear();
         self.window_bounds.clear();
         self.window_levels.clear();
-
         let mut level = ElementLevel::root();
-        let (vx, vy, vw, vh) = crate::screen::ScreenUtils::get_virtual_screen_size()
-            .unwrap_or((0, 0, 1920, 1080));
+        let (vx, vy, vw, vh) = crate::screen::ScreenUtils::get_virtual_screen_size().unwrap_or((0, 0, 1920, 1080));
         let root_bounds = uiautomation::types::Rect::new(vx, vy, vx + vw, vy + vh);
-
         let mut root_token = self.rect_tree.new_node(root_bounds);
-        let (_, mut parent_token) = self.add_to_index(
-            &mut root_token,
-            root.clone(),
-            root_bounds,
-            level,
-        );
-
+        let (_, mut parent_token) = self.add_to_index(&mut root_token, root.clone(), root_bounds, level);
         level.window_index = 0;
         level.next_level();
-
         for (win_elem, win_rect) in top_windows {
             level.window_index += 1;
             level.next_element();
-
-            let (adjusted_rect, _) = self.add_to_index(
-                &mut parent_token,
-                win_elem,
-                win_rect,
-                level,
-            );
-
+            let (adjusted_rect, _) = self.add_to_index(&mut parent_token, win_elem, win_rect, level);
             self.window_bounds.insert(level.clone(), adjusted_rect);
             self.window_levels.insert(level.window_index, level.clone());
         }
-
         Ok(())
     }
     
-    fn enum_top_windows_fast(
-        exclude_hwnd: Option<isize>,
-        automation: &uiautomation::UIAutomation,
-    ) -> Vec<(UIElement, uiautomation::types::Rect)> {
+    fn enum_top_windows_fast(exclude_hwnd: Option<isize>, automation: &uiautomation::UIAutomation) -> Vec<(UIElement, uiautomation::types::Rect)> {
         use windows::Win32::Foundation::{HWND, LPARAM, RECT};
-        use windows::Win32::UI::WindowsAndMessaging::{
-            EnumWindows, GetWindowRect, IsWindowVisible,
-        };
+        use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowRect, IsWindowVisible};
         use windows::core::BOOL;
-        
-        struct EnumData {
-            windows: Vec<(HWND, RECT)>,
-            exclude: Option<isize>,
-        }
-        
+        struct EnumData { windows: Vec<(HWND, RECT)>, exclude: Option<isize> }
         unsafe extern "system" fn enum_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
             let data = &mut *(lparam.0 as *mut EnumData);
-            
-            // 跳过排除的窗口
-            if let Some(ex) = data.exclude {
-                if hwnd.0 as isize == ex {
-                    return BOOL(1);
-                }
-            }
-            
+            if let Some(ex) = data.exclude { if hwnd.0 as isize == ex { return BOOL(1); } }
             if IsWindowVisible(hwnd).as_bool() {
                 let mut rect = RECT::default();
                 if GetWindowRect(hwnd, &mut rect).is_ok() {
                     let w = rect.right - rect.left;
                     let h = rect.bottom - rect.top;
-                    if w > 1 && h > 1 {
-                        data.windows.push((hwnd, rect));
-                    }
+                    if w > 1 && h > 1 { data.windows.push((hwnd, rect)); }
                 }
             }
-            
             BOOL(1)
         }
-        
-        let mut data = EnumData {
-            windows: Vec::new(),
-            exclude: exclude_hwnd,
-        };
-        
-        unsafe {
-            let _ = EnumWindows(
-                Some(enum_callback),
-                LPARAM(&mut data as *mut _ as isize),
-            );
-        }
-        
-        // 转换为 UIElement
+        let mut data = EnumData { windows: Vec::new(), exclude: exclude_hwnd };
+        unsafe { let _ = EnumWindows(Some(enum_callback), LPARAM(&mut data as *mut _ as isize)); }
         let mut result = Vec::with_capacity(data.windows.len());
         for (hwnd, rect) in data.windows {
             if let Ok(elem) = automation.element_from_handle(hwnd.into()) {
-                let bounds = uiautomation::types::Rect::new(
-                    rect.left,
-                    rect.top,
-                    rect.right,
-                    rect.bottom,
-                );
+                let bounds = uiautomation::types::Rect::new(rect.left, rect.top, rect.right, rect.bottom);
                 result.push((elem, bounds));
             }
         }
-        
         result
     }
 
-
-    fn add_to_index(
-        &mut self,
-        parent_token: &mut Token,
-        elem: UIElement,
-        mut bounds: uiautomation::types::Rect,
-        level: ElementLevel,
-    ) -> (uiautomation::types::Rect, Token) {
+    fn add_to_index(&mut self, parent_token: &mut Token, elem: UIElement, mut bounds: uiautomation::types::Rect, level: ElementLevel) -> (uiautomation::types::Rect, Token) {
         bounds = Self::fix_inverted_rect(bounds);
-
         let win_level = self.window_levels.get(&level.window_index).unwrap_or(&level);
         if let Some(win_rect) = self.window_bounds.get(win_level) {
-            if Self::exceeds_bounds(bounds, *win_rect) {
-                bounds = Self::constrain_to_parent(bounds, *win_rect);
-            }
+            if Self::exceeds_bounds(bounds, *win_rect) { bounds = Self::constrain_to_parent(bounds, *win_rect); }
         }
-
-        self.spatial_index.insert(IndexedElement {
-            bounds: Self::to_aabb(bounds),
-            level,
-        });
-
+        self.spatial_index.insert(IndexedElement { bounds: Self::to_aabb(bounds), level });
         let node = self.rect_tree.new_node(bounds);
         parent_token.append_node(&mut self.rect_tree, node).unwrap();
         self.level_to_element.insert(level, (elem, node));
-
         (bounds, node)
     }
 
-    fn find_cached_at(
-        &self,
-        x: i32,
-        y: i32,
-    ) -> Option<(UIElement, ElementLevel, uiautomation::types::Rect, Token)> {
+    fn find_cached_at(&self, x: i32, y: i32) -> Option<(UIElement, ElementLevel, uiautomation::types::Rect, Token)> {
         let point = [x as f64, y as f64];
         let matches = self.spatial_index.locate_all_at_point(&point);
-
         let mut best_level = ElementLevel::root();
         let mut best_aabb: Option<AABB<[f64; 2]>> = None;
         for hit in matches {
-            if best_level.cmp(&hit.level) == Ordering::Less {
-                best_level = hit.level;
-                best_aabb = Some(hit.bounds);
-            }
+            if best_level.cmp(&hit.level) == Ordering::Less { best_level = hit.level; best_aabb = Some(hit.bounds); }
         }
-
         let bounds = best_aabb.map(|aabb| {
             let lower = aabb.lower();
             let upper = aabb.upper();
-            uiautomation::types::Rect::new(
-                lower[0] as i32,
-                lower[1] as i32,
-                upper[0] as i32,
-                upper[1] as i32,
-            )
+            uiautomation::types::Rect::new(lower[0] as i32, lower[1] as i32, upper[0] as i32, upper[1] as i32)
         })?;
-
-        self.level_to_element
-            .get(&best_level)
-            .map(|(elem, tok)| (elem.clone(), best_level, bounds, *tok))
+        self.level_to_element.get(&best_level).map(|(elem, tok)| (elem.clone(), best_level, bounds, *tok))
     }
 
-    pub fn query_chain_at_point(
-        &mut self,
-        mx: i32,
-        my: i32,
-        window_only: bool,
-    ) -> Result<Vec<ElementRect>, String> {
+
+    pub fn query_chain_at_point(&mut self, mx: i32, my: i32, window_only: bool) -> Result<Vec<ElementRect>, String> {
         if window_only {
             let point = [mx as f64, my as f64];
             let matches: Vec<_> = self.spatial_index.locate_all_at_point(&point).collect();
-            
             let mut best_window: Option<(&ElementLevel, &uiautomation::types::Rect)> = None;
-            
             for hit in &matches {
                 let level = &hit.level;
                 if level.element_level == 1 {
                     if let Some(win_rect) = self.window_bounds.get(level) {
                         match &best_window {
                             None => best_window = Some((level, win_rect)),
-                            Some((best_level, _)) => {
-                                if level.window_index < best_level.window_index {
-                                    best_window = Some((level, win_rect));
-                                }
-                            }
+                            Some((best_level, _)) => { if level.window_index < best_level.window_index { best_window = Some((level, win_rect)); } }
                         }
                     }
                 }
             }
-            
             if let Some((_, win_rect)) = best_window {
                 let outer_rect = ElementRect::from(*win_rect);
                 let inner_rect = Self::shadow_inset_rect(&outer_rect);
-                
                 return Ok(vec![inner_rect, outer_rect]);
             }
-            
             return Ok(Vec::new());
         }
         
         let walker = self.walker.clone().unwrap();
-        let (mut parent_elem, mut parent_lvl, mut parent_bounds, mut parent_tok) =
-            self.find_cached_at(mx, my).unwrap_or_else(|| {
-                let fallback_bounds = uiautomation::types::Rect::new(0, 0, i32::MAX, i32::MAX);
-                (
-                    self.desktop_root.clone().unwrap(),
-                    ElementLevel::root(),
-                    fallback_bounds,
-                    self.rect_tree.new_node(fallback_bounds),
-                )
-            });
+        let (parent_elem, mut parent_lvl, parent_bounds, mut parent_tok) = self.find_cached_at(mx, my).unwrap_or_else(|| {
+            let fallback_bounds = uiautomation::types::Rect::new(0, 0, i32::MAX, i32::MAX);
+            (self.desktop_root.clone().unwrap(), ElementLevel::root(), fallback_bounds, self.rect_tree.new_node(fallback_bounds))
+        });
 
         let mut cur_level = ElementLevel::root();
         let mut queue = Option::<UIElement>::None;
         let mut need_query_child = false;
-
         match self.child_cache.get(&parent_lvl) {
-            Some(Some((child, lvl))) => {
-                queue = Some(child.clone());
-                cur_level = *lvl;
-            }
+            Some(Some((child, lvl))) => { queue = Some(child.clone()); cur_level = *lvl; }
             Some(None) => {}
             None => need_query_child = true,
         };
-
         if need_query_child {
-            let first_child_result = if let Some(req) = &self.cache_req {
-                walker.get_first_child_build_cache(&parent_elem, req)
-            } else {
-                walker.get_first_child(&parent_elem)
-            };
-
+            let first_child_result = if let Some(req) = &self.cache_req { walker.get_first_child_build_cache(&parent_elem, req) } else { walker.get_first_child(&parent_elem) };
             match first_child_result {
-                Ok(child_elem) => {
-                    queue = Some(child_elem.clone());
-                    cur_level = parent_lvl;
-                    cur_level.next_level();
-                    self.child_cache.insert(parent_lvl, Some((child_elem, cur_level)));
-                }
-                Err(_) => {
-                    self.child_cache.insert(parent_lvl, None);
-                }
+                Ok(child_elem) => { queue = Some(child_elem.clone()); cur_level = parent_lvl; cur_level.next_level(); self.child_cache.insert(parent_lvl, Some((child_elem, cur_level))); }
+                Err(_) => { self.child_cache.insert(parent_lvl, None); }
             }
         }
 
-        let mut cur_bounds = parent_bounds;
+        let mut cur_bounds;
         let mut cur_tok = parent_tok;
         let mut result_tok = cur_tok;
-        let mut result_bounds = cur_bounds;
+        let mut result_bounds = parent_bounds;
 
         while let Some(elem) = queue.take() {
             queue = None;
-
-            let offscreen = if self.cache_req.is_some() {
-                elem.is_cached_offscreen().unwrap_or(true)
-            } else {
-                elem.is_offscreen().unwrap_or(true)
-            };
-
+            let offscreen = if self.cache_req.is_some() { elem.is_cached_offscreen().unwrap_or(true) } else { elem.is_offscreen().unwrap_or(true) };
             if !offscreen {
                 cur_bounds = if self.cache_req.is_some() {
-                    match elem.get_cached_bounding_rectangle() {
-                        Ok(r) => r,
-                        Err(_) => continue,
-                    }
+                    match elem.get_cached_bounding_rectangle() { Ok(r) => r, Err(_) => { Self::next_sibling(&walker, &self.cache_req, &elem, &mut queue, &mut cur_level, &mut self.child_cache, parent_lvl); continue; } }
                 } else {
-                    match elem.get_bounding_rectangle() {
-                        Ok(r) => r,
-                        Err(_) => continue,
-                    }
+                    match elem.get_bounding_rectangle() { Ok(r) => r, Err(_) => { Self::next_sibling(&walker, &self.cache_req, &elem, &mut queue, &mut cur_level, &mut self.child_cache, parent_lvl); continue; } }
                 };
-
-                let (l, t, r, b) = (
-                    cur_bounds.get_left(),
-                    cur_bounds.get_top(),
-                    cur_bounds.get_right(),
-                    cur_bounds.get_bottom(),
-                );
-                
+                let (l, t, r, b) = (cur_bounds.get_left(), cur_bounds.get_top(), cur_bounds.get_right(), cur_bounds.get_bottom());
                 if !(l == 0 && r == 0 && t == 0 && b == 0) {
-                    (cur_bounds, cur_tok) = self.add_to_index(
-                        &mut parent_tok,
-                        elem.clone(),
-                        cur_bounds,
-                        cur_level,
-                    );
-
+                    (cur_bounds, cur_tok) = self.add_to_index(&mut parent_tok, elem.clone(), cur_bounds, cur_level);
                     if l <= mx && r >= mx && t <= my && b >= my {
                         result_tok = cur_tok;
                         result_bounds = cur_bounds;
-
-                        let child_res = if let Some(req) = &self.cache_req {
-                            walker.get_first_child_build_cache(&elem, req)
-                        } else {
-                            walker.get_first_child(&elem)
-                        };
-
+                        let child_res = if let Some(req) = &self.cache_req { walker.get_first_child_build_cache(&elem, req) } else { walker.get_first_child(&elem) };
                         if let Ok(child) = child_res {
                             queue = Some(child.clone());
                             parent_tok = cur_tok;
                             parent_lvl = cur_level;
                             cur_level.next_level();
-
                             self.child_cache.insert(parent_lvl, Some((child, cur_level)));
                             continue;
-                        } else {
-                            self.child_cache.insert(cur_level, None);
-                        }
+                        } else { self.child_cache.insert(cur_level, None); }
                     }
                 }
             }
-
-            let sibling_res = if let Some(req) = &self.cache_req {
-                walker.get_next_sibling_build_cache(&elem, req)
-            } else {
-                walker.get_next_sibling(&elem)
-            };
-
-            match sibling_res {
-                Ok(sib) => {
-                    queue = Some(sib.clone());
-                    cur_level.next_element();
-                    self.child_cache.insert(parent_lvl, Some((sib, cur_level)));
-                }
-                Err(_) => {
-                    self.child_cache.insert(parent_lvl, None);
-                    }
-                }
-            }
-            
+            Self::next_sibling(&walker, &self.cache_req, &elem, &mut queue, &mut cur_level, &mut self.child_cache, parent_lvl);
+        }
+        
         let chain = result_tok.ancestors(&self.rect_tree);
         let mut rects = Vec::with_capacity(16);
         let mut prev = ElementRect::from(result_bounds);
         rects.push(prev);
-
         for node in chain {
             let r = ElementRect::from(node.data);
-            if r == prev || r.min_x >= prev.max_x || r.min_y >= prev.max_y {
-                continue;
-            }
+            if r == prev || r.min_x >= prev.max_x || r.min_y >= prev.max_y { continue; }
             rects.push(r);
             prev = r;
         }
-        
         let mut window_rects_to_add = Vec::new();
-        
         for rect in &rects {
             for win_rect in self.window_bounds.values() {
                 let win_elem_rect = ElementRect::from(*win_rect);
-                if *rect == win_elem_rect {
-                    window_rects_to_add.push((Self::shadow_inset_rect(rect), *rect));
-                    break;
-                }
+                if *rect == win_elem_rect { window_rects_to_add.push((Self::shadow_inset_rect(rect), *rect)); break; }
             }
         }
-        
         for (inner, outer) in window_rects_to_add {
-            if let Some(pos) = rects.iter().position(|r| *r == outer) {
-                rects.insert(pos, inner);
-            }
+            if let Some(pos) = rects.iter().position(|r| *r == outer) { rects.insert(pos, inner); }
         }
-        
         Ok(rects)
+    }
+
+    fn next_sibling(walker: &UITreeWalker, cache_req: &Option<UICacheRequest>, elem: &UIElement, queue: &mut Option<UIElement>, cur_level: &mut ElementLevel, child_cache: &mut HashMap<ElementLevel, Option<(UIElement, ElementLevel)>>, parent_lvl: ElementLevel) {
+        let sibling_res = if let Some(req) = cache_req { walker.get_next_sibling_build_cache(elem, req) } else { walker.get_next_sibling(elem) };
+        match sibling_res {
+            Ok(sib) => { *queue = Some(sib.clone()); cur_level.next_element(); child_cache.insert(parent_lvl, Some((sib, *cur_level))); }
+            Err(_) => { child_cache.insert(parent_lvl, None); }
+        }
     }
 }
 
@@ -538,5 +329,82 @@ impl Drop for UiElementIndex {
         self.automation = None;
         self.walker = None;
         self.desktop_root = None;
+    }
+}
+
+use super::auto_selection::DetectionMode;
+
+// 获取首帧元素
+pub fn capture_element_at_point(mx: i32, my: i32, mode: DetectionMode) -> Option<Vec<ElementRect>> {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GetWindowRect, GA_ROOT, WindowFromPoint};
+    use windows::Win32::Foundation::RECT;
+    
+    match mode {
+        DetectionMode::None => None,
+        
+        DetectionMode::Window => {
+            let point = POINT { x: mx, y: my };
+            let hwnd = unsafe { WindowFromPoint(point) };
+            if hwnd.0 == std::ptr::null_mut() {
+                return None;
+            }
+            let root_hwnd = unsafe { GetAncestor(hwnd, GA_ROOT) };
+            let target_hwnd = if root_hwnd.0 != std::ptr::null_mut() { root_hwnd } else { hwnd };
+            
+            let mut rect = RECT::default();
+            if unsafe { GetWindowRect(target_hwnd, &mut rect) }.is_err() {
+                return None;
+            }
+            
+            let outer_rect = ElementRect {
+                min_x: rect.left,
+                min_y: rect.top,
+                max_x: rect.right,
+                max_y: rect.bottom,
+            };
+            let inner_rect = ElementRect {
+                min_x: rect.left + 10,
+                min_y: rect.top,
+                max_x: rect.right - 10,
+                max_y: rect.bottom - 10,
+            };
+            Some(vec![inner_rect, outer_rect])
+        }
+        
+        DetectionMode::All => {
+            let uia = UIAutomation::new().ok()?;
+            let walker = uia.get_content_view_walker().ok()?;
+            let target = uia.element_from_point(uiautomation::types::Point::new(mx, my)).ok()?;
+            
+            let mut rects = Vec::with_capacity(16);
+            let mut current = Some(target);
+            
+            while let Some(elem) = current {
+                if let Ok(bounds) = elem.get_bounding_rectangle() {
+                    let (l, t, r, b) = (
+                        bounds.get_left(),
+                        bounds.get_top(),
+                        bounds.get_right(),
+                        bounds.get_bottom(),
+                    );
+                    
+                    if !(l == 0 && r == 0 && t == 0 && b == 0) {
+                        let rect = ElementRect {
+                            min_x: l,
+                            min_y: t,
+                            max_x: r,
+                            max_y: b,
+                        };
+                        if rects.last().map_or(true, |last| *last != rect) {
+                            rects.push(rect);
+                        }
+                    }
+                }
+                current = walker.get_parent(&elem).ok();
+            }
+            
+            if rects.is_empty() { None } else { Some(rects) }
+        }
     }
 }

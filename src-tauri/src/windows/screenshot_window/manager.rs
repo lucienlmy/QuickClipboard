@@ -91,6 +91,10 @@ fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
     if !settings.screenshot_enabled {
         return Ok(());
     }
+
+    let cursor_pos = crate::mouse::get_cursor_position();
+    let detection_mode = settings.screenshot_element_detection.clone();
+    
     let window = get_or_create_window(app)?;
 
     if window.is_visible().unwrap_or(false) {
@@ -100,15 +104,35 @@ fn start_screenshot_with_mode(app: &AppHandle, mode: u8) -> Result<(), String> {
     SCREENSHOT_MODE.store(mode, Ordering::SeqCst);
 
     set_window_exclude_from_capture(&window, true);
-    
     resize_window_to_virtual_screen(&window);
     let is_dev = cfg!(debug_assertions);
     let _ = window.set_always_on_top(!is_dev);
+    let _ = window.set_ignore_cursor_events(true);
     let _ = window.show();
     let _ = window.set_focus();
 
     INIT_GATE_SESSION.fetch_add(1, Ordering::SeqCst);
     INIT_GATE_NOTIFY.notify_waiters();
+
+    if detection_mode != "none" {
+        let window_clone = window.clone();
+        let mode_clone = detection_mode.clone();
+        thread::spawn(move || {
+            let result = crate::windows::screenshot_window::auto_selection::capture_initial_element(
+                cursor_pos.0, 
+                cursor_pos.1,
+                mode_clone,
+            );
+            let _ = window_clone.set_ignore_cursor_events(false);
+            if let Some(rects) = result {
+                if !rects.is_empty() {
+                    crate::windows::screenshot_window::auto_selection::emit_initial_hierarchy(&window_clone, &rects);
+                }
+            }
+        });
+    } else {
+        let _ = window.set_ignore_cursor_events(false);
+    }
 
     let app_for_auto = app.clone();
     thread::spawn(move || {
