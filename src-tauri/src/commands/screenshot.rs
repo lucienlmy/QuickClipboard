@@ -29,11 +29,19 @@ pub fn get_last_screenshot_captures() -> Result<Vec<crate::services::screenshot:
 pub fn cancel_screenshot_session(app: tauri::AppHandle) -> Result<(), String> {
     crate::services::screenshot::clear_last_captures();
     crate::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
+    crate::utils::image_http_server::clear_raw_images();
+    
     if let Some(win) = app.get_webview_window("screenshot") {
         let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize::new(1.0, 1.0)));
         let _ = win.hide();
         let _ = win.eval("window.location.reload()");
     }
+    
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        crate::services::memory::cleanup_memory();
+    });
+    
     Ok(())
 }
 

@@ -334,6 +334,8 @@ pub fn run() {
 
                 windows::updater_window::start_update_checker(app.handle().clone());
 
+                services::memory::init();
+
             Ok(())
         })
         .build(tauri::generate_context!())

@@ -154,3 +154,9 @@ pub fn clear_pin_edit_data() {
     let mut guard = PIN_EDIT_DATA.lock();
     *guard = None;
 }
+
+// 清除原始图像缓存
+pub fn clear_raw_images() {
+    let mut guard = IMAGE_STORE.lock();
+    *guard = None;
+}
