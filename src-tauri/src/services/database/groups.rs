@@ -158,3 +158,21 @@ pub fn delete_group(name: String) -> Result<(), String> {
     })
 }
 
+// 更新分组排序
+pub fn reorder_groups(group_orders: Vec<(String, i32)>) -> Result<(), String> {
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        let now = chrono::Local::now().timestamp();
+        
+        for (name, order) in group_orders {
+            tx.execute(
+                "UPDATE groups SET order_index = ?1, updated_at = ?2 WHERE name = ?3",
+                params![order, now, &name],
+            )?;
+        }
+        
+        tx.commit()?;
+        Ok(())
+    })
+}
+

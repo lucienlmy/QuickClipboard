@@ -125,6 +125,7 @@ pub fn run() {
                 commands::add_group,
                 commands::update_group,
                 commands::delete_group,
+                commands::reorder_groups,
                 commands::reload_settings,
                 commands::save_settings,
                 commands::reset_settings_to_default,

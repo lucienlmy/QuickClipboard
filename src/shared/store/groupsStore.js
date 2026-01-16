@@ -3,7 +3,8 @@ import {
   getGroups as apiGetGroups,
   addGroup as apiAddGroup,
   updateGroup as apiUpdateGroup,
-  deleteGroup as apiDeleteGroup
+  deleteGroup as apiDeleteGroup,
+  reorderGroups as apiReorderGroups
 } from '@shared/api/groups'
 
 // 分组 Store
@@ -35,6 +36,10 @@ export const groupsStore = proxy({
 
   removeGroup(id) {
     this.groups = this.groups.filter(g => g.name !== id)
+  },
+
+  setGroups(groups) {
+    this.groups = groups
   }
 })
 
@@ -103,6 +108,24 @@ export async function deleteGroup(name) {
     return true
   } catch (error) {
     console.error('删除分组失败:', error)
+    throw error
+  }
+}
+
+// 更新分组排序
+export async function reorderGroups(newGroups) {
+  try {
+    const groupOrders = newGroups
+      .filter(g => g.name !== '全部')
+      .map((g, index) => [g.name, index + 1])
+    
+    await apiReorderGroups(groupOrders)
+    groupsStore.setGroups(newGroups)
+    
+    return true
+  } catch (error) {
+    console.error('更新分组排序失败:', error)
+    await loadGroups()
     throw error
   }
 }

@@ -1,4 +1,4 @@
-use crate::services::database::{get_all_groups, add_group as db_add_group, update_group as db_update_group, delete_group as db_delete_group, GroupInfo};
+use crate::services::database::{get_all_groups, add_group as db_add_group, update_group as db_update_group, delete_group as db_delete_group, reorder_groups as db_reorder_groups, GroupInfo};
 
 // 获取所有分组
 #[tauri::command]
@@ -22,5 +22,11 @@ pub fn update_group(old_name: String, new_name: String, new_icon: String, new_co
 #[tauri::command]
 pub fn delete_group(name: String) -> Result<(), String> {
     db_delete_group(name)
+}
+
+// 更新分组排序
+#[tauri::command]
+pub fn reorder_groups(group_orders: Vec<(String, i32)>) -> Result<(), String> {
+    db_reorder_groups(group_orders)
 }
 

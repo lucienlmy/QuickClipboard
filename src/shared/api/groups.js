@@ -25,6 +25,11 @@ export async function deleteGroup(name) {
   return await invoke('delete_group', { name })
 }
 
+// 更新分组排序
+export async function reorderGroups(groupOrders) {
+  return await invoke('reorder_groups', { groupOrders })
+}
+
 // 移动收藏项到分组
 export async function moveFavoriteToGroup(id, groupName) {
   return await invoke('move_quick_text_to_group', { id, groupName })
