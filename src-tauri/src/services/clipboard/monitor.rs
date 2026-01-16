@@ -163,22 +163,26 @@ fn handle_clipboard_change() -> Result<(), String> {
     }
     crate::AppSounds::play_copy_immediate();
     
-    // 处理并存储每个新内容项
-    let mut any_stored = false;
-    for content in new_contents {
-        let processed = process_content(content)?;
-        
-        match store_clipboard_item(processed) {
-            Ok(_) => any_stored = true,
-            Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
-            Err(e) => return Err(format!("存储剪贴板内容失败: {}", e)),
+    thread::spawn(move || {
+        let mut any_stored = false;
+        for content in new_contents {
+            match process_content(content) {
+                Ok(processed) => {
+                    match store_clipboard_item(processed) {
+                        Ok(_) => any_stored = true,
+                        Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
+                        Err(e) => eprintln!("存储剪贴板内容失败: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("处理剪贴板内容失败: {}", e),
+            }
         }
-    }
-    
-    if any_stored {
-        let _ = emit_clipboard_updated();
-        crate::AppSounds::play_copy_on_success();
-    }
+        
+        if any_stored {
+            let _ = emit_clipboard_updated();
+            crate::AppSounds::play_copy_on_success();
+        }
+    });
     
     Ok(())
 }
