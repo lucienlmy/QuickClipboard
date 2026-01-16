@@ -1,5 +1,4 @@
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use std::fs::File;
@@ -171,8 +170,25 @@ impl SoundPlayer {
 pub struct AppSounds;
 
 impl AppSounds {
-    pub fn play_copy() {
+    // 复制音效 - 成功时播放
+    pub fn play_copy_on_success() {
         let settings = crate::get_settings();
+        if settings.copy_sound_timing != "success" {
+            return;
+        }
+        Self::do_play_copy(&settings);
+    }
+
+    // 复制音效 - 立即播放
+    pub fn play_copy_immediate() {
+        let settings = crate::get_settings();
+        if settings.copy_sound_timing != "immediate" {
+            return;
+        }
+        Self::do_play_copy(&settings);
+    }
+
+    fn do_play_copy(settings: &crate::services::AppSettings) {
         if !settings.sound_enabled {
             return;
         }
@@ -190,8 +206,25 @@ impl AppSounds {
         SoundPlayer::play_bytes(BUILTIN_COPY_SOUND, volume);
     }
 
-    pub fn play_paste() {
+    // 粘贴音效 - 成功时播放
+    pub fn play_paste_on_success() {
         let settings = crate::get_settings();
+        if settings.paste_sound_timing != "success" {
+            return;
+        }
+        Self::do_play_paste(&settings);
+    }
+
+    // 粘贴音效 - 立即播放
+    pub fn play_paste_immediate() {
+        let settings = crate::get_settings();
+        if settings.paste_sound_timing != "immediate" {
+            return;
+        }
+        Self::do_play_paste(&settings);
+    }
+
+    fn do_play_paste(settings: &crate::services::AppSettings) {
         if !settings.sound_enabled {
             return;
         }
@@ -207,6 +240,14 @@ impl AppSounds {
         }
 
         SoundPlayer::play_bytes(BUILTIN_PASTE_SOUND, volume);
+    }
+
+    pub fn play_copy() {
+        Self::play_copy_on_success();
+    }
+
+    pub fn play_paste() {
+        Self::play_paste_immediate();
     }
 
     pub fn play_scroll() {

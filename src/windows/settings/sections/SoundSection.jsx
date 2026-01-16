@@ -5,6 +5,8 @@ import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Slider from '@shared/components/ui/Slider';
 import FileInput from '../components/FileInput';
+import Select from '@shared/components/ui/Select';
+
 function SoundSection({
   settings,
   onSettingChange
@@ -26,6 +28,12 @@ function SoundSection({
       console.error('播放粘贴音效失败:', error);
     }
   };
+
+  const timingOptions = [
+    { value: 'immediate', label: t('settings.sound.timingImmediate') },
+    { value: 'success', label: t('settings.sound.timingSuccess') }
+  ];
+
   return <>
       <SettingsSection title={t('settings.sound.title')} description={t('settings.sound.description')}>
         <SettingItem label={t('settings.sound.enable')} description={t('settings.sound.enableDesc')}>
@@ -40,8 +48,16 @@ function SoundSection({
           <FileInput value={settings.copySoundPath || ''} onChange={value => onSettingChange('copySoundPath', value)} onTest={handlePlayCopySound} onReset={() => onSettingChange('copySoundPath', '')} placeholder={t('settings.sound.selectFile')} />
         </SettingItem>
 
+        <SettingItem label={t('settings.sound.copySoundTiming')} description={t('settings.sound.copySoundTimingDesc')}>
+          <Select value={settings.copySoundTiming || 'immediate'} onChange={value => onSettingChange('copySoundTiming', value)} options={timingOptions} className="w-40" />
+        </SettingItem>
+
         <SettingItem label={t('settings.sound.pasteSound')} description={t('settings.sound.pasteSoundDesc')}>
           <FileInput value={settings.pasteSoundPath || ''} onChange={value => onSettingChange('pasteSoundPath', value)} onTest={handlePlayPasteSound} onReset={() => onSettingChange('pasteSoundPath', '')} placeholder={t('settings.sound.selectFile')} />
+        </SettingItem>
+
+        <SettingItem label={t('settings.sound.pasteSoundTiming')} description={t('settings.sound.pasteSoundTimingDesc')}>
+          <Select value={settings.pasteSoundTiming || 'immediate'} onChange={value => onSettingChange('pasteSoundTiming', value)} options={timingOptions} className="w-40" />
         </SettingItem>
       </SettingsSection>
     </>;

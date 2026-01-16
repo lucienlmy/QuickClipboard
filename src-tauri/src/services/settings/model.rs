@@ -28,6 +28,8 @@ pub struct AppSettings {
     pub sound_volume: f64,
     pub copy_sound_path: String,
     pub paste_sound_path: String,
+    pub copy_sound_timing: String, 
+    pub paste_sound_timing: String,
 
     // 截屏设置
     pub screenshot_enabled: bool,
@@ -157,6 +159,8 @@ impl Default for AppSettings {
             sound_volume: 50.0,
             copy_sound_path: String::new(),
             paste_sound_path: String::new(),
+            copy_sound_timing: "immediate".to_string(),
+            paste_sound_timing: "immediate".to_string(),
 
             screenshot_enabled: true,
             screenshot_shortcut: "Ctrl+Shift+A".to_string(),

@@ -161,6 +161,7 @@ fn handle_clipboard_change() -> Result<(), String> {
     if new_contents.is_empty() {
         return Ok(());
     }
+    crate::AppSounds::play_copy_immediate();
     
     // 处理并存储每个新内容项
     let mut any_stored = false;
@@ -176,7 +177,7 @@ fn handle_clipboard_change() -> Result<(), String> {
     
     if any_stored {
         let _ = emit_clipboard_updated();
-        crate::AppSounds::play_copy();
+        crate::AppSounds::play_copy_on_success();
     }
     
     Ok(())

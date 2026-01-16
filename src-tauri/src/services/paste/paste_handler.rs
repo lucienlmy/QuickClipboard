@@ -31,7 +31,7 @@ pub fn paste_text_direct(text: &str) -> Result<(), String> {
     std::thread::sleep(std::time::Duration::from_millis(50));
     simulate_paste()?;
     std::thread::sleep(std::time::Duration::from_millis(100));
-    
+    crate::AppSounds::play_paste_on_success();
     Ok(())
 }
 
@@ -55,6 +55,7 @@ pub fn paste_image_file(file_path: &str) -> Result<(), String> {
     std::thread::sleep(std::time::Duration::from_millis(50));
     simulate_paste()?;
     std::thread::sleep(std::time::Duration::from_millis(100));
+    crate::AppSounds::play_paste_on_success();
     
     Ok(())
 }
@@ -158,6 +159,7 @@ fn paste_item_internal(
     std::thread::sleep(std::time::Duration::from_millis(50));
     simulate_paste()?;
     std::thread::sleep(std::time::Duration::from_millis(100));
+    crate::AppSounds::play_paste_on_success();
     
     Ok(())
 }

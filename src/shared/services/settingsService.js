@@ -75,6 +75,8 @@ export const defaultSettings = {
   soundVolume: 50,
   copySoundPath: '',
   pasteSoundPath: '',
+  copySoundTiming: 'immediate',  
+  pasteSoundTiming: 'immediate', 
   
   // 便捷粘贴设置
   quickpasteEnabled: true,

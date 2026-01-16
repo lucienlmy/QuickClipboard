@@ -170,7 +170,7 @@ fn handle_key_press(key: Key, _event: &Event) -> bool {
     if matches!(key, Key::KeyV) {
         if let Some(state) = KEYBOARD_STATE.try_lock() {
             if state.ctrl && !state.alt && !state.shift && !state.meta {
-                crate::AppSounds::play_paste();
+                crate::AppSounds::play_paste_immediate();
             }
         }
     }
@@ -178,8 +178,8 @@ fn handle_key_press(key: Key, _event: &Event) -> bool {
     // Shift+Insert 粘贴音效
     if matches!(key, Key::Insert) {
         if let Some(state) = KEYBOARD_STATE.try_lock() {
-            if state.shift {
-                crate::AppSounds::play_paste();
+            if state.shift && !state.ctrl && !state.alt && !state.meta {
+                crate::AppSounds::play_paste_immediate();
             }
         }
     }
