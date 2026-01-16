@@ -44,7 +44,11 @@
     "unpin": "Unpin",
     "dragImageToExternal": "Drag to external apps",
     "dragFileToExternal": "Drag to external apps",
-    "dragFilesToExternal": "Drag to external apps ({{count}} files)"
+    "dragFilesToExternal": "Drag to external apps ({{count}} files)",
+    "imageTooLarge": "Image too large",
+    "maxLimit": "limit",
+    "imageLoadFailed": "Failed to load image",
+    "fileNotFound": "File not found"
   },
   "favorites": {
     "title": "Favorites",
