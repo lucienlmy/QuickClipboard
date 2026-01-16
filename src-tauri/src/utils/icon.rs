@@ -7,12 +7,6 @@ use sha2::{Sha256, Digest};
 pub fn get_file_icon_base64(path: &str) -> Option<String> {
     match get_file_icon(path, 32) {
         Ok(icon) => {
-            if is_image_file(path) {
-                if let Ok(image_data) = read_image_thumbnail(path, 32) {
-                    return Some(image_data);
-                }
-            }
-            
             if let Ok(png_data) = icon_to_png(&icon) {
                 use base64::{Engine as _, engine::general_purpose};
                 let base64_str = general_purpose::STANDARD.encode(&png_data);
@@ -46,22 +40,6 @@ pub fn is_image_file(path: &str) -> bool {
     path_lower.ends_with(".gif") || 
     path_lower.ends_with(".bmp") || 
     path_lower.ends_with(".webp")
-}
-
-// 读取图片文件的缩略图
-fn read_image_thumbnail(path: &str, size: u32) -> Result<String, String> {
-    use base64::{Engine as _, engine::general_purpose};
-    
-    let img = image::open(path).map_err(|e| format!("读取图片失败: {}", e))?;
-    let thumbnail = img.thumbnail(size, size);
-    
-    let mut png_data = Vec::new();
-    let mut cursor = Cursor::new(&mut png_data);
-    thumbnail.write_to(&mut cursor, ImageFormat::Png)
-        .map_err(|e| format!("PNG编码失败: {}", e))?;
-    
-    let base64_str = general_purpose::STANDARD.encode(&png_data);
-    Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
 // 计算图标哈希
