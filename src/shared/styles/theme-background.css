@@ -71,7 +71,12 @@ body.theme-background {
 }
 
 .theme-background.has-dynamic-titlebar .groups-panel button:not(.bg-blue-500) {
-  color: var(--bg-titlebar-text, #333333) !important;
+  color: #374151 !important;
+}
+
+.theme-background.has-dynamic-titlebar .groups-panel button.bg-blue-500 {
+  background-color: var(--bg-dynamic-primary, #4a89dc) !important;
+  color: #ffffff !important;
 }
 
 .theme-background.has-dynamic-titlebar .settings-header button.hover\:bg-red-50:hover {

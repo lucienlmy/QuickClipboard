@@ -8,8 +8,7 @@ const BottomMenuPopup = forwardRef(({
   icon: Icon,
   label,
   title,
-  menuItems = [],
-  width = 120
+  menuItems = []
 }, ref) => {
   const settings = useSnapshot(settingsStore);
   const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
@@ -102,10 +101,9 @@ const BottomMenuPopup = forwardRef(({
     setExpandedMenuItem(null);
   };
   return <>
-    <div className="relative flex flex-col items-end" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="relative flex flex-col h-full w-full" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       {/* 弹出面板 */}
-      {isOpen && <div className={`groups-panel absolute bottom-full right-0 backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border border-b-0 border-gray-200/50 dark:border-gray-700/50 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${uiAnimationEnabled ? (isClosing ? 'animate-slide-down' : 'animate-slide-up') : ''}`} style={{
-        width: `${width}px`,
+      {isOpen && <div className={`groups-panel absolute bottom-full left-0 right-0 backdrop-blur-xl bg-[#fdfdfd] dark:bg-gray-800 border border-b-0 border-gray-300/80 dark:border-gray-700/30 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${uiAnimationEnabled ? (isClosing ? 'animate-slide-down' : 'animate-slide-up') : ''}`} style={{
         maxHeight: '350px'
       }}>
         {/* 头部 */}
@@ -114,7 +112,7 @@ const BottomMenuPopup = forwardRef(({
             {title}
           </h3>
           <div className="flex items-center gap-0.5">
-            <button onClick={togglePin} className={`p-1 rounded transition-all ${isPinned ? 'bg-blue-100/60 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-200/60 dark:hover:bg-gray-700/60 text-gray-500 dark:text-gray-400'}`} title={isPinned ? '取消固定' : '固定'}>
+            <button onClick={togglePin} className={`p-1 rounded transition-all ${isPinned ? 'bg-blue-500 text-white' : 'hover:bg-gray-200/60 dark:hover:bg-gray-700/60 text-gray-500 dark:text-gray-400'}`} title={isPinned ? '取消固定' : '固定'}>
               {isPinned ? <i className="ti ti-pinned" style={{
                 fontSize: 12
               }}></i> : <i className="ti ti-pin" style={{
@@ -184,13 +182,9 @@ const BottomMenuPopup = forwardRef(({
       </div>}
 
       {/* 触发按钮 */}
-      <button onClick={togglePopup} className={`flex items-center justify-center gap-1.5 h-5 transition-all duration-300 ${isOpen ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg rounded-b-lg border border-t-0 border-gray-200/50 dark:border-gray-700/50' : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50 rounded-lg'}`} style={{
-        width: `${width}px`
-      }} title={title}>
+      <button onClick={togglePopup} className={`flex items-center justify-center gap-1.5 w-full h-full px-3 transition-all duration-300 ${isOpen ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg border border-t-0 border-gray-200/50 dark:border-gray-700/50' : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50'}`} title={title}>
         {Icon && <i className={Icon} style={{ fontSize: 12 }} />}
-        <span className="text-[10px] font-medium truncate" style={{
-          maxWidth: `${width - 40}px`
-        }}>
+        <span className="text-[10px] font-medium truncate">
           {label}
         </span>
       </button>

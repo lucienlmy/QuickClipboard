@@ -14,6 +14,7 @@ export const settingsStore = proxy({
   rowHeight: 'medium',
   fileDisplayMode: 'detailed',
   listStyle: 'compact', // 'compact' | 'card'
+  footerLeftRatio: 0.5,
   
   // 系统主题状态
   systemIsDark: typeof window !== 'undefined' && window.matchMedia 
@@ -110,6 +111,12 @@ export const settingsStore = proxy({
     localStorage.setItem('listStyle', style)
   },
   
+  // 底部栏左侧占比
+  setFooterLeftRatio(ratio) {
+    this.footerLeftRatio = ratio
+    localStorage.setItem('footerLeftRatio', String(ratio))
+  },
+  
   // 粘贴格式
   setPasteWithFormat(withFormat) {
     this.saveSetting('pasteWithFormat', withFormat)
@@ -123,11 +130,13 @@ export async function initSettings() {
   const rowHeight = localStorage.getItem('rowHeight')
   const fileDisplayMode = localStorage.getItem('fileDisplayMode')
   const listStyle = localStorage.getItem('listStyle')
+  const footerLeftRatio = localStorage.getItem('footerLeftRatio')
   
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
   if (rowHeight) settingsStore.rowHeight = rowHeight
   if (fileDisplayMode) settingsStore.fileDisplayMode = fileDisplayMode
   if (listStyle) settingsStore.listStyle = listStyle
+  if (footerLeftRatio) settingsStore.footerLeftRatio = parseFloat(footerLeftRatio)
   
   // 从后端加载所有配置
   await settingsStore.loadSettings()

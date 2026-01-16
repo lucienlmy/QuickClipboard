@@ -1,9 +1,11 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
+import { useRef, useState, useEffect } from 'react';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
 import { settingsStore } from '@shared/store/settingsStore';
 import BottomMenuPopup from './BottomMenuPopup';
+
 function FooterBar({
   children
 }) {
@@ -11,11 +13,58 @@ function FooterBar({
     t
   } = useTranslation();
   const settings = useSnapshot(settingsStore);
+  const containerRef = useRef(null);
+  const [leftRatio, setLeftRatio] = useState(() => {
+    return settings.footerLeftRatio ?? 0.5;
+  });
+  const [isDragging, setIsDragging] = useState(false);
 
   const dragRef = useWindowDrag({
     excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]'],
     allowChildren: true
   });
+
+  // 吸附点位
+  const snapPoints = [0.3, 0.5, 0.7];
+  const snapThreshold = 0.03;
+
+  const handleDividerMouseDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      let ratio = Math.max(0.2, Math.min(0.8, x / rect.width));
+
+      for (const snap of snapPoints) {
+        if (Math.abs(ratio - snap) < snapThreshold) {
+          ratio = snap;
+          break;
+        }
+      }
+      
+      setLeftRatio(ratio);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      settingsStore.setFooterLeftRatio(leftRatio);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, leftRatio]);
 
   const menuItems = [{
     id: 'listStyle',
@@ -63,35 +112,30 @@ function FooterBar({
     }],
     onSelect: value => settingsStore.setFileDisplayMode(value)
   }];
-  const toggleShortcutHint = settings.toggleShortcut || 'Shift+Space';
-  let numberShortcutHint = null;
-  if (settings.numberShortcuts) {
-    const modifier = settings.numberShortcutsModifier || 'Ctrl';
-    if (modifier === 'None') {
-      numberShortcutHint = '1~9';
-    } else {
-      numberShortcutHint = `${modifier}+1~9`;
-    }
-  }
-  return <div ref={dragRef} className="flex-shrink-0 h-5 flex items-center px-3 bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 relative footer-bar">
-    <div className="flex items-center gap-2 text-[10px]">
-      <span>{toggleShortcutHint} {t('footer.openClipboard')}</span>
-      {/* {numberShortcutHint && <span>{numberShortcutHint} {t('footer.pasteShortcut')}</span>} */}
+
+  return <div ref={(el) => { dragRef.current = el; containerRef.current = el; }} className="flex-shrink-0 h-5 flex bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 relative footer-bar">
+    {/* 左侧：列表设置 */}
+    <div className="h-full" style={{ width: `${leftRatio * 100}%` }} data-no-drag>
+      <BottomMenuPopup
+        icon="ti ti-list"
+        label={t('listSettings.title')}
+        title={t('listSettings.title')}
+        menuItems={menuItems}
+      />
     </div>
 
-    <div className="absolute right-3 top-0 h-full flex items-center gap-2 pl-4" data-no-drag>
+    {/* 分隔条 */}
+    <div
+      className={`h-full w-1 cursor-col-resize flex items-center justify-center hover:bg-gray-400/50 dark:hover:bg-gray-600/50 transition-colors ${isDragging ? 'bg-blue-500/50' : ''}`}
+      onMouseDown={handleDividerMouseDown}
+      data-no-drag
+    >
+      <div className="w-0.5 h-2 bg-gray-400 dark:bg-gray-600 rounded-full"></div>
+    </div>
 
-      <div className="relative flex items-center gap-2">
-        <BottomMenuPopup
-          icon="ti ti-list"
-          label={t('listSettings.title')}
-          title={t('listSettings.title')}
-          menuItems={menuItems}
-          width={120}
-        />
-
-        {children}
-      </div>
+    {/* 右侧：分组等 */}
+    <div className="h-full" style={{ width: `${(1 - leftRatio) * 100}%` }} data-no-drag>
+      {children}
     </div>
   </div>;
 }

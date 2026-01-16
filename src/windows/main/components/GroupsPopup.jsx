@@ -38,36 +38,30 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
       onClick={() => onSelect(group.name)}
       className="group relative"
     >
-      <div className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer transition-all ${
+      <div className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all ${
         isActive 
           ? 'bg-blue-500 text-white' 
           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
       } ${isDragging ? 'shadow-lg rounded bg-white dark:bg-gray-800' : ''}`}>
         {/* 拖拽手柄 */}
-        {group.name !== '全部' && (
-          <div
-            {...attributes}
-            {...listeners}
-            className={`flex-shrink-0 cursor-grab active:cursor-grabbing -ml-0.5 -mr-1 opacity-40 hover:opacity-100 ${
-              isActive ? 'opacity-70' : ''
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <i className="ti ti-grip-vertical" style={{ fontSize: 8 }}></i>
-          </div>
-        )}
+        <div
+          {...attributes}
+          {...listeners}
+          className={`flex-shrink-0 cursor-grab active:cursor-grabbing opacity-30 hover:opacity-70 ${
+            isActive ? 'opacity-50 hover:opacity-80' : ''
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <i className="ti ti-grip-vertical" style={{ fontSize: 10 }}></i>
+        </div>
 
         {/* 图标 */}
         <div className="flex-shrink-0">
-          {group.name === '全部' ? (
-            <i className={group.icon} style={{ fontSize: 14 }}></i>
-          ) : (
-            <i className={group.icon} style={{ fontSize: 14, color: group.color || '#dc2626' }}></i>
-          )}
+          <i className={group.icon} style={{ fontSize: 12, color: isActive ? undefined : (group.color || '#dc2626') }}></i>
         </div>
 
         {/* 名称 */}
-        <div className="flex-1 text-xs font-medium truncate">
+        <div className="flex-1 text-[11px] font-medium truncate">
           {group.name}
         </div>
       </div>
@@ -79,10 +73,10 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
         }`}>
           <button
             onClick={(e) => onEdit(e, group)}
-            className={`p-0.5 rounded transition-all shadow-sm ${
+            className={`p-0.5 rounded transition-all ${
               isActive
-                ? 'bg-white dark:bg-gray-200 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-300'
-                : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-500'
+                ? 'bg-white/20 hover:bg-white/30'
+                : 'hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
             title={t('groups.edit')}
           >
@@ -90,10 +84,10 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
           </button>
           <button
             onClick={(e) => onDelete(e, group.name)}
-            className={`p-0.5 rounded transition-all shadow-sm ${
+            className={`p-0.5 rounded transition-all ${
               isActive
-                ? 'bg-white dark:bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-200'
-                : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50'
+                ? 'bg-white/20 hover:bg-red-400/50'
+                : 'hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50'
             }`}
             title={t('groups.delete')}
           >
@@ -290,13 +284,13 @@ const GroupsPopup = forwardRef(({
   return (
     <>
       <div
-        className="relative flex flex-col items-end"
+        className="relative flex flex-col h-full w-full"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         {/* 弹出面板 */}
         {isOpen && (
-          <div className={`groups-panel absolute bottom-full right-0 w-[100px] max-h-[350px] backdrop-blur-xl bg-white/95 dark:bg-gray-800/95 border border-b-0 border-gray-300/80 dark:border-gray-700/30 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
+          <div className={`groups-panel absolute bottom-full left-0 right-0 max-h-[350px] backdrop-blur-xl bg-[#fdfdfd] dark:bg-gray-800 border border-b-0 border-gray-300/80 dark:border-gray-700/30 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
             uiAnimationEnabled ? (isClosing ? 'animate-slide-down' : 'animate-slide-up') : ''
           }`}>
             {/* 头部 */}
@@ -316,7 +310,7 @@ const GroupsPopup = forwardRef(({
                   onClick={togglePin}
                   className={`p-1 rounded transition-all ${
                     isPinned
-                      ? 'bg-blue-100/60 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                      ? 'bg-blue-500 text-white'
                       : 'hover:bg-gray-200/60 dark:hover:bg-gray-700/60 text-gray-500 dark:text-gray-400'
                   }`}
                   title={isPinned ? t('groups.unpin') : t('groups.pin')}
@@ -338,15 +332,19 @@ const GroupsPopup = forwardRef(({
                   onClick={() => handleSelectGroup(group.name)}
                   className="group relative"
                 >
-                  <div className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer transition-all ${
+                  <div className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all ${
                     groups.currentGroup === group.name
                       ? 'bg-blue-500 text-white'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
                   }`}>
-                    <div className="flex-shrink-0">
-                      <i className={group.icon} style={{ fontSize: 14 }}></i>
+
+                    <div className="flex-shrink-0 opacity-0">
+                      <i className="ti ti-grip-vertical" style={{ fontSize: 10 }}></i>
                     </div>
-                    <div className="flex-1 text-xs font-medium truncate">
+                    <div className="flex-shrink-0">
+                      <i className={group.icon} style={{ fontSize: 12 }}></i>
+                    </div>
+                    <div className="flex-1 text-[11px] font-medium truncate">
                       {group.name}
                     </div>
                   </div>
@@ -383,10 +381,10 @@ const GroupsPopup = forwardRef(({
         {/* 触发按钮 */}
         <button
           onClick={togglePopup}
-          className={`flex items-center justify-center gap-1.5 w-[100px] h-5 transition-all duration-300 ${
+          className={`flex items-center justify-center gap-1.5 w-full h-full px-3 transition-all duration-300 ${
             isOpen
-              ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg rounded-b-lg border border-t-0 border-gray-200/50 dark:border-gray-700/50'
-              : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50 rounded-lg'
+              ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg border border-t-0 border-gray-200/50 dark:border-gray-700/50'
+              : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50'
           }`}
           title={t('groups.title')}
         >
