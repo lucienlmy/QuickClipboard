@@ -706,6 +706,8 @@
     "openLinks": "打开链接 ({{count}}个)",
     "openAll": "全部打开",
     "searchWith": "在 {{engine}} 中搜索",
+    "copy": "复制",
+    "copied": "已复制",
     "pinToScreen": "贴到屏幕",
     "saveImage": "另存为图片",
     "extractText": "提取文本并复制",

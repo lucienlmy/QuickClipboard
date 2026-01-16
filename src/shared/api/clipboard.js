@@ -204,6 +204,11 @@ export async function saveImageFromPath(filePath) {
   return await invoke('save_image_from_path', { filePath })
 }
 
+// 复制剪贴板项内容（不记录到历史）
+export async function copyClipboardItem(id) {
+  return await invoke('copy_clipboard_item', { id })
+}
+
 // 切换剪贴板项置顶状态
 export async function togglePinClipboardItem(id) {
   const isPinned = await invoke('toggle_pin_clipboard_item', { id })

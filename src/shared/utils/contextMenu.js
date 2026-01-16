@@ -15,7 +15,8 @@ import {
   saveImageFromPath,
   copyTextToClipboard,
   recognizeImageOcr,
-  moveClipboardItemToTop
+  moveClipboardItemToTop,
+  copyClipboardItem
 } from '@shared/api'
 import { getToolState } from '@shared/services/toolActions'
 import { clipboardStore } from '@shared/store/clipboardStore'
@@ -358,7 +359,9 @@ export async function showClipboardItemContextMenu(event, item, index) {
   const plainText = typeof item.content === 'string' ? item.content.trim() : ''
 
   const pasteMenuItem = createPasteMenuItem(contentType, !!item.html_content)
-  menuItems.push(pasteMenuItem, createSeparator())
+  menuItems.push(pasteMenuItem)
+  menuItems.push(createMenuItem('copy-item', i18n.t('contextMenu.copy'), { icon: 'ti ti-copy' }))
+  menuItems.push(createSeparator())
 
   const { menuItems: linkMenuItems, links } = createLinkMenuItems(item)
   if (linkMenuItems.length > 0) {
@@ -408,6 +411,13 @@ export async function showClipboardItemContextMenu(event, item, index) {
   if (!result) return
 
   try {
+    // 处理复制操作
+    if (result === 'copy-item') {
+      await copyClipboardItem(item.id)
+      toast.success(i18n.t('contextMenu.copied'), TOAST_CONFIG)
+      return
+    }
+
     // 处理粘贴操作
     if (await handlePasteActions(result, item, true, index)) return
 
@@ -474,7 +484,9 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   const contentType = item.content_type || 'text'
 
   const pasteMenuItem = createPasteMenuItem(contentType, !!item.html_content)
-  menuItems.push(pasteMenuItem, createSeparator())
+  menuItems.push(pasteMenuItem)
+  menuItems.push(createMenuItem('copy-item', i18n.t('contextMenu.copy'), { icon: 'ti ti-copy' }))
+  menuItems.push(createSeparator())
 
   // 添加链接菜单
   const { menuItems: linkMenuItems, links } = createLinkMenuItems(item)
@@ -517,6 +529,14 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   if (!result) return
 
   try {
+    // 处理复制操作
+    if (result === 'copy-item') {
+      const { copyFavoriteItem } = await import('@shared/api/favorites')
+      await copyFavoriteItem(item.id)
+      toast.success(i18n.t('contextMenu.copied'), TOAST_CONFIG)
+      return
+    }
+
     // 处理粘贴操作
     if (await handlePasteActions(result, item, false, index)) return
 

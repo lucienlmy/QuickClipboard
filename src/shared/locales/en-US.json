@@ -704,6 +704,8 @@
     "openLinks": "Open Links ({{count}})",
     "openAll": "Open All",
     "searchWith": "Search with {{engine}}",
+    "copy": "Copy",
+    "copied": "Copied",
     "pinToScreen": "Pin to Screen",
     "saveImage": "Save Image As",
     "extractText": "Extract Text and Copy",

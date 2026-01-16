@@ -1,5 +1,4 @@
 use serde_json::Value;
-use clipboard_rs::{Clipboard, ClipboardContext};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 
@@ -36,13 +35,15 @@ pub fn disable_ai_translation_cancel_shortcut() -> Result<(), String> {
     Ok(())
 }
 
-// 复制纯文本
+// 复制纯文本到剪贴板
 #[tauri::command]
 pub fn copy_text_to_clipboard(text: String) -> Result<(), String> {
+    use clipboard_rs::ClipboardContext;
+    use crate::services::paste::set_clipboard_text;
+    
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
-    ctx.set_text(text)
-        .map_err(|e| format!("设置剪贴板文本失败: {}", e))
+    set_clipboard_text(&ctx, &text)
 }
 
 // 检查 Win+V 是否已在系统中被禁用

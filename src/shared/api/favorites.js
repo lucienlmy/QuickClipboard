@@ -82,3 +82,8 @@ export async function pasteFavorite(id, format = null) {
   }
 }
 
+// 复制收藏项内容（不记录到历史）
+export async function copyFavoriteItem(id) {
+  return await invoke('copy_favorite_item', { id })
+}
+

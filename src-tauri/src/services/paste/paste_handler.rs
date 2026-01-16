@@ -37,8 +37,8 @@ pub fn paste_text_direct(text: &str) -> Result<(), String> {
 
 // 粘贴图片文件（不记录到历史）
 pub fn paste_image_file(file_path: &str) -> Result<(), String> {
-    use clipboard_rs::Clipboard;
     use std::path::Path;
+    use super::clipboard_content::set_clipboard_files;
     
     let path = Path::new(file_path);
     if !path.exists() {
@@ -50,8 +50,7 @@ pub fn paste_image_file(file_path: &str) -> Result<(), String> {
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
     
-    ctx.set_files(vec![file_path.to_string()])
-        .map_err(|e| format!("设置剪贴板失败: {}", e))?;
+    set_clipboard_files(&ctx, vec![file_path.to_string()])?;
     
     std::thread::sleep(std::time::Duration::from_millis(50));
     simulate_paste()?;

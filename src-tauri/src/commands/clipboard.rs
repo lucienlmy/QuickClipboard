@@ -7,34 +7,8 @@ use crate::services::database::{
     toggle_pin_clipboard_item as db_toggle_pin,
     ClipboardItem, PaginatedResult, QueryParams,
 };
-use serde::{Deserialize, Serialize};
+use crate::services::paste::FilesData;
 use std::path::Path;
-
-#[derive(Deserialize, Serialize)]
-struct FileInfo {
-    path: String,
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    size: u64,
-    #[serde(default)]
-    is_directory: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    icon_data: Option<String>,
-    #[serde(default)]
-    file_type: String,
-    #[serde(default)]
-    exists: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    actual_path: Option<String>,
-}
-
-#[derive(Deserialize, Serialize)]
-struct FilesData {
-    files: Vec<FileInfo>,
-    #[serde(default)]
-    operation: String,
-}
 
 fn fill_file_exists(items: &mut [ClipboardItem]) {
     for item in items.iter_mut() {
@@ -261,8 +235,8 @@ pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
 // 复制图片文件到剪贴板
 #[tauri::command]
 pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
-    use clipboard_rs::{Clipboard, ClipboardContext};
-    use std::path::Path;
+    use clipboard_rs::ClipboardContext;
+    use crate::services::paste::set_clipboard_files;
     use sha2::{Sha256, Digest};
     
     let path = Path::new(&file_path);
@@ -299,8 +273,18 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
     
-    ctx.set_files(vec![final_path])
-        .map_err(|e| format!("复制到剪贴板失败: {}", e))
+    set_clipboard_files(&ctx, vec![final_path])
+}
+
+// 复制剪贴板项内容（不记录到历史）
+#[tauri::command]
+pub fn copy_clipboard_item(id: i64) -> Result<(), String> {
+    use crate::services::paste::set_clipboard_from_item;
+    
+    let item = get_clipboard_item_by_id(id)?
+        .ok_or_else(|| format!("剪贴板项不存在: {}", id))?;
+    
+    set_clipboard_from_item(&item.content_type, &item.content, &item.html_content, true)
 }
 
 // 直接粘贴文本

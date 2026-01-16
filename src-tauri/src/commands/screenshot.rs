@@ -116,7 +116,8 @@ pub async fn save_long_screenshot(path: String) -> Result<(), String> {
 // 长截屏复制到剪贴板
 #[tauri::command]
 pub async fn copy_long_screenshot_to_clipboard() -> Result<(), String> {
-    use clipboard_rs::{Clipboard, ClipboardContext};
+    use clipboard_rs::ClipboardContext;
+    use crate::services::paste::set_clipboard_files;
     use sha2::{Sha256, Digest};
     
     tokio::task::spawn_blocking(move || {
@@ -145,8 +146,7 @@ pub async fn copy_long_screenshot_to_clipboard() -> Result<(), String> {
         
         let ctx = ClipboardContext::new()
             .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
-        ctx.set_files(vec![final_path.to_string_lossy().to_string()])
-            .map_err(|e| format!("复制到剪贴板失败: {}", e))
+        set_clipboard_files(&ctx, vec![final_path.to_string_lossy().to_string()])
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?

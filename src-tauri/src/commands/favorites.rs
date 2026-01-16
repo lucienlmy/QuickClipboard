@@ -8,34 +8,8 @@ use crate::services::database::{
     update_favorite as db_update_favorite,
     FavoritesQueryParams, PaginatedResult, FavoriteItem
 };
-use serde::{Deserialize, Serialize};
+use crate::services::paste::FilesData;
 use std::path::Path;
-
-#[derive(Deserialize, Serialize)]
-struct FileInfo {
-    path: String,
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    size: u64,
-    #[serde(default)]
-    is_directory: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    icon_data: Option<String>,
-    #[serde(default)]
-    file_type: String,
-    #[serde(default)]
-    exists: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    actual_path: Option<String>,
-}
-
-#[derive(Deserialize, Serialize)]
-struct FilesData {
-    files: Vec<FileInfo>,
-    #[serde(default)]
-    operation: String,
-}
 
 fn fill_file_exists_for_favorites(items: &mut [FavoriteItem]) {
     for item in items.iter_mut() {
@@ -137,5 +111,16 @@ pub fn add_quick_text(title: String, content: String, group_name: Option<String>
 #[tauri::command]
 pub fn update_quick_text(id: String, title: String, content: String, group_name: Option<String>) -> Result<FavoriteItem, String> {
     db_update_favorite(id, title, content, group_name)
+}
+
+// 复制收藏项内容（不记录到历史）
+#[tauri::command]
+pub fn copy_favorite_item(id: String) -> Result<(), String> {
+    use crate::services::paste::set_clipboard_from_item;
+    
+    let item = get_favorite_by_id(&id)?
+        .ok_or_else(|| format!("收藏项不存在: {}", id))?;
+    
+    set_clipboard_from_item(&item.content_type, &item.content, &item.html_content, true)
 }
 

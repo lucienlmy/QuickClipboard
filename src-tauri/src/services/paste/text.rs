@@ -1,4 +1,5 @@
-use clipboard_rs::{Clipboard, ClipboardContext, ClipboardContent};
+use clipboard_rs::ClipboardContext;
+use super::clipboard_content::{set_clipboard_text, set_clipboard_rich_text};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PasteFormat {
@@ -6,13 +7,8 @@ pub enum PasteFormat {
     WithFormat,
 }
 
-// 粘贴纯文本
-pub fn paste_text(ctx: &ClipboardContext, text: &str) -> Result<(), String> {
-    ctx.set_text(text.to_string())
-        .map_err(|e| format!("粘贴文本失败: {}", e))
-}
 
-fn generate_cf_html(html: &str) -> String {
+pub fn generate_cf_html(html: &str) -> String {
     let html_content = if !html.contains("<html") {
         format!(
             "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n</head>\n<body>\n<!--StartFragment-->{}\n<!--EndFragment-->\n</body>\n</html>",
@@ -42,6 +38,11 @@ fn generate_cf_html(html: &str) -> String {
     )
 }
 
+// 粘贴纯文本
+pub fn paste_text(ctx: &ClipboardContext, text: &str) -> Result<(), String> {
+    set_clipboard_text(ctx, text)
+}
+
 // 粘贴富文本（HTML）
 pub fn paste_rich_text(
     ctx: &ClipboardContext,
@@ -52,18 +53,11 @@ pub fn paste_rich_text(
     
     if let Some(html) = html_content {
         if !settings.paste_with_format {
-            return paste_text(ctx, text);
+            return set_clipboard_text(ctx, text);
         }
-        
-        let cf_html = generate_cf_html(html);
-        
-        ctx.set(vec![
-            ClipboardContent::Text(text.to_string()),
-            ClipboardContent::Html(cf_html),
-        ])
-        .map_err(|e| format!("设置剪贴板内容失败: {}", e))
+        set_clipboard_rich_text(ctx, text, html)
     } else {
-        paste_text(ctx, text)
+        set_clipboard_text(ctx, text)
     }
 }
 
@@ -75,18 +69,12 @@ pub fn paste_rich_text_with_format(
     format: PasteFormat,
 ) -> Result<(), String> {
     match format {
-        PasteFormat::PlainText => paste_text(ctx, text),
+        PasteFormat::PlainText => set_clipboard_text(ctx, text),
         PasteFormat::WithFormat => {
             if let Some(html) = html_content {
-                let cf_html = generate_cf_html(html);
-                
-                ctx.set(vec![
-                    ClipboardContent::Text(text.to_string()),
-                    ClipboardContent::Html(cf_html),
-                ])
-                .map_err(|e| format!("设置剪贴板内容失败: {}", e))
+                set_clipboard_rich_text(ctx, text, html)
             } else {
-                paste_text(ctx, text)
+                set_clipboard_text(ctx, text)
             }
         }
     }
