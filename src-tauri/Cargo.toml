@@ -62,7 +62,7 @@ gpu-image-viewer = { git = "ssh://git@github.com/mosheng1/gpu-image-viewer.git",
 # gpu-image-viewer = { path = "plugins/gpu-image-viewer", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.62.2", features = [
+windows = { version = "0.62", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Shell",
