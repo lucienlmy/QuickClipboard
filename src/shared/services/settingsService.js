@@ -77,6 +77,11 @@ export const defaultSettings = {
   pasteSoundPath: '',
   copySoundTiming: 'immediate',  
   pasteSoundTiming: 'immediate', 
+
+  // 图片显示限制
+  imageMaxSizeMb: 15,
+  imageMaxWidth: 4096,
+  imageMaxHeight: 4096,
   
   // 便捷粘贴设置
   quickpasteEnabled: true,

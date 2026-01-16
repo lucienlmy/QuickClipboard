@@ -31,17 +31,6 @@ pub fn icon_to_png(icon: &file_icon_provider::Icon) -> Result<Vec<u8>, String> {
     Ok(png_data)
 }
 
-// 判断是否是图片文件
-pub fn is_image_file(path: &str) -> bool {
-    let path_lower = path.to_lowercase();
-    path_lower.ends_with(".jpg") || 
-    path_lower.ends_with(".jpeg") || 
-    path_lower.ends_with(".png") || 
-    path_lower.ends_with(".gif") || 
-    path_lower.ends_with(".bmp") || 
-    path_lower.ends_with(".webp")
-}
-
 // 计算图标哈希
 fn calculate_icon_hash(data: &[u8]) -> String {
     let mut hasher = Sha256::new();

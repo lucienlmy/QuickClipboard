@@ -31,6 +31,11 @@ pub struct AppSettings {
     pub copy_sound_timing: String, 
     pub paste_sound_timing: String,
 
+    // 图片显示限制
+    pub image_max_size_mb: u32,
+    pub image_max_width: u32,
+    pub image_max_height: u32,
+
     // 截屏设置
     pub screenshot_enabled: bool,
     pub screenshot_shortcut: String,
@@ -161,6 +166,10 @@ impl Default for AppSettings {
             paste_sound_path: String::new(),
             copy_sound_timing: "immediate".to_string(),
             paste_sound_timing: "immediate".to_string(),
+
+            image_max_size_mb: 15,
+            image_max_width: 4096,
+            image_max_height: 4096,
 
             screenshot_enabled: true,
             screenshot_shortcut: "Ctrl+Shift+A".to_string(),

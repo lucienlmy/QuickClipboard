@@ -6,14 +6,16 @@ import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { settingsStore } from '@shared/store/settingsStore';
 import { formatFileSize } from '@shared/utils/format';
 
-const MAX_IMAGE_SIZE_MB = 30;
-const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
-
 function ImageContent({
   item
 }) {
   const settings = useSnapshot(settingsStore);
   const isAutoHeight = settings.rowHeight === 'auto';
+  const maxSizeMb = settings.imageMaxSizeMb || 15;
+  const maxWidth = settings.imageMaxWidth || 4096;
+  const maxHeight = settings.imageMaxHeight || 4096;
+  const maxSizeBytes = maxSizeMb * 1024 * 1024;
+  
   const { t } = useTranslation();
   
   const handleDragStart = useCallback(() => {
@@ -27,6 +29,7 @@ function ImageContent({
   const [isOversized, setIsOversized] = useState(false);
   const [fileSize, setFileSize] = useState(null);
   const [fileName, setFileName] = useState(null);
+  const [imageDimensions, setImageDimensions] = useState(null);
   const imagePathRef = useRef(null);
   
   useEffect(() => {
@@ -41,6 +44,7 @@ function ImageContent({
       setIsOversized(false);
       setFileSize(null);
       setFileName(null);
+      setImageDimensions(null);
 
       if (item.content?.startsWith('data:image/')) {
         setImageSrc(item.content);
@@ -63,7 +67,16 @@ function ImageContent({
           setFileName(name);
           
           if (exists) {
-            if (size > MAX_IMAGE_SIZE_BYTES) {
+            const imgWidth = file.width || 0;
+            const imgHeight = file.height || 0;
+            const isSizeOversized = size > maxSizeBytes;
+            const isDimensionOversized = (imgWidth > maxWidth || imgHeight > maxHeight) && imgWidth > 0 && imgHeight > 0;
+            
+            if (imgWidth > 0 && imgHeight > 0) {
+              setImageDimensions({ width: imgWidth, height: imgHeight });
+            }
+            
+            if (isSizeOversized || isDimensionOversized) {
               setIsOversized(true);
             } else {
               const assetUrl = convertFileSrc(actualPath, 'asset');
@@ -102,7 +115,10 @@ function ImageContent({
       : t('clipboard.imageTooLarge', '图片过大');
     const sizeText = !fileExists 
       ? null 
-      : `${formatFileSize(fileSize)} / ${MAX_IMAGE_SIZE_MB} MB ${t('clipboard.maxLimit', '上限')}`;
+      : `${formatFileSize(fileSize)} / ${maxSizeMb} MB ${t('clipboard.maxLimit', '上限')}`;
+    const dimensionText = !fileExists || !imageDimensions
+      ? null
+      : `${imageDimensions.width} × ${imageDimensions.height}`;
 
     const colorClasses = !fileExists
       ? 'from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/20 border-red-300/60 dark:border-red-700/60'
@@ -144,9 +160,9 @@ function ImageContent({
               <p className={`text-xs ${subTextColorClass} mt-0.5 truncate`} title={fileName}>
                 {fileName}
               </p>
-              {sizeText && (
+              {(sizeText || dimensionText) && (
                 <p className={`text-xs ${subTextColorClass} opacity-80 mt-0.5`}>
-                  {sizeText}
+                  {[dimensionText, sizeText].filter(Boolean).join(' · ')}
                 </p>
               )}
             </div>
@@ -164,7 +180,7 @@ function ImageContent({
                 {fileName}
               </p>
               <p className={`text-xs ${subTextColorClass} truncate`}>
-                {statusText}{sizeText ? ` · ${formatFileSize(fileSize)}` : ''}
+                {statusText}{dimensionText ? ` · ${dimensionText}` : ''}{sizeText ? ` · ${formatFileSize(fileSize)}` : ''}
               </p>
             </div>
           </>
@@ -177,6 +193,7 @@ function ImageContent({
     onMouseDown={imagePathRef.current ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
     data-drag-ignore={imagePathRef.current ? "true" : undefined}
     title={imagePathRef.current ? t('clipboard.dragImageToExternal', '拖拽到外部') : undefined}
+    style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
   >
     <img src={imageSrc} alt="剪贴板图片" className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`} loading="lazy" decoding="async" />
   </div>;

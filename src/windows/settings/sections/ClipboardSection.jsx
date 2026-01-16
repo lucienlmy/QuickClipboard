@@ -53,6 +53,18 @@ function ClipboardSection({
           <Toggle checked={settings.imagePreview} onChange={checked => onSettingChange('imagePreview', checked)} />
         </SettingItem>
 
+        <SettingItem label={t('settings.clipboard.imageMaxSize')} description={t('settings.clipboard.imageMaxSizeDesc')}>
+          <Input type="number" value={settings.imageMaxSizeMb ?? 15} onChange={e => onSettingChange('imageMaxSizeMb', parseInt(e.target.value) || 15)} min={1} max={100} className="w-24" suffix="MB" />
+        </SettingItem>
+
+        <SettingItem label={t('settings.clipboard.imageMaxDimension')} description={t('settings.clipboard.imageMaxDimensionDesc')}>
+          <div className="flex items-center gap-2">
+            <Input type="number" value={settings.imageMaxWidth ?? 4096} onChange={e => onSettingChange('imageMaxWidth', parseInt(e.target.value) || 4096)} min={256} max={16384} className="w-24" />
+            <span className="text-gray-500">×</span>
+            <Input type="number" value={settings.imageMaxHeight ?? 4096} onChange={e => onSettingChange('imageMaxHeight', parseInt(e.target.value) || 4096)} min={256} max={16384} className="w-24" suffix="px" />
+          </div>
+        </SettingItem>
+
         <SettingItem label={t('settings.clipboard.windowPosition')} description={t('settings.clipboard.windowPositionDesc')}>
           <Select value={settings.windowPositionMode} onChange={value => onSettingChange('windowPositionMode', value)} options={positionOptions} className="w-48" />
         </SettingItem>

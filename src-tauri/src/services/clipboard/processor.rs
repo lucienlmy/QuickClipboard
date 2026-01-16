@@ -18,6 +18,10 @@ struct FileInfo {
     is_directory: bool,
     icon_data: Option<String>,
     file_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    height: Option<u32>,
 }
 
 // 文件剪贴板数据
@@ -106,7 +110,7 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
             let json_str = serde_json::to_string(&file_data)
                 .map_err(|e| format!("序列化文件信息失败: {}", e))?;
             
-            let ct = if file_infos.len() == 1 && crate::utils::icon::is_image_file(&file_infos[0].path) {
+            let ct = if file_infos.len() == 1 && crate::utils::is_image_file(&file_infos[0].path) {
                 ContentType::new("image")
             } else {
                 ContentType::new("file")
@@ -205,6 +209,14 @@ fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
         // 获取文件图标
         let icon_data = crate::utils::icon::get_file_icon_base64(&actual_path);
         
+        let (width, height) = if crate::utils::is_image_file(&actual_path) {
+            crate::utils::get_image_dimensions(&actual_path)
+                .map(|(w, h)| (Some(w), Some(h)))
+                .unwrap_or((None, None))
+        } else {
+            (None, None)
+        };
+        
         file_infos.push(FileInfo {
             path: stored_path,
             name,
@@ -212,6 +224,8 @@ fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
             is_directory: metadata.is_dir(),
             icon_data,
             file_type,
+            width,
+            height,
         });
     }
     

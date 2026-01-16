@@ -22,6 +22,10 @@ pub struct FileInfo {
     pub exists: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actual_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
 }
 
 // 文件剪贴板数据
