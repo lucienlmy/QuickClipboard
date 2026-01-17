@@ -643,6 +643,25 @@ pub fn parse_native_pin_id(window_label: &str) -> Option<u64> {
     }
 }
 
+fn cursor_in_any_window(app: &AppHandle, window_labels: &[&str], cursor_x: i32, cursor_y: i32) -> bool {
+    use tauri::Manager;
+    
+    for label in window_labels {
+        if let Some(window) = app.get_webview_window(label) {
+            if window.is_visible().unwrap_or(false) {
+                if let Ok((win_x, win_y, win_width, win_height)) = crate::get_window_bounds(&window) {
+                    let is_in_window = cursor_x >= win_x && cursor_x <= win_x + win_width as i32
+                        && cursor_y >= win_y && cursor_y <= win_y + win_height as i32;
+                    if is_in_window {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 // 从文件创建贴图
 #[tauri::command]
 pub fn create_native_pin_from_file(app: AppHandle, file_path: String) -> Result<(), String> {
@@ -700,6 +719,12 @@ const DEFAULT_PREVIEW_SIZE: u32 = 600;
 
 #[tauri::command]
 pub fn show_native_image_preview(app: AppHandle, file_path: String) -> Result<(), String> {
+    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+    let hit = cursor_in_any_window(&app, &["main", "context-menu"], cursor_x, cursor_y);
+    if !hit {
+        return Ok(());
+    }
+    
     close_native_image_preview()?;
     
     let (img_width, img_height) = image::image_dimensions(&file_path)

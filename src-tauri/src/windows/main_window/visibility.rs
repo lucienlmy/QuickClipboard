@@ -111,6 +111,8 @@ fn hide_normal_window(window: &WebviewWindow) {
     use tauri::Manager;
 
     let _ = crate::windows::pin_image_window::close_image_preview(window.app_handle().clone());
+    #[cfg(feature = "gpu-image-viewer")]
+    let _ = crate::windows::native_pin_window::close_native_image_preview();
     
     let _ = window.emit("window-hide-animation", ());
 
