@@ -15,7 +15,7 @@ pub mod store;
 pub use settings::{AppSettings, get_settings, update_settings, get_data_directory};
 pub use notification::show_startup_notification;
 pub use system::hotkey;
-pub use sound::{SoundPlayer, AppSounds};
+pub use sound::{SoundPlayer, AppSounds, mark_paste_operation};
 
 pub fn normalize_path_for_hash(path: &str) -> String {
     let normalized = path.replace("\\", "/");

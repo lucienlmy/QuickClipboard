@@ -5,12 +5,27 @@ use std::fs::File;
 use std::io::{BufReader, Cursor};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 static BUILTIN_COPY_SOUND: &[u8] = include_bytes!("../../../../sounds/copy.mp3");
 static BUILTIN_PASTE_SOUND: &[u8] = include_bytes!("../../../../sounds/paste.mp3");
 static BUILTIN_SCROLL_SOUND: &[u8] = include_bytes!("../../../../sounds/roll.mp3");
+
+// 记录最后一次粘贴音效播放的时间戳
+static LAST_PASTE_SOUND_TIME_MS: AtomicU64 = AtomicU64::new(0);
+
+fn current_time_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::from_secs(0))
+        .as_millis() as u64
+}
+
+pub fn mark_paste_operation() {
+    LAST_PASTE_SOUND_TIME_MS.store(current_time_ms(), Ordering::Relaxed);
+}
 
 enum SoundCommand {
     PlayFile(PathBuf, f32),
@@ -185,6 +200,15 @@ impl AppSounds {
         if settings.copy_sound_timing != "immediate" {
             return;
         }
+
+        let last_paste_time = LAST_PASTE_SOUND_TIME_MS.load(Ordering::Relaxed);
+        if last_paste_time > 0 {
+            let current_time = current_time_ms();
+            if current_time.saturating_sub(last_paste_time) < 300 {
+                return;
+            }
+        }
+        
         Self::do_play_copy(&settings);
     }
 
@@ -212,6 +236,9 @@ impl AppSounds {
         if settings.paste_sound_timing != "success" {
             return;
         }
+
+        LAST_PASTE_SOUND_TIME_MS.store(current_time_ms(), Ordering::Relaxed);
+        
         Self::do_play_paste(&settings);
     }
 
@@ -221,6 +248,9 @@ impl AppSounds {
         if settings.paste_sound_timing != "immediate" {
             return;
         }
+
+        LAST_PASTE_SOUND_TIME_MS.store(current_time_ms(), Ordering::Relaxed);
+        
         Self::do_play_paste(&settings);
     }
 
