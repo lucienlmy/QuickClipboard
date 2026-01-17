@@ -273,11 +273,13 @@ impl AppSounds {
     }
 
     pub fn play_copy() {
-        Self::play_copy_on_success();
+        let settings = crate::get_settings();
+        Self::do_play_copy(&settings);
     }
 
     pub fn play_paste() {
-        Self::play_paste_immediate();
+        let settings = crate::get_settings();
+        Self::do_play_paste(&settings);
     }
 
     pub fn play_scroll() {
