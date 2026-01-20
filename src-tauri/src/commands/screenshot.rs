@@ -158,6 +158,18 @@ pub fn long_screenshot_auto_scroll() {
     crate::windows::screenshot_window::long_screenshot::toggle_auto_scroll();
 }
 
+// 从顶部裁剪长截屏
+#[tauri::command]
+pub fn crop_long_screenshot_from_top(height: u32) -> Result<(), String> {
+    crate::windows::screenshot_window::long_screenshot::crop_from_top(height)
+}
+
+// 从底部裁剪长截屏
+#[tauri::command]
+pub fn crop_long_screenshot_from_bottom(height: u32) -> Result<(), String> {
+    crate::windows::screenshot_window::long_screenshot::crop_from_bottom(height)
+}
+
 // OCR识别结果结构
 #[derive(Debug, serde::Serialize)]
 pub struct OcrWord {

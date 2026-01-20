@@ -28,6 +28,7 @@ export default function LongScreenshotPanel({
   const [imageSize, setImageSize] = useState({ width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 });
   const previewCanvasRef = useRef(null);
   const largePreviewCanvasRef = useRef(null);
+  const [cropMode, setCropMode] = useState(false);
 
   useEffect(() => {
     if (!isCapturing) {
@@ -140,10 +141,10 @@ export default function LongScreenshotPanel({
   }, [onPreviewSizeChange]);
 
   const handleMouseEnter = useCallback(async () => {
-    if (isCapturing) {
+    if (isCapturing && !cropMode) {
       await invoke('stop_long_screenshot_capture').catch(() => { });
     }
-  }, [isCapturing]);
+  }, [isCapturing, cropMode]);
 
   const handleMouseMove = useCallback((e) => {
     if (!imgRef.current || !selection || imageSize.naturalHeight === 0) return;
@@ -165,7 +166,7 @@ export default function LongScreenshotPanel({
 
     setHoverInfo({ y, viewportY, viewportHeight, imgScale });
 
-    if (scrollContainerRef.current) {
+    if (!cropMode && scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       const containerRect = container.getBoundingClientRect();
       const imgRect = rect;
@@ -185,14 +186,55 @@ export default function LongScreenshotPanel({
         container.scrollTop += scrollSpeed;
       }
     }
-  }, [selection, imageSize]);
+  }, [selection, imageSize, cropMode]);
 
   const handleMouseLeave = useCallback(async () => {
-    setHoverInfo(null);
-    if (isCapturing) {
-      await invoke('start_long_screenshot_capture').catch(() => { });
+    if (!cropMode) {
+      setHoverInfo(null);
+      if (isCapturing) {
+        await invoke('start_long_screenshot_capture').catch(() => { });
+      }
     }
-  }, [isCapturing]);
+  }, [isCapturing, cropMode]);
+
+  const handleContextMenu = useCallback((e) => {
+    e.preventDefault();
+    if (!hasPreview || imageSize.naturalHeight === 0 || !hoverInfo) return;
+    
+    setCropMode(true);
+  }, [hasPreview, imageSize.naturalHeight, hoverInfo]);
+
+  const handleCropTop = useCallback(async (e) => {
+    e.stopPropagation();
+    if (!hoverInfo) return;
+    
+    const cropHeight = Math.round(hoverInfo.viewportY);
+    
+    try {
+      await invoke('crop_long_screenshot_from_top', { height: cropHeight });
+      setCropMode(false);
+    } catch (error) {
+      console.error('裁剪失败:', error);
+    }
+  }, [hoverInfo]);
+
+  const handleCropBottom = useCallback(async (e) => {
+    e.stopPropagation();
+    if (!hoverInfo) return;
+    
+    const cropHeight = Math.round(imageSize.naturalHeight - (hoverInfo.viewportY + hoverInfo.viewportHeight));
+    
+    try {
+      await invoke('crop_long_screenshot_from_bottom', { height: cropHeight });
+      setCropMode(false);
+    } catch (error) {
+      console.error('裁剪失败:', error);
+    }
+  }, [hoverInfo, imageSize]);
+
+  const handleCropCancel = useCallback(() => {
+    setCropMode(false);
+  }, []);
   const getViewportBoxStyle = useCallback(() => {
     if (!hoverInfo || !imageSize.naturalHeight || !imageSize.height) return null;
 
@@ -345,14 +387,42 @@ export default function LongScreenshotPanel({
                   onMouseEnter={handleMouseEnter}
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
+                  onContextMenu={handleContextMenu}
                   onImageReady={handlePreviewImageReady}
                   onRealtimeData={handleRealtimeData}
                 />
-                {viewportBoxStyle && (
+                {viewportBoxStyle && !cropMode && (
                   <div
                     className="absolute left-0 right-0 pointer-events-none border-2 border-blue-500 bg-blue-500/10"
                     style={viewportBoxStyle}
                   />
+                )}
+                {viewportBoxStyle && cropMode && (
+                  <div
+                    className="absolute left-0 right-0 pointer-events-auto"
+                    style={viewportBoxStyle}
+                  >
+                    <div
+                      className="absolute left-0 right-0 top-0 h-1/2 cursor-pointer border-2 border-red-500 bg-red-500/30 hover:bg-red-500/50 flex items-center justify-center transition-all"
+                      onClick={handleCropTop}
+                      onContextMenu={(e) => { e.preventDefault(); handleCropCancel(); }}
+                    >
+                      <div className="text-white text-[10px] font-semibold bg-red-600/90 px-1.5 py-0.5 rounded pointer-events-none">
+                        <i className="ti ti-cut mr-0.5"></i>
+                        裁剪上方
+                      </div>
+                    </div>
+                    <div
+                      className="absolute left-0 right-0 bottom-0 h-1/2 cursor-pointer border-2 border-red-500 bg-red-500/30 hover:bg-red-500/50 flex items-center justify-center transition-all"
+                      onClick={handleCropBottom}
+                      onContextMenu={(e) => { e.preventDefault(); handleCropCancel(); }}
+                    >
+                      <div className="text-white text-[10px] font-semibold bg-red-600/90 px-1.5 py-0.5 rounded pointer-events-none">
+                        <i className="ti ti-cut mr-0.5"></i>
+                        裁剪下方
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
               {RealtimePreview}
@@ -367,6 +437,21 @@ export default function LongScreenshotPanel({
             </div>
           )}
         </div>
+
+        {hasPreview && (
+          <div className="px-3 pb-2 pt-1 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed space-y-0.5 text-center">
+              <div className="flex items-center justify-center gap-1">
+                <i className="ti ti-hand-move text-xs"></i>
+                <span>鼠标悬停进行预览</span>
+              </div>
+              <div className="flex items-center justify-center gap-1">
+                <i className="ti ti-click text-xs"></i>
+                <span>鼠标右键进行裁剪</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isSaving && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">

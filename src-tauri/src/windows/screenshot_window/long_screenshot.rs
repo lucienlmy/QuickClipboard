@@ -258,6 +258,43 @@ pub fn save_long_screenshot(path: String) -> Result<(), String> {
     manager.save_to_file(&path)
 }
 
+// 从顶部裁剪
+pub fn crop_from_top(height: u32) -> Result<(), String> {
+    crop_and_update(|manager| manager.crop_from_top(height))
+}
+
+// 从底部裁剪
+pub fn crop_from_bottom(height: u32) -> Result<(), String> {
+    crop_and_update(|manager| manager.crop_from_bottom(height))
+}
+
+// 裁剪并更新预览
+fn crop_and_update<F>(crop_fn: F) -> Result<(), String>
+where
+    F: FnOnce(&mut StitchManager) -> Result<(), String>,
+{
+    let mut manager = STITCH_MANAGER.lock();
+    crop_fn(&mut manager)?;
+
+    crate::utils::ws_server::reset_sent_height();
+
+    let (w, h, count) = (manager.width, manager.height, manager.frame_count);
+    let preview_data = if h > 0 {
+        Some(manager.get_rgba_snapshot())
+    } else {
+        None
+    };
+    drop(manager);
+    
+    if let Some(data) = preview_data {
+        thread::spawn(move || {
+            update_preview(data, w, h, count, None);
+        });
+    }
+    
+    Ok(())
+}
+
 // 监听鼠标位置，动态控制穿透
 fn monitor_mouse_position() {
     while LONG_SCREENSHOT_ACTIVE.load(Ordering::Relaxed) {

@@ -180,3 +180,11 @@ pub fn clear() {
     let mut conns = CONNECTIONS.lock();
     conns.clear();
 }
+
+// 重置所有连接的发送高度（裁剪后强制重新发送）
+pub fn reset_sent_height() {
+    let conns = CONNECTIONS.lock();
+    for conn in conns.values() {
+        conn.sent_height.store(0, Ordering::Relaxed);
+    }
+}

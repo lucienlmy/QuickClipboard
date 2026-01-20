@@ -109,7 +109,7 @@ impl StitchManager {
         self.height == 0
     }
 
-    /// 获取 RGBA 数据快照
+    // 获取 RGBA 数据快照
     pub fn get_rgba_snapshot(&mut self) -> Arc<Vec<u8>> {
         if self.snapshot_dirty {
             self.rgba_snapshot = Arc::new(self.rgba_data.clone());
@@ -544,6 +544,53 @@ impl StitchManager {
         let rgba = self.to_rgba_image();
         rgba.write_with_encoder(encoder)
             .map_err(|e| format!("编码失败: {}", e))
+    }
+
+    // 从顶部裁剪指定高度
+    pub fn crop_from_top(&mut self, crop_height: u32) -> Result<(), String> {
+        self.validate_crop(crop_height)?;
+
+        let row_bytes = (self.width * 4) as usize;
+        let start_byte = (crop_height as usize) * row_bytes;
+
+        self.data.drain(0..start_byte);
+        self.rgba_data.drain(0..start_byte);
+        self.height -= crop_height;
+        self.mark_dirty();
+
+        Ok(())
+    }
+
+    // 从底部裁剪指定高度
+    pub fn crop_from_bottom(&mut self, crop_height: u32) -> Result<(), String> {
+        self.validate_crop(crop_height)?;
+
+        let new_data_len = ((self.height - crop_height) * self.width * 4) as usize;
+
+        self.data.truncate(new_data_len);
+        self.rgba_data.truncate(new_data_len);
+        self.height -= crop_height;
+        self.mark_dirty();
+
+        Ok(())
+    }
+
+    fn validate_crop(&self, crop_height: u32) -> Result<(), String> {
+        if self.is_empty() {
+            return Err("没有图像数据".to_string());
+        }
+        if crop_height >= self.height {
+            return Err("裁剪高度不能大于等于图片高度".to_string());
+        }
+        if crop_height == 0 {
+            return Err("裁剪高度不能为0".to_string());
+        }
+        Ok(())
+    }
+
+    fn mark_dirty(&mut self) {
+        self.snapshot_dirty = true;
+        self.invalidate_cache();
     }
 }
 

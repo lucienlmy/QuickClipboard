@@ -102,7 +102,7 @@ function parseHeader(buffer) {
   return { type, width, height, startRow, sendHeight, data };
 }
 
-function LongScreenshotPreview({ wsPort, onLoad, onMouseEnter, onMouseMove, onMouseLeave, onImageReady, onRealtimeData }) {
+function LongScreenshotPreview({ wsPort, onLoad, onMouseEnter, onMouseMove, onMouseLeave, onContextMenu, onImageReady, onRealtimeData }) {
   const containerRef = useRef(null);
   const chunksRef = useRef([]);
   const lastSizeRef = useRef({ width: 0, height: 0 });
@@ -303,6 +303,7 @@ function LongScreenshotPreview({ wsPort, onLoad, onMouseEnter, onMouseMove, onMo
       onMouseEnter={onMouseEnter}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
+      onContextMenu={onContextMenu}
     />
   );
 }
