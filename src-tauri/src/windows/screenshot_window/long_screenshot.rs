@@ -123,12 +123,29 @@ pub fn get_selection_center() -> Option<(i32, i32)> {
 }
 
 // 自动滚动状态
-static AUTO_SCROLL_ACTIVE: AtomicBool = AtomicBool::new(false);
+static AUTO_SCROLL_DOWN_ACTIVE: AtomicBool = AtomicBool::new(false);
+static AUTO_SCROLL_UP_ACTIVE: AtomicBool = AtomicBool::new(false);
 
-// 开始自动滚动
-pub fn start_auto_scroll() {
-    if AUTO_SCROLL_ACTIVE.swap(true, Ordering::SeqCst) {
-        return;
+// 启动自动滚动
+fn start_auto_scroll_internal(direction: super::image_stitcher::StitchDirection, is_down: bool) {
+    if is_down {
+        AUTO_SCROLL_UP_ACTIVE.store(false, Ordering::SeqCst);
+        if AUTO_SCROLL_DOWN_ACTIVE.swap(true, Ordering::SeqCst) {
+            return;
+        }
+    } else {
+        AUTO_SCROLL_DOWN_ACTIVE.store(false, Ordering::SeqCst);
+        if AUTO_SCROLL_UP_ACTIVE.swap(true, Ordering::SeqCst) {
+            return;
+        }
+    }
+
+    {
+        let mut manager = STITCH_MANAGER.lock();
+        if manager.get_stitch_direction() != direction {
+            manager.set_stitch_direction(direction);
+            manager.invalidate_cache();
+        }
     }
 
     let selection_height = SCREENSHOT_SELECTION.lock().map(|s| s.height as u32).unwrap_or(500);
@@ -138,35 +155,68 @@ pub fn start_auto_scroll() {
     }
     
     thread::spawn(move || {
-        let (delta, interval_ms) = if selection_height >= 500 {
-            (-5, 16)
+        let (base_delta, interval_ms) = if selection_height >= 500 {
+            (5, 16)
         } else {
             let ratio = selection_height as f64 / 500.0;
-            let d = ((-5.0) * ratio).round() as i32;
-            let d = d.min(-1);
+            let d = ((5.0) * ratio).round() as i32;
+            let d = d.max(1);
             let i = (16.0 / ratio).min(30.0) as u64;
             (d, i)
         };
         
-        while AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst) {
+        let delta = if is_down { -base_delta } else { base_delta };
+        let active_flag = if is_down { &AUTO_SCROLL_DOWN_ACTIVE } else { &AUTO_SCROLL_UP_ACTIVE };
+        
+        while active_flag.load(Ordering::SeqCst) {
             let _ = crate::mouse::simulate_scroll_raw(delta);
             thread::sleep(Duration::from_millis(interval_ms));
         }
     });
 }
 
-// 停止自动滚动
-pub fn stop_auto_scroll() {
-    AUTO_SCROLL_ACTIVE.store(false, Ordering::SeqCst);
+// 开始向下自动滚动
+pub fn start_auto_scroll_down() {
+    start_auto_scroll_internal(super::image_stitcher::StitchDirection::Down, true);
 }
 
-// 切换自动滚动
-pub fn toggle_auto_scroll() {
-    if AUTO_SCROLL_ACTIVE.load(Ordering::SeqCst) {
-        stop_auto_scroll();
+// 开始向上自动滚动
+pub fn start_auto_scroll_up() {
+    start_auto_scroll_internal(super::image_stitcher::StitchDirection::Up, false);
+}
+
+// 停止所有自动滚动
+pub fn stop_auto_scroll() {
+    AUTO_SCROLL_DOWN_ACTIVE.store(false, Ordering::SeqCst);
+    AUTO_SCROLL_UP_ACTIVE.store(false, Ordering::SeqCst);
+}
+
+// 切换向下自动滚动
+pub fn toggle_auto_scroll_down() {
+    if AUTO_SCROLL_DOWN_ACTIVE.load(Ordering::SeqCst) {
+        AUTO_SCROLL_DOWN_ACTIVE.store(false, Ordering::SeqCst);
     } else {
-        start_auto_scroll();
+        start_auto_scroll_down();
     }
+}
+
+// 切换向上自动滚动
+pub fn toggle_auto_scroll_up() {
+    if AUTO_SCROLL_UP_ACTIVE.load(Ordering::SeqCst) {
+        AUTO_SCROLL_UP_ACTIVE.store(false, Ordering::SeqCst);
+    } else {
+        start_auto_scroll_up();
+    }
+}
+
+// 检查是否正在向下自动滚动
+pub fn is_auto_scroll_down_active() -> bool {
+    AUTO_SCROLL_DOWN_ACTIVE.load(Ordering::SeqCst)
+}
+
+// 检查是否正在向上自动滚动
+pub fn is_auto_scroll_up_active() -> bool {
+    AUTO_SCROLL_UP_ACTIVE.load(Ordering::SeqCst)
 }
 
 // 监听滚轮回滚
@@ -182,11 +232,27 @@ fn monitor_scroll_back() {
             continue;
         }
         
-        if dir > 0 && !HAS_STITCH_BREAK.load(Ordering::Relaxed) {
-            stop_capturing();
-            stop_auto_scroll();
+        if AUTO_SCROLL_DOWN_ACTIVE.load(Ordering::Relaxed) || AUTO_SCROLL_UP_ACTIVE.load(Ordering::Relaxed) {
             reset_scroll_direction();
-        } else if dir < 0 {
+            thread::sleep(Duration::from_millis(16));
+            continue;
+        }
+        
+        if dir != 0 {
+            let target_direction = if dir > 0 {
+                super::image_stitcher::StitchDirection::Up
+            } else {
+                super::image_stitcher::StitchDirection::Down
+            };
+            
+            let mut manager = STITCH_MANAGER.lock();
+            let current_dir = manager.get_stitch_direction();
+            if current_dir != target_direction {
+                manager.set_stitch_direction(target_direction);
+                manager.invalidate_cache();
+            }
+            drop(manager);
+            
             if !CAPTURING_ACTIVE.load(Ordering::Relaxed) {
                 let _ = start_capturing();
             }
@@ -288,7 +354,7 @@ where
     
     if let Some(data) = preview_data {
         thread::spawn(move || {
-            update_preview(data, w, h, count, None);
+            update_preview(data, w, h, count, None, false);
         });
     }
     
@@ -524,6 +590,7 @@ fn capture_loop() {
 
                 if changed {
                     let mut mgr = STITCH_MANAGER.lock();
+                    let is_upward = mgr.get_stitch_direction() == super::image_stitcher::StitchDirection::Up;
                     let process_result = mgr.process_frame(&frame, 0, content_h);
                     let count = mgr.frame_count;
                     let w = mgr.width;
@@ -540,8 +607,9 @@ fn capture_loop() {
                         match process_result {
                             ProcessResult::Added => {
                                 HAS_STITCH_BREAK.store(false, Ordering::Relaxed);
+                                
                                 thread::spawn(move || {
-                                    update_preview(data, w, h, count, None);
+                                    update_preview(data, w, h, count, None, is_upward);
                                 });
                             }
                             ProcessResult::NoMatch => {
@@ -549,7 +617,7 @@ fn capture_loop() {
                                 let rt_data = extract_content_bgra(&frame, 0, content_h);
                                 let frame_w = frame.width();
                                 thread::spawn(move || {
-                                    update_preview(data, w, h, count, Some((rt_data, frame_w, content_h)));
+                                    update_preview(data, w, h, count, Some((rt_data, frame_w, content_h)), is_upward);
                                 });
                             }
                             _ => {}
@@ -673,10 +741,10 @@ fn bgra_to_rgba(bgra: &[u8]) -> Vec<u8> {
     rgba
 }
 
-fn update_preview(data: Arc<Vec<u8>>, width: u32, height: u32, count: u32, realtime_data: Option<(Vec<u8>, u32, u32)>) {
+fn update_preview(data: Arc<Vec<u8>>, width: u32, height: u32, count: u32, realtime_data: Option<(Vec<u8>, u32, u32)>, insert_at_top: bool) {
     if height == 0 { return; }
     
-    crate::utils::ws_server::push_preview(data, width, height);
+    crate::utils::ws_server::push_preview_with_direction(data, width, height, insert_at_top);
     if let Some(w) = SCREENSHOT_WINDOW.lock().as_ref() {
         let _ = w.emit("long-screenshot-progress", count);
     }

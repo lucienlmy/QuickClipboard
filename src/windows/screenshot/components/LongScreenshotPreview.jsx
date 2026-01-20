@@ -102,17 +102,17 @@ function parseHeader(buffer) {
   return { type, width, height, startRow, sendHeight, data };
 }
 
-function LongScreenshotPreview({ wsPort, onLoad, onMouseEnter, onMouseMove, onMouseLeave, onContextMenu, onImageReady, onRealtimeData }) {
+function LongScreenshotPreview({ wsPort, onLoad, onMouseEnter, onMouseMove, onMouseLeave, onContextMenu, onImageReady, onRealtimeData, onStitchDirectionChange }) {
   const containerRef = useRef(null);
   const chunksRef = useRef([]);
   const lastSizeRef = useRef({ width: 0, height: 0 });
   const [canvasReady, setCanvasReady] = useState(false);
   const wsRef = useRef(null);
   const accumulatedDataRef = useRef(null);
-  const callbacksRef = useRef({ onLoad, onImageReady, onRealtimeData });
+  const callbacksRef = useRef({ onLoad, onImageReady, onRealtimeData, onStitchDirectionChange });
 
   useEffect(() => {
-    callbacksRef.current = { onLoad, onImageReady, onRealtimeData };
+    callbacksRef.current = { onLoad, onImageReady, onRealtimeData, onStitchDirectionChange };
   }, [onLoad, onImageReady, onRealtimeData]);
 
   useEffect(() => {
@@ -207,15 +207,18 @@ function LongScreenshotPreview({ wsPort, onLoad, onMouseEnter, onMouseMove, onMo
       const parsed = parseHeader(event.data);
       if (!parsed) return;
 
-      if (parsed.type === 0x01) {
+      const isInsertAtTop = parsed.type === 0x81;
+      const isPreview = parsed.type === 0x01 || parsed.type === 0x81;
+      if (isPreview) {
         const { width: imgWidth, height: totalHeight, startRow, sendHeight, data: receivedData } = parsed;
         
         if (imgWidth <= 0 || totalHeight <= 0) return;
+        callbacksRef.current.onStitchDirectionChange?.(isInsertAtTop);
 
         const rowBytes = imgWidth * 4;
         let currentAcc = accumulatedDataRef.current;
 
-        if (startRow === 0) {
+        if (startRow === 0 && !isInsertAtTop) {
           accumulatedDataRef.current = { 
             data: new Uint8Array(receivedData), 
             width: imgWidth, 
@@ -224,7 +227,16 @@ function LongScreenshotPreview({ wsPort, onLoad, onMouseEnter, onMouseMove, onMo
           currentAcc = accumulatedDataRef.current;
         } else if (currentAcc && currentAcc.width === imgWidth) {
           const newTotalBytes = totalHeight * rowBytes;
-          if (newTotalBytes > currentAcc.data.length) {
+          
+          if (isInsertAtTop) {
+            const newData = new Uint8Array(newTotalBytes);
+            newData.set(receivedData, 0);
+            if (currentAcc.data.length > 0) {
+              newData.set(currentAcc.data, sendHeight * rowBytes);
+            }
+            accumulatedDataRef.current = { data: newData, width: imgWidth, height: totalHeight };
+            currentAcc = accumulatedDataRef.current;
+          } else if (newTotalBytes > currentAcc.data.length) {
             const newData = new Uint8Array(newTotalBytes);
             newData.set(currentAcc.data);
             newData.set(receivedData, startRow * rowBytes);

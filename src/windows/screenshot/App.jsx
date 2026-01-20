@@ -557,6 +557,7 @@ function App() {
           isLongScreenshotCapturing={longScreenshot.isCapturing}
           isLongScreenshotSaving={longScreenshot.isSaving}
           isLongScreenshotAutoScrolling={longScreenshot.isAutoScrolling}
+          longScreenshotAutoScrollDirection={longScreenshot.autoScrollDirection}
           hasLongScreenshotPreview={longScreenshot.capturedCount > 0}
           onLongScreenshotEnter={longScreenshot.enter}
           onLongScreenshotStart={longScreenshot.start}

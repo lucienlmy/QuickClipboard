@@ -154,8 +154,17 @@ pub async fn copy_long_screenshot_to_clipboard() -> Result<(), String> {
 
 // 长截屏自动滚动
 #[tauri::command]
-pub fn long_screenshot_auto_scroll() {
-    crate::windows::screenshot_window::long_screenshot::toggle_auto_scroll();
+pub fn long_screenshot_auto_scroll(direction: String) -> Result<(bool, bool), String> {
+    match direction.as_str() {
+        "down" => crate::windows::screenshot_window::long_screenshot::toggle_auto_scroll_down(),
+        "up" => crate::windows::screenshot_window::long_screenshot::toggle_auto_scroll_up(),
+        _ => return Err(format!("无效的方向参数: {}", direction)),
+    }
+    
+    Ok((
+        crate::windows::screenshot_window::long_screenshot::is_auto_scroll_down_active(),
+        crate::windows::screenshot_window::long_screenshot::is_auto_scroll_up_active(),
+    ))
 }
 
 // 从顶部裁剪长截屏

@@ -66,6 +66,13 @@ pub struct StitchManager {
     template_height: u32,        // 动态模板高度
     layer_step: u32,             // 动态层间距
     last_match_y: Option<u32>,   // 上一帧的匹配位置（连续性约束）
+    stitch_direction: StitchDirection, // 拼接方向
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StitchDirection {
+    Down,  // 向下拼接（默认）
+    Up,    // 向上拼接
 }
 
 impl StitchManager {
@@ -85,6 +92,7 @@ impl StitchManager {
             template_height: BASE_TEMPLATE_HEIGHT,
             layer_step: BASE_LAYER_STEP,
             last_match_y: None,
+            stitch_direction: StitchDirection::Down,
         }
     }
 
@@ -103,10 +111,21 @@ impl StitchManager {
         self.template_height = BASE_TEMPLATE_HEIGHT;
         self.layer_step = BASE_LAYER_STEP;
         self.last_match_y = None;
+        self.stitch_direction = StitchDirection::Down;
     }
 
     pub fn is_empty(&self) -> bool {
         self.height == 0
+    }
+
+    // 设置拼接方向
+    pub fn set_stitch_direction(&mut self, direction: StitchDirection) {
+        self.stitch_direction = direction;
+    }
+
+    // 获取当前拼接方向
+    pub fn get_stitch_direction(&self) -> StitchDirection {
+        self.stitch_direction
     }
 
     // 获取 RGBA 数据快照
@@ -216,26 +235,51 @@ impl StitchManager {
                     continue;
                 }
 
-                let results: Vec<(u32, f64)> = (0..=max_search)
-                    .into_par_iter()
-                    .filter_map(|y| {
-                        let start = (y as usize) * (width as usize);
-                        let end = start + template_len;
+                let results: Vec<(u32, f64)> = if self.stitch_direction == StitchDirection::Up {
+                    // 向上拼接：从底部往上搜索
+                    let search_start = actual_height.saturating_sub(th).saturating_sub(max_search);
+                    (search_start..=actual_height.saturating_sub(th))
+                        .into_par_iter()
+                        .filter_map(|y| {
+                            let start = (y as usize) * (width as usize);
+                            let end = start + template_len;
 
-                        if end > current_gray.len() {
-                            return None;
-                        }
+                            if end > current_gray.len() {
+                                return None;
+                            }
 
-                        let region = &current_gray[start..end];
-                        let sad = compute_sad_u8(template_gray, region);
-                        
-                        if sad <= PIXEL_SAD_THRESHOLD {
-                            Some((y, sad))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                            let region = &current_gray[start..end];
+                            let sad = compute_sad_u8(template_gray, region);
+                            
+                            if sad <= PIXEL_SAD_THRESHOLD {
+                                Some((y, sad))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                } else {
+                    (0..=max_search)
+                        .into_par_iter()
+                        .filter_map(|y| {
+                            let start = (y as usize) * (width as usize);
+                            let end = start + template_len;
+
+                            if end > current_gray.len() {
+                                return None;
+                            }
+
+                            let region = &current_gray[start..end];
+                            let sad = compute_sad_u8(template_gray, region);
+                            
+                            if sad <= PIXEL_SAD_THRESHOLD {
+                                Some((y, sad))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                };
 
                 // 低纹理场景：选择 SAD 最小的匹配
                 if results.len() <= 1 {
@@ -300,26 +344,50 @@ impl StitchManager {
             } else {
                 all_sad_too_low = false;
                 // 正常纹理场景：使用边缘 NCC 匹配
-                let results: Vec<(u32, f64)> = (0..=max_search)
-                    .into_par_iter()
-                    .filter_map(|y| {
-                        let start = (y as usize) * (width as usize);
-                        let end = start + template_len;
+                let results: Vec<(u32, f64)> = if self.stitch_direction == StitchDirection::Up {
+                    let search_start = actual_height.saturating_sub(th).saturating_sub(max_search);
+                    (search_start..=actual_height.saturating_sub(th))
+                        .into_par_iter()
+                        .filter_map(|y| {
+                            let start = (y as usize) * (width as usize);
+                            let end = start + template_len;
 
-                        if end > current_edges.len() {
-                            return None;
-                        }
+                            if end > current_edges.len() {
+                                return None;
+                            }
 
-                        let region = &current_edges[start..end];
-                        let ncc = compute_ncc_i16(template_edges, region);
-                        
-                        if ncc >= EDGE_NCC_THRESHOLD {
-                            Some((y, ncc))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                            let region = &current_edges[start..end];
+                            let ncc = compute_ncc_i16(template_edges, region);
+                            
+                            if ncc >= EDGE_NCC_THRESHOLD {
+                                Some((y, ncc))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                } else {
+                    (0..=max_search)
+                        .into_par_iter()
+                        .filter_map(|y| {
+                            let start = (y as usize) * (width as usize);
+                            let end = start + template_len;
+
+                            if end > current_edges.len() {
+                                return None;
+                            }
+
+                            let region = &current_edges[start..end];
+                            let ncc = compute_ncc_i16(template_edges, region);
+                            
+                            if ncc >= EDGE_NCC_THRESHOLD {
+                                Some((y, ncc))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                };
 
                 let selected = if results.len() > 1 {
                     let good_matches: Vec<(u32, f64)> = results
@@ -372,47 +440,88 @@ impl StitchManager {
         // 处理匹配结果
         match best_match {
             Some((template_offset, match_y, _ncc)) => {
-                let new_start = match_y.saturating_add(th);
-
-                if new_start >= actual_height {
-                    return ProcessResult::Skipped;
-                }
-
-                let new_height = actual_height.saturating_sub(new_start);
-
-                let min_new = MIN_NEW_CONTENT.max(actual_height / 20);
-                if new_height < min_new {
-                    return ProcessResult::Duplicate;
-                }
-
-                // 裁剪多余部分
-                if template_offset > 0 {
-                    let new_stitched_height = self.height.saturating_sub(template_offset);
-                    let new_data_len = (new_stitched_height * self.width * 4) as usize;
-                    if new_data_len < self.data.len() {
-                        self.data.truncate(new_data_len);
-                        self.rgba_data.truncate(new_data_len);
-                        self.height = new_stitched_height;
+                if self.stitch_direction == StitchDirection::Up {
+                    if match_y <= MIN_NEW_CONTENT {
+                        return ProcessResult::Duplicate;
                     }
+
+                    let new_height = match_y;
+
+                    let extract_start = content_start;
+                    if extract_start + new_height > frame_height {
+                        return ProcessResult::Skipped;
+                    }
+
+                    let new_data = extract_bgra(frame, extract_start, new_height);
+                    let new_rgba = bgra_to_rgba(&new_data);
+
+                    if template_offset > 0 {
+                        let trim_bytes = (template_offset * self.width * 4) as usize;
+                        if trim_bytes < self.data.len() {
+                            self.data.drain(0..trim_bytes);
+                            self.rgba_data.drain(0..trim_bytes);
+                            self.height = self.height.saturating_sub(template_offset);
+                        }
+                    }
+
+                    let mut combined_data = new_data;
+                    combined_data.extend_from_slice(&self.data);
+                    self.data = combined_data;
+                    
+                    let mut combined_rgba = new_rgba;
+                    combined_rgba.extend_from_slice(&self.rgba_data);
+                    self.rgba_data = combined_rgba;
+                    
+                    self.height = self.height.saturating_add(new_height);
+                    self.frame_count += 1;
+                    self.snapshot_dirty = true;
+                    self.invalidate_cache();
+                    self.last_match_y = Some(match_y);
+
+                    ProcessResult::Added
+                } else {
+                    let new_start = match_y.saturating_add(th);
+
+                    if new_start >= actual_height {
+                        return ProcessResult::Skipped;
+                    }
+
+                    let new_height = actual_height.saturating_sub(new_start);
+
+                    let min_new = MIN_NEW_CONTENT.max(actual_height / 20);
+                    if new_height < min_new {
+                        return ProcessResult::Duplicate;
+                    }
+
+                    // 裁剪多余部分
+                    if template_offset > 0 {
+                        let new_stitched_height = self.height.saturating_sub(template_offset);
+                        let new_data_len = (new_stitched_height * self.width * 4) as usize;
+                        if new_data_len < self.data.len() {
+                            self.data.truncate(new_data_len);
+                            self.rgba_data.truncate(new_data_len);
+                            self.height = new_stitched_height;
+                        }
+                    }
+
+                    // 追加新内容
+                    let extract_start = content_start.saturating_add(new_start);
+                    if extract_start + new_height > frame_height {
+                        return ProcessResult::Skipped;
+                    }
+
+                    let new_data = extract_bgra(frame, extract_start, new_height);
+                    let new_rgba = bgra_to_rgba(&new_data);
+                    self.data.extend_from_slice(&new_data);
+                    self.rgba_data.extend_from_slice(&new_rgba);
+                    self.height = self.height.saturating_add(new_height);
+                    self.frame_count += 1;
+                    self.snapshot_dirty = true;
+                    self.invalidate_cache();
+                    self.last_match_y = Some(match_y);
+
+                    ProcessResult::Added
                 }
-
-                // 追加新内容
-                let extract_start = content_start.saturating_add(new_start);
-                if extract_start + new_height > frame_height {
-                    return ProcessResult::Skipped;
-                }
-
-                let new_data = extract_bgra(frame, extract_start, new_height);
-                let new_rgba = bgra_to_rgba(&new_data);
-                self.data.extend_from_slice(&new_data);
-                self.rgba_data.extend_from_slice(&new_rgba);
-                self.height = self.height.saturating_add(new_height);
-                self.frame_count += 1;
-                self.snapshot_dirty = true;
-                self.invalidate_cache();
-                self.last_match_y = Some(match_y);
-
-                ProcessResult::Added
             }
             None => {
                 if all_sad_too_low && !all_templates_blank {
@@ -447,7 +556,7 @@ impl StitchManager {
         }
     }
 
-    fn invalidate_cache(&mut self) {
+    pub fn invalidate_cache(&mut self) {
         self.cached_height = 0;
     }
 
@@ -471,7 +580,12 @@ impl StitchManager {
                 continue;
             }
 
-            let template_start_row = self.height - th - template_offset;
+            let template_start_row = if self.stitch_direction == StitchDirection::Up {
+                template_offset
+            } else {
+                self.height - th - template_offset
+            };
+            
             let (edges, gray) = self.extract_template_edges_and_gray(template_start_row);
             self.cached_edges.push(edges);
             self.cached_gray.push(gray);

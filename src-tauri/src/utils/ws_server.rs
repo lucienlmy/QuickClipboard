@@ -104,6 +104,10 @@ pub fn get_port() -> Result<u16, String> {
 
 // 推送预览数据
 pub fn push_preview(data: Arc<Vec<u8>>, width: u32, height: u32) {
+    push_preview_with_direction(data, width, height, false)
+}
+
+pub fn push_preview_with_direction(data: Arc<Vec<u8>>, width: u32, height: u32, insert_at_top: bool) {
     if data.is_empty() || width == 0 || height == 0 {
         return;
     }
@@ -114,12 +118,20 @@ pub fn push_preview(data: Arc<Vec<u8>>, width: u32, height: u32) {
     for conn in conns.values() {
         let sent = conn.sent_height.load(Ordering::Relaxed);
 
-        let (start_row, send_height) = if sent >= height {
-            continue;
-        } else if sent > 0 {
-            (sent, height - sent)
+        let (start_row, send_height) = if insert_at_top {
+            if sent >= height {
+                continue;
+            }
+            let new_rows = height - sent;
+            (0, new_rows)
         } else {
-            (0, height)
+            if sent >= height {
+                continue;
+            } else if sent > 0 {
+                (sent, height - sent)
+            } else {
+                (0, height)
+            }
         };
         
         let start_byte = (start_row as usize) * row_bytes;
@@ -130,7 +142,7 @@ pub fn push_preview(data: Arc<Vec<u8>>, width: u32, height: u32) {
         }
 
         let mut msg = Vec::with_capacity(17 + send_bytes);
-        msg.push(0x01);
+        msg.push(if insert_at_top { 0x81 } else { 0x01 });
         msg.extend_from_slice(&width.to_le_bytes());
         msg.extend_from_slice(&height.to_le_bytes());
         msg.extend_from_slice(&start_row.to_le_bytes());

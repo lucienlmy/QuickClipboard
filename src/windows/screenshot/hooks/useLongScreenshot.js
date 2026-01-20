@@ -12,6 +12,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
   const [capturedCount, setCapturedCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [autoScrollDirection, setAutoScrollDirection] = useState(null);
 
   // 进入长截屏模式
   const enter = useCallback(async (toolbarPosition) => {
@@ -90,45 +91,49 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     try {
       await invoke('stop_long_screenshot_capture');
       setIsCapturing(false);
-      if (isAutoScrolling) {
-        await invoke('long_screenshot_auto_scroll');
+      if (isAutoScrolling && autoScrollDirection) {
+        await invoke('long_screenshot_auto_scroll', { direction: autoScrollDirection });
         setIsAutoScrolling(false);
+        setAutoScrollDirection(null);
       }
     } catch (err) {
       console.error('停止捕获失败:', err);
     }
-  }, [isAutoScrolling]);
+  }, [isAutoScrolling, autoScrollDirection]);
 
   // 停止自动滚动
   const stopAutoScroll = useCallback(async () => {
-    if (!isAutoScrolling) return;
+    if (!isAutoScrolling || !autoScrollDirection) return;
     try {
-      await invoke('long_screenshot_auto_scroll');
+      await invoke('long_screenshot_auto_scroll', { direction: autoScrollDirection });
     } catch (e) {
       console.error('停止自动滚动失败:', e);
     }
     setIsAutoScrolling(false);
-  }, [isAutoScrolling]);
+    setAutoScrollDirection(null);
+  }, [isAutoScrolling, autoScrollDirection]);
 
   // 开始自动滚动
-  const startAutoScroll = useCallback(async () => {
+  const startAutoScroll = useCallback(async (direction) => {
     setIsAutoScrolling(true);
+    setAutoScrollDirection(direction);
     try {
-      await invoke('long_screenshot_auto_scroll');
+      await invoke('long_screenshot_auto_scroll', { direction });
     } catch (e) {
       console.error('启动自动滚动失败:', e);
       setIsAutoScrolling(false);
+      setAutoScrollDirection(null);
     }
   }, []);
 
   // 切换自动滚动
-  const toggleAutoScroll = useCallback(() => {
-    if (isAutoScrolling) {
+  const toggleAutoScroll = useCallback((direction) => {
+    if (isAutoScrolling && autoScrollDirection === direction) {
       stopAutoScroll();
     } else {
-      startAutoScroll();
+      startAutoScroll(direction);
     }
-  }, [isAutoScrolling, startAutoScroll, stopAutoScroll]);
+  }, [isAutoScrolling, autoScrollDirection, startAutoScroll, stopAutoScroll]);
 
   // 复制到剪贴板
   const copyToClipboard = useCallback(async () => {
@@ -212,9 +217,10 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
         await invoke('stop_long_screenshot_capture');
       }
 
-      if (isAutoScrolling) {
-        await invoke('long_screenshot_auto_scroll');
+      if (isAutoScrolling && autoScrollDirection) {
+        await invoke('long_screenshot_auto_scroll', { direction: autoScrollDirection });
         setIsAutoScrolling(false);
+        setAutoScrollDirection(null);
       }
       
       setIsActive(false);
@@ -226,7 +232,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     } catch (err) {
       console.error('取消失败:', err);
     }
-  }, [isCapturing, isAutoScrolling]);
+  }, [isCapturing, isAutoScrolling, autoScrollDirection]);
 
   // 监听后端事件
   useEffect(() => {
@@ -252,6 +258,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     isCapturing,
     isSaving,
     isAutoScrolling,
+    autoScrollDirection,
     wsPort,
     previewSize,
     capturedCount,

@@ -29,6 +29,7 @@ export default function LongScreenshotPanel({
   const previewCanvasRef = useRef(null);
   const largePreviewCanvasRef = useRef(null);
   const [cropMode, setCropMode] = useState(false);
+  const [isUpwardStitch, setIsUpwardStitch] = useState(false);
 
   useEffect(() => {
     if (!isCapturing) {
@@ -45,16 +46,32 @@ export default function LongScreenshotPanel({
     setRealtimeData(data);
   }, []);
 
+  const handleStitchDirectionChange = useCallback((isUpward) => {
+    setIsUpwardStitch(isUpward);
+  }, []);
+
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   };
 
-  // 变化时滚动到底部
+  const scrollToTop = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  };
+
+  // 变化时根据拼接方向滚动
   useEffect(() => {
-    scrollToBottom();
-  }, [capturedCount, realtimeData]);
+    if (scrollContainerRef.current) {
+      if (isUpwardStitch) {
+        scrollToTop();
+      } else {
+        scrollToBottom();
+      }
+    }
+  }, [capturedCount, realtimeData, isUpwardStitch]);
 
   useEffect(() => {
     if (!panelRef.current) return;
@@ -135,7 +152,6 @@ export default function LongScreenshotPanel({
   }, [selection, stageRegionManager]);
 
   const handleImageLoad = useCallback((size) => {
-    scrollToBottom();
     setImageSize(size);
     onPreviewSizeChange?.({ width: size.naturalWidth, height: size.naturalHeight });
   }, [onPreviewSizeChange]);
@@ -390,6 +406,7 @@ export default function LongScreenshotPanel({
                   onContextMenu={handleContextMenu}
                   onImageReady={handlePreviewImageReady}
                   onRealtimeData={handleRealtimeData}
+                  onStitchDirectionChange={handleStitchDirectionChange}
                 />
                 {viewportBoxStyle && !cropMode && (
                   <div
