@@ -11,7 +11,6 @@ use tauri::{Emitter, WebviewWindow};
 
 use super::image_stitcher::{compare_frames, ProcessResult, StitchManager};
 
-const VERTICAL_PADDING: u32 = 30;
 const FRAME_CHANGE_THRESHOLD: f64 = 3.0;
 
 #[derive(Debug, Clone, Copy)]
@@ -469,8 +468,6 @@ fn capture_loop() {
 
     while CAPTURING_ACTIVE.load(Ordering::Relaxed) {
         if let Some(selection) = *SCREENSHOT_SELECTION.lock() {
-            let content_x = selection.x;
-            let content_y = selection.y;
             let content_w = selection.width.max(0.0);
             let content_h = selection.height.max(0.0) as u32;
 
@@ -479,19 +476,9 @@ fn capture_loop() {
                 continue;
             }
 
-            let ext_y = content_y - VERTICAL_PADDING as f64;
-            let top_pad = VERTICAL_PADDING;
-
-            let ext_sel = SelectionRect {
-                x: content_x,
-                y: ext_y,
-                width: content_w,
-                height: content_h as f64 + (VERTICAL_PADDING * 2) as f64,
-            };
-
             let result = wgc.as_mut()
-                .map(|w| w.capture(&ext_sel))
-                .unwrap_or_else(|| capture_with_xcap(&ext_sel));
+                .map(|w| w.capture(&selection))
+                .unwrap_or_else(|| capture_with_xcap(&selection));
 
             if let Ok(frame) = result {
                 let changed = last_frame.as_ref()
@@ -500,7 +487,7 @@ fn capture_loop() {
 
                 if changed {
                     let mut mgr = STITCH_MANAGER.lock();
-                    let process_result = mgr.process_frame(&frame, top_pad, content_h);
+                    let process_result = mgr.process_frame(&frame, 0, content_h);
                     let count = mgr.frame_count;
                     let w = mgr.width;
                     let h = mgr.height;
@@ -522,7 +509,7 @@ fn capture_loop() {
                             }
                             ProcessResult::NoMatch => {
                                 HAS_STITCH_BREAK.store(true, Ordering::Relaxed);
-                                let rt_data = extract_content_bgra(&frame, top_pad, content_h);
+                                let rt_data = extract_content_bgra(&frame, 0, content_h);
                                 let frame_w = frame.width();
                                 thread::spawn(move || {
                                     update_preview(data, w, h, count, Some((rt_data, frame_w, content_h)));

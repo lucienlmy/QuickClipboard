@@ -238,7 +238,45 @@ impl StitchManager {
                     .collect();
 
                 // 低纹理场景：选择 SAD 最小的匹配
-                if !results.is_empty() {
+                if results.len() <= 1 {
+                    if let Some(&(match_y, sad)) = results
+                        .iter()
+                        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    {
+                        if sad < 0.1 {
+                            continue;
+                        }
+                        
+                        all_sad_too_low = false;
+                        let score = 1.0 - (sad / PIXEL_SAD_THRESHOLD);
+
+                        if best_match.is_none() || score > best_match.unwrap().2 {
+                            best_match = Some((layer_offset, match_y, score));
+                        }
+
+                        if sad <= PIXEL_SAD_GOOD {
+                            break;
+                        }
+                    }
+                } else {
+                    let good_matches: Vec<(u32, f64)> = results
+                        .iter()
+                        .filter(|(_, sad)| *sad <= PIXEL_SAD_GOOD)
+                        .copied()
+                        .collect();
+                    
+                    if good_matches.len() >= 5 {
+                        let positions: Vec<i32> = good_matches.iter().map(|(y, _)| *y as i32).collect();
+                        let mean = positions.iter().sum::<i32>() as f64 / positions.len() as f64;
+                        let variance = positions.iter()
+                            .map(|y| (*y as f64 - mean).powi(2))
+                            .sum::<f64>() / positions.len() as f64;
+                        
+                        if variance > 10000.0 {
+                            return ProcessResult::Duplicate;
+                        }
+                    }
+                    
                     if let Some(&(match_y, sad)) = results
                         .iter()
                         .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
@@ -284,33 +322,42 @@ impl StitchManager {
                     .collect();
 
                 let selected = if results.len() > 1 {
-                    let best_ncc = results
+                    let good_matches: Vec<(u32, f64)> = results
                         .iter()
-                        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        .filter(|(_, ncc)| *ncc >= EDGE_NCC_GOOD)
+                        .copied()
+                        .collect();
                     
-                    if let Some(&(best_y, _)) = best_ncc {
-                        let has_ambiguous = results.iter().any(|(y, ncc)| {
-                            *ncc >= EDGE_NCC_THRESHOLD 
-                                && (*y as i32 - best_y as i32).abs() > 100
-                        });
+                    if good_matches.len() >= 6 {
+                        let positions: Vec<i32> = good_matches.iter().map(|(y, _)| *y as i32).collect();
+                        let mean = positions.iter().sum::<i32>() as f64 / positions.len() as f64;
+                        let variance = positions.iter()
+                            .map(|y| (*y as f64 - mean).powi(2))
+                            .sum::<f64>() / positions.len() as f64;
                         
-                        if has_ambiguous && self.last_match_y.is_some() {
-                            let last_y = self.last_match_y.unwrap();
-                            results
-                                .iter()
-                                .filter(|(_, ncc)| *ncc >= EDGE_NCC_THRESHOLD)
-                                .min_by_key(|(y, _)| (*y as i32 - last_y as i32).abs() as u32)
-                        } else {
-                            best_ncc
+                        if variance > 14400.0 {
+                            return ProcessResult::Duplicate;
                         }
+                    }
+                    
+                    if self.last_match_y.is_some() {
+                        let last_y = self.last_match_y.unwrap();
+                        results
+                            .iter()
+                            .filter(|(_, ncc)| *ncc >= EDGE_NCC_THRESHOLD)
+                            .min_by_key(|(y, _)| (*y as i32 - last_y as i32).abs() as u32)
+                            .copied()
                     } else {
-                        results.first()
+                        let best_ncc = results
+                            .iter()
+                            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        best_ncc.copied()
                     }
                 } else {
-                    results.first()
+                    results.first().copied()
                 };
 
-                if let Some(&(match_y, ncc)) = selected {
+                if let Some(&(match_y, ncc)) = selected.as_ref() {
                     if best_match.is_none() || ncc > best_match.unwrap().2 {
                         best_match = Some((layer_offset, match_y, ncc));
                     }
