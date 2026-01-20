@@ -22,6 +22,7 @@ function SelectionToolbar({
   onLongScreenshotCopy,
   onLongScreenshotSave,
   onLongScreenshotCancel,
+  onLongScreenshotReset,
   onLongScreenshotToggleAutoScroll,
   // 贴图编辑模式
   pinEditMode = false,
@@ -195,6 +196,14 @@ function SelectionToolbar({
       icon: 'ti ti-download',
       title: '保存',
       onClick: onLongScreenshotSave,
+      variant: 'default',
+      disabled: isLongScreenshotSaving || !hasLongScreenshotPreview,
+    },
+    {
+      id: 'longScreenshot-reset',
+      icon: 'ti ti-refresh',
+      title: '重置',
+      onClick: onLongScreenshotReset,
       variant: 'default',
       disabled: isLongScreenshotSaving || !hasLongScreenshotPreview,
     },

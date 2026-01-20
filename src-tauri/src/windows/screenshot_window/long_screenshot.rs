@@ -94,8 +94,7 @@ pub fn enable_passthrough(
 
 // 禁用长截屏模式
 pub fn disable_passthrough() {
-    stop_capturing();
-    stop_auto_scroll();
+    reset_long_screenshot();
     LONG_SCREENSHOT_ACTIVE.store(false, Ordering::Relaxed);
     CAPTURE_EXCLUDE_ENABLED.store(false, Ordering::Relaxed);
     HAS_STITCH_BREAK.store(false, Ordering::Relaxed);
@@ -109,7 +108,6 @@ pub fn disable_passthrough() {
     }
 
     *SCREENSHOT_WINDOW.lock() = None;
-    STITCH_MANAGER.lock().reset();
     crate::utils::ws_server::clear();
 }
 
@@ -238,7 +236,7 @@ fn monitor_scroll_back() {
             continue;
         }
         
-        if dir != 0 {
+        if dir != 0 && CAPTURING_ACTIVE.load(Ordering::Relaxed) {
             let target_direction = if dir > 0 {
                 super::image_stitcher::StitchDirection::Up
             } else {
@@ -253,9 +251,6 @@ fn monitor_scroll_back() {
             }
             drop(manager);
             
-            if !CAPTURING_ACTIVE.load(Ordering::Relaxed) {
-                let _ = start_capturing();
-            }
             reset_scroll_direction();
         }
         
@@ -313,6 +308,14 @@ pub fn start_capturing() -> Result<(), String> {
 // 暂停/停止捕获
 pub fn stop_capturing() {
     CAPTURING_ACTIVE.store(false, Ordering::Relaxed);
+}
+
+// 重置长截屏数据
+pub fn reset_long_screenshot() {
+    stop_capturing();
+    stop_auto_scroll();
+    STITCH_MANAGER.lock().reset();
+    crate::utils::ws_server::reset_sent_height();
 }
 
 // 保存长截屏

@@ -565,6 +565,7 @@ function App() {
           onLongScreenshotCopy={longScreenshot.copy}
           onLongScreenshotSave={longScreenshot.save}
           onLongScreenshotCancel={longScreenshot.cancel}
+          onLongScreenshotReset={longScreenshot.reset}
           onLongScreenshotToggleAutoScroll={longScreenshot.toggleAutoScroll}
           pinEditMode={isPinEdit}
           screens={screens}

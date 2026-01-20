@@ -37,6 +37,13 @@ export default function LongScreenshotPanel({
     }
   }, [isCapturing]);
 
+  useEffect(() => {
+    if (capturedCount === 0) {
+      setHasPreview(false);
+      previewCanvasRef.current = null;
+    }
+  }, [capturedCount]);
+
   const handlePreviewImageReady = useCallback((info) => {
     previewCanvasRef.current = info;
     setHasPreview(true);

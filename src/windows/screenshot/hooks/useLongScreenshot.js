@@ -210,29 +210,34 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     }
   }, [capturedCount, isCapturing]);
 
+  const resetState = useCallback(() => {
+    setIsCapturing(false);
+    setIsAutoScrolling(false);
+    setAutoScrollDirection(null);
+    setCapturedCount(0);
+  }, []);
+
   // 取消长截屏
   const cancel = useCallback(async () => {
     try {
-      if (isCapturing) {
-        await invoke('stop_long_screenshot_capture');
-      }
-
-      if (isAutoScrolling && autoScrollDirection) {
-        await invoke('long_screenshot_auto_scroll', { direction: autoScrollDirection });
-        setIsAutoScrolling(false);
-        setAutoScrollDirection(null);
-      }
-      
-      setIsActive(false);
-      setIsCapturing(false);
-      setWsPort(null);
-      setCapturedCount(0);
-      
       await invoke('disable_long_screenshot_passthrough');
+      setIsActive(false);
+      setWsPort(null);
+      resetState();
     } catch (err) {
       console.error('取消失败:', err);
     }
-  }, [isCapturing, isAutoScrolling, autoScrollDirection]);
+  }, [resetState]);
+
+  // 重置长截屏
+  const reset = useCallback(async () => {
+    try {
+      await invoke('reset_long_screenshot');
+      resetState();
+    } catch (err) {
+      console.error('重置失败:', err);
+    }
+  }, [resetState]);
 
   // 监听后端事件
   useEffect(() => {
@@ -268,6 +273,7 @@ export default function useLongScreenshot(selection, screens, stageRegionManager
     copy: copyToClipboard,
     save: saveScreenshot,
     cancel,
+    reset,
     toggleAutoScroll,
     updatePreviewSize,
   };

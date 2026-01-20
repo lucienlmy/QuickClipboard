@@ -176,6 +176,7 @@ pub fn run() {
                 commands::save_long_screenshot,
                 commands::copy_long_screenshot_to_clipboard,
                 commands::long_screenshot_auto_scroll,
+                commands::reset_long_screenshot,
                 commands::crop_long_screenshot_from_top,
                 commands::crop_long_screenshot_from_bottom,
                 commands::recognize_image_ocr,

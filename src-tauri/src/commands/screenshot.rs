@@ -167,6 +167,12 @@ pub fn long_screenshot_auto_scroll(direction: String) -> Result<(bool, bool), St
     ))
 }
 
+// 重置长截屏
+#[tauri::command]
+pub fn reset_long_screenshot() {
+    crate::windows::screenshot_window::long_screenshot::reset_long_screenshot();
+}
+
 // 从顶部裁剪长截屏
 #[tauri::command]
 pub fn crop_long_screenshot_from_top(height: u32) -> Result<(), String> {
