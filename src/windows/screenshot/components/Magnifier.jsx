@@ -24,6 +24,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
   const groupRef = useRef(null);
   const gridImageRef = useRef(null);
   const gridCanvasRef = useRef(null);
+  const gridCtxRef = useRef(null);
   const colorBgRef = useRef(null);
   const colorTextRef = useRef(null);
   const coordTextRef = useRef(null);
@@ -68,26 +69,27 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
     });
     screenImageDataRef.current = dataArray;
     if (!gridCanvasRef.current) {
-      gridCanvasRef.current = document.createElement('canvas');
-      gridCanvasRef.current.width = GRID_WIDTH;
-      gridCanvasRef.current.height = GRID_HEIGHT;
+      const canvas = document.createElement('canvas');
+      canvas.width = GRID_WIDTH;
+      canvas.height = GRID_HEIGHT;
+      gridCanvasRef.current = canvas;
+      gridCtxRef.current = canvas.getContext('2d', { willReadFrequently: true });
     }
-  }, [screens]);
+  }, [screens, isDark]);
 
   const drawGridToCanvas = useCallback((pos) => {
-    const canvas = gridCanvasRef.current;
-    if (!canvas) return null;
-    const ctx = canvas.getContext('2d');
+    const ctx = gridCtxRef.current;
+    if (!ctx) return null;
+    
     const dataArray = screenImageDataRef.current;
     const len = dataArray.length;
-    
     const dpr = window.devicePixelRatio || 1;
     const step = 1 / dpr;
     const baseX = pos.x - CENTER_COL * step;
     const baseY = pos.y - CENTER_ROW * step;
-    const gridColor = isDark ? '#4b5563' : '#d1d5db';
     
     let centerR = 0, centerG = 0, centerB = 0;
+    let lastR = -1, lastG = -1, lastB = -1;
 
     for (let row = 0; row < GRID_ROWS; row++) {
       const py = baseY + row * step;
@@ -111,7 +113,10 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
           }
         }
         
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        if (r !== lastR || g !== lastG || b !== lastB) {
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          lastR = r; lastG = g; lastB = b;
+        }
         ctx.fillRect(col * CELL_SIZE, cellY, CELL_SIZE, CELL_SIZE);
         
         if (row === CENTER_ROW && col === CENTER_COL) {
@@ -120,6 +125,7 @@ function Magnifier({ screens, visible, stageRegionManager, colorIncludeFormat = 
       }
     }
 
+    const gridColor = isDark ? '#4b5563' : '#d1d5db';
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 0.5;
     for (let row = 0; row < GRID_ROWS; row++) {
