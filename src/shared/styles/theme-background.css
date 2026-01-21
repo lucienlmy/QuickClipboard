@@ -325,6 +325,10 @@ body.theme-background {
   backdrop-filter: blur(8px) !important;
 }
 
+.theme-background .clipboard-item:hover:not(.no-animation),
+.theme-background .favorite-item:hover:not(.no-animation){
+  transform: translateY(-1px) scale(1.05);
+}
 /* 骨架屏背景 */
 .theme-background .animate-pulse.bg-white.dark\:bg-gray-800,
 .theme-background .animate-pulse .bg-white.dark\:bg-gray-800 {
@@ -415,9 +419,7 @@ body.theme-background {
 
 .theme-background .clipboard-item.bg-blue-100,
 .theme-background .favorite-item.bg-blue-100 {
-  background-color: rgba(255, 255, 255, 0.8) !important;
-  border-color: #4a89dc !important;
-  box-shadow: 0 0 0 3px #4a89dc !important;
+  background-color: rgba(203, 224, 250, 0.8) !important;
 }
 
 .theme-background .footer-bar button {

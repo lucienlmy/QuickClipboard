@@ -342,7 +342,7 @@ function ClipboardItem({
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
   
-  return <div ref={setNodeRef} style={{...style, ...animationStyle}} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''} ${getHeightClass()}`}>
+  return <div ref={setNodeRef} style={{...style, ...animationStyle}} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : 'no-animation'} ${getHeightClass()}`}>
       {settings.showBadges !== false && (hasFileMissing || item.is_pinned || isPasted) && (
         <div 
           className={`absolute top-0 left-0 z-30 pointer-events-none overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
