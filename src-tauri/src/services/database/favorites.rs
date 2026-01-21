@@ -249,6 +249,11 @@ pub fn get_favorites_count(group_name: Option<String>) -> Result<i64, String> {
 
 // 根据ID获取收藏项（完整内容，不截断）
 pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
+    get_favorite_by_id_with_limit(id, None)
+}
+
+// 根据ID获取收藏项（指定截断长度）
+pub fn get_favorite_by_id_with_limit(id: &str, max_content_length: Option<usize>) -> Result<Option<FavoriteItem>, String> {
     with_connection(|conn| {
         conn.query_row(
             "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at, char_count 
@@ -256,8 +261,19 @@ pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
             params![id],
             |row| {
                 let content: String = row.get(2)?;
+                let html_content: Option<String> = row.get(3)?;
                 let content_type: String = row.get(4)?;
                 let char_count: Option<i64> = row.get(11)?;
+                let final_content = if let Some(max_len) = max_content_length {
+                    let is_text_type = content_type == "text" || content_type == "rich_text" || content_type == "link";
+                    if is_text_type && content.len() > max_len {
+                        truncate_string(content.clone(), max_len)
+                    } else {
+                        content.clone()
+                    }
+                } else {
+                    content.clone()
+                };
                 
                 // 计算字符数
                 let final_char_count = if char_count.is_none() && (content_type.contains("text") || content_type.contains("rich_text")) && !content.is_empty() {
@@ -269,8 +285,8 @@ pub fn get_favorite_by_id(id: &str) -> Result<Option<FavoriteItem>, String> {
                 Ok(FavoriteItem {
                     id: row.get(0)?,
                     title: row.get(1)?,
-                    content,
-                    html_content: row.get(3)?,
+                    content: final_content,
+                    html_content,
                     content_type,
                     image_id: row.get(5)?,
                     group_name: row.get(6)?,

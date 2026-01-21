@@ -96,8 +96,9 @@ pub fn delete_quick_text(id: String) -> Result<(), String> {
 
 // 根据 ID 获取单个收藏项
 #[tauri::command]
-pub fn get_favorite_item_by_id_cmd(id: String) -> Result<FavoriteItem, String> {
-    get_favorite_by_id(&id)?
+pub fn get_favorite_item_by_id_cmd(id: String, max_length: Option<usize>) -> Result<FavoriteItem, String> {
+    use crate::services::database::get_favorite_by_id_with_limit;
+    get_favorite_by_id_with_limit(&id, max_length)?
         .ok_or_else(|| format!("收藏项不存在: {}", id))
 }
 

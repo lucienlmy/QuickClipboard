@@ -55,6 +55,7 @@ export const defaultSettings = {
   ignoreDuplicates: true,
   saveImages: true,
   imagePreview: false,
+  textPreview: false,
   autoScrollToTopOnShow: false,
   autoClearSearch: false,
   windowPositionMode: 'smart',

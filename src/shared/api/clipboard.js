@@ -177,8 +177,12 @@ export async function saveImageToFile(content, filePath) {
 
 
 // 获取单个剪贴板项
-export async function getClipboardItemById(id) {
-  return await invoke('get_clipboard_item_by_id_cmd', { id })
+export async function getClipboardItemById(id, maxLength = null) {
+  const params = { id };
+  if (maxLength !== null) {
+    params.max_length = maxLength;
+  }
+  return await invoke('get_clipboard_item_by_id_cmd', params);
 }
 
 // 更新剪贴板项
@@ -188,8 +192,12 @@ export async function updateClipboardItem(id, content) {
 }
 
 // 获取单个收藏项
-export async function getFavoriteItemById(id) {
-  return await invoke('get_favorite_item_by_id_cmd', { id })
+export async function getFavoriteItemById(id, maxLength = null) {
+  const params = { id };
+  if (maxLength !== null) {
+    params.max_length = maxLength;
+  }
+  return await invoke('get_favorite_item_by_id_cmd', params);
 }
 
 // 添加剪贴板项到收藏

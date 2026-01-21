@@ -216,8 +216,9 @@ pub fn clear_clipboard_history() -> Result<(), String> {
 }
 // 根据 ID 获取单个剪贴板项
 #[tauri::command]
-pub fn get_clipboard_item_by_id_cmd(id: i64) -> Result<ClipboardItem, String> {
-    get_clipboard_item_by_id(id)?.ok_or_else(|| format!("剪贴板项不存在: {}", id))
+pub fn get_clipboard_item_by_id_cmd(id: i64, max_length: Option<usize>) -> Result<ClipboardItem, String> {
+    use crate::services::database::get_clipboard_item_by_id_with_limit;
+    get_clipboard_item_by_id_with_limit(id, max_length)?.ok_or_else(|| format!("剪贴板项不存在: {}", id))
 }
 
 // 更新剪贴板项内容

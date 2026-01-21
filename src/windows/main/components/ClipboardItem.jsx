@@ -3,6 +3,7 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteClipboardItem, clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
+import { useTextPreview } from '@shared/hooks/useTextPreview';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
 import { getPrimaryType } from '@shared/utils/contentType';
@@ -12,7 +13,6 @@ import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
-import { settingsStore } from '@shared/store/settingsStore';
 
 const closeImagePreview = (previewTimerRef) => {
   if (previewTimerRef.current) {
@@ -52,6 +52,15 @@ function ClipboardItem({
   
   const [sourceIconUrl, setSourceIconUrl] = useState(null);
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
+
+  const { previewTitle, loadPreview, clearPreview } = useTextPreview(
+    item, 
+    contentType, 
+    formatTime, 
+    t, 
+    false,
+    settings.textPreview !== false
+  );
   
   useEffect(() => {
     if (item.source_icon_hash) {
@@ -160,6 +169,7 @@ function ClipboardItem({
         }
       }, 300);
     }
+    await loadPreview();
   };
   
   // 处理鼠标离开
@@ -167,7 +177,8 @@ function ClipboardItem({
     if (isImageType) {
       closeImagePreview(previewTimerRef);
     }
-  }, [isImageType]);
+    clearPreview();
+  }, [isImageType, clearPreview]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -342,7 +353,7 @@ function ClipboardItem({
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
   
-  return <div ref={setNodeRef} style={{...style, ...animationStyle}} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : 'no-animation'} ${getHeightClass()}`}>
+  return <div ref={setNodeRef} style={{...style, ...animationStyle}} {...attributes} {...listeners} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : 'no-animation'} ${getHeightClass()}`} title={previewTitle || undefined}>
       {settings.showBadges !== false && (hasFileMissing || item.is_pinned || isPasted) && (
         <div 
           className={`absolute top-0 left-0 z-30 pointer-events-none overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}

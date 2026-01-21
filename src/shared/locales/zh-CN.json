@@ -32,7 +32,11 @@
     "operationFailed": "操作失败",
     "noResults": "无搜索结果",
     "rename": "重命名",
-    "chars": "字符"
+    "chars": "字符",
+    "title": "标题",
+    "type": "类型",
+    "source": "来源",
+    "time": "时间"
   },
   "clipboard": {
     "title": "剪贴板",
@@ -417,6 +421,8 @@
       "saveImagesDesc": "自动保存复制的图片到剪贴板历史",
       "imagePreview": "图片预览",
       "imagePreviewDesc": "鼠标悬停图片项目时在窗口中显示预览",
+      "textPreview": "文本预览",
+      "textPreviewDesc": "鼠标悬停文本项目时显示更多内容",
       "imageMaxSize": "图片显示体积限制（在列表中）",
       "imageMaxSizeDesc": "超过此大小的图片不会在列表中显示预览",
       "imageMaxDimension": "图片显示尺寸限制（在列表中）",

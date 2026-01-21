@@ -53,6 +53,10 @@ function ClipboardSection({
           <Toggle checked={settings.imagePreview} onChange={checked => onSettingChange('imagePreview', checked)} />
         </SettingItem>
 
+        <SettingItem label={t('settings.clipboard.textPreview')} description={t('settings.clipboard.textPreviewDesc')}>
+          <Toggle checked={settings.textPreview} onChange={checked => onSettingChange('textPreview', checked)} />
+        </SettingItem>
+
         <SettingItem label={t('settings.clipboard.imageMaxSize')} description={t('settings.clipboard.imageMaxSizeDesc')}>
           <Input type="number" value={settings.imageMaxSizeMb ?? 15} onChange={e => onSettingChange('imageMaxSizeMb', parseInt(e.target.value) || 15)} min={1} max={100} className="w-24" suffix="MB" />
         </SettingItem>

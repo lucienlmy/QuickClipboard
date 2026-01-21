@@ -22,6 +22,7 @@ pub struct AppSettings {
     pub ignore_duplicates: bool,
     pub save_images: bool,
     pub image_preview: bool,
+    pub text_preview: bool,
 
     // 音效设置
     pub sound_enabled: bool,
@@ -159,6 +160,7 @@ impl Default for AppSettings {
             ignore_duplicates: true,
             save_images: true,
             image_preview: false,
+            text_preview: false,
 
             sound_enabled: true,
             sound_volume: 50.0,

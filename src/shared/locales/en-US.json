@@ -32,7 +32,11 @@
     "operationFailed": "Operation failed",
     "noResults": "No results",
     "rename": "Rename",
-    "chars": "chars"
+    "chars": "chars",
+    "title": "Title",
+    "type": "Type",
+    "source": "Source",
+    "time": "Time"
   },
   "clipboard": {
     "title": "Clipboard",
@@ -417,6 +421,8 @@
       "saveImagesDesc": "Automatically save copied images into clipboard history",
       "imagePreview": "Image Preview",
       "imagePreviewDesc": "Show a floating preview when hovering image items",
+      "textPreview": "Text Preview",
+      "textPreviewDesc": "Show more content when hovering text items",
       "imageMaxSize": "Image Size Limit (in list)",
       "imageMaxSizeDesc": "Images larger than this will not show preview in the list",
       "imageMaxDimension": "Image Dimension Limit (in list)",

@@ -239,6 +239,11 @@ pub fn get_clipboard_count() -> Result<i64, String> {
 
 // 根据ID获取剪贴板项（完整内容，不截断）
 pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String> {
+    get_clipboard_item_by_id_with_limit(id, None)
+}
+
+// 根据ID获取剪贴板项（指定截断长度）
+pub fn get_clipboard_item_by_id_with_limit(id: i64, max_content_length: Option<usize>) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {
         conn.query_row(
             "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
@@ -246,8 +251,19 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
             params![id],
             |row| {
                 let content: String = row.get(1)?;
+                let html_content: Option<String> = row.get(2)?;
                 let content_type: String = row.get(3)?;
                 let char_count: Option<i64> = row.get(12)?;
+                let final_content = if let Some(max_len) = max_content_length {
+                    let is_text_type = content_type == "text" || content_type == "rich_text" || content_type == "link";
+                    if is_text_type && content.len() > max_len {
+                        truncate_string(content.clone(), max_len)
+                    } else {
+                        content.clone()
+                    }
+                } else {
+                    content.clone()
+                };
                 
                 // 计算字符数
                 let final_char_count = if char_count.is_none() && (content_type.contains("text") || content_type.contains("rich_text")) && !content.is_empty() {
@@ -258,8 +274,8 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
                 
                 Ok(ClipboardItem {
                     id: row.get(0)?,
-                    content,
-                    html_content: row.get(2)?,
+                    content: final_content,
+                    html_content,
                     content_type,
                     image_id: row.get(4)?,
                     item_order: row.get(5)?,

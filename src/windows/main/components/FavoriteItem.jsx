@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
+import { useTextPreview } from '@shared/hooks/useTextPreview';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { focusWindowImmediately, restoreFocus } from '@shared/hooks/useInputFocus';
 import { useSnapshot } from 'valtio';
@@ -53,6 +54,14 @@ function FavoriteItem({
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState('');
+  const { previewTitle, loadPreview, clearPreview } = useTextPreview(
+    item, 
+    contentType, 
+    formatTime, 
+    t, 
+    true,
+    settings.textPreview !== false
+  );
 
   const hasFileMissing = (() => {
     if (!isFileType && !isImageType) return false;
@@ -146,6 +155,7 @@ function FavoriteItem({
         }
       }, 300);
     }
+    await loadPreview();
   };
   
   // 处理鼠标离开
@@ -153,7 +163,8 @@ function FavoriteItem({
     if (isImageType) {
       closeImagePreview(previewTimerRef);
     }
-  }, [isImageType]);
+    clearPreview();
+  }, [isImageType, clearPreview]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -304,7 +315,7 @@ function FavoriteItem({
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
 
-  return <div ref={setNodeRef} style={{...style, ...animationStyle}} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''} ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+  return <div ref={setNodeRef} style={{...style, ...animationStyle}} {...attributes} {...listeners} className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : ''} ${getHeightClass()}`} onClick={handleClick} onContextMenu={handleContextMenu} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} title={previewTitle || undefined}>
     {settings.showBadges !== false && (hasFileMissing || isPasted) && (
       <div 
         className={`absolute top-0 left-0 z-30 pointer-events-none overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
