@@ -197,6 +197,7 @@ export const ShapeRenderer = ({
             stroke="#1677ff"
             strokeWidth={1}
             draggable
+            onMouseDown={(e) => e.cancelBubble = true}
             onClick={(e) => e.cancelBubble = true}
             onTap={(e) => e.cancelBubble = true}
             onDragMove={(e) => {
@@ -305,6 +306,7 @@ export const ShapeRenderer = ({
                 stroke="#1890ff"
                 strokeWidth={2}
                 draggable
+                onMouseDown={(e) => e.cancelBubble = true}
                 onClick={(e) => e.cancelBubble = true}
                 onTap={(e) => e.cancelBubble = true}
                 onDragMove={(e) => {
