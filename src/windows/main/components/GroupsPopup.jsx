@@ -75,8 +75,8 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
             onClick={(e) => onEdit(e, group)}
             className={`p-0.5 rounded transition-all ${
               isActive
-                ? 'bg-white/20 hover:bg-white/30'
-                : 'hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-white/20 hover:bg-white/30 text-white'
+                : 'bg-white/80 hover:bg-gray-200 text-gray-700 dark:bg-gray-700/80 dark:hover:bg-gray-600 dark:text-gray-300'
             }`}
             title={t('groups.edit')}
           >
@@ -86,8 +86,8 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
             onClick={(e) => onDelete(e, group.name)}
             className={`p-0.5 rounded transition-all ${
               isActive
-                ? 'bg-white/20 hover:bg-red-400/50'
-                : 'hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50'
+                ? 'bg-white/20 hover:bg-red-400/50 text-white'
+                : 'bg-white/80 hover:bg-red-100 text-gray-700 hover:text-red-600 dark:bg-gray-700/80 dark:hover:bg-red-900/50 dark:text-gray-300'
             }`}
             title={t('groups.delete')}
           >
