@@ -1,3 +1,4 @@
+import { snapToAngle } from '../utils/angleSnap';
 
 const PEN_DEFAULT_STYLE = {
   stroke: '#ff4d4f',
@@ -107,14 +108,25 @@ export const createPenTool = () => {
     },
 
     // 更新形状
-    updateShape: (shape, pos) => {
+    updateShape: (shape, pos, options = {}) => {
       if (shape.mode === 'straight') {
         const updatedPoints = [...shape.points];
+        let targetX = pos.x;
+        let targetY = pos.y;
+
+        if (options.shiftKey && updatedPoints.length >= 2) {
+          const startX = updatedPoints[0];
+          const startY = updatedPoints[1];
+          const snapped = snapToAngle(startX, startY, targetX, targetY);
+          targetX = snapped.x;
+          targetY = snapped.y;
+        }
+        
         if (updatedPoints.length < 4) {
-          updatedPoints.push(pos.x, pos.y);
+          updatedPoints.push(targetX, targetY);
         } else {
-          updatedPoints[2] = pos.x;
-          updatedPoints[3] = pos.y;
+          updatedPoints[2] = targetX;
+          updatedPoints[3] = targetY;
         }
         return {
           ...shape,

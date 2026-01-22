@@ -597,6 +597,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
   const handleMouseDown = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
     const clampedPos = clampToBounds(relativePos, clipBounds);
+    const shiftKey = e.evt?.shiftKey || false;
     
     if (editingTextIndex !== null) {
       return true;
@@ -643,7 +644,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
         setCurrentShape(null);
         isDrawingRef.current = false;
       } else {
-        const updatedShape = tool.addPoint(currentShape, clampedPos);
+        const updatedShape = tool.addPoint(currentShape, clampedPos, { shiftKey });
         setCurrentShape(updatedShape);
       }
       return true;
@@ -700,7 +701,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
           setCurrentShape(null);
           isDrawingRef.current = false;
         } else {
-          const updatedShape = tool.addPoint(currentShape, clampedPos);
+          const updatedShape = tool.addPoint(currentShape, clampedPos, { shiftKey });
           setCurrentShape(updatedShape);
         }
         return true;
@@ -718,6 +719,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
   const handleMouseMove = useCallback((e, relativePos) => {
     if (!activeToolId) return false;
     const clampedPos = clampToBounds(relativePos, clipBounds);
+    const shiftKey = e.evt?.shiftKey || false;
     
     if (activeToolId === 'select' && isSelectingRef.current && selectionBox) {
       const startX = selectionBox.x;
@@ -736,7 +738,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     
     if (activeToolId === 'polyline' && currentShape?.tool === 'polyline' && currentShape?.isDrawing) {
       const tool = tools.current[activeToolId];
-      const updatedShape = tool.updateShape(currentShape, clampedPos);
+      const updatedShape = tool.updateShape(currentShape, clampedPos, { shiftKey });
       setCurrentShape(updatedShape);
       return true;
     }
@@ -746,7 +748,7 @@ export default function useScreenshotEditing(screens = [], stageRef = null, opti
     const tool = tools.current[activeToolId];
     if (!tool) return false;
 
-    const updatedShape = tool.updateShape(currentShape, clampedPos);
+    const updatedShape = tool.updateShape(currentShape, clampedPos, { shiftKey });
     setCurrentShape(updatedShape);
     
     return true;

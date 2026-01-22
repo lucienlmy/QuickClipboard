@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Text, Image as KonvaImage } from 'react-konva';
 import NumberMarker from './shapes/NumberMarker';
+import { snapToAngle } from '../utils/angleSnap';
 
 const applyOpacity = (color, opacity = 1) => {
   if (!color) return undefined;
@@ -202,14 +203,46 @@ export const ShapeRenderer = ({
             onTap={(e) => e.cancelBubble = true}
             onDragMove={(e) => {
               const newPoints = [...shape.points];
-              newPoints[offset] = e.target.x() - offsetX;
-              newPoints[offset + 1] = e.target.y() - offsetY;
+              let targetX = e.target.x() - offsetX;
+              let targetY = e.target.y() - offsetY;
+
+              if (e.evt?.shiftKey) {
+                const centerX = newPoints[2];
+                const centerY = newPoints[3];
+                const snapped = snapToAngle(centerX, centerY, targetX, targetY);
+                targetX = snapped.x;
+                targetY = snapped.y;
+
+                e.target.position({
+                  x: targetX + offsetX,
+                  y: targetY + offsetY
+                });
+              }
+              
+              newPoints[offset] = targetX;
+              newPoints[offset + 1] = targetY;
               onShapeTransform?.({ points: newPoints });
             }}
             onDragEnd={(e) => {
               const newPoints = [...shape.points];
-              newPoints[offset] = e.target.x() - offsetX;
-              newPoints[offset + 1] = e.target.y() - offsetY;
+              let targetX = e.target.x() - offsetX;
+              let targetY = e.target.y() - offsetY;
+
+              if (e.evt?.shiftKey) {
+                const centerX = newPoints[2];
+                const centerY = newPoints[3];
+                const snapped = snapToAngle(centerX, centerY, targetX, targetY);
+                targetX = snapped.x;
+                targetY = snapped.y;
+
+                e.target.position({
+                  x: targetX + offsetX,
+                  y: targetY + offsetY
+                });
+              }
+              
+              newPoints[offset] = targetX;
+              newPoints[offset + 1] = targetY;
               onShapeTransform?.({ points: newPoints });
             }}
           />
@@ -311,14 +344,62 @@ export const ShapeRenderer = ({
                 onTap={(e) => e.cancelBubble = true}
                 onDragMove={(e) => {
                   const newPoints = [...shape.points];
-                  newPoints[offset] = e.target.x() - offsetX;
-                  newPoints[offset + 1] = e.target.y() - offsetY;
+                  let targetX = e.target.x() - offsetX;
+                  let targetY = e.target.y() - offsetY;
+
+                  if (e.evt?.shiftKey) {
+                    let refX, refY;
+                    if (offset > 0) {
+                      refX = newPoints[offset - 2];
+                      refY = newPoints[offset - 1];
+                    } else if (offset + 2 < newPoints.length) {
+                      refX = newPoints[offset + 2];
+                      refY = newPoints[offset + 3];
+                    }
+                    
+                    if (refX !== undefined && refY !== undefined) {
+                      const snapped = snapToAngle(refX, refY, targetX, targetY);
+                      targetX = snapped.x;
+                      targetY = snapped.y;
+                      e.target.position({
+                        x: targetX + offsetX,
+                        y: targetY + offsetY
+                      });
+                    }
+                  }
+                  
+                  newPoints[offset] = targetX;
+                  newPoints[offset + 1] = targetY;
                   onShapeTransform?.({ points: newPoints });
                 }}
                 onDragEnd={(e) => {
                   const newPoints = [...shape.points];
-                  newPoints[offset] = e.target.x() - offsetX;
-                  newPoints[offset + 1] = e.target.y() - offsetY;
+                  let targetX = e.target.x() - offsetX;
+                  let targetY = e.target.y() - offsetY;
+
+                  if (e.evt?.shiftKey) {
+                    let refX, refY;
+                    if (offset > 0) {
+                      refX = newPoints[offset - 2];
+                      refY = newPoints[offset - 1];
+                    } else if (offset + 2 < newPoints.length) {
+                      refX = newPoints[offset + 2];
+                      refY = newPoints[offset + 3];
+                    }
+                    
+                    if (refX !== undefined && refY !== undefined) {
+                      const snapped = snapToAngle(refX, refY, targetX, targetY);
+                      targetX = snapped.x;
+                      targetY = snapped.y;
+                      e.target.position({
+                        x: targetX + offsetX,
+                        y: targetY + offsetY
+                      });
+                    }
+                  }
+                  
+                  newPoints[offset] = targetX;
+                  newPoints[offset + 1] = targetY;
                   onShapeTransform?.({ points: newPoints });
                 }}
               />

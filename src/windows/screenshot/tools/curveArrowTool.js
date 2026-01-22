@@ -1,3 +1,4 @@
+import { snapToAngle } from '../utils/angleSnap';
 
 const CURVE_ARROW_DEFAULT_STYLE = {
   stroke: '#ff4d4f',
@@ -61,11 +62,17 @@ export const createCurveArrowTool = () => {
       };
     },
 
-    updateShape: (shape, pos) => {
+    updateShape: (shape, pos, options = {}) => {
       const startX = shape.points[0];
       const startY = shape.points[1];
-      const endX = pos.x;
-      const endY = pos.y;
+      let endX = pos.x;
+      let endY = pos.y;
+
+      if (options.shiftKey) {
+        const snapped = snapToAngle(startX, startY, endX, endY);
+        endX = snapped.x;
+        endY = snapped.y;
+      }
       
       const controlX = (startX + endX) / 2;
       const controlY = (startY + endY) / 2;
