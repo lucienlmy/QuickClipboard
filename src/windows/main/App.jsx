@@ -86,7 +86,9 @@ function App() {
           setSearchQuery('');
         }
         if (settingsStore.autoFocusSearch) {
-            searchRef.current?.focus?.();
+            setTimeout(() => {
+                searchRef.current?.focus?.();
+            }, 200);
         }
       };
       const unlisten1 = await listen('window-show-animation', handleWindowShow);
