@@ -61,7 +61,7 @@ const ClipboardTab = forwardRef(({
   useEffect(() => {
     const setupListeners = async () => {
       const unlisten1 = await listen('window-show-animation', () => scrollToTopIfEnabled());
-      const unlisten2 = await listen('edge-snap-bounce-animation', () => scrollToTopIfEnabled());
+      const unlisten2 = await listen('edge-snap-show', () => scrollToTopIfEnabled());
       return () => {
         unlisten1();
         unlisten2();

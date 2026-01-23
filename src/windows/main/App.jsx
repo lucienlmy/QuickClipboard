@@ -90,7 +90,7 @@ function App() {
         }
       };
       const unlisten1 = await listen('window-show-animation', handleWindowShow);
-      const unlisten2 = await listen('edge-snap-bounce-animation', handleWindowShow);
+      const unlisten2 = await listen('edge-snap-show', handleWindowShow);
       const unlisten3 = await listen('paste-plain-text-selected', () => {
         if (activeTab === 'clipboard' && clipboardTabRef.current?.executePlainTextPaste) {
           clipboardTabRef.current.executePlainTextPaste();

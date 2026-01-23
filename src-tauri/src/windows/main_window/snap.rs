@@ -1,4 +1,4 @@
-use tauri::{WebviewWindow, Manager};
+use tauri::{WebviewWindow, Manager, Emitter};
 use super::state::{SnapEdge, set_snap_edge, set_hidden, clear_snap, is_snapped};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -190,6 +190,7 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     };
     
     let _ = window.show();
+    let _ = window.emit("edge-snap-show", ());
     
     // 根据动画配置决定是否使用过渡
     let settings = crate::get_settings();
