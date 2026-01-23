@@ -18,12 +18,12 @@ const ClipboardTab = forwardRef(({
   const [isAtTop, setIsAtTop] = useState(true);
   const prevTotalCountRef = useRef(snap.totalCount);
   const searchDebounceRef = useRef(null);
-  
+
   const debouncedSearch = useCallback((query, filter) => {
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
-    
+
     searchDebounceRef.current = setTimeout(() => {
       clipboardStore.setFilter(query);
       refreshClipboardHistory();
@@ -38,7 +38,7 @@ const ClipboardTab = forwardRef(({
   useEffect(() => {
     clipboardStore.setContentType(contentFilter);
     debouncedSearch(searchQuery, contentFilter);
-    
+
     return () => {
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
@@ -46,22 +46,17 @@ const ClipboardTab = forwardRef(({
     };
   }, [searchQuery, contentFilter, debouncedSearch]);
 
-  const scrollToTopIfEnabled = (delay = 50) => {
-    if (settings.autoScrollToTopOnShow) {
-      setTimeout(() => listRef.current?.scrollToTop?.(), delay);
-    }
-  };
 
   useEffect(() => {
     if (snap.totalCount > prevTotalCountRef.current) {
-      scrollToTopIfEnabled(100);
+      handleScrollToTop({ checkSetting: true, delay: 100 });
     }
     prevTotalCountRef.current = snap.totalCount;
   }, [snap.totalCount]);
   useEffect(() => {
     const setupListeners = async () => {
-      const unlisten1 = await listen('window-show-animation', () => scrollToTopIfEnabled());
-      const unlisten2 = await listen('edge-snap-show', () => scrollToTopIfEnabled());
+      const unlisten1 = await listen('window-show-animation', () => handleScrollToTop({ checkSetting: true, delay: 50 }));
+      const unlisten2 = await listen('edge-snap-show', () => handleScrollToTop({ checkSetting: true, delay: 50 }));
       return () => {
         unlisten1();
         unlisten2();
@@ -86,17 +81,29 @@ const ClipboardTab = forwardRef(({
     setIsAtTop(atTop);
   };
 
-  // 处理返回顶部
-  const handleScrollToTop = () => {
-    listRef.current?.scrollToTop?.();
+  const handleScrollToTop = (options = {}) => {
+    const {
+      checkSetting = true,
+      delay = 0
+    } = options;
+
+    if (checkSetting && !settings.autoScrollToTopOnShow) {
+      return;
+    }
+
+    setTimeout(() => {
+      listRef.current?.scrollToTop?.();
+      navigationStore.resetNavigation();
+    }, delay);
   };
+  
   return <div className="h-full flex flex-col relative">
-      {/* 列表 */}
-      <ClipboardList ref={listRef} onScrollStateChange={handleScrollStateChange} />
-      
-      {/* 悬浮工具栏 */}
-      <FloatingToolbar showScrollTop={!isAtTop && snap.totalCount > 0} showAddFavorite={false} onScrollTop={handleScrollToTop} />
-    </div>;
+    {/* 列表 */}
+    <ClipboardList ref={listRef} onScrollStateChange={handleScrollStateChange} />
+
+    {/* 悬浮工具栏 */}
+    <FloatingToolbar showScrollTop={!isAtTop && snap.totalCount > 0} showAddFavorite={false} onScrollTop={handleScrollToTop} />
+  </div>;
 });
 ClipboardTab.displayName = 'ClipboardTab';
 export default ClipboardTab;
