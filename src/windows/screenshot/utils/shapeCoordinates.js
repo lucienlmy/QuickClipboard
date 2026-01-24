@@ -28,7 +28,11 @@ export const shapeToRelative = (shape, bounds) => {
   }
 
   if (Array.isArray(result.points)) {
-    result.points = result.points.map((val, i) => (i % 2 === 0 ? (val - bx) / bw : (val - by) / bh));
+    if (result.tool === 'pen' || result.tool === 'polyline') {
+      result.points = result.points.map((val, i) => (i % 2 === 0 ? (val - bx) / bw : (val - by) / bh));
+    } else if (result.shapeType !== 'arrow') {
+      result.points = result.points.map((val, i) => (i % 2 === 0 ? val / bw : val / bh));
+    }
   }
 
   if (typeof result.size === 'number') {
@@ -100,7 +104,11 @@ export const shapeToAbsolute = (shape, bounds) => {
   }
 
   if (Array.isArray(result.points)) {
-    result.points = result.points.map((val, i) => (i % 2 === 0 ? val * bw + bx : val * bh + by));
+    if (result.tool === 'pen' || result.tool === 'polyline') {
+      result.points = result.points.map((val, i) => (i % 2 === 0 ? val * bw + bx : val * bh + by));
+    } else if (result.shapeType !== 'arrow') {
+      result.points = result.points.map((val, i) => (i % 2 === 0 ? val * bw : val * bh));
+    }
   }
 
   if (typeof result.size === 'number') {

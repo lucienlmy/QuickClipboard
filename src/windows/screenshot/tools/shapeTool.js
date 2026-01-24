@@ -5,12 +5,6 @@ const buildDiamondShape = (rect) => {
     ...rect,
     centerX,
     centerY,
-    points: [
-      centerX, rect.y,
-      rect.x + rect.width, centerY,
-      centerX, rect.y + rect.height,
-      rect.x, centerY,
-    ],
   };
 };
 const SHAPE_DEFAULT_STYLE = {
@@ -137,7 +131,11 @@ export const createShapeTool = () => {
       if (shapeStyle.shapeType === 'arrow') {
         return {
           ...base,
-          points: [pos.x, pos.y, pos.x, pos.y],
+          x: pos.x,
+          y: pos.y,
+          width: 0,
+          height: 0,
+          points: [0, 0, 0, 0],
           pointerLength: 14,
           pointerWidth: 14,
         };
@@ -155,8 +153,8 @@ export const createShapeTool = () => {
     updateShape: (shape, pos) => {
       if (shape.shapeType === 'arrow') {
         const points = [...shape.points];
-        points[2] = pos.x;
-        points[3] = pos.y;
+        points[2] = pos.x - shape.x;
+        points[3] = pos.y - shape.y;
         return {
           ...shape,
           points,
@@ -190,7 +188,6 @@ export const createShapeTool = () => {
           height: diamond.height,
           centerX: diamond.centerX,
           centerY: diamond.centerY,
-          points: diamond.points,
           rotation: shape.rotation ?? 0,
         };
       }

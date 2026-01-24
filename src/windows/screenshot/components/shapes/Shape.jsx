@@ -26,6 +26,8 @@ export default function Shape({ shape, index, shapeRef, isSelected, activeToolId
       <>
         <Arrow
           ref={setRef}
+          x={shape.x || 0}
+          y={shape.y || 0}
           points={shape.points}
           stroke={strokeColor}
           strokeWidth={shape.strokeWidth}
@@ -36,7 +38,7 @@ export default function Shape({ shape, index, shapeRef, isSelected, activeToolId
           {...commonProps}
           onDragEnd={(e) => {
             if (isSelected && onShapeTransform) {
-              onShapeTransform({ points: e.target.points() });
+              onShapeTransform({ x: e.target.x(), y: e.target.y(), points: e.target.points() });
             }
           }}
         />
