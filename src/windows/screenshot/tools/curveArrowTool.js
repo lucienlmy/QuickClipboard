@@ -51,7 +51,9 @@ export const createCurveArrowTool = () => {
 
       return {
         tool: 'curveArrow',
-        points: [pos.x, pos.y, pos.x, pos.y, pos.x, pos.y], 
+        x: pos.x,
+        y: pos.y,
+        points: [0, 0, 0, 0, 0, 0], 
         stroke: merged.stroke,
         strokeWidth: merged.strokeWidth,
         opacity: merged.opacity,
@@ -63,8 +65,8 @@ export const createCurveArrowTool = () => {
     },
 
     updateShape: (shape, pos, options = {}) => {
-      const startX = shape.points[0];
-      const startY = shape.points[1];
+      const startX = shape.x || 0;
+      const startY = shape.y || 0;
       let endX = pos.x;
       let endY = pos.y;
 
@@ -74,12 +76,14 @@ export const createCurveArrowTool = () => {
         endY = snapped.y;
       }
       
-      const controlX = (startX + endX) / 2;
-      const controlY = (startY + endY) / 2;
+      const relEndX = endX - startX;
+      const relEndY = endY - startY;
+      const controlX = relEndX / 2;
+      const controlY = relEndY / 2;
 
       return {
         ...shape,
-        points: [startX, startY, controlX, controlY, endX, endY],
+        points: [0, 0, controlX, controlY, relEndX, relEndY],
       };
     },
   };

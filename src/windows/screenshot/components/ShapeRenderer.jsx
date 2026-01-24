@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Text, Image as KonvaImage } from 'react-konva';
+import { Line, Rect, Ellipse, Arrow, Circle, RegularPolygon, Text, Image as KonvaImage, Shape, Group } from 'react-konva';
 import NumberMarker from './shapes/NumberMarker';
 import { snapToAngle } from '../utils/angleSnap';
 
@@ -103,6 +103,7 @@ export const ShapeRenderer = ({
   index,
   shapeRef,
   isSelected,
+  isSingleSelected = false,
   activeToolId,
   onSelect,
   onShapeTransform,
@@ -131,27 +132,38 @@ export const ShapeRenderer = ({
 
   // 曲线箭头
   if (shape.tool === 'curveArrow') {
+    const [hoveredAnchor, setHoveredAnchor] = useState(null);
     const offsetX = shape.x || 0;
     const offsetY = shape.y || 0;
-    const absPoints = shape.points.map((v, i) => i % 2 === 0 ? v + offsetX : v + offsetY);
-    
+    const relPoints = shape.points || [0, 0, 0, 0, 0, 0];
+    const x1 = relPoints[0];
+    const y1 = relPoints[1];
+    const cx = relPoints[2];
+    const cy = relPoints[3];
+    const x2 = relPoints[4];
+    const y2 = relPoints[5];
+
+    const pointerLength = (shape.strokeWidth || 12) * 2.5;
+
+    const t = 0.95;
+    const dx = 2 * (1 - t) * (cx - x1) + 2 * t * (x2 - cx);
+    const dy = 2 * (1 - t) * (cy - y1) + 2 * t * (y2 - cy);
+    const angle = Math.atan2(dy, dx);
+
+    const stopDistance = pointerLength * 0.8;
+    const curveLength = Math.sqrt(dx * dx + dy * dy);
+    const stopT = Math.max(0, 1 - stopDistance / curveLength * 0.3);
+
+    const stopX = (1 - stopT) * (1 - stopT) * x1 + 2 * (1 - stopT) * stopT * cx + stopT * stopT * x2;
+    const stopY = (1 - stopT) * (1 - stopT) * y1 + 2 * (1 - stopT) * stopT * cy + stopT * stopT * y2;
+
     return (
       <>
-        <Arrow
+        <Group
           ref={setRef}
           name={`shape-curveArrow-${index}`}
-          points={absPoints}
-          stroke={shape.stroke}
-          fill={shape.stroke}
-          strokeWidth={shape.strokeWidth}
-          tension={0.4}
-          opacity={shape.opacity}
-          dash={shape.dash}
-          lineCap={shape.lineCap}
-          lineJoin={shape.lineJoin}
-          pointerLength={(shape.strokeWidth || 12) * 2.5}
-          pointerWidth={(shape.strokeWidth || 12) * 2.5}
-          hitStrokeWidth={20}
+          x={offsetX}
+          y={offsetY}
           draggable={isSelected}
           onClick={(e) => {
             if (canSelect) {
@@ -180,74 +192,221 @@ export const ShapeRenderer = ({
             setIsDragging(false);
             if (isSelected && onShapeTransform) {
               const node = e.target;
-              const dx = node.x();
-              const dy = node.y();
-              node.position({ x: 0, y: 0 });
-              onShapeTransform({ x: offsetX + dx, y: offsetY + dy });
+              onShapeTransform({ x: node.x(), y: node.y() });
             }
           }}
-        />
-        {isSelected && !isDragging && [0, 2, 4].map((offset, i) => (
-          <Circle
-            key={`handle-${index}-${i}`}
-            name={`shape-anchor shape-curveArrow-${index}`}
-            x={absPoints[offset]}
-            y={absPoints[offset + 1]}
-            radius={5}
-            fill="#fff"
-            stroke="#1677ff"
-            strokeWidth={1}
-            draggable
-            onMouseDown={(e) => e.cancelBubble = true}
-            onClick={(e) => e.cancelBubble = true}
-            onTap={(e) => e.cancelBubble = true}
-            onDragMove={(e) => {
-              const newPoints = [...shape.points];
-              let targetX = e.target.x() - offsetX;
-              let targetY = e.target.y() - offsetY;
+          onTransformEnd={(e) => {
+            if (isSelected && onShapeTransform) {
+              const node = e.target;
+              const scaleX = node.scaleX();
+              const scaleY = node.scaleY();
 
-              if (e.evt?.shiftKey) {
-                const centerX = newPoints[2];
-                const centerY = newPoints[3];
-                const snapped = snapToAngle(centerX, centerY, targetX, targetY);
-                targetX = snapped.x;
-                targetY = snapped.y;
+              const updates = {
+                x: node.x(),
+                y: node.y(),
+              };
 
-                e.target.position({
-                  x: targetX + offsetX,
-                  y: targetY + offsetY
+              if (scaleX !== 1 || scaleY !== 1) {
+                node.scaleX(1);
+                node.scaleY(1);
+
+                const newPoints = shape.points.map((v, i) => {
+                  if (i % 2 === 0) {
+                    return v * scaleX;
+                  } else {
+                    return v * scaleY;
+                  }
                 });
-              }
-              
-              newPoints[offset] = targetX;
-              newPoints[offset + 1] = targetY;
-              onShapeTransform?.({ points: newPoints });
-            }}
-            onDragEnd={(e) => {
-              const newPoints = [...shape.points];
-              let targetX = e.target.x() - offsetX;
-              let targetY = e.target.y() - offsetY;
 
-              if (e.evt?.shiftKey) {
-                const centerX = newPoints[2];
-                const centerY = newPoints[3];
-                const snapped = snapToAngle(centerX, centerY, targetX, targetY);
-                targetX = snapped.x;
-                targetY = snapped.y;
-
-                e.target.position({
-                  x: targetX + offsetX,
-                  y: targetY + offsetY
-                });
+                updates.points = newPoints;
+                updates.strokeWidth = (shape.strokeWidth || 12) * Math.max(scaleX, scaleY);
               }
-              
-              newPoints[offset] = targetX;
-              newPoints[offset + 1] = targetY;
-              onShapeTransform?.({ points: newPoints });
+
+              onShapeTransform(updates);
+            }
+          }}
+        >
+          <Shape
+            sceneFunc={(ctx, shape) => {
+              ctx.beginPath();
+              ctx.moveTo(x1, y1);
+              ctx.quadraticCurveTo(cx, cy, stopX, stopY);
+              ctx.strokeShape(shape);
             }}
+            stroke={shape.stroke}
+            strokeWidth={shape.strokeWidth}
+            opacity={shape.opacity}
+            dash={shape.dash}
+            lineCap={shape.lineCap}
+            lineJoin={shape.lineJoin}
+            hitStrokeWidth={20}
           />
-        ))}
-        <HoverHighlight nodeRef={internalRef} visible={showHoverHighlight} />
+          {/* 箭头头部 */}
+          <Line
+            points={[
+
+              x2 - Math.cos(angle) * pointerLength * 0.6 + Math.cos(angle - Math.PI / 2) * pointerLength * 0.3,
+              y2 - Math.sin(angle) * pointerLength * 0.6 + Math.sin(angle - Math.PI / 2) * pointerLength * 0.3,
+
+              x2,
+              y2,
+
+              x2 - Math.cos(angle) * pointerLength * 0.6 + Math.cos(angle + Math.PI / 2) * pointerLength * 0.3,
+              y2 - Math.sin(angle) * pointerLength * 0.6 + Math.sin(angle + Math.PI / 2) * pointerLength * 0.3,
+
+              x2 - Math.cos(angle) * pointerLength * 0.4,
+              y2 - Math.sin(angle) * pointerLength * 0.4,
+
+              x2 - Math.cos(angle) * pointerLength * 0.6 + Math.cos(angle - Math.PI / 2) * pointerLength * 0.3,
+              y2 - Math.sin(angle) * pointerLength * 0.6 + Math.sin(angle - Math.PI / 2) * pointerLength * 0.3,
+            ]}
+            closed={true}
+            stroke={shape.stroke}
+            strokeWidth={shape.strokeWidth}
+            fill={shape.stroke}
+            opacity={shape.opacity}
+            lineCap="square"
+            lineJoin="miter"
+          />
+
+          {isSingleSelected && !isDragging && !isCreating && (
+            <>
+              <Line
+                name="shape-anchor"
+                points={[x1, y1, cx, cy]}
+                dash={[8, 8]}
+                dashOffset={8}
+                strokeWidth={2}
+                stroke="white"
+                lineCap="butt"
+                opacity={1}
+                listening={false}
+              />
+              <Line
+                name="shape-anchor"
+                points={[cx, cy, x2, y2]}
+                dash={[8, 8]}
+                dashOffset={8}
+                strokeWidth={2}
+                stroke="white"
+                lineCap="butt"
+                opacity={1}
+                listening={false}
+              />
+              <Line
+                name="shape-anchor"
+                points={[x1, y1, cx, cy]}
+                dash={[8, 8]}
+                strokeWidth={2}
+                stroke="#666"
+                lineCap="butt"
+                opacity={1}
+                listening={false}
+              />
+              <Line
+                name="shape-anchor"
+                points={[cx, cy, x2, y2]}
+                dash={[8, 8]}
+                strokeWidth={2}
+                stroke="#666"
+                lineCap="butt"
+                opacity={1}
+                listening={false}
+              />
+            </>
+          )}
+
+          {/* 控制点手柄 */}
+          {isSingleSelected && !isDragging && !isCreating && [
+            { x: x1, y: y1, offset: 0 },
+            { x: cx, y: cy, offset: 2 },
+            { x: x2, y: y2, offset: 4 },
+          ].map(({ x, y, offset }, i) => {
+            const anchorId = `curveArrow-${index}-${i}`;
+            const isHovered = hoveredAnchor === anchorId;
+
+            return (
+              <Circle
+                key={`handle-${index}-${i}`}
+                name={`shape-anchor`}
+                x={x}
+                y={y}
+                radius={5}
+                fill="#fff"
+                stroke="#1677ff"
+                strokeWidth={isHovered ? 2 : 1}
+                onMouseDown={(e) => {
+                  e.cancelBubble = true;
+                  const stage = e.target.getStage();
+                  const group = e.target.getParent();
+
+                  const groupWasDraggable = group.draggable();
+                  group.draggable(false);
+
+                  const startPos = stage.getPointerPosition();
+                  const startX = x;
+                  const startY = y;
+
+                  const handleMouseMove = (moveEvent) => {
+                    const pos = stage.getPointerPosition();
+                    const dx = (pos.x - startPos.x) / stage.scaleX();
+                    const dy = (pos.y - startPos.y) / stage.scaleY();
+
+                    let newX = startX + dx;
+                    let newY = startY + dy;
+
+                    if (moveEvent.shiftKey && (offset === 0 || offset === 4)) {
+                      const centerX = shape.points[2];
+                      const centerY = shape.points[3];
+                      const snapped = snapToAngle(centerX, centerY, newX, newY);
+                      newX = snapped.x;
+                      newY = snapped.y;
+                    }
+
+                    const newPoints = [...shape.points];
+                    newPoints[offset] = newX;
+                    newPoints[offset + 1] = newY;
+                    onShapeTransform?.({ points: newPoints });
+                  };
+
+                  const handleMouseUp = () => {
+                    group.draggable(groupWasDraggable);
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseup', handleMouseUp);
+                  };
+
+                  window.addEventListener('mousemove', handleMouseMove);
+                  window.addEventListener('mouseup', handleMouseUp);
+                }}
+                onClick={(e) => e.cancelBubble = true}
+                onTap={(e) => e.cancelBubble = true}
+                onMouseEnter={(e) => {
+                  const stage = e.target.getStage();
+                  if (stage) stage.container().style.cursor = 'pointer';
+                  setHoveredAnchor(anchorId);
+                }}
+                onMouseLeave={(e) => {
+                  const stage = e.target.getStage();
+                  if (stage) stage.container().style.cursor = 'default';
+                  setHoveredAnchor(null);
+                }}
+              />
+            );
+          })}
+
+          {showHoverHighlight && (
+            <Rect
+              x={Math.min(x1, cx, x2) - 3}
+              y={Math.min(y1, cy, y2) - 3}
+              width={Math.max(x1, cx, x2) - Math.min(x1, cx, x2) + 6}
+              height={Math.max(y1, cy, y2) - Math.min(y1, cy, y2) + 6}
+              stroke={HOVER_STROKE_COLOR}
+              strokeWidth={HOVER_STROKE_WIDTH}
+              dash={HOVER_DASH}
+              listening={false}
+            />
+          )}
+        </Group>
       </>
     );
   }

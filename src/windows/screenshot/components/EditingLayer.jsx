@@ -36,12 +36,19 @@ const EditingLayer = ({
     if (!transformerRef.current) return;
     
     if (selectedShapeIndices.length > 0) {
-      const transformableTools = ['shape', 'text', 'pen'];
+      const transformableTools = ['shape', 'text', 'pen', 'curveArrow'];
       const selectedNodes = selectedShapeIndices
         .filter(i => transformableTools.includes(shapes[i]?.tool))
         .map(i => shapeRefs.current[i])
         .filter(Boolean);
-      transformerRef.current.nodes(selectedNodes);
+      const shouldShowTransformer = selectedShapeIndices.length > 1 || 
+        (selectedShapeIndices.length === 1 && shapes[selectedShapeIndices[0]]?.tool !== 'curveArrow');
+      
+      if (shouldShowTransformer) {
+        transformerRef.current.nodes(selectedNodes);
+      } else {
+        transformerRef.current.nodes([]);
+      }
     } else {
       transformerRef.current.nodes([]);
     }
@@ -74,6 +81,7 @@ const EditingLayer = ({
           index={originalIndex}
           shapeRef={(node) => { shapeRefs.current[originalIndex] = node; }}
           isSelected={selectedShapeIndices.includes(originalIndex)}
+          isSingleSelected={selectedShapeIndices.length === 1 && selectedShapeIndices.includes(originalIndex)}
           activeToolId={activeToolId}
           onSelect={onSelect}
           onShapeTransform={onShapeTransform}
