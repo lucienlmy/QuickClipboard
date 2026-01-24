@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Rect } from 'react-konva';
 
 export const applyOpacity = (color, opacity = 1) => {
@@ -58,10 +58,15 @@ export const createCommonProps = (isSelected, onSelect, index, activeToolId, sha
 
 export const HighlightBorder = ({ nodeRef, visible, isSelection = false }) => {
   const [bounds, setBounds] = useState(null);
+  const updateTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (!visible) {
       setBounds(null);
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
       return;
     }
 
@@ -69,45 +74,37 @@ export const HighlightBorder = ({ nodeRef, visible, isSelection = false }) => {
       if (nodeRef?.current) {
         const rect = nodeRef.current.getClientRect({ skipTransform: false, skipShadow: true, skipStroke: false });
         const padding = 3;
-        setBounds({
+        const newBounds = {
           x: rect.x - padding,
           y: rect.y - padding,
           width: rect.width + padding * 2,
           height: rect.height + padding * 2,
-        });
-      }
-    };
-
-    const checkAndSetup = () => {
-      if (nodeRef?.current) {
-        updateBounds();
-        const node = nodeRef.current;
-        const handleTransform = () => updateBounds();
-
-        node.on('transform', handleTransform);
-        node.on('dragmove', handleTransform);
-
-        return () => {
-          node.off('transform', handleTransform);
-          node.off('dragmove', handleTransform);
         };
+        setBounds(newBounds);
       }
-      return undefined;
     };
 
-    const cleanup = checkAndSetup();
+    updateBounds();
 
-    const interval = setInterval(() => {
-      if (nodeRef?.current && !bounds) {
-        updateBounds();
+    const node = nodeRef.current;
+    const handleTransform = () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
       }
-    }, 50);
+      updateTimeoutRef.current = setTimeout(updateBounds, 0);
+    };
+
+    node.on('transform', handleTransform);
+    node.on('dragmove', handleTransform);
 
     return () => {
-      clearInterval(interval);
-      cleanup?.();
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      node.off('transform', handleTransform);
+      node.off('dragmove', handleTransform);
     };
-  }, [visible]);
+  }, [visible, nodeRef]);
 
   if (!visible || !bounds) return null;
 
