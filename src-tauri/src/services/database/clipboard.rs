@@ -100,8 +100,9 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         
         if let Some(ref content_type) = params.content_type {
             if content_type != "all" {
-                where_clauses.push("content_type = ?");
-                query_params.push(Box::new(content_type.clone()));
+                where_clauses.push("content_type LIKE ?");
+                let pattern = format!("%{}%", content_type);
+                query_params.push(Box::new(pattern));
             }
         }
         
