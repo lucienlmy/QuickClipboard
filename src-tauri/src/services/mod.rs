@@ -6,7 +6,6 @@ pub mod settings;
 pub mod system;
 pub mod paste;
 pub mod sound;
-pub mod screenshot;
 pub mod image_library;
 pub mod low_memory;
 pub mod memory;

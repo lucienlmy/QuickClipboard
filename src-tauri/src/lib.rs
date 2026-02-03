@@ -75,6 +75,9 @@ pub fn run() {
     
     #[cfg(feature = "gpu-image-viewer")]
     let builder = builder.plugin(gpu_image_viewer::init());
+
+    #[cfg(feature = "screenshot-suite")]
+    let builder = builder.plugin(screenshot_suite::init());
         
     builder.invoke_handler(tauri::generate_handler![
                 commands::start_custom_drag,
@@ -163,28 +166,6 @@ pub fn run() {
                 commands::dm_reset_all_data,
                 commands::dm_list_backups,
                 commands::set_mouse_position,
-                commands::start_builtin_screenshot,
-                commands::capture_all_screenshots,
-                commands::get_last_screenshot_captures,
-                commands::cancel_screenshot_session,
-                commands::enable_long_screenshot_passthrough,
-                commands::disable_long_screenshot_passthrough,
-                commands::start_long_screenshot_capture,
-                commands::stop_long_screenshot_capture,
-                commands::update_long_screenshot_preview_panel,
-                commands::update_long_screenshot_toolbar,
-                commands::save_long_screenshot,
-                commands::copy_long_screenshot_to_clipboard,
-                commands::long_screenshot_auto_scroll,
-                commands::reset_long_screenshot,
-                commands::crop_long_screenshot_from_top,
-                commands::crop_long_screenshot_from_bottom,
-                commands::recognize_image_ocr,
-                commands::recognize_file_ocr,
-                windows::screenshot_window::auto_selection::stop_auto_selection,
-                windows::screenshot_window::auto_selection::is_auto_selection_active,
-                windows::screenshot_window::auto_selection::request_auto_selection_emit,
-                windows::screenshot_window::auto_selection::clear_auto_selection_cache,
                 commands::copy_text_to_clipboard,
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,
@@ -220,16 +201,6 @@ pub fn run() {
                 windows::pin_image_window::close_image_preview,
                 windows::pin_image_window::save_pin_image_as,
                 windows::pin_image_window::start_pin_edit_mode,
-                windows::screenshot_window::get_pin_edit_mode_data,
-                windows::screenshot_window::clear_pin_edit_mode,
-                windows::screenshot_window::confirm_pin_edit,
-                windows::screenshot_window::cancel_pin_edit,
-                windows::screenshot_window::enable_pin_edit_passthrough,
-                windows::screenshot_window::disable_pin_edit_passthrough,
-                windows::screenshot_window::update_pin_edit_passthrough_rects,
-                windows::screenshot_window::get_screenshot_mode,
-                windows::screenshot_window::wait_for_screenshot_init,
-                windows::screenshot_window::reset_screenshot_mode,
                 utils::screen::get_all_screens,
                 utils::system::get_system_text_scale,
                 commands::il_init,

@@ -3,8 +3,6 @@ pub mod screen;
 pub mod positioning;
 pub mod icon;
 pub mod image;
-pub mod image_http_server;
-pub mod ws_server;
 pub mod system;
 pub mod text;
 pub mod html;

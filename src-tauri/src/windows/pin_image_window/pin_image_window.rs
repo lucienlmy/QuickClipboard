@@ -407,24 +407,49 @@ pub async fn start_pin_edit_mode(
         let _ = tx.send(());
     });
 
-    crate::windows::screenshot_window::start_pin_edit_mode(
-        &app,
-        file_path,
-        image_x,
-        image_y,
-        image_physical_width,
-        image_physical_height,
-        logical_width,
-        logical_height,
-        scale_factor,
-        label,
-        window_x,
-        window_y,
-        window_width,
-        window_height,
-        original_image_path,
-        edit_data,
-    )?;
+    #[cfg(feature = "screenshot-suite")]
+    {
+        screenshot_suite::start_pin_edit_mode(
+            &app,
+            file_path,
+            image_x,
+            image_y,
+            image_physical_width,
+            image_physical_height,
+            logical_width,
+            logical_height,
+            scale_factor,
+            label,
+            window_x,
+            window_y,
+            window_width,
+            window_height,
+            original_image_path,
+            edit_data,
+        )?;
+    }
+    #[cfg(not(feature = "screenshot-suite"))]
+    {
+        let _ = (
+            file_path,
+            image_x,
+            image_y,
+            image_physical_width,
+            image_physical_height,
+            logical_width,
+            logical_height,
+            scale_factor,
+            label,
+            window_x,
+            window_y,
+            window_width,
+            window_height,
+            original_image_path,
+            edit_data,
+        );
+        return Err("screenshot-suite 功能已禁用".to_string());
+    }
+
     let _ = rx.recv_timeout(Duration::from_secs(1));
 
     Ok(())

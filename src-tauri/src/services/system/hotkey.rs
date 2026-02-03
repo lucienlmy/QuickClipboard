@@ -185,49 +185,73 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot", shortcut_str, |app| {
         if crate::services::low_memory::is_low_memory_mode() {
             return;
         }
-        crate::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
-        if let Err(e) = crate::windows::screenshot_window::start_screenshot(app) {
+        screenshot_suite::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
+        if let Err(e) = screenshot_suite::start_screenshot(app) {
             eprintln!("启动截图窗口失败: {}", e);
         }
     })
 }
 
+#[cfg(not(feature = "screenshot-suite"))]
+pub fn register_screenshot_hotkey(_shortcut_str: &str) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_quick_save_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_save", shortcut_str, |app| {
         if crate::services::low_memory::is_low_memory_mode() {
             return;
         }
-        if let Err(e) = crate::windows::screenshot_window::start_screenshot_quick_save(app) {
+        if let Err(e) = screenshot_suite::start_screenshot_quick_save(app) {
             eprintln!("启动快速保存截图失败: {}", e);
         }
     })
 }
 
+#[cfg(not(feature = "screenshot-suite"))]
+pub fn register_screenshot_quick_save_hotkey(_shortcut_str: &str) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_quick_pin_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_pin", shortcut_str, |app| {
         if crate::services::low_memory::is_low_memory_mode() {
             return;
         }
-        if let Err(e) = crate::windows::screenshot_window::start_screenshot_quick_pin(app) {
+        if let Err(e) = screenshot_suite::start_screenshot_quick_pin(app) {
             eprintln!("启动快速贴图截图失败: {}", e);
         }
     })
 }
 
+#[cfg(not(feature = "screenshot-suite"))]
+pub fn register_screenshot_quick_pin_hotkey(_shortcut_str: &str) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_quick_ocr_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_ocr", shortcut_str, |app| {
         if crate::services::low_memory::is_low_memory_mode() {
             return;
         }
-        if let Err(e) = crate::windows::screenshot_window::start_screenshot_quick_ocr(app) {
+        if let Err(e) = screenshot_suite::start_screenshot_quick_ocr(app) {
             eprintln!("启动快速OCR截图失败: {}", e);
         }
     })
+}
+
+#[cfg(not(feature = "screenshot-suite"))]
+pub fn register_screenshot_quick_ocr_hotkey(_shortcut_str: &str) -> Result<(), String> {
+    Ok(())
 }
 
 pub fn register_toggle_clipboard_monitor_hotkey(shortcut_str: &str) -> Result<(), String> {

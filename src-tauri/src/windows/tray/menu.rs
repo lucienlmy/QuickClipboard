@@ -232,9 +232,16 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
             let app = app.clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(150));
-                crate::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
-                if let Err(e) = crate::windows::screenshot_window::start_screenshot(&app) {
-                    eprintln!("启动截图窗口失败: {}", e);
+                #[cfg(feature = "screenshot-suite")]
+                {
+                    screenshot_suite::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
+                    if let Err(e) = screenshot_suite::start_screenshot(&app) {
+                        eprintln!("启动截图窗口失败: {}", e);
+                    }
+                }
+                #[cfg(not(feature = "screenshot-suite"))]
+                {
+                    let _ = app;
                 }
             });
         }

@@ -57,6 +57,8 @@ rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
 winreg = "0.55"
 
+screenshot-suite = { path = "plugins/screenshot-suite", optional = true }
+
 # 图片查看器 (社区编译时不启用)
 gpu-image-viewer = { git = "ssh://git@github.com/mosheng1/gpu-image-viewer.git", optional = true }
 # gpu-image-viewer = { path = "plugins/gpu-image-viewer", optional = true }
@@ -78,8 +80,9 @@ windows = { version = "0.62", features = [
 uiautomation = "0.24.0"
 
 [features]
-default = ["gpu-image-viewer"]
+default = ["gpu-image-viewer", "screenshot-suite"]
 gpu-image-viewer = ["dep:gpu-image-viewer"]
+screenshot-suite = ["dep:screenshot-suite"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [profile.release]

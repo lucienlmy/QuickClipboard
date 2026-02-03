@@ -560,24 +560,44 @@ async fn start_edit_mode(app: &AppHandle, window_id: u64) -> Result<(), String> 
         let _ = tx.send(());
     });
     
-    crate::windows::screenshot_window::start_pin_edit_mode(
-        app,
-        window_data.file_path.clone(),
-        image_x,
-        image_y,
-        image_width,
-        image_height,
-        logical_width,
-        logical_height,
-        scale_factor,
-        format!("native-pin-{}", window_id),
-        image_x,
-        image_y,
-        logical_width as f64,
-        logical_height as f64,
-        window_data.original_image_path.or(Some(window_data.file_path)),
-        window_data.edit_data,
-    )?;
+    #[cfg(feature = "screenshot-suite")]
+    {
+        screenshot_suite::start_pin_edit_mode(
+            app,
+            window_data.file_path.clone(),
+            image_x,
+            image_y,
+            image_width,
+            image_height,
+            logical_width,
+            logical_height,
+            scale_factor,
+            format!("native-pin-{}", window_id),
+            image_x,
+            image_y,
+            logical_width as f64,
+            logical_height as f64,
+            window_data.original_image_path.or(Some(window_data.file_path)),
+            window_data.edit_data,
+        )?;
+    }
+    #[cfg(not(feature = "screenshot-suite"))]
+    {
+        let _ = (
+            app,
+            window_data.file_path.clone(),
+            image_x,
+            image_y,
+            image_width,
+            image_height,
+            logical_width,
+            logical_height,
+            scale_factor,
+            window_data.original_image_path,
+            window_data.edit_data,
+        );
+        return Err("screenshot-suite 功能已禁用".to_string());
+    }
     
     Ok(())
 }
