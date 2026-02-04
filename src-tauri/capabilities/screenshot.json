@@ -1,10 +1,15 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
+  "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "screenshot",
   "description": "Screenshot window capabilities",
   "windows": [
     "screenshot"
   ],
+  "remote": {
+    "urls": [
+      "http://localhost:1427/*"
+    ]
+  },
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-emit",
@@ -25,6 +30,7 @@
       "identifier": "fs:scope",
       "allow": [{ "path": "**" }]
     },
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "screenshot-suite:default"
   ]
 }

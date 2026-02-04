@@ -25,6 +25,8 @@ target
 
 docs
 scap-main
-plugins
+/plugins
 QuickClipboardWeb
 screenshot_Konva
+/src/windows/screenshot
+/src-tauri/plugins/gpu-image-viewer

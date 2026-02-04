@@ -2,9 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import UnoCSS from 'unocss/vite'
 import { resolve } from 'path'
+import { existsSync } from 'fs'
 
 const isDev = process.env.NODE_ENV === 'development'
 const isTauriDebug = process.env.TAURI_DEBUG === 'true'
+const isCommunity = process.env.QC_COMMUNITY === '1'
 
 export default defineConfig({
   root: 'src',
@@ -13,6 +15,13 @@ export default defineConfig({
   server: {
     port: 1421,
     strictPort: true,
+    fs: {
+      allow: [
+        resolve(__dirname, '.'),
+        resolve(__dirname, 'node_modules'),
+        resolve(__dirname, 'src'),
+      ],
+    },
   },
 
   envPrefix: ['VITE_', 'TAURI_'],
@@ -59,17 +68,23 @@ export default defineConfig({
     cssCodeSplit: true,
 
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'src/windows/main/index.html'),
-        settings: resolve(__dirname, 'src/windows/settings/index.html'),
-        quickpaste: resolve(__dirname, 'src/windows/quickpaste/index.html'),
-        screenshot: resolve(__dirname, 'src/windows/screenshot/index.html'),
-        textEditor: resolve(__dirname, 'src/windows/textEditor/index.html'),
-        contextMenu: resolve(__dirname, 'src/plugins/context_menu/contextMenu.html'),
-        inputDialog: resolve(__dirname, 'src/plugins/input_dialog/inputDialog.html'),
-        pinImage: resolve(__dirname, 'src/windows/pinImage/pinImage.html'),
-        updater: resolve(__dirname, 'src/windows/updater/index.html'),
-      },
+      input: (() => {
+        const inputs = {
+          main: resolve(__dirname, 'src/windows/main/index.html'),
+          settings: resolve(__dirname, 'src/windows/settings/index.html'),
+          quickpaste: resolve(__dirname, 'src/windows/quickpaste/index.html'),
+          textEditor: resolve(__dirname, 'src/windows/textEditor/index.html'),
+          contextMenu: resolve(__dirname, 'src/plugins/context_menu/contextMenu.html'),
+          inputDialog: resolve(__dirname, 'src/plugins/input_dialog/inputDialog.html'),
+          pinImage: resolve(__dirname, 'src/windows/pinImage/pinImage.html'),
+          updater: resolve(__dirname, 'src/windows/updater/index.html'),
+        }
+        const screenshotPath = resolve(__dirname, 'src/windows/screenshot/index.html')
+        if (!isCommunity && existsSync(screenshotPath)) {
+          inputs.screenshot = screenshotPath
+        }
+        return inputs
+      })(),
 
       output: {
         assetFileNames: 'assets/[name]-[hash][extname]',
