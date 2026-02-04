@@ -13,12 +13,12 @@ const isCommunity = process.argv.includes('--no-default-features') || !process.a
 const command = isDev ? 'dev' : 'build';
 
 const screenshotCapabilityPath = path.join(rootDir, 'src-tauri', 'capabilities', 'screenshot.json');
+const defaultCapabilityPath = path.join(rootDir, 'src-tauri', 'capabilities', 'default.json');
 
-function patchCapabilitiesForCommunity() {
-    if (!isCommunity) return () => {};
-    if (!fs.existsSync(screenshotCapabilityPath)) return () => {};
+function patchCapabilityFile(filePath) {
+    if (!fs.existsSync(filePath)) return () => {};
 
-    const original = fs.readFileSync(screenshotCapabilityPath, 'utf8');
+    const original = fs.readFileSync(filePath, 'utf8');
     let json;
     try {
         json = JSON.parse(original);
@@ -32,10 +32,22 @@ function patchCapabilitiesForCommunity() {
     if (nextPermissions.length === json.permissions.length) return () => {};
 
     json.permissions = nextPermissions;
-    fs.writeFileSync(screenshotCapabilityPath, `${JSON.stringify(json, null, 2)}\n`, 'utf8');
+    fs.writeFileSync(filePath, `${JSON.stringify(json, null, 2)}\n`, 'utf8');
 
     return () => {
-        fs.writeFileSync(screenshotCapabilityPath, original, 'utf8');
+        fs.writeFileSync(filePath, original, 'utf8');
+    };
+}
+
+function patchCapabilitiesForCommunity() {
+    if (!isCommunity) return () => {};
+
+    const restoreScreenshot = patchCapabilityFile(screenshotCapabilityPath);
+    const restoreDefault = patchCapabilityFile(defaultCapabilityPath);
+
+    return () => {
+        restoreScreenshot();
+        restoreDefault();
     };
 }
 

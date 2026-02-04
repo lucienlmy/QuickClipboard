@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -36,46 +37,51 @@ function run(cwd, commandLine) {
   return child
 }
 
-function runAsync(cwd, commandLine) {
-  return new Promise((resolve, reject) => {
-    const child = isWin
-      ? spawn('cmd.exe', ['/d', '/s', '/c', commandLine], {
-          cwd,
-          stdio: 'inherit',
-          env: process.env,
-        })
-      : spawn('sh', ['-lc', commandLine], {
-          cwd,
-          stdio: 'inherit',
-          env: process.env,
-        })
+async function linkScreenshotSource() {
+  const screenshotPluginSrc = path.join(rootDir, 'src-tauri', 'plugins', 'screenshot-suite', 'web', 'windows', 'screenshot')
+  const mainProjectScreenshot = path.join(rootDir, 'src', 'windows', 'screenshot')
+  
+  if (!existsSync(screenshotPluginSrc)) {
+    return false
+  }
+  
+  if (existsSync(mainProjectScreenshot)) {
+    await fs.rm(mainProjectScreenshot, { recursive: true, force: true })
+  }
+  
+  if (process.platform === 'win32') {
+    await fs.symlink(screenshotPluginSrc, mainProjectScreenshot, 'junction')
+  } else {
+    await fs.symlink(screenshotPluginSrc, mainProjectScreenshot, 'dir')
+  }
+  return true
+}
 
-    child.on('error', reject)
-    child.on('exit', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`${commandLine} failed with exit code ${code}`))
-    })
-  })
+async function unlinkScreenshotSource() {
+  const mainProjectScreenshot = path.join(rootDir, 'src', 'windows', 'screenshot')
+  
+  if (existsSync(mainProjectScreenshot)) {
+    await fs.rm(mainProjectScreenshot, { recursive: true, force: true })
+  }
 }
 
 let host = null
-let screenshot = null
-const screenshotWebDir = path.join(rootDir, 'src-tauri', 'plugins', 'screenshot-suite', 'web')
 
 async function main() {
-  host = run(rootDir, 'npm run dev')
+  const isCommunity = process.env.QC_COMMUNITY === '1'
+  const screenshotWebDir = path.join(rootDir, 'src-tauri', 'plugins', 'screenshot-suite', 'web')
+  const hasScreenshotPlugin = !isCommunity && existsSync(path.join(screenshotWebDir, 'package.json'))
 
-  if (existsSync(path.join(screenshotWebDir, 'package.json'))) {
-    if (!existsSync(path.join(screenshotWebDir, 'node_modules'))) {
-      await runAsync(screenshotWebDir, 'npm ci')
-    }
-    screenshot = run(screenshotWebDir, 'npm run dev')
+  if (hasScreenshotPlugin) {
+    await linkScreenshotSource()
   }
+
+  host = run(rootDir, 'npm run dev')
 }
 
 function shutdown() {
   host?.kill()
-  screenshot?.kill()
+  unlinkScreenshotSource().catch(console.error)
 }
 
 process.on('SIGINT', () => {

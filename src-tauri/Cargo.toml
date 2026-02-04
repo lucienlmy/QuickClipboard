@@ -50,8 +50,6 @@ enigo = "0.6.1"
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-store = "2"
 active-win-pos-rs = "0.8"
-xcap = {git="https://github.com/mosheng1/xcap"}
-scap = { git = "https://github.com/mosheng1/scap" }
 atree = "0.5.2"
 rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
@@ -77,7 +75,6 @@ windows = { version = "0.62", features = [
     "Win32_Security",
     "Win32_Graphics_Gdi",
 ] }
-uiautomation = "0.24.0"
 
 [features]
 default = ["gpu-image-viewer", "screenshot-suite"]

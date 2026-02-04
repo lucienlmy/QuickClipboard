@@ -13,22 +13,22 @@ export async function isPortableMode() {
 
 // 启动内置截图功能
 export async function startScreenshot() {
-  return await invoke('start_builtin_screenshot')
+  return await invoke('plugin:screenshot-suite|start_builtin_screenshot')
 }
 
 // 捕获所有显示器截图
 export async function captureAllScreenshots() {
-  return await invoke('capture_all_screenshots')
+  return await invoke('plugin:screenshot-suite|capture_all_screenshots')
 }
 
 // 获取最近一次截屏结果
 export async function getLastScreenshotCaptures() {
-  return await invoke('get_last_screenshot_captures')
+  return await invoke('plugin:screenshot-suite|get_last_screenshot_captures')
 }
 
 // 取消当前截屏会话
 export async function cancelScreenshotSession() {
-  return await invoke('cancel_screenshot_session')
+  return await invoke('plugin:screenshot-suite|cancel_screenshot_session')
 }
 
 // 检查 AI 翻译配置

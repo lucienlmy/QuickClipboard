@@ -5,11 +5,6 @@
   "windows": [
     "screenshot"
   ],
-  "remote": {
-    "urls": [
-      "http://localhost:1427/*"
-    ]
-  },
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-emit",

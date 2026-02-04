@@ -92,8 +92,41 @@ export default defineConfig({
         entryFileNames: 'js/[name]-[hash].js',
 
         manualChunks(id) {
-          if (id.includes('node_modules')) return 'vendor'
-          if (id.includes('/shared/')) return 'shared'
+          const nmMatch = id.match(/[\\/]node_modules[\\/]/)
+
+          const sharedMatch = id.includes('/shared/') || id.includes('\\shared\\')
+          if (!nmMatch) {
+            if (sharedMatch) return 'shared'
+            return undefined
+          }
+
+          const nmIdx = Math.max(id.lastIndexOf('/node_modules/'), id.lastIndexOf('\\node_modules\\'))
+          const after = nmIdx >= 0
+            ? id.slice(nmIdx + (id[nmIdx] === '/' ? '/node_modules/'.length : '\\node_modules\\'.length))
+            : id
+
+          const segs = after.split(/[\\/]/).filter(Boolean)
+          const pkg = segs[0]?.startsWith('@') ? `${segs[0]}/${segs[1] || ''}` : (segs[0] || '')
+
+          if (
+            pkg === 'pixi.js' ||
+            pkg.startsWith('@pixi/') ||
+            pkg === '@pixi/graphics-smooth' ||
+            pkg === '@pixi' ||
+            pkg === 'eventemitter3'
+          ) {
+            return 'pixi'
+          }
+
+          if (pkg === '@tabler/icons-webfont') return 'icons'
+
+          if (pkg === 'react' || pkg === 'react-dom' || pkg === 'scheduler') return 'react'
+
+          if (pkg.startsWith('@codemirror/') || pkg === 'codemirror') return 'editor'
+
+          if (pkg.startsWith('@tauri-apps/')) return 'tauri'
+
+          return 'vendor'
         },
       },
     },

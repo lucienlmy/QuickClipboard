@@ -21,49 +21,51 @@ function run(cwd, args) {
 
     child.on('exit', (code) => {
       if (code === 0) resolve()
-      else reject(new Error(`${args.join(' ')} failed with exit code ${code}`))
+      else reject(new Error(`${args.join(' ')} 失败，退出码 ${code}`))
     })
   })
 }
 
-async function main() {
-  const screenshotWebDir = path.join(rootDir, 'src-tauri', 'plugins', 'screenshot-suite', 'web')
-  const screenshotDistDir = path.join(screenshotWebDir, 'dist')
-  const hostDistDir = path.join(rootDir, 'dist')
-
-  const isCommunity = process.env.QC_COMMUNITY === '1'
-  const hasScreenshotWeb = !isCommunity && existsSync(path.join(screenshotWebDir, 'package.json'))
-
-  if (hasScreenshotWeb) {
-    const isCI = String(process.env.CI).toLowerCase() === 'true'
-    const hasNodeModules = existsSync(path.join(screenshotWebDir, 'node_modules'))
-
-    if (isCI || !hasNodeModules) {
-      await run(screenshotWebDir, ['ci'])
-    }
-    await run(screenshotWebDir, ['run', 'build'])
-    
-    const srcScreenshotFrom = path.join(screenshotDistDir, 'windows', 'screenshot')
-    const srcScreenshotTo = path.join(rootDir, 'src', 'windows', 'screenshot')
-    
-    if (existsSync(srcScreenshotFrom)) {
-      await fs.mkdir(path.join(rootDir, 'src', 'windows'), { recursive: true })
-      await fs.cp(srcScreenshotFrom, srcScreenshotTo, { recursive: true, force: true })
-    }
+async function linkScreenshotSource() {
+  const screenshotPluginSrc = path.join(rootDir, 'src-tauri', 'plugins', 'screenshot-suite', 'web', 'windows', 'screenshot')
+  const mainProjectScreenshot = path.join(rootDir, 'src', 'windows', 'screenshot')
+  
+  if (!existsSync(screenshotPluginSrc)) {
+    throw new Error(`未找到截图插件源码: ${screenshotPluginSrc}`)
   }
+  
+  if (existsSync(mainProjectScreenshot)) {
+    await fs.rm(mainProjectScreenshot, { recursive: true, force: true })
+  }
+  
+  await fs.cp(screenshotPluginSrc, mainProjectScreenshot, { recursive: true })
+}
 
-  await run(rootDir, ['run', 'build'])
+async function unlinkScreenshotSource() {
+  const mainProjectScreenshot = path.join(rootDir, 'src', 'windows', 'screenshot')
+  
+  if (existsSync(mainProjectScreenshot)) {
+    await fs.rm(mainProjectScreenshot, { recursive: true, force: true })
+  }
+}
 
-  if (hasScreenshotWeb) {
-    const from = path.join(screenshotDistDir, 'windows', 'screenshot')
-    const to = path.join(hostDistDir, 'windows', 'screenshot')
+async function main() {
+  const isCommunity = process.env.QC_COMMUNITY === '1'
+  const hasScreenshotPlugin = !isCommunity && existsSync(
+    path.join(rootDir, 'src-tauri', 'plugins', 'screenshot-suite', 'web', 'package.json')
+  )
 
-    if (!existsSync(from)) {
-      throw new Error(`未找到screenshot-suite Web构建输出: ${from}`)
+  try {
+    if (hasScreenshotPlugin) {
+      await linkScreenshotSource()
     }
 
-    await fs.mkdir(path.join(hostDistDir, 'windows'), { recursive: true })
-    await fs.cp(from, to, { recursive: true, force: true })
+    await run(rootDir, ['run', 'build'])
+    
+  } finally {
+    if (hasScreenshotPlugin) {
+      await unlinkScreenshotSource()
+    }
   }
 }
 

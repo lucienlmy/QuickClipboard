@@ -250,57 +250,6 @@ pub fn get_all_screens() -> Result<Vec<(i32, i32, i32, i32, f64)>, String> {
     ScreenUtils::get_all_monitors(app)
 }
 
-// 获取显示器刷新率
-#[cfg(target_os = "windows")]
-pub fn get_monitor_refresh_rate(monitor: &xcap::Monitor) -> Option<u32> {
-    use windows::Win32::Graphics::Gdi::{
-        EnumDisplayDevicesW, EnumDisplaySettingsW, DEVMODEW, DISPLAY_DEVICEW,
-        DISPLAY_DEVICE_ACTIVE, ENUM_CURRENT_SETTINGS,
-    };
-    use windows::core::PCWSTR;
-
-    let mon_x = monitor.x().ok()?;
-    let mon_y = monitor.y().ok()?;
-
-    unsafe {
-        let mut device_index = 0u32;
-        loop {
-            let mut display_device: DISPLAY_DEVICEW = std::mem::zeroed();
-            display_device.cb = std::mem::size_of::<DISPLAY_DEVICEW>() as u32;
-
-            if !EnumDisplayDevicesW(PCWSTR::null(), device_index, &mut display_device, 0).as_bool()
-            {
-                break;
-            }
-            device_index += 1;
-            if (display_device.StateFlags & DISPLAY_DEVICE_ACTIVE).0 == 0 {
-                continue;
-            }
-
-            let mut devmode: DEVMODEW = std::mem::zeroed();
-            devmode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
-
-            if EnumDisplaySettingsW(
-                PCWSTR(display_device.DeviceName.as_ptr()),
-                ENUM_CURRENT_SETTINGS,
-                &mut devmode,
-            )
-            .as_bool()
-            {
-                if devmode.Anonymous1.Anonymous2.dmPosition.x == mon_x
-                    && devmode.Anonymous1.Anonymous2.dmPosition.y == mon_y
-                {
-                    let rate = devmode.dmDisplayFrequency;
-                    if rate > 0 && rate < 500 {
-                        return Some(rate);
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
 #[cfg(not(target_os = "windows"))]
 pub fn get_monitor_refresh_rate(_monitor: &xcap::Monitor) -> Option<u32> {
     None
