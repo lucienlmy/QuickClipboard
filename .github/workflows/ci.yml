@@ -10,10 +10,37 @@ jobs:
   build-community:
     runs-on: windows-latest
     steps:
-      - name: Checkout repository
+      - name: Setup SSH for private repos
+        if: ${{ secrets.GPU_VIEWER_DEPLOY_KEY != '' || secrets.SCREENSHOT_SUITE_DEPLOY_KEY != '' }}
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.GPU_VIEWER_DEPLOY_KEY }}
+            ${{ secrets.SCREENSHOT_SUITE_DEPLOY_KEY }}
+
+      - name: Add GitHub to known hosts
+        if: ${{ secrets.GPU_VIEWER_DEPLOY_KEY != '' || secrets.SCREENSHOT_SUITE_DEPLOY_KEY != '' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+        shell: bash
+
+      - name: Checkout repository (with submodules)
+        if: ${{ secrets.GPU_VIEWER_DEPLOY_KEY != '' || secrets.SCREENSHOT_SUITE_DEPLOY_KEY != '' }}
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Checkout repository
+        if: ${{ secrets.GPU_VIEWER_DEPLOY_KEY == '' && secrets.SCREENSHOT_SUITE_DEPLOY_KEY == '' }}
+        uses: actions/checkout@v4
+
+      - name: Configure Cargo to use git CLI
+        run: |
+          mkdir -p ~/.cargo
+          echo '[net]' >> ~/.cargo/config.toml
+          echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
+        shell: bash
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -22,7 +49,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
-            src-tauri/plugins/screenshot-suite/web/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
