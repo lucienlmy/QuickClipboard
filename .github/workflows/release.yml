@@ -29,8 +29,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           persist-credentials: false
+
+      - name: Checkout submodules (SSH)
+        run: |
+          git config --global --unset-all url.https://github.com/.insteadOf || true
+          git submodule sync --recursive
+          git submodule update --init --force --depth=1 --recursive
+        shell: bash
 
       - name: Configure Cargo to use git CLI
         run: |
