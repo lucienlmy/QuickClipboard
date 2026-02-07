@@ -67,6 +67,13 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
             let _ = window.close();
         }
     }
+
+    #[cfg(feature = "screenshot-suite")]
+    {
+        if let Ok(json) = serde_json::to_value(&settings) {
+            screenshot_suite::config::update_config(json);
+        }
+    }
     
     Ok(())
 }

@@ -301,6 +301,13 @@ pub fn run() {
                 windows::native_pin_window::setup_event_listener(app.handle());
                 focus::start_focus_listener(app.handle().clone());
 
+                #[cfg(feature = "screenshot-suite")]
+                {
+                    if let Ok(json) = serde_json::to_value(&settings) {
+                        screenshot_suite::config::update_config(json);
+                    }
+                }
+
                 if settings.clipboard_monitor {
                     let _ = start_clipboard_monitor();
                 }
