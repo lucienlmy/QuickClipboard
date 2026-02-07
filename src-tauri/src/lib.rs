@@ -211,6 +211,8 @@ pub fn run() {
                 commands::il_rename_image,
                 commands::il_get_images_dir,
                 commands::il_get_gifs_dir,
+                commands::recognize_image_ocr,
+                commands::recognize_file_ocr,
                 #[cfg(feature = "gpu-image-viewer")]
                 windows::native_pin_window::create_native_pin_window,
                 #[cfg(feature = "gpu-image-viewer")]
