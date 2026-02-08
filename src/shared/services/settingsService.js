@@ -103,6 +103,8 @@ export const defaultSettings = {
   screenshotMagnifierEnabled: true,
   screenshotHintsEnabled: true,
   screenshotColorIncludeFormat: true,
+  screenshotWindowLifecycleMode: 'quick',
+  screenshotAutoDisposeMinutes: 10,
   
   // AI 配置
   aiTranslationEnabled: false,

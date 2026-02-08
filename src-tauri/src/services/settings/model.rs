@@ -50,6 +50,8 @@ pub struct AppSettings {
     pub screenshot_magnifier_enabled: bool,
     pub screenshot_hints_enabled: bool,
     pub screenshot_color_include_format: bool,
+    pub screenshot_window_lifecycle_mode: String,
+    pub screenshot_auto_dispose_minutes: u32,
 
     // 预览窗口设置
     pub quickpaste_enabled: bool,
@@ -185,6 +187,8 @@ impl Default for AppSettings {
             screenshot_magnifier_enabled: true,
             screenshot_hints_enabled: true,
             screenshot_color_include_format: true,
+            screenshot_window_lifecycle_mode: "quick".to_string(),
+            screenshot_auto_dispose_minutes: 10,
 
             quickpaste_enabled: true,
             quickpaste_shortcut: "Ctrl+`".to_string(),

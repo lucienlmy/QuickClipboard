@@ -571,7 +571,18 @@
       "hints": "提示信息",
       "hintsDesc": "截屏时显示操作提示",
       "colorIncludeFormat": "颜色包含格式",
-      "colorIncludeFormatDesc": "取色时同时显示RGB、HEX等多种格式"
+      "colorIncludeFormatDesc": "取色时同时显示RGB、HEX等多种格式",
+      "lifecycleMode": "截屏窗口释放策略",
+      "lifecycleModeDesc": "控制截屏结束后截图窗口的处理方式，用于平衡启动速度与资源占用。",
+      "lifecycleModeQuick": "快速模式",
+      "lifecycleModeQuickDesc": "结束截屏后仅隐藏窗口并进行基础清理，下一次启动速度最快（可能会有少量后台资源占用）。",
+      "lifecycleModeDispose": "释放模式",
+      "lifecycleModeDisposeDesc": "结束截屏后立即释放窗口资源，后台几乎不占用 CPU 或内存（下次启动会稍慢）。",
+      "lifecycleModeAuto": "智能模式",
+      "lifecycleModeAutoDesc": "结束截屏后暂时保留窗口，若在设定时间内未再次截屏，将自动释放资源。",
+      "autoDisposeMinutes": "自动释放时间",
+      "autoDisposeMinutesDesc": "智能模式下：截屏结束后若在此时间内未再次使用截屏功能，将自动释放窗口资源。",
+      "minutes": "分钟"
     },
     "sound": {
       "title": "音效设置",
@@ -677,8 +688,7 @@
       "exportSuccess": "数据已导出到：{{path}}",
       "exportFailed": "导出失败: {{message}}",
       "importSuccess": "数据已导入：{{path}}",
-      "importFailed": "导入失败: {{message}}"
-      ,
+      "importFailed": "导入失败: {{message}}",
       "clearSuccess": "已清空剪贴板历史",
       "clearFailed": "清空历史失败: {{message}}",
       "resetSettingsSuccess": "已恢复默认配置",
@@ -862,4 +872,3 @@
     "portableNoAutoUpdate": "便携版/绿色版不支持自动更新，请手动下载新版本替换当前文件。"
   }
 }
-

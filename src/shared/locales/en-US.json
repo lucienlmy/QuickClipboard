@@ -571,7 +571,18 @@
       "hints": "Hints",
       "hintsDesc": "Show operation hints during screenshot",
       "colorIncludeFormat": "Color Include Format",
-      "colorIncludeFormatDesc": "Show RGB, HEX and other formats when picking color"
+      "colorIncludeFormatDesc": "Show RGB, HEX and other formats when picking color",
+      "lifecycleMode": "Screenshot Window Lifecycle",
+      "lifecycleModeDesc": "Controls how the screenshot window is handled after capture, balancing startup speed and resource usage.",
+      "lifecycleModeQuick": "Quick Mode",
+      "lifecycleModeQuickDesc": "Hides the window after capture and performs basic cleanup for the fastest next launch (may use minimal background resources).",
+      "lifecycleModeDispose": "Release Mode",
+      "lifecycleModeDisposeDesc": "Releases the window immediately after capture to minimize background CPU and memory usage (next launch may be slower).",
+      "lifecycleModeAuto": "Smart Mode",
+      "lifecycleModeAutoDesc": "Keeps the window temporarily after capture and automatically releases it if no screenshot is taken within the specified time.",
+      "autoDisposeMinutes": "Auto Release Delay",
+      "autoDisposeMinutesDesc": "In Smart Mode, the window will be automatically released if no screenshot is taken within this time after capture.",
+      "minutes": "min"
     },
     "sound": {
       "title": "Sound",
@@ -860,4 +871,3 @@
     "portableNoAutoUpdate": "Portable/standalone version does not support auto-update. Please download the new version manually and replace the current file."
   }
 }
-
