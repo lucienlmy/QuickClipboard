@@ -1,8 +1,10 @@
 import { useRef, forwardRef, useImperativeHandle, useEffect, useState, useCallback } from 'react';
 import { useSnapshot } from 'valtio';
+import { listen } from '@tauri-apps/api/event';
 import { favoritesStore, refreshFavorites } from '@shared/store';
 import { navigationStore } from '@shared/store/navigationStore';
 import { groupsStore } from '@shared/store/groupsStore';
+import { settingsStore } from '@shared/store/settingsStore';
 import { openBlankEditor } from '@shared/api/textEditor';
 import FavoritesList from './FavoritesList';
 import FloatingToolbar from './FloatingToolbar';
@@ -13,8 +15,10 @@ const FavoritesTab = forwardRef(({
   searchQuery
 }, ref) => {
   const snap = useSnapshot(favoritesStore);
+  const settings = useSnapshot(settingsStore);
   const listRef = useRef(null);
   const [isAtTop, setIsAtTop] = useState(true);
+  const prevTotalCountRef = useRef(snap.totalCount);
   const searchDebounceRef = useRef(null);
 
   const debouncedSearch = useCallback((query, filter) => {
@@ -44,6 +48,26 @@ const FavoritesTab = forwardRef(({
     };
   }, [searchQuery, contentFilter, debouncedSearch]);
 
+  useEffect(() => {
+    if (snap.totalCount > prevTotalCountRef.current) {
+      handleScrollToTop({ checkSetting: true, delay: 100 });
+    }
+    prevTotalCountRef.current = snap.totalCount;
+  }, [snap.totalCount]);
+
+  useEffect(() => {
+    const setupListeners = async () => {
+      const unlisten1 = await listen('window-show-animation', () => handleScrollToTop({ checkSetting: true, delay: 50 }));
+      const unlisten2 = await listen('edge-snap-show', () => handleScrollToTop({ checkSetting: true, delay: 50 }));
+      return () => {
+        unlisten1();
+        unlisten2();
+      };
+    };
+    let cleanup = setupListeners();
+    return () => cleanup.then(fn => fn());
+  }, [settings.autoScrollToTopOnShow]);
+
   // 暴露导航方法给父组件
   useImperativeHandle(ref, () => ({
     navigateUp: () => listRef.current?.navigateUp?.(),
@@ -60,8 +84,20 @@ const FavoritesTab = forwardRef(({
   };
 
   // 处理返回顶部
-  const handleScrollToTop = () => {
-    listRef.current?.scrollToTop?.();
+  const handleScrollToTop = (options = {}) => {
+    const {
+      checkSetting = true,
+      delay = 0
+    } = options;
+
+    if (checkSetting && !settings.autoScrollToTopOnShow) {
+      return;
+    }
+
+    setTimeout(() => {
+      listRef.current?.scrollToTop?.();
+      navigationStore.resetNavigation();
+    }, delay);
   };
 
   // 处理添加收藏
@@ -80,7 +116,9 @@ const FavoritesTab = forwardRef(({
       <FavoritesList ref={listRef} onScrollStateChange={handleScrollStateChange} />
       
       {/* 悬浮工具栏 */}
-      <FloatingToolbar showScrollTop={!isAtTop && snap.totalCount > 0} showAddFavorite={shouldShowAddFavorite} onScrollTop={handleScrollToTop} onAddFavorite={handleAddFavorite} />
+      <FloatingToolbar showScrollTop={!isAtTop && snap.totalCount > 0} showAddFavorite={shouldShowAddFavorite} onScrollTop={() => handleScrollToTop({
+      checkSetting: false
+    })} onAddFavorite={handleAddFavorite} />
     </div>;
 });
 FavoritesTab.displayName = 'FavoritesTab';

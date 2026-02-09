@@ -102,7 +102,9 @@ const ClipboardTab = forwardRef(({
     <ClipboardList ref={listRef} onScrollStateChange={handleScrollStateChange} />
 
     {/* 悬浮工具栏 */}
-    <FloatingToolbar showScrollTop={!isAtTop && snap.totalCount > 0} showAddFavorite={false} onScrollTop={handleScrollToTop} />
+    <FloatingToolbar showScrollTop={!isAtTop && snap.totalCount > 0} showAddFavorite={false} onScrollTop={() => handleScrollToTop({
+      checkSetting: false
+    })} />
   </div>;
 });
 ClipboardTab.displayName = 'ClipboardTab';
