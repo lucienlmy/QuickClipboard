@@ -146,33 +146,67 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
     use tauri_plugin_updater::UpdaterExt;
     use std::time::Duration;
     
-    let endpoints = [
-        "https://api.quickclipboard.cn/update/latest.json",
-        "https://github.com/mosheng1/QuickClipboard/releases/latest/download/latest.json",
-    ];
+    let current_version = app.package_info().version.to_string();
+    let is_current_prerelease = is_prerelease(&current_version);
+
+    let entry_url = "https://api.quickclipboard.cn/update/latest.json";
+
+    let mut stable_json_url: Option<String> = None;
+    let mut beta_json_url: Option<String> = None;
+
+    if let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(15)).build() {
+        if let Ok(resp) = client.get(entry_url).send().await {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                stable_json_url = json
+                    .get("stableJson")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                beta_json_url = json
+                    .get("betaJson")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+            }
+        }
+    }
+
+    let stable_url = stable_json_url.unwrap_or_else(|| "https://api.quickclipboard.cn/update/stable_latest.json".to_string());
+    let beta_url = beta_json_url.unwrap_or_else(|| "https://api.quickclipboard.cn/update/beta_latest.json".to_string());
+
+    let use_beta_channel = match std::env::var("QC_UPDATE_CHANNEL") {
+        Ok(v) if v.trim().eq_ignore_ascii_case("beta") => true,
+        Ok(v) if v.trim().eq_ignore_ascii_case("stable") => false,
+        _ => is_current_prerelease,
+    };
+
+    let chosen_manifest_url = if use_beta_channel { beta_url } else { stable_url };
+    let chosen_manifest_url_str = chosen_manifest_url.clone();
 
     let mut force_update = false;
     let mut notes: Option<serde_json::Value> = None;
 
     if let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(15)).build() {
-        for url in endpoints {
-            if let Ok(resp) = client.get(url).send().await {
-                if let Ok(json) = resp.json::<serde_json::Value>().await {
-                    force_update = json.get("forceUpdate").and_then(|v| v.as_bool()).unwrap_or(false);
-                    notes = json.get("notes").cloned();
-                    break;
-                }
+        if let Ok(resp) = client.get(&chosen_manifest_url_str).send().await {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                force_update = json.get("forceUpdate").and_then(|v| v.as_bool()).unwrap_or(false);
+                notes = json.get("notes").cloned();
             }
         }
     }
 
-    let updater = app.updater().map_err(|e| e.to_string())?;
+    let chosen_manifest_endpoint = tauri::Url::parse(&chosen_manifest_url_str)
+        .map_err(|e| format!("{}", e))?;
+
+    let updater = app.updater_builder()
+        .endpoints(vec![chosen_manifest_endpoint])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
+
     match updater.check().await.map_err(|e| e.to_string())? {
         Some(update) => {
             let new_version = update.version.clone();
-            let current_version = app.package_info().version.to_string();
             
-            if !is_prerelease(&current_version) && is_prerelease(&new_version) {
+            if !is_current_prerelease && is_prerelease(&new_version) {
                 return Ok(false);
             }
             

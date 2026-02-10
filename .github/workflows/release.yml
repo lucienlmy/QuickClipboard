@@ -1,15 +1,19 @@
 name: Release
-run-name: Release ${{ github.ref_name }}
+run-name: Release ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
 
 on:
   push:
     tags:
       - 'v*'
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 jobs:
   release:
     runs-on: windows-latest
+    if: github.event_name != 'release'
     permissions:
       contents: write
     steps:
@@ -88,7 +92,7 @@ jobs:
           releaseName: 'QuickClipboard ${{ github.ref_name }}'
           releaseBody: 'https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}'
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') || contains(github.ref_name, 'dev') }}
           includeUpdaterJson: true
           updaterJsonKeepUniversal: true
 
@@ -99,22 +103,53 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      - name: Download and modify latest.json
+      - name: 生成并上传更新描述文件（latest/stable_latest/beta_latest）
         run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $isPrerelease = $version -match '(alpha|beta|rc|dev)'
 
-          $releases = gh api repos/${{ github.repository }}/releases --jq '.[] | select(.draft==true and .tag_name=="${{ github.ref_name }}")'
-          $releaseId = ($releases | ConvertFrom-Json).id
+          $stableJsonUrl = "https://api.quickclipboard.cn/update/stable_latest.json"
+          $betaJsonUrl = "https://api.quickclipboard.cn/update/beta_latest.json"
 
+          # 下载 tauri-action 生成的 latest.json
           gh release download ${{ github.ref_name }} -p "latest.json" -D . --clobber
-
           $json = Get-Content "latest.json" -Raw | ConvertFrom-Json
           $json | Add-Member -NotePropertyName "forceUpdate" -NotePropertyValue $false -Force
-          $json | ConvertTo-Json -Depth 10 | Set-Content "latest.json" -Encoding UTF8
 
-          gh release delete-asset ${{ github.ref_name }} "latest.json" -y || true
-          gh release upload ${{ github.ref_name }} "latest.json" --clobber
-          
-          echo "Added forceUpdate: false to latest.json"
+          if ($isPrerelease) {
+            # 测试版发布：只更新 beta_latest.json（latest.json/stable_latest.json 不动，避免影响旧版/正式版）
+            $json | ConvertTo-Json -Depth 10 | Set-Content "beta_latest.json" -Encoding UTF8
+
+            gh release delete-asset ${{ github.ref_name }} "beta_latest.json" -y 2>$null
+            gh release upload ${{ github.ref_name }} "beta_latest.json" --clobber
+
+            Write-Host "测试版：已上传 beta_latest.json（$version）"
+            Write-Host "测试版：latest.json / stable_latest.json 保持不变"
+          } else {
+            # 正式版发布：同时更新 3 个文件
+
+            # stable_latest.json：当前正式版 manifest
+            $json | ConvertTo-Json -Depth 10 | Set-Content "stable_latest.json" -Encoding UTF8
+
+            # beta_latest.json：同步为正式版，确保测试版用户能升级到正式版
+            $json | ConvertTo-Json -Depth 10 | Set-Content "beta_latest.json" -Encoding UTF8
+
+            # latest.json：兼容旧版本（正式版 manifest）+ 入口指针（新版本按渠道选择）
+            $json | Add-Member -NotePropertyName "stableJson" -NotePropertyValue $stableJsonUrl -Force
+            $json | Add-Member -NotePropertyName "betaJson" -NotePropertyValue $betaJsonUrl -Force
+            $json | ConvertTo-Json -Depth 10 | Set-Content "latest.json" -Encoding UTF8
+
+            gh release delete-asset ${{ github.ref_name }} "latest.json" -y 2>$null
+            gh release upload ${{ github.ref_name }} "latest.json" --clobber
+
+            gh release delete-asset ${{ github.ref_name }} "stable_latest.json" -y 2>$null
+            gh release upload ${{ github.ref_name }} "stable_latest.json" --clobber
+
+            gh release delete-asset ${{ github.ref_name }} "beta_latest.json" -y 2>$null
+            gh release upload ${{ github.ref_name }} "beta_latest.json" --clobber
+
+            Write-Host "正式版：已更新 latest.json / stable_latest.json / beta_latest.json（$version）"
+          }
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -143,3 +178,98 @@ jobs:
             QuickClipboard_${{ steps.version.outputs.VERSION }}.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sync_oss:
+    runs-on: windows-latest
+    if: github.event_name == 'release'
+    permissions:
+      contents: read
+    steps:
+      - name: 下载更新描述文件（从已发布的 Release）
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $tag = "${{ github.event.release.tag_name }}"
+          $version = $tag -replace '^v', ''
+          $isPrerelease = $version -match '(alpha|beta|rc|dev)'
+
+          # 先下载该 Release 上的描述文件
+          if ($isPrerelease) {
+            gh release download $tag -p "beta_latest.json" -D . --clobber
+            Write-Host "已下载 beta_latest.json（$version）"
+          } else {
+            gh release download $tag -p "latest.json" -D . --clobber
+            gh release download $tag -p "stable_latest.json" -D . --clobber
+            gh release download $tag -p "beta_latest.json" -D . --clobber
+            Write-Host "已下载 latest.json / stable_latest.json / beta_latest.json（$version）"
+          }
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 下载 ossutil（Windows）
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = "https://gosspublic.alicdn.com/ossutil/1.7.7/ossutil64.zip"
+          $zip = "ossutil64.zip"
+          $dir = "ossutil64"
+
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+          Expand-Archive -Path $zip -DestinationPath $dir -Force
+
+          $ossutil = Get-ChildItem -Path $dir -Recurse -Filter "ossutil64.exe" | Select-Object -First 1
+          if (-not $ossutil) {
+            throw "解压 $zip 后未找到 ossutil64.exe"
+          }
+
+          "$($ossutil.FullName)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "已找到 ossutil64.exe：$($ossutil.FullName)"
+        shell: pwsh
+
+      - name: 上传更新描述文件到 OSS（在 Release 已发布后执行）
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $tag = "${{ github.event.release.tag_name }}"
+          $version = $tag -replace '^v', ''
+          $isPrerelease = $version -match '(alpha|beta|rc|dev)'
+
+          $endpoint = "${{ secrets.OSS_ENDPOINT }}"
+          $ak = "${{ secrets.OSS_ACCESS_KEY_ID }}"
+          $sk = "${{ secrets.OSS_ACCESS_KEY_SECRET }}"
+          $bucket = "${{ secrets.OSS_BUCKET }}"
+          $prefix = "${{ secrets.OSS_UPDATE_PREFIX }}"
+
+          if ([string]::IsNullOrWhiteSpace($endpoint)) { throw "缺少 Secret：OSS_ENDPOINT" }
+          if ([string]::IsNullOrWhiteSpace($ak)) { throw "缺少 Secret：OSS_ACCESS_KEY_ID" }
+          if ([string]::IsNullOrWhiteSpace($sk)) { throw "缺少 Secret：OSS_ACCESS_KEY_SECRET" }
+          if ([string]::IsNullOrWhiteSpace($bucket)) { throw "缺少 Secret：OSS_BUCKET" }
+
+          if ([string]::IsNullOrWhiteSpace($prefix)) {
+            $prefix = "update"
+          }
+
+          $prefix = $prefix.Trim('/')
+
+          function Upload-Json($fileName) {
+            if (-not (Test-Path $fileName)) {
+              throw "未找到文件：$fileName"
+            }
+            $dst = "oss://$bucket/$prefix/$fileName"
+            Write-Host "正在上传：$fileName -> $dst"
+            ossutil64 cp -f $fileName $dst -e $endpoint -i $ak -k $sk --mode AK
+          }
+
+          if ($isPrerelease) {
+            # 测试版：只上传 beta_latest.json
+            Upload-Json "beta_latest.json"
+            Write-Host "测试版：已上传 beta_latest.json（$version）"
+          } else {
+            # 正式版：上传 3 个文件
+            Upload-Json "latest.json"
+            Upload-Json "stable_latest.json"
+            Upload-Json "beta_latest.json"
+            Write-Host "正式版：已上传 latest.json / stable_latest.json / beta_latest.json（$version）"
+          }
+        shell: pwsh
