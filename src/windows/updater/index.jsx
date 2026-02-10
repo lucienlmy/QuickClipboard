@@ -7,15 +7,14 @@ import { check } from '@tauri-apps/plugin-updater'
 import { getVersion } from '@tauri-apps/api/app'
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import '@shared/i18n';
 import { useTranslation } from 'react-i18next'
 import '@shared/styles/index.css'
 import '@shared/styles/theme-background.css'
 import { initStores } from '@shared/store'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-
+import logoIcon from '@/assets/icon1024.png';
 function App() {
   const { t, i18n } = useTranslation()
   const [forceUpdate, setForceUpdate] = useState(false)
@@ -24,10 +23,6 @@ function App() {
   const [progress, setProgress] = useState({ downloaded: 0, total: 0 })
   const [message, setMessage] = useState(t('updater.checking', { defaultValue: '正在检查更新...' }))
   const [versionInfo, setVersionInfo] = useState(null)
-  const [notesContent, setNotesContent] = useState('')
-  const [notesLoading, setNotesLoading] = useState(false)
-  const [notesError, setNotesError] = useState('')
-  const [releaseUrl, setReleaseUrl] = useState('')
   const [currentVersion, setCurrentVersion] = useState('')
   
   const updateInstanceRef = useRef(null)
@@ -65,9 +60,7 @@ function App() {
         setForceUpdate(isForceUpdate)
         setIsPortable(portable)
         const v = cfg.version || null
-        const n = cfg.notes || null
-        setVersionInfo(v ? { version: v, date: undefined, notes: n } : null)
-        if (n) await loadNotes(n)
+        setVersionInfo(v ? { version: v, date: undefined } : null)
         setStatus('available')
         
         if (isForceUpdate && !portable) {
@@ -102,56 +95,22 @@ function App() {
         setMessage(t('updater.noUpdate', { defaultValue: '当前已是最新版本' }))
         break
       case 'downloading':
-        setMessage(t('updater.downloading', { defaultValue: '正在下载更新...' }))
+        setMessage('')
         break
       case 'installed':
         setMessage(t('updater.installedRestarting', { defaultValue: '更新已安装，正在重启...' }))
         break
       case 'available':
-        setMessage(t('updater.newVersionAvailable', { defaultValue: '发现新版本' }))
+        setMessage('')
         break
       default:
         break
     }
   }, [i18n.language, status, versionInfo?.version])
 
-  async function loadNotes(notesField) {
-    try {
-      setNotesError('')
-      if (!notesField) {
-        setNotesContent('')
-        setReleaseUrl('')
-        return
-      }
-      if (typeof notesField === 'string' && /^https?:\/\//i.test(notesField)) {
-        setNotesLoading(true)
-        const resp = await fetch(notesField)
-        const ct = resp.headers.get('content-type') || ''
-        if (ct.includes('application/json')) {
-          const data = await resp.json()
-          setNotesContent((data && (data.body || data.note || '')) || '')
-          setReleaseUrl((data && (data.html_url || data.url || notesField)) || '')
-        } else {
-          const text = await resp.text()
-          setNotesContent(text || '')
-          setReleaseUrl(notesField)
-        }
-      } else {
-        setNotesContent(String(notesField))
-        setReleaseUrl('')
-      }
-    } catch (err) {
-      setNotesError(`加载更新内容失败：${err?.message || err}`)
-      setReleaseUrl(typeof notesField === 'string' ? notesField : '')
-    } finally {
-      setNotesLoading(false)
-    }
-  }
-
   async function startDownloadInternal(update) {
     try {
       setStatus('downloading')
-      setMessage(t('updater.downloading', { defaultValue: '正在下载更新...' }))
       let downloaded = 0
       let total = 0
       await update.downloadAndInstall((event) => {
@@ -210,113 +169,80 @@ function App() {
     }
   }, [forceUpdate])
 
+  const handleViewChangelog = useCallback(async () => {
+    try {
+      await openUrl('https://quickclipboard.cn/zh/changelog')
+    } catch (_) {}
+  }, [])
+
   const pct = progress.total > 0 ? Math.min(100, Math.round(progress.downloaded * 100 / progress.total)) : 0
 
   return (
-    <div className="h-full w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-6 flex flex-col items-center" data-tauri-drag-region>
-      <div className="w-full max-w-[780px] h-full flex flex-col gap-4" data-tauri-drag-region>
-        <div className="flex items-center justify-between" data-tauri-drag-region>
-          <div className="text-xl font-semibold flex items-center gap-2">
-            <i className="ti ti-rocket" /> {t('about.appName', { defaultValue: 'QuickClipboard' })} · {t('updater.title', { defaultValue: '应用更新' })}
-          </div>
+    <div className="h-full w-full bg-white/90 border border-gray-200 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-2 flex flex-col rounded-lg overflow-hidden" style={{ boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'}} data-tauri-drag-region>
+      <style>{`
+        @keyframes qc-updater-marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+        .qc-updater-marquee-track {
+          animation: qc-updater-marquee 12s linear infinite;
+        }
+      `}</style>
+      <div className="flex items-center justify-between shrink-0" data-tauri-drag-region>
+        <div className="text-sm font-semibold flex items-center gap-2" data-tauri-drag-region>
+          <img className="w-4 h-4" src={logoIcon} alt="" /> {t('updater.title', { defaultValue: '应用更新' })}        </div>
+
+        <div className="flex-1 min-w-0 px-2" data-tauri-drag-region>
+          {isPortable && status === 'available' ? (
+            <div className="w-full overflow-hidden" data-tauri-drag-region>
+              <div className="qc-updater-marquee-track text-xs text-amber-800 dark:text-amber-300 whitespace-nowrap" data-tauri-drag-region>
+                {t('updater.portableNotice', { defaultValue: '便携版提示' })}：{t('updater.portableNoAutoUpdate', { defaultValue: '便携版/绿色版不支持自动更新，请手动下载新版本替换当前文件。' })}
+              </div>
+            </div>
+          ) : null}
         </div>
+
+        <button onClick={handleViewChangelog} className="text-xs text-blue-600 hover:underline" type="button">
+          {t('updater.viewChangelog', { defaultValue: '查看更新日志' })}
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-auto mt-2 pr-1" data-tauri-drag-region>
         {status === 'checking' ? (
-          <div className="flex-1 min-h-40 flex flex-col items-center justify-center gap-3">
-            <i className="ti ti-loader-2 animate-spin text-5xl" />
+          <div className="min-h-24 flex flex-col items-center justify-center gap-2" data-tauri-drag-region>
+            <i className="ti ti-loader-2 animate-spin text-3xl" />
             <div className="text-sm opacity-90">{t('updater.checking', { defaultValue: '正在检查更新...' })}</div>
           </div>
         ) : (
-          <>
-            <div className="text-sm opacity-90">{status === 'error' ? null : message}</div>
+          <div className="flex flex-col gap-1.5" data-tauri-drag-region>
+            {status === 'error' ? null : (message ? (
+              <div className="text-sm opacity-90">{message}</div>
+            ) : null)}
 
             {versionInfo && (status === 'available' || status === 'downloading' || status === 'error') && (
-              <div className="text-xs sm:text-sm opacity-90 flex items-center gap-3 flex-wrap">
-                <div className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
+              <div className="text-xs opacity-90 flex items-center gap-2 flex-wrap" data-tauri-drag-region>
+                <div className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800">
                   <span className="font-medium">{currentVersion || '--'}</span>
                 </div>
                 <i className="ti ti-arrow-right text-gray-400" />
-                <div className="px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                <div className="px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
                   <span className="font-semibold">{versionInfo.version || '--'}</span>
                 </div>
               </div>
             )}
 
-            {versionInfo && (
-              <div className="flex-1 min-h-[180px] w-full border border-gray-200 dark:border-gray-700 rounded-md p-3 bg-gray-50 dark:bg-gray-800/50 flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <i className="ti ti-notes" /> {t('updater.notes', { defaultValue: '更新内容' })}
-                  </div>
-                  {releaseUrl && (
-                    <a className="text-xs text-blue-600 hover:underline" href={releaseUrl} target="_blank" rel="noreferrer">
-                      {t('updater.viewOnGithub', { defaultValue: '在 GitHub 查看发布' })}
-                    </a>
-                  )}
-                </div>
-
-                {notesLoading && (
-                  <div className="text-xs opacity-70">{t('updater.loadingNotes', { defaultValue: '正在加载更新说明...' })}</div>
-                )}
-                {!notesLoading && notesError && (
-                  <div className="text-xs text-red-500">
-                    {notesError} {releaseUrl && (
-                      <a className="ml-2 underline" href={releaseUrl} target="_blank" rel="noreferrer">{t('updater.viewInBrowser', { defaultValue: '在浏览器查看' })}</a>
-                    )}
-                  </div>
-                )}
-                {!notesLoading && !notesError && (
-                  <div className="text-sm leading-6 flex-1 overflow-auto">
-                    {notesContent ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesContent}</ReactMarkdown>
-                    ) : (
-                      t('updater.noNotes', { defaultValue: '暂无更新说明' })
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {status === 'downloading' && (
-              <div className="w-full max-w-[520px] mt-1">
-                <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded">
-                  <div className="h-2 bg-blue-500 rounded transition-all" style={{ width: `${pct}%` }} />
-                </div>
-                <div className="text-xs mt-1 opacity-70 flex items-center gap-2">
-                  <i className="ti ti-loader-2 animate-spin" />
-                  <span>{pct}%</span>
-                  {progress.total > 0 && (
-                    <span className="ml-2">
-                      {(progress.downloaded / 1024 / 1024).toFixed(1)} / {(progress.total / 1024 / 1024).toFixed(1)} MB
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {isPortable && status === 'available' && (
-              <div className="w-full max-w-[520px] mt-1 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
-                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                  <i className="ti ti-info-circle" />
-                  <span className="text-sm font-medium">{t('updater.portableNotice', { defaultValue: '便携版提示' })}</span>
-                </div>
-                <div className="text-xs mt-1 text-amber-600 dark:text-amber-400">
-                  {t('updater.portableNoAutoUpdate', { defaultValue: '便携版/绿色版不支持自动更新，请手动下载新版本替换当前文件。' })}
-                </div>
-              </div>
-            )}
-
             {status === 'error' && (
-              <div className="w-full max-w-[520px] mt-1 p-3 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800">
-                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+              <div className="w-full p-2 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800" data-tauri-drag-region>
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-400" data-tauri-drag-region>
                   <i className="ti ti-alert-circle" />
-                  <span className="text-sm font-medium">{t('updater.updateFailed', { defaultValue: '更新失败' })}</span>
+                  <span className="text-xs font-medium">{t('updater.updateFailed', { defaultValue: '更新失败' })}</span>
                 </div>
-                <div className="text-xs mt-1 text-red-500 dark:text-red-400">
+                <div className="text-xs mt-1 text-red-600 dark:text-red-400" data-tauri-drag-region>
                   {message}
                 </div>
                 <a 
                   className="text-xs mt-2 inline-block text-blue-600 hover:underline" 
-                  href={releaseUrl || 'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
+                  href={'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
                   target="_blank" 
                   rel="noreferrer"
                 >
@@ -324,27 +250,34 @@ function App() {
                 </a>
               </div>
             )}
-          </>
+          </div>
         )}
+      </div>
 
-        <div className="flex gap-3 mt-2">
+      <div className={`shrink-0 relative pt-2 mt-2 ${status === 'downloading' ? '' : 'border-t border-gray-200 dark:border-gray-700'}`} data-tauri-drag-region>
+        {status === 'downloading' && (
+          <div className="absolute left-0 right-0 top-0 h-0.5 bg-gray-200 dark:bg-gray-700" data-tauri-drag-region>
+            <div className="h-0.5 bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        )}
+        <div className="flex gap-2 flex-wrap" data-tauri-drag-region>
           {status === 'available' && (
             <>
               {isPortable ? (
                 <a 
-                  href={releaseUrl || 'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
+                  href={'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2 no-underline"
+                  className="px-3 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2 no-underline"
                 >
                   <i className="ti ti-external-link" /> {t('updater.manualDownload', { defaultValue: '手动下载' })}
                 </a>
               ) : (
-                <button onClick={() => startDownload()} className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
+                <button onClick={() => startDownload()} className="px-3 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
                   <i className="ti ti-download" /> {t('updater.downloadAndInstall', { defaultValue: '下载并安装' })}
                 </button>
               )}
-              <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
+              <button onClick={handleClose} className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
                 {t('updater.later', { defaultValue: '稍后' })}
               </button>
             </>
@@ -355,17 +288,17 @@ function App() {
                 const w = getCurrentWebviewWindow();
                 try { await w.hide(); } catch (_) {}
               }}
-              className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm"
+              className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm"
             >
               {t('updater.backgroundUpdate', { defaultValue: '后台更新' })}
             </button>
           )}
           {status === 'error' && (
             <>
-              <button onClick={() => startDownload()} className="px-4 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
+              <button onClick={() => startDownload()} className="px-3 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
                 <i className="ti ti-refresh" /> {t('updater.retry', { defaultValue: '重试' })}
               </button>
-              <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm flex items-center gap-2">
+              <button onClick={handleClose} className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm flex items-center gap-2">
                 {forceUpdate ? (
                   <><i className="ti ti-power" /> {t('updater.exitApp', { defaultValue: '退出程序' })}</>
                 ) : (
@@ -375,7 +308,7 @@ function App() {
             </>
           )}
           {status === 'none' && (
-            <button onClick={handleClose} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
+            <button onClick={handleClose} className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
               {t('common.close', { defaultValue: '关闭' })}
             </button>
           )}

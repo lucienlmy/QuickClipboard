@@ -857,6 +857,7 @@
     "latestVersion": "最新版本：{{version}}",
     "notes": "更新内容",
     "viewOnGithub": "在 GitHub 查看发布",
+    "viewChangelog": "查看更新日志",
     "loadingNotes": "正在加载更新说明...",
     "viewInBrowser": "在浏览器查看",
     "noNotes": "暂无更新说明",

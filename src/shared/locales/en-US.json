@@ -856,6 +856,7 @@
     "latestVersion": "Latest version: {{version}}",
     "notes": "Release Notes",
     "viewOnGithub": "View on GitHub",
+    "viewChangelog": "View Changelog",
     "loadingNotes": "Loading release notes...",
     "viewInBrowser": "View in browser",
     "noNotes": "No release notes",

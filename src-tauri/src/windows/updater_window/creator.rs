@@ -10,6 +10,16 @@ pub fn is_force_update_mode() -> bool {
     FORCE_UPDATE_MODE.load(Ordering::Relaxed)
 }
 
+fn parse_env_bool(key: &str) -> Option<bool> {
+    let raw = std::env::var(key).ok()?;
+    let v = raw.trim().to_lowercase();
+    match v.as_str() {
+        "1" | "true" | "yes" | "y" | "on" => Some(true),
+        "0" | "false" | "no" | "n" | "off" => Some(false),
+        _ => None,
+    }
+}
+
 fn is_prerelease(version: &str) -> bool {
     let v = version.to_lowercase();
     v.contains("alpha") || v.contains("beta") || v.contains("rc") || v.contains("dev")
@@ -88,8 +98,9 @@ pub fn open_updater_window(app: &AppHandle, force_update: bool) -> Result<Webvie
         WebviewUrl::App("windows/updater/index.html".into()),
     )
     .title("更新")
-    .inner_size(520.0, 640.0)
-    .center()
+    .inner_size(360.0, 130.0)
+    .transparent(true)
+    .shadow(false)
     .resizable(false)
     .maximizable(false)
     .minimizable(false)
@@ -97,9 +108,21 @@ pub fn open_updater_window(app: &AppHandle, force_update: bool) -> Result<Webvie
     .skip_taskbar(true)
     .always_on_top(true)
     .visible(true)
-    .focused(true)
+    .focused(false)
+    .focusable(false)
     .build()
     .map_err(|e| format!("创建更新窗口失败: {}", e))?;
+
+    if let Ok(size) = window.outer_size() {
+        let margin: i32 = 12;
+
+        if let Ok(monitor) = crate::screen::ScreenUtils::get_monitor_at_cursor(app) {
+            let work_area = monitor.work_area();
+            let x = work_area.position.x + work_area.size.width as i32 - size.width as i32 - margin;
+            let y = work_area.position.y + work_area.size.height as i32 - size.height as i32 - margin;
+            let _ = window.set_position(tauri::PhysicalPosition::new(x.max(work_area.position.x), y.max(work_area.position.y)));
+        }
+    }
 
     if force_update {
         let app_for_event = app.clone();
@@ -166,19 +189,22 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
             
             let window = if let Some(w) = app.get_webview_window("updater") {
                 let _ = w.show();
-                let _ = w.set_focus();
                 w
             } else {
                 open_updater_window(app, force_update)?
             };
 
             // 检测是否为便携版/免安装版（不自动更新）
-            let is_portable = crate::services::is_portable_build() 
+            let mut is_portable = crate::services::is_portable_build() 
                 || std::env::current_exe()
                     .ok()
                     .and_then(|e| e.parent().map(|p| p.join("portable.txt").exists() || p.join("portable.flag").exists()))
                     .unwrap_or(false)
                 || !is_installed_version();
+
+            if let Some(v) = parse_env_bool("QC_FORCE_PORTABLE") {
+                is_portable = v;
+            }
             
             let payload = serde_json::json!({
                 "forceUpdate": if is_portable { false } else { force_update },
