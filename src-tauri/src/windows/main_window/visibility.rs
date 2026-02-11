@@ -3,6 +3,10 @@ use tauri::{AppHandle, WebviewWindow};
 
 // 显示主窗口
 pub fn show_main_window(window: &WebviewWindow) {
+    if crate::services::system::is_front_app_globally_disabled_from_settings() {
+        return;
+    }
+
     let state = super::state::get_window_state();
 
     if state.is_snapped && state.is_hidden {
@@ -51,6 +55,10 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
     }
 
     if let Some(window) = super::get_main_window(app) {
+        if crate::services::system::is_front_app_globally_disabled_from_settings() {
+            return;
+        }
+
         let state = super::state::get_window_state();
 
         let should_show =

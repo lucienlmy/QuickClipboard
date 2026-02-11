@@ -265,6 +265,10 @@ fn handle_navigation_key(key: Key) -> bool {
         Some(state) => (state.ctrl, state.alt, state.shift, state.meta),
         None => return false,
     };
+
+    if crate::services::system::is_front_app_globally_disabled_from_settings() {
+        return false;
+    }
     
     let settings = crate::get_settings();
     
@@ -495,6 +499,10 @@ fn handle_wheel_event(delta_y: i64) {
 
 fn handle_middle_button_action() {
     if crate::services::low_memory::is_low_memory_mode() {
+        return;
+    }
+
+    if crate::services::system::is_front_app_globally_disabled_from_settings() {
         return;
     }
 

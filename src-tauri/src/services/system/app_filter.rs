@@ -26,6 +26,24 @@ pub enum ClipboardSourceType {
     Unknown,
 }
 
+fn matches_filter_rule_text(process_name: &str, window_title: &str, process_path: &str, filter: &str) -> bool {
+    let filter = filter.trim();
+    if filter.is_empty() {
+        return false;
+    }
+
+    if filter.contains('*') || filter.contains('?') {
+        wildcard_match(filter, process_name)
+            || wildcard_match(filter, window_title)
+            || wildcard_match(filter, process_path)
+    } else {
+        let f = filter.to_lowercase();
+        process_name.to_lowercase().contains(&f)
+            || window_title.to_lowercase().contains(&f)
+            || process_path.to_lowercase().contains(&f)
+    }
+}
+
 // Windows 实现
 #[cfg(target_os = "windows")]
 mod windows_impl {
@@ -429,6 +447,45 @@ fn matches_filter_rule(source: &ClipboardSourceInfo, filter: &str) -> bool {
             || source.window_title.to_lowercase().contains(&f)
             || source.process_path.to_lowercase().contains(&f)
     }
+}
+
+pub fn is_front_app_globally_disabled(
+    app_filter_enabled: bool,
+    app_filter_mode: &str,
+    app_filter_list: &[String],
+    app_filter_effect: &str,
+) -> bool {
+    if !app_filter_enabled {
+        return false;
+    }
+
+    if app_filter_effect != "global_disable" {
+        return false;
+    }
+
+    let Some(info) = crate::services::system::focus::get_foreground_app_info() else {
+        return false;
+    };
+
+    let matches = app_filter_list.iter().any(|f| {
+        matches_filter_rule_text(&info.process_name, &info.window_title, &info.process_path, f)
+    });
+
+    match app_filter_mode {
+        "blacklist" => matches,
+        "whitelist" => !matches,
+        _ => false,
+    }
+}
+
+pub fn is_front_app_globally_disabled_from_settings() -> bool {
+    let settings = crate::services::get_settings();
+    is_front_app_globally_disabled(
+        settings.app_filter_enabled,
+        &settings.app_filter_mode,
+        &settings.app_filter_list,
+        &settings.app_filter_effect,
+    )
 }
 
 // 检查当前应用是否允许记录剪贴板

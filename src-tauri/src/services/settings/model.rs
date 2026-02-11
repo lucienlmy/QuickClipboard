@@ -93,6 +93,7 @@ pub struct AppSettings {
     pub app_filter_enabled: bool,
     pub app_filter_mode: String,
     pub app_filter_list: Vec<String>,
+    pub app_filter_effect: String,
 
     // 窗口设置
     pub window_position_mode: String,
@@ -224,6 +225,7 @@ impl Default for AppSettings {
             app_filter_enabled: false,
             app_filter_mode: "blacklist".to_string(),
             app_filter_list: vec![],
+            app_filter_effect: "clipboard_only".to_string(),
 
             window_position_mode: "smart".to_string(),
             remember_window_size: false,

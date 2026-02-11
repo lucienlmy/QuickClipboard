@@ -129,6 +129,7 @@ export const defaultSettings = {
   appFilterEnabled: false,
   appFilterMode: 'blacklist',
   appFilterList: [],
+  appFilterEffect: 'clipboard_only',
   
   // 保存的窗口状态
   savedWindowPosition: null,

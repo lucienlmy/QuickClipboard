@@ -1,12 +1,15 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useCallback } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Input from '@shared/components/ui/Input';
 import Button from '@shared/components/ui/Button';
+
 import { getAllWindowsInfo } from '@shared/api/settings';
+
 function AppFilterSection({
   settings,
   onSettingChange
@@ -19,6 +22,7 @@ function AppFilterSection({
   const [availableApps, setAvailableApps] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [appIconMap, setAppIconMap] = useState(new Map());
+
   useEffect(() => {
     if (settings.appFilterList && Array.isArray(settings.appFilterList)) {
       setAppList(settings.appFilterList);
@@ -27,10 +31,12 @@ function AppFilterSection({
       setAppList(list);
     }
   }, [settings.appFilterList]);
+
   const matchAppIcon = useCallback(appName => {
     const matchedApp = availableApps.find(app => app.process.toLowerCase() === appName.toLowerCase() || app.process.toLowerCase().includes(appName.toLowerCase()) || appName.toLowerCase().includes(app.process.toLowerCase()));
     return matchedApp?.icon;
   }, [availableApps]);
+
   const handleAddCustomApp = () => {
     if (!customAppInput.trim()) return;
     const appName = customAppInput.trim();
@@ -43,15 +49,18 @@ function AppFilterSection({
     }
     setCustomAppInput('');
   };
+
   const handleRemoveApp = index => {
     const newList = appList.filter((_, i) => i !== index);
     setAppList(newList);
     onSettingChange('appFilterList', newList);
   };
+
   const handleClearList = () => {
     setAppList([]);
     onSettingChange('appFilterList', []);
   };
+
   const handleRefreshWindows = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -83,9 +92,11 @@ function AppFilterSection({
       setIsRefreshing(false);
     }
   }, [appList]);
+
   useEffect(() => {
     handleRefreshWindows();
   }, [handleRefreshWindows]);
+
   const handleAddAvailableApp = appInfo => {
     const appName = typeof appInfo === 'string' ? appInfo : appInfo.process;
     if (!appList.includes(appName)) {
@@ -97,13 +108,16 @@ function AppFilterSection({
       }
     }
   };
-  return <>
+
+  return (
+    <>
       <SettingsSection title={t('settings.appFilter.title')} description={t('settings.appFilter.description')}>
         <SettingItem label={t('settings.appFilter.enabled')} description={t('settings.appFilter.enabledDesc')}>
           <Toggle checked={settings.appFilterEnabled} onChange={checked => onSettingChange('appFilterEnabled', checked)} />
         </SettingItem>
 
-        {settings.appFilterEnabled && <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        {settings.appFilterEnabled && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <div className="flex items-start gap-2">
               <div className="text-blue-600 dark:text-blue-400 mt-0.5">
                 <i className="ti ti-info-circle w-5 h-5"></i>
@@ -113,15 +127,18 @@ function AppFilterSection({
                   {t('settings.appFilter.statusTitle')}
                 </div>
                 <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  {settings.appFilterMode === 'blacklist' ? t('settings.appFilter.statusBlacklist', {
-                count: appList.length
-              }) : t('settings.appFilter.statusWhitelist', {
-                count: appList.length
-              })}
+                  {settings.appFilterMode === 'blacklist'
+                    ? t('settings.appFilter.statusBlacklist', {
+                      count: appList.length
+                    })
+                    : t('settings.appFilter.statusWhitelist', {
+                      count: appList.length
+                    })}
                 </div>
               </div>
             </div>
-          </div>}
+          </div>
+        )}
       </SettingsSection>
 
       <SettingsSection title={t('settings.appFilter.modeTitle')} description={t('settings.appFilter.modeDesc')}>
@@ -166,6 +183,48 @@ function AppFilterSection({
         </div>
       </SettingsSection>
 
+      <SettingsSection title={t('settings.appFilter.effectTitle')} description={t('settings.appFilter.effectDesc')}>
+        <div className="flex gap-4">
+          <label className="flex-1 cursor-pointer">
+            <input type="radio" name="filterEffect" value="clipboard_only" checked={(settings.appFilterEffect || 'clipboard_only') === 'clipboard_only'} onChange={e => onSettingChange('appFilterEffect', e.target.value)} className="sr-only peer" />
+            <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                  <i className="ti ti-clipboard w-5 h-5"></i>
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {t('settings.appFilter.effectClipboardOnly')}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t('settings.appFilter.effectClipboardOnlyDesc')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </label>
+
+          <label className="flex-1 cursor-pointer">
+            <input type="radio" name="filterEffect" value="global_disable" checked={settings.appFilterEffect === 'global_disable'} onChange={e => onSettingChange('appFilterEffect', e.target.value)} className="sr-only peer" />
+            <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                  <i className="ti ti-shield-off w-5 h-5"></i>
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {t('settings.appFilter.effectGlobalDisable')}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t('settings.appFilter.effectGlobalDisableDesc')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </label>
+        </div>
+      </SettingsSection>
+
       <SettingsSection title={t('settings.appFilter.manageTitle')} description={t('settings.appFilter.manageDesc')}>
         <SettingItem label={t('settings.appFilter.addApp')} description={t('settings.appFilter.addAppDesc')}>
           <div className="flex items-center gap-2">
@@ -186,10 +245,13 @@ function AppFilterSection({
                 {t('settings.common.clear')}
               </Button>
             </div>
-            <div className="space-y-2 max-h-80 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            <div className="h-80 overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg p-3">
               {appList.length === 0 ? <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                  {t('settings.appFilter.noApps')}
-                </div> : appList.map((app, index) => <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                {t('settings.appFilter.noApps')}
+              </div> : <Virtuoso totalCount={appList.length} computeItemKey={index => appList[index] || `app-${index}`} itemContent={index => {
+                const app = appList[index];
+                return <div className={index === 0 ? '' : 'mt-2'}>
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     {appIconMap.get(app) && <img src={appIconMap.get(app)} alt="" className="w-4 h-4 flex-shrink-0" />}
                     <span className="text-sm text-gray-900 dark:text-white truncate flex-1">
                       {app}
@@ -197,7 +259,9 @@ function AppFilterSection({
                     <button onClick={() => handleRemoveApp(index)} className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors flex-shrink-0">
                       <i className="ti ti-x w-4 h-4"></i>
                     </button>
-                  </div>)}
+                  </div>
+                </div>;
+              }} style={{ height: '100%' }} />}
             </div>
           </div>
 
@@ -210,16 +274,22 @@ function AppFilterSection({
                 {t('settings.common.refresh')}
               </Button>
             </div>
-            <div className="space-y-2 max-h-80 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            <div className="h-80 overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg p-3">
               {availableApps.length === 0 ? <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                  {t('settings.appFilter.clickRefresh')}
-                </div> : availableApps.map((app, index) => <button key={index} onClick={() => handleAddAvailableApp(app)} className="w-full flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-500 transition-colors text-left">
+                {t('settings.appFilter.clickRefresh')}
+              </div> : <Virtuoso totalCount={availableApps.length} computeItemKey={index => availableApps[index]?.process || `avail-${index}`} itemContent={index => {
+                const app = availableApps[index];
+                if (!app) return null;
+                return <div className={index === 0 ? '' : 'mt-2'}>
+                  <button onClick={() => handleAddAvailableApp(app)} className="w-full flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-500 transition-colors text-left">
                     {app.icon && <img src={app.icon} alt="" className="w-4 h-4 flex-shrink-0" />}
                     <span className="text-sm text-gray-900 dark:text-white truncate flex-1">
                       {app.process}
                     </span>
                     <i className="ti ti-plus w-4 h-4 text-gray-400 flex-shrink-0"></i>
-                  </button>)}
+                  </button>
+                </div>;
+              }} style={{ height: '100%' }} />}
             </div>
           </div>
         </div>
@@ -235,6 +305,7 @@ function AppFilterSection({
           </div>
         </div>
       </SettingsSection>
-    </>;
+    </>
+  );
 }
 export default AppFilterSection;

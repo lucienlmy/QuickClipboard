@@ -121,6 +121,16 @@ fn handle_clipboard_change() -> Result<(), String> {
     crate::AppSounds::play_copy_immediate();
     // 检查应用过滤
     let settings = crate::services::get_settings();
+
+    if crate::services::system::is_front_app_globally_disabled(
+        settings.app_filter_enabled,
+        &settings.app_filter_mode,
+        &settings.app_filter_list,
+        &settings.app_filter_effect,
+    ) {
+        return Ok(());
+    }
+
     if !crate::services::system::is_current_app_allowed(
         settings.app_filter_enabled,
         &settings.app_filter_mode,

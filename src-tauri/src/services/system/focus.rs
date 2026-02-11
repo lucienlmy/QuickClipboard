@@ -5,6 +5,15 @@ use tauri::{Manager, WebviewWindow};
 static LAST_FOCUS_HWND: Mutex<Option<isize>> = Mutex::new(None);
 static LISTENER_RUNNING: AtomicBool = AtomicBool::new(false);
 
+static LAST_FOREGROUND_CACHE: Mutex<Option<(isize, ForegroundAppInfo)>> = Mutex::new(None);
+
+#[derive(Debug, Clone)]
+pub struct ForegroundAppInfo {
+    pub process_name: String,
+    pub process_path: String,
+    pub window_title: String,
+}
+
 #[cfg(windows)]
 static EXCLUDED_HWNDS: Mutex<Vec<isize>> = Mutex::new(Vec::new());
 
@@ -25,6 +34,8 @@ pub fn start_focus_listener(app_handle: tauri::AppHandle) {
             }
         }
         *EXCLUDED_HWNDS.lock() = excluded;
+
+        crate::services::system::hotkey::sync_hotkeys_for_foreground();
         
         std::thread::spawn(|| {
             start_win_event_hook();
@@ -85,6 +96,92 @@ pub fn restore_last_focus() -> Result<(), String> {
 // 获取当前记录的焦点窗口句柄
 pub fn get_last_focus_hwnd() -> Option<isize> {
     *LAST_FOCUS_HWND.lock()
+}
+
+pub fn get_foreground_app_info() -> Option<ForegroundAppInfo> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
+        use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ};
+        use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId};
+
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            if hwnd.0.is_null() {
+                return None;
+            }
+
+            let hwnd_val = hwnd.0 as isize;
+            if let Some((cached_hwnd, cached_info)) = LAST_FOREGROUND_CACHE.lock().clone() {
+                if cached_hwnd == hwnd_val {
+                    return Some(cached_info);
+                }
+            }
+
+            let mut pid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            if pid == 0 {
+                return None;
+            }
+
+            let mut title_buf = [0u16; 512];
+            let title_len = GetWindowTextW(hwnd, &mut title_buf);
+            let window_title = if title_len > 0 {
+                String::from_utf16_lossy(&title_buf[..title_len as usize])
+            } else {
+                String::new()
+            };
+
+            let mut process_path = String::new();
+            let mut process_name = String::new();
+
+            if let Ok(handle) = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid) {
+                let mut buffer = [0u16; 260];
+                let len = GetModuleFileNameExW(Some(handle), None, &mut buffer);
+                if len > 0 {
+                    process_path = String::from_utf16_lossy(&buffer[..len as usize]);
+                    process_name = process_path
+                        .split('\\')
+                        .last()
+                        .unwrap_or(&process_path)
+                        .to_string();
+                }
+            }
+
+            if process_name.is_empty() {
+                if let Ok(handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
+                    let mut buffer = [0u16; 260];
+                    let len = GetModuleFileNameExW(Some(handle), None, &mut buffer);
+                    if len > 0 {
+                        process_path = String::from_utf16_lossy(&buffer[..len as usize]);
+                        process_name = process_path
+                            .split('\\')
+                            .last()
+                            .unwrap_or(&process_path)
+                            .to_string();
+                    }
+                }
+            }
+
+            if process_name.is_empty() {
+                return None;
+            }
+
+            let info = ForegroundAppInfo {
+                process_name,
+                process_path,
+                window_title,
+            };
+
+            *LAST_FOREGROUND_CACHE.lock() = Some((hwnd_val, info.clone()));
+            Some(info)
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        None
+    }
 }
 
 #[cfg(windows)]
@@ -169,4 +266,6 @@ unsafe extern "system" fn focus_callback(
     }
     
     *LAST_FOCUS_HWND.lock() = Some(hwnd_val);
+
+    crate::services::system::hotkey::sync_hotkeys_for_foreground();
 }

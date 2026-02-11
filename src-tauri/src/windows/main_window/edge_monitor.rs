@@ -70,7 +70,9 @@ pub fn start_edge_monitoring() {
             }
 
             if is_near && state.is_hidden {
+                if !crate::services::system::is_front_app_globally_disabled_from_settings() {
                 let _ = crate::show_snapped_window(&window);
+                }
             }
 
             else if !is_near && !state.is_hidden && !state.is_pinned {

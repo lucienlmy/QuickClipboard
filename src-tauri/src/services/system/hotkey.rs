@@ -9,6 +9,28 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 static REGISTERED_SHORTCUTS: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
 static HOTKEYS_ENABLED: AtomicBool = AtomicBool::new(true);
+static FOREGROUND_GLOBALLY_DISABLED: AtomicBool = AtomicBool::new(false);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HotkeyActivation {
+    Active,
+    Inactive,
+}
+
+#[derive(Debug)]
+struct HotkeySyncState {
+    current: HotkeyActivation,
+    desired: HotkeyActivation,
+    syncing: bool,
+}
+
+static HOTKEY_SYNC_STATE: Lazy<Mutex<HotkeySyncState>> = Lazy::new(|| {
+    Mutex::new(HotkeySyncState {
+        current: HotkeyActivation::Active,
+        desired: HotkeyActivation::Active,
+        syncing: false,
+    })
+});
 
 static ACTIVE_PASTE_KEYS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
@@ -47,6 +69,68 @@ static SHORTCUT_STATUS: Lazy<Mutex<HashMap<String, ShortcutStatus>>> =
 
 pub fn init_hotkey_manager(app: AppHandle, _window: WebviewWindow) {
     *APP_HANDLE.lock() = Some(app);
+}
+
+fn is_foreground_globally_disabled() -> bool {
+    FOREGROUND_GLOBALLY_DISABLED.load(Ordering::Relaxed)
+}
+
+fn apply_activation(desired: HotkeyActivation) {
+    match desired {
+        HotkeyActivation::Active => {
+            let _ = reload_from_settings();
+        }
+        HotkeyActivation::Inactive => {
+            unregister_all();
+        }
+    }
+}
+
+pub fn sync_hotkeys_for_foreground() {
+    let settings = crate::get_settings();
+    let globally_disabled = crate::services::system::is_front_app_globally_disabled_from_settings();
+    FOREGROUND_GLOBALLY_DISABLED.store(globally_disabled, Ordering::Relaxed);
+
+    let desired = if !settings.hotkeys_enabled
+        || !HOTKEYS_ENABLED.load(Ordering::Relaxed)
+        || globally_disabled
+    {
+        HotkeyActivation::Inactive
+    } else {
+        HotkeyActivation::Active
+    };
+
+    {
+        let mut state = HOTKEY_SYNC_STATE.lock();
+        state.desired = desired;
+
+        if state.syncing {
+            return;
+        }
+
+        if state.current == state.desired {
+            return;
+        }
+
+        state.syncing = true;
+    }
+
+    std::thread::spawn(|| loop {
+        let desired_now = {
+            let state = HOTKEY_SYNC_STATE.lock();
+            state.desired
+        };
+
+        apply_activation(desired_now);
+
+        let mut state = HOTKEY_SYNC_STATE.lock();
+        state.current = desired_now;
+
+        if state.current == state.desired {
+            state.syncing = false;
+            break;
+        }
+    });
 }
 
 fn get_app() -> Result<AppHandle, String> {
@@ -125,6 +209,9 @@ pub fn unregister_shortcut(id: &str) {
 
 pub fn register_toggle_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("toggle", shortcut_str, |app| {
+        if is_foreground_globally_disabled() {
+            return;
+        }
         let _ = crate::toggle_main_window_visibility(app);
     })
 }
@@ -142,6 +229,10 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
                 if crate::services::low_memory::is_low_memory_mode() {
                     return;
                 }
+
+                if is_foreground_globally_disabled() {
+                    return;
+                }
                 
                 let settings = crate::get_settings();
                 let is_keyboard_mode = settings.quickpaste_paste_on_modifier_release;
@@ -156,6 +247,10 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
                 }
             } else if event.state == ShortcutState::Released {
                 if crate::services::low_memory::is_low_memory_mode() {
+                    return;
+                }
+
+                if is_foreground_globally_disabled() {
                     return;
                 }
                 
@@ -191,6 +286,10 @@ pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
         if crate::services::low_memory::is_low_memory_mode() {
             return;
         }
+
+        if is_foreground_globally_disabled() {
+            return;
+        }
         screenshot_suite::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
         if let Err(e) = screenshot_suite::start_screenshot(app) {
             eprintln!("启动截图窗口失败: {}", e);
@@ -207,6 +306,9 @@ pub fn register_screenshot_hotkey(_shortcut_str: &str) -> Result<(), String> {
 pub fn register_screenshot_quick_save_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_save", shortcut_str, |app| {
         if crate::services::low_memory::is_low_memory_mode() {
+            return;
+        }
+        if is_foreground_globally_disabled() {
             return;
         }
         if let Err(e) = screenshot_suite::start_screenshot_quick_save(app) {
@@ -226,6 +328,9 @@ pub fn register_screenshot_quick_pin_hotkey(shortcut_str: &str) -> Result<(), St
         if crate::services::low_memory::is_low_memory_mode() {
             return;
         }
+        if is_foreground_globally_disabled() {
+            return;
+        }
         if let Err(e) = screenshot_suite::start_screenshot_quick_pin(app) {
             eprintln!("启动快速贴图截图失败: {}", e);
         }
@@ -241,6 +346,9 @@ pub fn register_screenshot_quick_pin_hotkey(_shortcut_str: &str) -> Result<(), S
 pub fn register_screenshot_quick_ocr_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_ocr", shortcut_str, |app| {
         if crate::services::low_memory::is_low_memory_mode() {
+            return;
+        }
+        if is_foreground_globally_disabled() {
             return;
         }
         if let Err(e) = screenshot_suite::start_screenshot_quick_ocr(app) {
@@ -569,6 +677,10 @@ pub fn reload_from_settings() -> Result<(), String> {
     }
     
     if settings.hotkeys_enabled {
+        if is_foreground_globally_disabled() {
+            return Ok(());
+        }
+
         if !settings.toggle_shortcut.is_empty() {
             if let Err(e) = register_toggle_hotkey(&settings.toggle_shortcut) {
                 eprintln!("注册主窗口切换快捷键失败: {}", e);

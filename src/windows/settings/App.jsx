@@ -155,10 +155,13 @@ function App() {
       default:
         content = <GeneralSection settings={snap} onSettingChange={handleSettingChange} />;
     }
-    return <div key={activeSection} className={uiAnimationEnabled ? 'animate-slide-in-left-fast' : ''}>
+    return <div key={activeSection} className={uiAnimationEnabled ? 'animate-slide-in-left-fast' : ''} style={!uiAnimationEnabled ? {
+      transform: 'translateZ(0)'
+    } : {}}>
         {content}
       </div>;
   };
+
   const containerClasses = `
     settings-container 
     h-screen w-screen 
