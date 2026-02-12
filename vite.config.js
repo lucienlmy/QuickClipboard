@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import UnoCSS from 'unocss/vite'
 import { resolve } from 'path'
 import { existsSync } from 'fs'
+import wasm from 'vite-plugin-wasm'
 
 const isDev = process.env.NODE_ENV === 'development'
 const isTauriDebug = process.env.TAURI_DEBUG === 'true'
@@ -47,13 +48,14 @@ export default defineConfig({
         ],
       },
     }),
+    wasm(),
   ],
 
   build: {
     outDir: '../dist',
     target: process.env.TAURI_PLATFORM === 'windows'
       ? 'chrome105'
-      : 'safari13',
+      : 'safari16',
 
     minify: isDev || isTauriDebug ? false : 'esbuild',
 
