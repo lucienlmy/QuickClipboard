@@ -1,6 +1,21 @@
 import { invoke } from '@tauri-apps/api/core'
 import { convertFileSrc } from '@tauri-apps/api/core'
 
+async function uint8ArrayToNumberArrayChunked(data, chunkSize = 256 * 1024) {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+  const u8 = data instanceof Uint8Array ? data : new Uint8Array(data)
+  const result = new Array(u8.length)
+  for (let offset = 0; offset < u8.length; offset += chunkSize) {
+    const end = Math.min(u8.length, offset + chunkSize)
+    for (let i = offset; i < end; i++) {
+      result[i] = u8[i]
+    }
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+  return result
+}
+
 // 初始化图片库目录
 export async function initImageLibrary() {
   return await invoke('il_init')
@@ -8,8 +23,9 @@ export async function initImageLibrary() {
 
 // 保存图片
 export async function saveImage(filename, data) {
+  const payloadData = await uint8ArrayToNumberArrayChunked(data)
   return await invoke('il_save_image', { 
-    payload: { filename, data: Array.from(data) } 
+    payload: { filename, data: payloadData } 
   })
 }
 

@@ -1,4 +1,5 @@
 use std::{fs, path::PathBuf};
+use std::time::Duration;
 use serde::{Serialize, Deserialize};
 use crate::services::get_data_directory;
 
@@ -126,9 +127,26 @@ fn extract_gif_first_frame(data: &[u8]) -> Option<Vec<u8>> {
 // 使用 OCR 识别图片文字
 fn ocr_image_text(data: &[u8]) -> Option<String> {
     use qcocr::recognize_from_bytes;
+    use std::sync::mpsc;
+    use std::thread;
     
-    let result = recognize_from_bytes(data, None).ok()?;
-    let text = result.text.trim();
+    let (tx, rx) = mpsc::channel();
+    let data = data.to_vec();
+    let _ = thread::Builder::new()
+        .name("il_ocr".to_string())
+        .spawn(move || {
+            let res = recognize_from_bytes(&data, None)
+                .ok()
+                .map(|r| r.text);
+            let _ = tx.send(res);
+        });
+
+    let text = match rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(Some(text)) => text,
+        _ => return None,
+    };
+
+    let text = text.trim();
     
     if text.is_empty() {
         return None;

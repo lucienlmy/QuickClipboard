@@ -42,6 +42,8 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
   const [renameValue, setRenameValue] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const isMountedRef = useRef(true);
+  const uploadTokenRef = useRef(0);
   const loadedRangeRef = useRef({ start: 0, end: 0 });
   const imageScrollerRef = useRef(null);
   const [scrollerElement, setScrollerElement] = useState(null);
@@ -61,6 +63,14 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     };
     window.addEventListener('mouseup', handleMouseUp, true);
     return () => window.removeEventListener('mouseup', handleMouseUp, true);
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      uploadTokenRef.current += 1;
+    };
   }, []);
 
   const loadImageCount = useCallback(async () => {
@@ -143,6 +153,8 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     e.stopPropagation();
     setIsDragging(false);
 
+    if (isUploading) return;
+
     if (internalDragRef.current) {
       internalDragRef.current = false;
       return;
@@ -159,6 +171,8 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
       return;
     }
 
+    const myToken = uploadTokenRef.current + 1;
+    uploadTokenRef.current = myToken;
     setIsUploading(true);
     setUploadProgress({ current: 0, total: imageFiles.length });
 
@@ -166,10 +180,12 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     let imageCount = 0;
 
     const processFile = async (file, index) => {
+      if (uploadTokenRef.current !== myToken || !isMountedRef.current) return null;
       setUploadProgress(prev => ({ ...prev, current: index + 1 }));
       
       try {
         const data = await readFileInChunks(file);
+        if (uploadTokenRef.current !== myToken || !isMountedRef.current) return null;
         const result = await imageLibrary.saveImage(file.name, data);
         return result.category === 'gifs' ? 'gif' : 'image';
       } catch (err) {
@@ -182,36 +198,43 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
       }
     };
 
-    for (let i = 0; i < imageFiles.length; i++) {
-      const result = await processFile(imageFiles[i], i);
-      if (result === 'gif') gifCount++;
-      else if (result === 'image') imageCount++;
-    }
+    try {
+      for (let i = 0; i < imageFiles.length; i++) {
+        const result = await processFile(imageFiles[i], i);
+        if (uploadTokenRef.current !== myToken || !isMountedRef.current) return;
+        if (result === 'gif') gifCount++;
+        else if (result === 'image') imageCount++;
+      }
 
-    setIsUploading(false);
+      if (uploadTokenRef.current !== myToken || !isMountedRef.current) return;
 
-    let message = '';
-    if (imageCount > 0 && gifCount > 0) {
-      message = t('emoji.addedBoth', { imageCount, gifCount });
-    } else if (imageCount > 0) {
-      message = t('emoji.addedImages', { count: imageCount });
-    } else if (gifCount > 0) {
-      message = t('emoji.addedGifs', { count: gifCount });
+      let message = '';
+      if (imageCount > 0 && gifCount > 0) {
+        message = t('emoji.addedBoth', { imageCount, gifCount });
+      } else if (imageCount > 0) {
+        message = t('emoji.addedImages', { count: imageCount });
+      } else if (gifCount > 0) {
+        message = t('emoji.addedGifs', { count: gifCount });
+      }
+      if (message) {
+        toast.success(message, {
+          size: TOAST_SIZES.EXTRA_SMALL,
+          position: TOAST_POSITIONS.BOTTOM_RIGHT
+        });
+      }
+      
+      loadImageCount();
+      loadedRangeRef.current = { start: 0, end: 0 };
+      setImageItems([]);
+    } finally {
+      if (isMountedRef.current && uploadTokenRef.current === myToken) {
+        setIsUploading(false);
+      }
     }
-    if (message) {
-      toast.success(message, {
-        size: TOAST_SIZES.EXTRA_SMALL,
-        position: TOAST_POSITIONS.BOTTOM_RIGHT
-      });
-    }
-    
-    loadImageCount();
-    loadedRangeRef.current = { start: 0, end: 0 };
-    setImageItems([]);
-  }, [t, loadImageCount]);
+  }, [t, loadImageCount, isUploading]);
 
   const handleImageClick = useCallback(async (item) => {
-    if (!item || item.loading) return;
+    if (!item || item.loading || isUploading) return;
     
     try {
       await restoreLastFocus();
@@ -223,11 +246,11 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         position: TOAST_POSITIONS.BOTTOM_RIGHT
       });
     }
-  }, [t]);
+  }, [t, isUploading]);
 
   const handleDeleteImage = useCallback(async (e, item) => {
     e.stopPropagation();
-    if (!item || item.loading) return;
+    if (!item || item.loading || isUploading) return;
     
     try {
       await imageLibrary.deleteImage(item.category, item.filename);
@@ -241,19 +264,19 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         position: TOAST_POSITIONS.BOTTOM_RIGHT
       });
     }
-  }, [t, loadImageCount]);
+  }, [t, loadImageCount, isUploading]);
 
   const handleRenameStart = useCallback((e, item) => {
     e.stopPropagation();
-    if (!item || item.loading) return;
+    if (!item || item.loading || isUploading) return;
     const nameWithoutExt = item.filename.replace(/\.[^/.]+$/, '');
     setRenamingItem(item);
     setRenameValue(nameWithoutExt);
-  }, []);
+  }, [isUploading]);
 
   const handleCopyImage = useCallback(async (e, item) => {
     e.stopPropagation();
-    if (!item || item.loading) return;
+    if (!item || item.loading || isUploading) return;
     
     try {
       await invoke('copy_image_to_clipboard', { filePath: item.path });
@@ -268,7 +291,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         position: TOAST_POSITIONS.BOTTOM_RIGHT
       });
     }
-  }, [t]);
+  }, [t, isUploading]);
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingItem || !renameValue.trim()) {
