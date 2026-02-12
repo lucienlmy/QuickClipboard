@@ -6594,7 +6594,6 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tokio",
- "tungstenite",
  "uiautomation",
  "windows 0.62.2",
  "xcap",
