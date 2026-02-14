@@ -1,6 +1,71 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+const SYMBOL_CODE_TO_KEY = {
+  Backquote: 'Backquote',
+  Minus: 'Minus',
+  Equal: 'Equal',
+  BracketLeft: 'BracketLeft',
+  BracketRight: 'BracketRight',
+  Backslash: 'Backslash',
+  Semicolon: 'Semicolon',
+  Quote: 'Quote',
+  Comma: 'Comma',
+  Period: 'Period',
+  Slash: 'Slash'
+};
+
+const KEY_TO_DISPLAY = {
+  Backquote: '`',
+  Minus: '-',
+  Equal: '=',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Backslash: '\\',
+  Semicolon: ';',
+  Quote: "'",
+  Comma: ',',
+  Period: '.',
+  Slash: '/',
+  Space: 'Space'
+};
+
+function formatShortcutForDisplay(shortcut) {
+  if (!shortcut) return '';
+  return shortcut
+    .split('+')
+    .map(part => KEY_TO_DISPLAY[part] || part)
+    .join('+');
+}
+
+function normalizeMainKeyFromEvent(e) {
+  const code = typeof e.code === 'string' ? e.code : '';
+  const codeMap = {
+    ArrowUp: 'ArrowUp',
+    ArrowDown: 'ArrowDown',
+    ArrowLeft: 'ArrowLeft',
+    ArrowRight: 'ArrowRight',
+    Escape: 'Escape',
+    Enter: 'Enter',
+    Tab: 'Tab',
+    Backspace: 'Backspace',
+    Delete: 'Delete',
+    Space: 'Space',
+    ...SYMBOL_CODE_TO_KEY
+  };
+
+  if (codeMap[code]) return codeMap[code];
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  if (/^Numpad\d$/.test(code)) return code;
+  if (/^F\d{1,2}$/.test(code)) return code;
+
+  const key = (e.key || '').toString();
+  if (key.length === 1) return key.toUpperCase();
+  return key;
+}
+
 function ShortcutInput({
   value,
   onChange,
@@ -29,24 +94,7 @@ function ShortcutInput({
     if (e.metaKey) keys.push('Win');
 
     // 映射特殊键名
-    let mainKey = e.key;
-    const keyMap = {
-      'ArrowUp': 'ArrowUp',
-      'ArrowDown': 'ArrowDown',
-      'ArrowLeft': 'ArrowLeft',
-      'ArrowRight': 'ArrowRight',
-      'Escape': 'Escape',
-      'Enter': 'Enter',
-      'Tab': 'Tab',
-      'Backspace': 'Backspace',
-      'Delete': 'Delete',
-      ' ': 'Space'
-    };
-    if (keyMap[e.key]) {
-      mainKey = keyMap[e.key];
-    } else if (e.key.length === 1) {
-      mainKey = e.key.toUpperCase();
-    }
+    const mainKey = normalizeMainKeyFromEvent(e);
     keys.push(mainKey);
     const shortcut = keys.join('+');
     onChange(shortcut);
@@ -59,7 +107,7 @@ function ShortcutInput({
   return <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <div className="relative">
-          <input type="text" value={isListening ? t('settings.shortcuts.listening') : value || ''} onClick={() => setIsListening(true)} onKeyDown={handleKeyDown} onBlur={() => setIsListening(false)} readOnly placeholder={t('settings.shortcuts.clickToSet')} className={`
+          <input type="text" value={isListening ? t('settings.shortcuts.listening') : formatShortcutForDisplay(value || '')} onClick={() => setIsListening(true)} onKeyDown={handleKeyDown} onBlur={() => setIsListening(false)} readOnly placeholder={t('settings.shortcuts.clickToSet')} className={`
               px-3 py-2 pr-8 w-48 text-sm border rounded-lg
               bg-white dark:bg-gray-700 
               focus:outline-none cursor-pointer
