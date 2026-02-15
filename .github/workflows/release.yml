@@ -195,17 +195,18 @@ jobs:
 
           # 先下载该 Release 上的描述文件
           if ($isPrerelease) {
-            gh release download $tag -p "beta_latest.json" -D . --clobber
+            gh release download $tag -p "beta_latest.json" -D . --clobber --repo "${{ github.repository }}"
             Write-Host "已下载 beta_latest.json（$version）"
           } else {
-            gh release download $tag -p "latest.json" -D . --clobber
-            gh release download $tag -p "stable_latest.json" -D . --clobber
-            gh release download $tag -p "beta_latest.json" -D . --clobber
+            gh release download $tag -p "latest.json" -D . --clobber --repo "${{ github.repository }}"
+            gh release download $tag -p "stable_latest.json" -D . --clobber --repo "${{ github.repository }}"
+            gh release download $tag -p "beta_latest.json" -D . --clobber --repo "${{ github.repository }}"
             Write-Host "已下载 latest.json / stable_latest.json / beta_latest.json（$version）"
           }
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
 
       - name: 下载 ossutil（Windows）
         run: |
