@@ -475,6 +475,9 @@ fn handle_wheel_event(delta_y: i64) {
     let dir = if delta_y > 0 { 1 } else if delta_y < 0 { -1 } else { 0 };
     *SCROLL_DIRECTION.lock() = dir;
 
+    #[cfg(feature = "screenshot-suite")]
+    screenshot_suite::set_scroll_direction(dir);
+
     use crate::windows::tray::{is_menu_visible, scroll_page};
 
     if !is_menu_visible() {
