@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 use tauri::AppHandle;
-use crate::windows::plugins::context_menu::window::{MenuItem as CtxMenuItem, ContextMenuOptions, show_menu};
+use crate::windows::plugins::context_menu::window::{MenuItem as CtxMenuItem, MenuButton as CtxMenuButton, ContextMenuOptions, show_menu};
 
 fn get_pin_images_dir() -> Result<PathBuf, String> {
     let data_dir = crate::services::get_data_directory()?;
@@ -58,6 +58,8 @@ fn separator_item() -> CtxMenuItem {
         icon_color: None,
         disabled: false,
         separator: true,
+        item_type: None,
+        buttons: None,
         children: None,
         preview_image: None,
     }
@@ -77,6 +79,8 @@ fn menu_item_with_state(id: &str, label: &str, icon: Option<&str>, disabled: boo
         icon_color: None,
         disabled,
         separator: false,
+        item_type: None,
+        buttons: None,
         children: None,
         preview_image: None,
     }
@@ -97,6 +101,8 @@ fn build_pin_images_children() -> Vec<CtxMenuItem> {
             icon_color: None,
             disabled: true,
             separator: false,
+            item_type: None,
+            buttons: None,
             children: None,
             preview_image: None,
         });
@@ -115,6 +121,8 @@ fn build_pin_images_children() -> Vec<CtxMenuItem> {
                 icon_color: None,
                 disabled: false,
                 separator: false,
+                item_type: None,
+                buttons: None,
                 children: None,
                 preview_image: Some(path.clone()),
             });
@@ -130,6 +138,8 @@ fn build_pin_images_children() -> Vec<CtxMenuItem> {
                 icon_color: None,
                 disabled: false,
                 separator: false,
+                item_type: None,
+                buttons: None,
                 children: None,
                 preview_image: None,
             });
@@ -168,6 +178,8 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
             icon_color: None,
             disabled: is_force_update,
             separator: false,
+            item_type: None,
+            buttons: None,
             children: Some(build_pin_images_children()),
             preview_image: None,
         },
@@ -176,6 +188,45 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
         menu_item_with_state("toggle-clipboard-monitor", monitor_label, Some("ti ti-clipboard"), is_force_update),
         separator_item(),
         menu_item_with_state("low-memory-mode", "进入低占用模式", Some("ti ti-leaf"), is_force_update),
+        separator_item(),
+        CtxMenuItem {
+            id: "tray-links".to_string(),
+            label: String::new(),
+            icon: None,
+            favicon: None,
+            icon_color: None,
+            disabled: false,
+            separator: false,
+            item_type: Some("button_row".to_string()),
+            buttons: Some(vec![
+                CtxMenuButton {
+                    id: "open-website".to_string(),
+                    label: "官网".to_string(),
+                    icon: Some("ti ti-world".to_string()),
+                    favicon: None,
+                    icon_color: None,
+                    disabled: false,
+                },
+                CtxMenuButton {
+                    id: "open-github".to_string(),
+                    label: "GitHub".to_string(),
+                    icon: Some("ti ti-brand-github".to_string()),
+                    favicon: None,
+                    icon_color: None,
+                    disabled: false,
+                },
+                CtxMenuButton {
+                    id: "open-qq-group".to_string(),
+                    label: "群聊".to_string(),
+                    icon: Some("ti ti-brand-qq".to_string()),
+                    favicon: None,
+                    icon_color: None,
+                    disabled: false,
+                },
+            ]),
+            children: None,
+            preview_image: None,
+        },
         separator_item(),
         menu_item("restart", "重启程序", Some("ti ti-refresh")),
         menu_item("quit", "退出", Some("ti ti-power")),
@@ -227,6 +278,15 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
 // 处理托盘菜单选择
 fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
     match selected_id {
+        "open-website" => {
+            let _ = tauri_plugin_opener::open_url("https://quickclipboard.cn/", None::<&str>);
+        }
+        "open-github" => {
+            let _ = tauri_plugin_opener::open_url("https://github.com/mosheng1/QuickClipboard", None::<&str>);
+        }
+        "open-qq-group" => {
+            let _ = tauri_plugin_opener::open_url("https://qm.qq.com/q/HGOqmhlUqI", None::<&str>);
+        }
         "toggle" => {
             crate::toggle_main_window_visibility(app);
         }

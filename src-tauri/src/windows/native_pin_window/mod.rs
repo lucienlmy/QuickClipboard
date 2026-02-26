@@ -237,6 +237,8 @@ fn separator_item() -> MenuItem {
         icon_color: None,
         disabled: false,
         separator: true,
+        item_type: None,
+        buttons: None,
         children: None,
         preview_image: None,
     }
@@ -251,6 +253,8 @@ fn menu_item(id: &str, label: &str, icon: Option<&str>) -> MenuItem {
         icon_color: None,
         disabled: false,
         separator: false,
+        item_type: None,
+        buttons: None,
         children: None,
         preview_image: None,
     }
@@ -265,6 +269,8 @@ fn menu_item_checked(id: &str, label: &str, checked: bool) -> MenuItem {
         icon_color: None,
         disabled: false,
         separator: false,
+        item_type: None,
+        buttons: None,
         children: None,
         preview_image: None,
     }
@@ -279,6 +285,8 @@ fn menu_item_disabled(id: &str, label: &str, icon: Option<&str>, disabled: bool)
         icon_color: None,
         disabled,
         separator: false,
+        item_type: None,
+        buttons: None,
         children: None,
         preview_image: None,
     }
@@ -352,6 +360,8 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
         icon_color: None,
         disabled: false,
         separator: false,
+        item_type: None,
+        buttons: None,
         children: None,
         preview_image: None,
     });
@@ -377,6 +387,8 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
             icon_color: None,
             disabled: false,
             separator: false,
+            item_type: None,
+            buttons: None,
             children: Some(opacity_items),
             preview_image: None,
         },
@@ -388,6 +400,8 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
             icon_color: None,
             disabled: false,
             separator: false,
+            item_type: None,
+            buttons: None,
             children: Some(privacy_items),
             preview_image: None,
         },

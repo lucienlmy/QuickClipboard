@@ -103,6 +103,44 @@ function positionSubmenu(submenu, parentItem) {
 
 
 function createMenuItem(item) {
+    if (item.item_type === 'button_row' && Array.isArray(item.buttons)) {
+        const row = document.createElement('div');
+        row.className = 'menu-button-row';
+
+        const buttons = item.buttons.slice(0, 3);
+        buttons.forEach(btn => {
+            const el = document.createElement('button');
+            el.type = 'button';
+            el.className = 'menu-button-row-btn';
+            el.dataset.itemId = btn.id;
+            el.disabled = !!btn.disabled;
+            el.title = btn.label || '';
+            el.setAttribute('aria-label', btn.label || '');
+
+            if (btn.favicon) {
+                const img = document.createElement('img');
+                img.src = btn.favicon;
+                img.className = 'menu-button-row-btn-icon';
+                el.appendChild(img);
+            } else if (btn.icon) {
+                const icon = document.createElement('i');
+                icon.className = `menu-button-row-btn-icon ${btn.icon}`;
+                if (btn.icon_color) icon.style.color = btn.icon_color;
+                el.appendChild(icon);
+            }
+
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (btn.disabled) return;
+                hideMenu(btn.id);
+            });
+
+            row.appendChild(el);
+        });
+
+        return row;
+    }
+
     if (item.separator) {
         const separator = document.createElement('div');
         separator.className = 'menu-separator';

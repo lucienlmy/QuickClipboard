@@ -19,6 +19,20 @@ fn enable_passthrough(window: tauri::WebviewWindow, session_id: u64) {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuButton {
+    pub id: String,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub favicon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_color: Option<String>,
+    #[serde(default)]
+    pub disabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MenuItem {
     pub id: String,
     pub label: String,
@@ -32,6 +46,10 @@ pub struct MenuItem {
     pub disabled: bool,
     #[serde(default)]
     pub separator: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buttons: Option<Vec<MenuButton>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub children: Option<Vec<MenuItem>>,
     #[serde(skip_serializing_if = "Option::is_none")]
