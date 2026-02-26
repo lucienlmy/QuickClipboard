@@ -6,6 +6,7 @@ pub mod image;
 pub mod system;
 pub mod text;
 pub mod html;
+pub mod app_links;
 
 pub use screen::init_screen_utils;
 pub use system::get_text_scale_factor;

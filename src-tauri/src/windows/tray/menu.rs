@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::AppHandle;
 use crate::windows::plugins::context_menu::window::{MenuItem as CtxMenuItem, MenuButton as CtxMenuButton, ContextMenuOptions, show_menu};
+use crate::utils::app_links;
 
 fn get_pin_images_dir() -> Result<PathBuf, String> {
     let data_dir = crate::services::get_data_directory()?;
@@ -279,13 +280,19 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
 fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
     match selected_id {
         "open-website" => {
-            let _ = tauri_plugin_opener::open_url("https://quickclipboard.cn/", None::<&str>);
+            if let Ok(links) = app_links::app_links() {
+                let _ = tauri_plugin_opener::open_url(&links.website, None::<&str>);
+            }
         }
         "open-github" => {
-            let _ = tauri_plugin_opener::open_url("https://github.com/mosheng1/QuickClipboard", None::<&str>);
+            if let Ok(links) = app_links::app_links() {
+                let _ = tauri_plugin_opener::open_url(&links.github, None::<&str>);
+            }
         }
         "open-qq-group" => {
-            let _ = tauri_plugin_opener::open_url("https://qm.qq.com/q/HGOqmhlUqI", None::<&str>);
+            if let Ok(links) = app_links::app_links() {
+                let _ = tauri_plugin_opener::open_url(&links.qq_group, None::<&str>);
+            }
         }
         "toggle" => {
             crate::toggle_main_window_visibility(app);

@@ -8,6 +8,8 @@ import SettingsSection from '../components/SettingsSection';
 import Button from '@shared/components/ui/Button';
 import logoIcon from '@/assets/icon1024.png';
 import wxzsm from '@/assets/wxzsm.png';
+import appLinks from '@shared/config/appLinks.json';
+
 function AboutSection() {
   const {
     t
@@ -49,21 +51,21 @@ function AboutSection() {
   };
   const handleOpenGitHub = async () => {
     try {
-      await openUrl('https://github.com/mosheng1/QuickClipboard');
+      await openUrl(appLinks.github);
     } catch (error) {
       console.error('打开GitHub链接失败:', error);
     }
   };
   const handleOpenBilibili = async () => {
     try {
-      await openUrl('https://space.bilibili.com/438982697');
+      await openUrl(appLinks.bilibili);
     } catch (error) {
       console.error('打开Bilibili链接失败:', error);
     }
   };
   const handleOpenQQGroup = async () => {
     try {
-      await openUrl('https://qm.qq.com/q/HGOqmhlUqI');
+      await openUrl(appLinks.qqGroup);
     } catch (error) {
       console.error('打开QQ群链接失败:', error);
     }

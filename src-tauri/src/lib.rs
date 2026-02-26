@@ -184,6 +184,7 @@ pub fn run() {
                 commands::play_copy_sound,
                 commands::play_paste_sound,
                 commands::play_scroll_sound,
+                commands::get_app_links_cmd,
                 commands::reload_all_windows,
                 commands::check_updates_and_open_window,
                 windows::plugins::context_menu::commands::show_context_menu,

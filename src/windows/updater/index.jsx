@@ -15,6 +15,7 @@ import '@shared/styles/theme-background.css'
 import { initStores } from '@shared/store'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import logoIcon from '@/assets/icon1024.png';
+import appLinks from '@shared/config/appLinks.json';
 function App() {
   const { t, i18n } = useTranslation()
   const [forceUpdate, setForceUpdate] = useState(false)
@@ -171,7 +172,7 @@ function App() {
 
   const handleViewChangelog = useCallback(async () => {
     try {
-      await openUrl('https://quickclipboard.cn/zh/changelog')
+      await openUrl(appLinks.changelog)
     } catch (_) {}
   }, [])
 
@@ -242,7 +243,7 @@ function App() {
                 </div>
                 <a 
                   className="text-xs mt-2 inline-block text-blue-600 hover:underline" 
-                  href={'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
+                  href={appLinks.releasesLatest} 
                   target="_blank" 
                   rel="noreferrer"
                 >
@@ -265,7 +266,7 @@ function App() {
             <>
               {isPortable ? (
                 <a 
-                  href={'https://github.com/mosheng1/QuickClipboard/releases/latest'} 
+                  href={appLinks.releasesLatest} 
                   target="_blank" 
                   rel="noreferrer"
                   className="px-3 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2 no-underline"
