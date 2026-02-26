@@ -166,6 +166,7 @@ pub fn run() {
                 commands::dm_reset_all_data,
                 commands::dm_list_backups,
                 commands::set_mouse_position,
+                commands::get_mouse_position,
                 commands::copy_text_to_clipboard,
                 commands::check_ai_translation_config,
                 commands::enable_ai_translation_cancel_shortcut,

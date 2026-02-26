@@ -4,6 +4,7 @@ import { useSnapshot } from 'valtio';
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
 import { toolsStore } from '@shared/store/toolsStore';
+import { settingsStore } from '@shared/store/settingsStore';
 import { useSortableList, useSortable, CSS } from '@shared/hooks/useSortable';
 import { DragOverlay, useDroppable } from '@dnd-kit/core';
 import { MAX_TITLEBAR_TOOLS } from '@shared/config/tools';
@@ -16,6 +17,9 @@ function SortableToolItem({
   toolId,
   location
 }) {
+  const {
+    screenshotEnabled
+  } = useSnapshot(settingsStore);
   const {
     attributes,
     listeners,
@@ -31,8 +35,9 @@ function SortableToolItem({
     transition: transition || 'transform 200ms ease',
     opacity: isDragging ? 0.3 : 1
   };
+  const isDisabled = toolId === 'screenshot-button' && !screenshotEnabled;
   return <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <ToolButton toolId={toolId} location={location} />
+      <ToolButton toolId={toolId} location={location} disabled={isDisabled} />
     </div>;
 }
 
@@ -66,6 +71,9 @@ const TitleBar = forwardRef(({
     layout,
     isExpanded
   } = useSnapshot(toolsStore);
+  const {
+    screenshotEnabled
+  } = useSnapshot(settingsStore);
   const [activeId, setActiveId] = useState(null);
   const containerRef = useRef(null);
   const searchRef = useRef(null);
@@ -211,7 +219,7 @@ const TitleBar = forwardRef(({
           zIndex: 9999
         }}>
             {activeId ? <div className="opacity-90 cursor-grabbing shadow-lg">
-                <ToolButton toolId={activeId} location={activeLocation} />
+                <ToolButton toolId={activeId} location={activeLocation} disabled={activeId === 'screenshot-button' && !screenshotEnabled} />
               </div> : null}
           </DragOverlay>
         </DndContext>

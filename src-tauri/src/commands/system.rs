@@ -7,6 +7,11 @@ pub fn set_mouse_position(x: i32, y: i32) -> Result<(), String> {
     crate::utils::mouse::set_cursor_position(x, y)
 }
 
+#[tauri::command]
+pub fn get_mouse_position() -> (i32, i32) {
+    crate::utils::mouse::get_cursor_position()
+}
+
 // 检查 AI 翻译配置
 #[tauri::command]
 pub fn check_ai_translation_config() -> Result<Value, String> {

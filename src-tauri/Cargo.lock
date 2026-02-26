@@ -4012,15 +4012,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
-name = "lz4_flex"
-version = "0.11.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08ab2867e3eeeca90e844d1940eab391c9dc5228783db2ed999acbc0a9ed375a"
-dependencies = [
- "twox-hash",
-]
-
-[[package]]
 name = "lzma-rs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6581,7 +6572,6 @@ dependencies = [
  "clipboard-rs",
  "enigo",
  "image",
- "lz4_flex",
  "once_cell",
  "parking_lot",
  "qcocr",
@@ -6595,7 +6585,9 @@ dependencies = [
  "tauri-plugin",
  "tokio",
  "uiautomation",
+ "webview2-com",
  "windows 0.62.2",
+ "windows-core 0.61.2",
  "xcap",
 ]
 
@@ -8246,12 +8238,6 @@ dependencies = [
  "thiserror 2.0.17",
  "utf-8",
 ]
-
-[[package]]
-name = "twox-hash"
-version = "2.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
 
 [[package]]
 name = "typeid"

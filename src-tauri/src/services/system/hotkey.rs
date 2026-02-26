@@ -290,7 +290,6 @@ pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
         if is_foreground_globally_disabled() {
             return;
         }
-        screenshot_suite::windows::screenshot_window::auto_selection::clear_auto_selection_cache();
         if let Err(e) = screenshot_suite::start_screenshot(app) {
             eprintln!("启动截图窗口失败: {}", e);
         }

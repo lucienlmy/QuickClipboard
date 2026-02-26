@@ -2,15 +2,18 @@ import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
 import { toolsStore } from '@shared/store/toolsStore';
 import { TOOL_REGISTRY } from '@shared/config/tools';
+
 function ToolButton({
   toolId,
   location,
   isDraggable = true,
+  disabled = false,
   onAction
 }) {
   const {
     t
   } = useTranslation();
+
   const {
     states
   } = useSnapshot(toolsStore);
@@ -20,6 +23,9 @@ function ToolButton({
   const handleClick = async e => {
     e.preventDefault();
     e.stopPropagation();
+    if (disabled) {
+      return;
+    }
     if (onAction) {
       onAction(toolId, tool);
     } else {
@@ -29,7 +35,7 @@ function ToolButton({
 
   // 标题栏样式
   if (location === 'titlebar') {
-    return <button className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isActive ? 'bg-blue-500 text-white hover:bg-blue-600' : 'hover:bg-gray-100 text-gray-600 dark:hover:bg-gray-700 dark:text-gray-300'}`} title={t(tool.titleKey)} onClick={handleClick} data-tool-id={toolId} data-tool-type={tool.type} data-draggable={isDraggable}>
+    return <button className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${disabled ? 'opacity-40 cursor-not-allowed text-gray-400 dark:text-gray-500' : isActive ? 'bg-blue-500 text-white hover:bg-blue-600' : 'hover:bg-gray-100 text-gray-600 dark:hover:bg-gray-700 dark:text-gray-300'}`} title={t(tool.titleKey)} onClick={handleClick} disabled={disabled} data-tool-id={toolId} data-tool-type={tool.type} data-draggable={isDraggable}>
         <i className={tool.icon} style={{
         fontSize: 16
       }} data-stroke="1.5"></i>
@@ -38,7 +44,7 @@ function ToolButton({
   }
 
   // 工具面板样式
-  return <button className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isActive ? 'bg-blue-500 text-white hover:bg-blue-600' : 'hover:bg-gray-100 text-gray-600 dark:hover:bg-gray-700 dark:text-gray-300'}`} title={t(tool.titleKey)} onClick={handleClick} data-tool-id={toolId} data-tool-type={tool.type} data-draggable={isDraggable}>
+  return <button className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${disabled ? 'opacity-40 cursor-not-allowed text-gray-400 dark:text-gray-500' : isActive ? 'bg-blue-500 text-white hover:bg-blue-600' : 'hover:bg-gray-100 text-gray-600 dark:hover:bg-gray-700 dark:text-gray-300'}`} title={t(tool.titleKey)} onClick={handleClick} disabled={disabled} data-tool-id={toolId} data-tool-type={tool.type} data-draggable={isDraggable}>
       <i className={tool.icon} style={{
       fontSize: 16
     }} data-stroke="1.5"></i>
