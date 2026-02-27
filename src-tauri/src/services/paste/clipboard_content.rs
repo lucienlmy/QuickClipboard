@@ -2,7 +2,7 @@
 
 use clipboard_rs::{Clipboard, ClipboardContext, ClipboardContent};
 use std::path::Path;
-use super::text::generate_cf_html;
+use crate::utils::cf_html::generate_cf_html;
 
 // 文件信息结构
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

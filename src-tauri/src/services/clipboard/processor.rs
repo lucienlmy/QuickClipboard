@@ -7,6 +7,7 @@ use std::path::Path;
 use regex::Regex;
 use sha2::{Sha256, Digest};
 use serde::{Serialize, Deserialize};
+use crate::utils::cf_html::normalize_clipboard_html;
 
 
 // 文件信息结构
@@ -70,14 +71,15 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
         
             // 富文本处理（HTML）
             CaptureType::RichText => {
-                let html = content.html.ok_or("HTML内容为空")?;
+                let raw_html = content.html.ok_or("HTML内容为空")?;
+                let html = normalize_clipboard_html(&raw_html);
                 let text = content.text.unwrap_or_else(|| strip_html(&html));
                 
                 let mut ct = ContentType::new("rich_text");
             
                 if is_url(&text) {
                     ct.add_type("link");
-                } else if contains_links(&text) || contains_links(&html) {
+                } else if contains_links(&text) {
                     ct.add_type("link");
                 }
                 
