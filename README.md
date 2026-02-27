@@ -50,7 +50,7 @@
     <td align="center" width="160"><strong>🎯 智能排序</strong><br>重复内容自动置顶，智能搜索</td>
   </tr>
   <tr>
-    <td align="center" width="160"><strong>🪟 视觉体验</strong><br>亮暗主题、背景自定义、流畅动画</td>
+    <td align="center" width="160"><strong>🪟 视觉体验</strong><br>现代化界面、细节打磨、流畅动画</td>
     <td align="center" width="160"><strong>📸 截图整合</strong><br>一键截图、OCR、多显示器支持</td>
     <td align="center" width="160"><strong>💾 数据安全</strong><br>SQLite 持久化，支持导入/导出</td>
   </tr>
@@ -59,38 +59,28 @@
 
 ## 🖼 界面预览
 
-
-### 🌞 亮色主题
-
 <div align="center">
-  <img src="readme-assets/main-light.png" alt="主界面预览-亮色" width="20.75%">
-  <img src="readme-assets/settings-light.png" alt="设置界面-亮色" width="45%">
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <img src="readme-assets/main_light.png" alt="主界面预览" width="95%">
+      <div style="margin-top:8px;"><strong>亮色主题</strong></div>
+    </td>
+    <td align="center" width="25%">
+      <img src="readme-assets/main_dark.png" alt="主界面预览" width="95%">
+      <div style="margin-top:8px;"><strong>暗色主题</strong></div>
+    </td>
+    <td align="center" width="25%">
+      <img src="readme-assets/main_customize1.png" alt="主界面预览" width="95%">
+      <div style="margin-top:8px;"><strong>自定义背景1</strong></div>
+    </td>
+    <td align="center" width="25%">
+      <img src="readme-assets/main_customize2.png" alt="主界面预览" width="95%">
+      <div style="margin-top:8px;"><strong>自定义背景2</strong></div>
+    </td>
+  </tr>
+</table>
 </div>
-
-
----
-
-### 🌙 暗色主题
-
-<div align="center">
-  <img src="readme-assets/main-dark.png" alt="主界面预览-暗色" width="20.75%">
-  <img src="readme-assets/settings-dark.png" alt="设置界面-暗色" width="45%">
-</div>
-
-
----
-
-### 🎨 自定义背景
-
-<div align="center">
-  <img src="readme-assets/bg-main (1).png" alt="自定义背景" width="15%">
-  <img src="readme-assets/bg-settings (1).png" alt="自定义背景" width="31%">
-  <img src="readme-assets/bg-main (2).png" alt="自定义背景" width="15%">
-  <img src="readme-assets/bg-settings (2).png" alt="自定义背景" width="31%">
-</div>
-
-
----
 
 ## 💻 系统要求
 
@@ -131,12 +121,48 @@
   获取最新版本、下载镜像、文档资料与更多内容
 </p>
 
-<!-- QQ 群 -->
-<img src="readme-assets/qG.png" alt="QQ群二维码" width="240" />
-
-<p style="margin-top:8px;">
-  <strong>QQ群：</strong> 扫码或搜索群号加入交流
+<!-- 社群交流 -->
+<p style="margin-top:10px; margin-bottom:12px;">
+  扫码或搜索号码加入：
 </p>
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="https://pd.qq.com/s/blp3j847c" target="_blank">
+        <img src="src/assets/pD_1.png" alt="频道二维码" width="170" />
+      </a>
+      <div style="margin-top:8px;"><strong>频道：</strong>pd80680380</div>
+      <div style="margin-top:10px;">
+        <a href="https://pd.qq.com/s/blp3j847c" target="_blank">
+          <img src="https://img.shields.io/badge/立即加入-3b82f6?style=for-the-badge" alt="立即加入" />
+        </a>
+      </div>
+    </td>
+    <td align="center" width="33%">
+      <a href="https://qm.qq.com/q/nUCO76MX9C" target="_blank">
+        <img src="src/assets/qG_1.png" alt="群聊1二维码" width="170" />
+      </a>
+      <div style="margin-top:8px;"><strong>群聊1：</strong>725313287</div>
+      <div style="margin-top:10px;">
+        <a href="https://qm.qq.com/q/nUCO76MX9C" target="_blank">
+          <img src="https://img.shields.io/badge/立即加入-3b82f6?style=for-the-badge" alt="立即加入" />
+        </a>
+      </div>
+    </td>
+    <td align="center" width="33%">
+      <a href="https://qm.qq.com/q/O5zOi3uTuy" target="_blank">
+        <img src="src/assets/qG_2.png" alt="群聊2二维码" width="170" />
+      </a>
+      <div style="margin-top:8px;"><strong>群聊2：</strong>1033556729</div>
+      <div style="margin-top:10px;">
+        <a href="https://qm.qq.com/q/O5zOi3uTuy" target="_blank">
+          <img src="https://img.shields.io/badge/立即加入-3b82f6?style=for-the-badge" alt="立即加入" />
+        </a>
+      </div>
+    </td>
+  </tr>
+</table>
 
 </div>
 
