@@ -37,6 +37,25 @@ pub fn run() {
     security::check_webview_security();
     #[cfg(windows)]
     {
+        use std::process::Command;
+        let args: Vec<String> = std::env::args().collect();
+        let is_installer_launch = args.iter().any(|a| a == "--installer-launch");
+        let already_restarted = args.iter().any(|a| a == "--qc-restarted");
+        if is_installer_launch && !already_restarted {
+            if let Ok(exe) = std::env::current_exe() {
+                let mut cmd = Command::new(exe);
+                for a in std::env::args().skip(1) {
+                    if a == "--installer-launch" {
+                        continue;
+                    }
+                    cmd.arg(a);
+                }
+                cmd.arg("--qc-restarted");
+                let _ = cmd.spawn();
+                std::process::exit(0);
+            }
+        }
+
         if let Ok(settings) = services::settings::load_settings_from_file() {
             if settings.run_as_admin {
                 let is_admin = services::system::is_running_as_admin();

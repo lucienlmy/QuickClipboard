@@ -78,6 +78,7 @@
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
+        "template": "bundle-scripts/windows/nsis/x64/installer.nsi",
         "installMode": "perMachine",
         "languages": [
           "SimpChinese"
