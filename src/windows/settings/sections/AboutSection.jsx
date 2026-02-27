@@ -63,11 +63,12 @@ function AboutSection() {
       console.error('打开Bilibili链接失败:', error);
     }
   };
-  const handleOpenQQGroup = async () => {
+  const handleOpenCommunity = async () => {
     try {
-      await openUrl(appLinks.qqGroup);
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_community_window');
     } catch (error) {
-      console.error('打开QQ群链接失败:', error);
+      console.error('打开社区交流窗口失败:', error);
     }
   };
 
@@ -101,8 +102,8 @@ function AboutSection() {
           <Button variant="secondary" icon={<i className="ti ti-brand-github"></i>} onClick={handleOpenGitHub}>
             GitHub
           </Button>
-          <Button variant="secondary" icon={<i className="ti ti-brand-qq"></i>} onClick={handleOpenQQGroup}>
-            QQ群
+          <Button variant="secondary" icon={<i className="ti ti-users"></i>} onClick={handleOpenCommunity}>
+            社区交流
           </Button>
           <Button variant="secondary" icon={<i className="ti ti-brand-bilibili"></i>} onClick={handleOpenBilibili}>
             Bilibili

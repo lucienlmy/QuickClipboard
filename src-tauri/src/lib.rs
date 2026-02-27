@@ -96,6 +96,7 @@ pub fn run() {
                 commands::set_window_pinned,
                 commands::toggle_window_visibility,
                 commands::open_settings_window,
+                commands::open_community_window,
                 commands::open_text_editor_window,
                 commands::emit_clipboard_updated,
                 commands::emit_quick_texts_updated,

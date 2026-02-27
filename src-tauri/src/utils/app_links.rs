@@ -5,8 +5,12 @@ use serde::{Deserialize, Serialize};
 pub struct AppLinks {
     pub website: String,
     pub github: String,
-    #[serde(rename = "qqGroup")]
-    pub qq_group: String,
+    #[serde(rename = "pdChannel", default)]
+    pub pd_channel: String,
+    #[serde(rename = "qqGroup1", default)]
+    pub qq_group_1: String,
+    #[serde(rename = "qqGroup2", default)]
+    pub qq_group_2: String,
     pub bilibili: String,
     pub changelog: String,
     #[serde(rename = "releasesLatest")]

@@ -94,6 +94,11 @@ pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn open_community_window(app: AppHandle) -> Result<(), String> {
+    crate::windows::community_window::open_community_window(&app)
+}
+
+#[tauri::command]
 pub async fn open_text_editor_window(
     app: AppHandle,
     item_id: String,

@@ -3,6 +3,7 @@ pub mod settings_window;
 pub mod text_editor_window;
 pub mod quickpaste;
 pub mod tray;
+pub mod community_window;
 pub mod plugins;
 pub mod pin_image_window;
 pub mod updater_window;

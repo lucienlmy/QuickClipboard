@@ -218,8 +218,8 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
                 },
                 CtxMenuButton {
                     id: "open-qq-group".to_string(),
-                    label: "群聊".to_string(),
-                    icon: Some("ti ti-brand-qq".to_string()),
+                    label: "社区交流".to_string(),
+                    icon: Some("ti ti-users".to_string()),
                     favicon: None,
                     icon_color: None,
                     disabled: false,
@@ -290,9 +290,7 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
             }
         }
         "open-qq-group" => {
-            if let Ok(links) = app_links::app_links() {
-                let _ = tauri_plugin_opener::open_url(&links.qq_group, None::<&str>);
-            }
+            let _ = crate::windows::community_window::open_community_window(app);
         }
         "toggle" => {
             crate::toggle_main_window_visibility(app);
