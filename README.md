@@ -88,13 +88,13 @@
 
 ---
 
-## 📦 下载方式（v0.1.1）
+## 📦 下载方式（v0.2.0）
 
 | 类型                                                          |                       说明 |                            下载量                            | 链接                                                         |
 | ------------------------------------------------------------- | -------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
-| **🧰 NSIS 安装包**<br>`QuickClipboard_0.1.1_x64-setup.exe` | 推荐安装方式，支持自动卸载 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.1.1_x64-setup.exe?label=) | [![下载 NSIS](https://img.shields.io/badge/⬇_下载-NSIS安装包-blue?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.1.1/QuickClipboard_0.1.1_x64-setup.exe) |
-| **💼 绿色版**<br>`QuickClipboard_0.1.1.exe`                    |       免安装，双击即可使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.1.1.exe?label=) | [![下载绿色版](https://img.shields.io/badge/⬇_下载-绿色版-orange?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.1.1/QuickClipboard_0.1.1.exe) |
-| **📁 便携版**<br>`QuickClipboard_0.1.1_portable.exe`          |     更适合放U盘或移动使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.1.1_portable.exe?label=) | [![下载便携版](https://img.shields.io/badge/⬇_下载-便携版-green?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.1.1/QuickClipboard_0.1.1_portable.exe) |
+| **🧰 NSIS 安装包**<br>`QuickClipboard_0.2.0_x64-setup.exe` | 推荐安装方式，支持自动卸载 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.2.0_x64-setup.exe?label=) | [![下载 NSIS](https://img.shields.io/badge/⬇_下载-NSIS安装包-blue?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.2.0/QuickClipboard_0.2.0_x64-setup.exe) |
+| **💼 绿色版**<br>`QuickClipboard_0.2.0.exe`                    |       免安装，双击即可使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.2.0.exe?label=) | [![下载绿色版](https://img.shields.io/badge/⬇_下载-绿色版-orange?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.2.0/QuickClipboard_0.2.0.exe) |
+| **📁 便携版**<br>`QuickClipboard_0.2.0_portable.exe`          |     更适合放U盘或移动使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.2.0_portable.exe?label=) | [![下载便携版](https://img.shields.io/badge/⬇_下载-便携版-green?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.2.0/QuickClipboard_0.2.0_portable.exe) |
 | **🌐 网盘下载**                                                |    GitHub 较慢时的备用渠道 |                              —                               | [![网盘下载](https://img.shields.io/badge/🌐_网盘下载-点击进入-red?style=for-the-badge)](https://www.123912.com/s/A9Ckjv-Vu75v?pwd=UhWA#) |
 
 ---
