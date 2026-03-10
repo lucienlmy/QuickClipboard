@@ -179,7 +179,43 @@ fn handle_clipboard_change() -> Result<(), String> {
             match process_content(content) {
                 Ok(processed) => {
                     match store_clipboard_item(processed) {
-                        Ok(_) => any_stored = true,
+                        Ok(id) => {
+                            any_stored = true;
+                            tauri::async_runtime::spawn(async move {
+                                let item = tokio::task::spawn_blocking(move || {
+                                    crate::services::database::get_clipboard_item_by_id(id)
+                                })
+                                .await
+                                .ok()
+                                .and_then(|r| r.ok())
+                                .flatten();
+
+                                let Some(item) = item else { return; };
+
+                                if item.is_remote {
+                                    return;
+                                }
+
+                                let Some(uuid) = item.uuid.clone() else { return; };
+
+                                let record = lan_sync_core::ClipboardRecord {
+                                    uuid,
+                                    source_device_id: crate::services::lan_sync::device_id(),
+                                    is_remote: false,
+                                    content: item.content,
+                                    html_content: item.html_content,
+                                    content_type: item.content_type,
+                                    image_id: item.image_id,
+                                    source_app: item.source_app,
+                                    source_icon_hash: item.source_icon_hash,
+                                    char_count: item.char_count,
+                                    created_at: item.created_at,
+                                    updated_at: item.updated_at,
+                                };
+
+                                let _ = crate::services::lan_sync::send_clipboard_record(record).await;
+                            });
+                        }
                         Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
                         Err(e) => eprintln!("存储剪贴板内容失败: {}", e),
                     }
