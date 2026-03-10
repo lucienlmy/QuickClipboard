@@ -228,6 +228,14 @@ impl LanSyncManager {
     }
 
     pub async fn broadcast_clipboard_record(&self, record: ClipboardRecord) -> Result<(), LanSyncError> {
+        self.broadcast_clipboard_record_excluding(record, None).await
+    }
+
+    pub async fn broadcast_clipboard_record_excluding(
+        &self,
+        record: ClipboardRecord,
+        exclude_device_id: Option<&str>,
+    ) -> Result<(), LanSyncError> {
         let inner = self.inner.lock().await;
         if !inner.snapshot.enabled {
             return Err(LanSyncError::NotEnabled);
@@ -241,7 +249,10 @@ impl LanSyncManager {
 
         let msg = LanSyncMessage::ClipboardRecord { record };
         let mut ok_any = false;
-        for tx in inner.server_peer_out_txs.values() {
+        for (device_id, tx) in inner.server_peer_out_txs.iter() {
+            if exclude_device_id.is_some_and(|x| x == device_id.as_str()) {
+                continue;
+            }
             if tx.send(msg.clone()).is_ok() {
                 ok_any = true;
             }

@@ -65,6 +65,86 @@ async fn record_roundtrip_text() -> AnyResult<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn server_broadcast_excluding_source() -> AnyResult<()> {
+    let server = LanSyncManager::new(LanSyncConfig {
+        device_id: "server".to_string(),
+        ..Default::default()
+    });
+    server.set_enabled(true).await;
+    let port = server.start_server(0).await?;
+
+    let c1 = LanSyncManager::new(LanSyncConfig {
+        device_id: "c1".to_string(),
+        ..Default::default()
+    });
+    let c2 = LanSyncManager::new(LanSyncConfig {
+        device_id: "c2".to_string(),
+        ..Default::default()
+    });
+    c1.set_enabled(true).await;
+    c2.set_enabled(true).await;
+    let mut ev1 = c1.subscribe().await;
+    let mut ev2 = c2.subscribe().await;
+
+    c1.connect_peer(&format!("ws://127.0.0.1:{}", port), false).await?;
+    c2.connect_peer(&format!("ws://127.0.0.1:{}", port), false).await?;
+
+    let start = std::time::Instant::now();
+    loop {
+        let s = server.get_snapshot().await;
+        let s1 = c1.get_snapshot().await;
+        let s2 = c2.get_snapshot().await;
+        if s1.state == ConnectionState::Connected
+            && s2.state == ConnectionState::Connected
+            && s.server_connected_device_ids.iter().any(|d| d == "c1")
+            && s.server_connected_device_ids.iter().any(|d| d == "c2")
+        {
+            break;
+        }
+        if start.elapsed() > Duration::from_secs(2) {
+            return Err("等待连接超时".into());
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    let rec = ClipboardRecord {
+        uuid: "s3".to_string(),
+        source_device_id: "c1".to_string(),
+        is_remote: true,
+        content: "exclude".to_string(),
+        html_content: None,
+        content_type: "text".to_string(),
+        image_id: None,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: Some(7),
+        created_at: 1,
+        updated_at: 1,
+    };
+
+    server
+        .broadcast_clipboard_record_excluding(rec.clone(), Some("c1"))
+        .await?;
+
+    let got2 = tokio::time::timeout(Duration::from_secs(2), ev2.recv()).await??;
+    match got2 {
+        CoreEvent::RemoteClipboardRecord { record } => {
+            if record.uuid != rec.uuid || record.content != rec.content {
+                return Err("收到的记录不一致".into());
+            }
+        }
+        _ => return Err("收到的事件类型不正确".into()),
+    }
+
+    let got1 = tokio::time::timeout(Duration::from_millis(200), ev1.recv()).await;
+    if got1.is_ok() {
+        return Err("来源端不应收到广播".into());
+    }
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn server_broadcast_to_two_clients() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
