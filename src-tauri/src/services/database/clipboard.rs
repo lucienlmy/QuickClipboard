@@ -249,6 +249,66 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
     get_clipboard_item_by_id_with_limit(id, None)
 }
 
+pub fn get_clipboard_item_id_by_uuid(uuid: &str) -> Result<Option<i64>, String> {
+    with_connection(|conn| {
+        conn.query_row(
+            "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
+            params![uuid],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.into())
+    })
+}
+
+pub fn insert_remote_clipboard_record(
+    record: &lan_sync_core::ClipboardRecord,
+) -> Result<i64, String> {
+    with_connection(|conn| {
+        let existing: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
+                params![record.uuid],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(id) = existing {
+            return Ok(id);
+        }
+
+        let max_order: i64 = conn
+            .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(0);
+        let new_order = max_order + 1;
+
+        conn.execute(
+            "INSERT INTO clipboard (uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, char_count, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![
+                record.uuid,
+                record.source_device_id,
+                1,
+                record.content,
+                record.html_content,
+                record.content_type,
+                record.image_id,
+                new_order,
+                0,
+                0,
+                record.source_app,
+                record.source_icon_hash,
+                record.char_count,
+                record.created_at,
+                record.updated_at,
+            ],
+        )?;
+
+        Ok(conn.last_insert_rowid())
+    })
+}
+
 // 根据ID获取剪贴板项（指定截断长度）
 pub fn get_clipboard_item_by_id_with_limit(id: i64, max_content_length: Option<usize>) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {

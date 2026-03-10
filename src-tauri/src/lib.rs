@@ -337,6 +337,36 @@ pub fn run() {
                 if settings.clipboard_monitor {
                     let _ = start_clipboard_monitor();
                 }
+
+                {
+                    let app_handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        let mut rx = crate::services::lan_sync::subscribe().await;
+                        loop {
+                            let ev = rx.recv().await;
+                            let Ok(lan_sync_core::CoreEvent::RemoteClipboardRecord { record }) = ev else {
+                                continue;
+                            };
+
+                            if record.source_device_id == crate::services::lan_sync::device_id() {
+                                continue;
+                            }
+
+                            let record2 = record.clone();
+                            let inserted = tokio::task::spawn_blocking(move || {
+                                crate::services::database::insert_remote_clipboard_record(&record2)
+                            })
+                            .await
+                            .ok()
+                            .and_then(|r| r.ok());
+
+                            if inserted.is_some() {
+                                use tauri::Emitter;
+                                let _ = app_handle.emit("clipboard-updated", ());
+                            }
+                        }
+                    });
+                }
                 
                 let _ = windows::main_window::restore_edge_snap_on_startup(&window);
 

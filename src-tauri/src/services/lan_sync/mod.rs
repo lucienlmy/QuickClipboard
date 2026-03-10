@@ -1,4 +1,4 @@
-use lan_sync_core::{ClipboardRecord, LanSyncConfig, LanSyncError, LanSyncManager, Snapshot};
+use lan_sync_core::{ClipboardRecord, CoreEvent, LanSyncConfig, LanSyncError, LanSyncManager, Snapshot};
 use once_cell::sync::Lazy;
 use uuid::Uuid;
 
@@ -48,4 +48,8 @@ pub async fn disconnect_peer() {
 
 pub async fn send_clipboard_record(record: ClipboardRecord) -> Result<(), LanSyncError> {
     MANAGER.send_clipboard_record(record).await
+}
+
+pub async fn subscribe() -> tokio::sync::broadcast::Receiver<CoreEvent> {
+    MANAGER.subscribe().await
 }
