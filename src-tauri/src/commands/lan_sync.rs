@@ -1,11 +1,56 @@
 use crate::services;
 use lan_sync_core::Snapshot;
 use serde::Serialize;
+use std::net::IpAddr;
 
 #[derive(Serialize)]
 pub struct LanSyncInfo {
     pub device_id: String,
     pub snapshot: Snapshot,
+    pub local_ips: Vec<String>,
+    pub recommended_peer_urls: Vec<String>,
+}
+
+fn get_local_lan_ipv4s() -> Vec<String> {
+    let mut private = Vec::new();
+    let mut other = Vec::new();
+
+    let Ok(ifaces) = if_addrs::get_if_addrs() else {
+        return Vec::new();
+    };
+
+    for iface in ifaces {
+        let ip = iface.ip();
+        if ip.is_loopback() {
+            continue;
+        }
+
+        match ip {
+            IpAddr::V4(v4) => {
+                if v4.is_private() {
+                    private.push(v4.to_string());
+                } else {
+                    other.push(v4.to_string());
+                }
+            }
+            IpAddr::V6(_v6) => {
+            }
+        }
+    }
+
+    private.extend(other);
+    private.sort();
+    private.dedup();
+    private
+}
+
+fn build_ws_urls(ips: &[String], port: Option<u16>) -> Vec<String> {
+    let Some(port) = port else {
+        return Vec::new();
+    };
+    ips.iter()
+        .map(|ip| format!("ws://{}:{}", ip, port))
+        .collect()
 }
 
 #[tauri::command]
@@ -15,9 +60,15 @@ pub async fn lan_sync_get_snapshot() -> Result<Snapshot, String> {
 
 #[tauri::command]
 pub async fn lan_sync_get_info() -> Result<LanSyncInfo, String> {
+    let snapshot = services::lan_sync::get_snapshot().await;
+    let local_ips = get_local_lan_ipv4s();
+    let recommended_peer_urls = build_ws_urls(&local_ips, snapshot.server_port);
+
     Ok(LanSyncInfo {
         device_id: services::lan_sync::device_id(),
-        snapshot: services::lan_sync::get_snapshot().await,
+        snapshot,
+        local_ips,
+        recommended_peer_urls,
     })
 }
 
