@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use futures_util::future::{AbortHandle, Abortable};
@@ -12,6 +12,8 @@ use url::Url;
 use crate::protocol::{ClipboardRecord, LanSyncMessage};
 use crate::types::{ConnectionState, CoreEvent, LanSyncConfig, LanSyncError, Snapshot};
 
+const CLIENT_SEND_QUEUE_MAX: usize = 200;
+
 struct Inner {
     config: LanSyncConfig,
     snapshot: Snapshot,
@@ -19,6 +21,7 @@ struct Inner {
     client_task: Option<JoinHandle<()>>,
     event_tx: tokio::sync::broadcast::Sender<CoreEvent>,
     client_out_tx: Option<tokio::sync::mpsc::UnboundedSender<LanSyncMessage>>,
+    client_send_queue: VecDeque<LanSyncMessage>,
     active_by_device_id: HashMap<String, (u64, AbortHandle)>,
     next_conn_id: u64,
     client_auto_reconnect: bool,
@@ -40,6 +43,7 @@ impl LanSyncManager {
             client_task: None,
             event_tx,
             client_out_tx: None,
+            client_send_queue: VecDeque::new(),
             active_by_device_id: HashMap::new(),
             next_conn_id: 1,
             client_auto_reconnect: false,
@@ -63,6 +67,7 @@ impl LanSyncManager {
                 h.abort();
             }
             inner.client_out_tx = None;
+            inner.client_send_queue.clear();
             inner.snapshot.state = ConnectionState::Stopped;
             inner.snapshot.server_port = None;
             inner.snapshot.peer_url = None;
@@ -213,18 +218,29 @@ impl LanSyncManager {
         inner.snapshot.reconnect_attempt = 0;
         inner.snapshot.next_retry_in_ms = None;
         inner.client_out_tx = None;
+        inner.client_send_queue.clear();
         if let Some(h) = inner.client_task.take() {
             h.abort();
         }
     }
 
     pub async fn send_clipboard_record(&self, record: ClipboardRecord) -> Result<(), LanSyncError> {
-        let tx = { self.inner.lock().await.client_out_tx.clone() };
-        let Some(tx) = tx else {
-            return Err(LanSyncError::Ws("未连接".to_string()));
-        };
-        tx.send(LanSyncMessage::ClipboardRecord { record })
-            .map_err(|_| LanSyncError::Ws("发送失败".to_string()))?;
+        let mut inner = self.inner.lock().await;
+        if !inner.snapshot.enabled {
+            return Err(LanSyncError::NotEnabled);
+        }
+
+        let msg = LanSyncMessage::ClipboardRecord { record };
+        if let Some(tx) = inner.client_out_tx.clone() {
+            tx.send(msg)
+                .map_err(|_| LanSyncError::Ws("发送失败".to_string()))?;
+            return Ok(());
+        }
+
+        if inner.client_send_queue.len() >= CLIENT_SEND_QUEUE_MAX {
+            inner.client_send_queue.pop_front();
+        }
+        inner.client_send_queue.push_back(msg);
         Ok(())
     }
 
@@ -408,6 +424,12 @@ impl LanSyncManager {
         {
             let mut inner = self.inner.lock().await;
             inner.client_out_tx = Some(out_tx);
+
+            while let Some(m) = inner.client_send_queue.pop_front() {
+                if let Some(tx) = inner.client_out_tx.clone() {
+                    let _ = tx.send(m);
+                }
+            }
         }
 
         let mut last_rx = Instant::now();
