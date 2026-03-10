@@ -47,7 +47,12 @@ pub async fn disconnect_peer() {
 }
 
 pub async fn send_clipboard_record(record: ClipboardRecord) -> Result<(), LanSyncError> {
-    MANAGER.send_clipboard_record(record).await
+    let snapshot = MANAGER.get_snapshot().await;
+    if snapshot.server_port.is_some() && snapshot.server_connected_count > 0 {
+        MANAGER.broadcast_clipboard_record(record).await
+    } else {
+        MANAGER.send_clipboard_record(record).await
+    }
 }
 
 pub async fn sync_clipboard_item(clipboard_id: i64) -> Result<String, LanSyncError> {

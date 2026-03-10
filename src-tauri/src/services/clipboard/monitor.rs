@@ -213,7 +213,20 @@ fn handle_clipboard_change() -> Result<(), String> {
                                 .and_then(|r| r.ok())
                                 .flatten();
 
-                                let Some(item) = item else { return; };
+                                let Some(mut item) = item else { return; };
+
+                                if item.uuid.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
+                                    let ensured = tokio::task::spawn_blocking(move || {
+                                        crate::services::database::ensure_clipboard_item_uuid(id)
+                                    })
+                                    .await
+                                    .ok()
+                                    .and_then(|r| r.ok());
+
+                                    if let Some(uuid) = ensured {
+                                        item.uuid = Some(uuid);
+                                    }
+                                }
 
                                 let Some(record) = clipboard_item_to_lan_sync_record(item) else { return; };
                                 let _ = crate::services::lan_sync::send_clipboard_record(record).await;
