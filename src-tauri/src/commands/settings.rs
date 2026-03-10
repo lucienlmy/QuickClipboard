@@ -31,6 +31,11 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
     let edge_hide_changed = old_settings.edge_hide_enabled != settings.edge_hide_enabled;
     let quickpaste_enabled_changed = old_settings.quickpaste_enabled != settings.quickpaste_enabled;
+    let lan_sync_changed = old_settings.lan_sync_enabled != settings.lan_sync_enabled
+        || old_settings.lan_sync_mode != settings.lan_sync_mode
+        || old_settings.lan_sync_server_port != settings.lan_sync_server_port
+        || old_settings.lan_sync_peer_url != settings.lan_sync_peer_url
+        || old_settings.lan_sync_auto_reconnect != settings.lan_sync_auto_reconnect;
     
     if edge_hide_changed && !settings.edge_hide_enabled {
         settings.edge_snap_position = None;
@@ -66,6 +71,35 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
         } else if let Some(window) = app.get_webview_window("quickpaste") {
             let _ = window.close();
         }
+    }
+
+    if lan_sync_changed {
+        let cfg = settings.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = crate::services::lan_sync::set_enabled(false).await;
+
+            if !cfg.lan_sync_enabled || cfg.lan_sync_mode == "off" {
+                return;
+            }
+
+            let _ = crate::services::lan_sync::set_enabled(true).await;
+
+            match cfg.lan_sync_mode.as_str() {
+                "server" => {
+                    let _ = crate::services::lan_sync::disconnect_peer().await;
+                    let _ = crate::services::lan_sync::start_server(cfg.lan_sync_server_port).await;
+                }
+                "client" => {
+                    let _ = crate::services::lan_sync::disconnect_peer().await;
+                    let _ = crate::services::lan_sync::connect_peer(
+                        &cfg.lan_sync_peer_url,
+                        cfg.lan_sync_auto_reconnect,
+                    )
+                    .await;
+                }
+                _ => {}
+            }
+        });
     }
 
     #[cfg(feature = "screenshot-suite")]

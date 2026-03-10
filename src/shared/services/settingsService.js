@@ -137,7 +137,14 @@ export const defaultSettings = {
   
   // 数据存储设置
   customStoragePath: null,
-  useCustomStorage: false
+  useCustomStorage: false,
+
+  // LAN Sync 设置
+  lanSyncEnabled: false,
+  lanSyncMode: 'off',
+  lanSyncServerPort: 18181,
+  lanSyncPeerUrl: 'ws://127.0.0.1:18181',
+  lanSyncAutoReconnect: true
 }
 
 // 加载设置

@@ -174,6 +174,7 @@
       "appearance": "外观主题",
       "shortcuts": "快捷键",
       "clipboard": "剪贴板",
+      "lanSync": "局域网同步",
       "aiConfig": "AI配置",
       "translation": "翻译",
       "quickpaste": "便捷粘贴",
@@ -182,6 +183,23 @@
       "appFilter": "应用过滤",
       "dataManagement": "数据管理",
       "about": "关于"
+    },
+    "lanSync": {
+      "title": "局域网同步",
+      "description": "在局域网内与其它设备同步剪贴板记录",
+      "enabled": "启用局域网同步",
+      "enabledDesc": "开启后可作为服务端或客户端进行同步",
+      "mode": "工作模式",
+      "modeDesc": "选择作为服务端或连接到某个服务端",
+      "modeOff": "关闭",
+      "modeServer": "服务端（等待连接）",
+      "modeClient": "客户端（连接服务端）",
+      "serverPort": "服务端端口",
+      "serverPortDesc": "本机作为服务端监听的端口",
+      "peerUrl": "服务端地址",
+      "peerUrlDesc": "客户端要连接的 WebSocket 地址",
+      "autoReconnect": "自动重连",
+      "autoReconnectDesc": "连接断开后自动尝试重连"
     },
     "general": {
       "title": "常规设置",
