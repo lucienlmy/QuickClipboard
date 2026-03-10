@@ -361,7 +361,9 @@ impl LanSyncManager {
                 outgoing = peer_out_rx.recv() => {
                     if let Some(m) = outgoing {
                         if let Ok(payload) = serde_json::to_string(&m) {
-                            let _ = write.send(Message::Text(payload.into())).await;
+                            if write.send(Message::Text(payload.into())).await.is_err() {
+                                break Err(LanSyncError::Ws("连接已断开".to_string()));
+                            }
                         }
                     }
                 }
@@ -370,7 +372,9 @@ impl LanSyncManager {
                         break Err(LanSyncError::Timeout);
                     }
 
-                    let _ = write.send(Message::Ping(Bytes::new())).await;
+                    if write.send(Message::Ping(Bytes::new())).await.is_err() {
+                        break Err(LanSyncError::Ws("连接已断开".to_string()));
+                    }
                 }
                 incoming = read.next() => {
                     match incoming {
@@ -380,7 +384,9 @@ impl LanSyncManager {
                                 Message::Ping(v) => {
                                     last_rx = Instant::now();
                                     if respond_to_ping {
-                                        let _ = write.send(Message::Pong(v)).await;
+                                        if write.send(Message::Pong(v)).await.is_err() {
+                                            break Err(LanSyncError::Ws("连接已断开".to_string()));
+                                        }
                                     }
                                 }
                                 Message::Pong(_) => {
@@ -510,7 +516,9 @@ impl LanSyncManager {
                     match outgoing {
                         Some(m) => {
                             if let Ok(payload) = serde_json::to_string(&m) {
-                                let _ = write.send(Message::Text(payload.into())).await;
+                                if write.send(Message::Text(payload.into())).await.is_err() {
+                                    return Err(LanSyncError::Ws("连接已断开".to_string()));
+                                }
                             }
                         }
                         None => {}
@@ -520,7 +528,9 @@ impl LanSyncManager {
                     if last_rx.elapsed() > idle_timeout {
                         return Err(LanSyncError::Timeout);
                     }
-                    let _ = write.send(Message::Ping(Bytes::new())).await;
+                    if write.send(Message::Ping(Bytes::new())).await.is_err() {
+                        return Err(LanSyncError::Ws("连接已断开".to_string()));
+                    }
                 }
                 incoming = read.next() => {
                     match incoming {
@@ -530,7 +540,9 @@ impl LanSyncManager {
                                 Message::Ping(v) => {
                                     last_rx = Instant::now();
                                     if respond_to_ping {
-                                        let _ = write.send(Message::Pong(v)).await;
+                                        if write.send(Message::Pong(v)).await.is_err() {
+                                            return Err(LanSyncError::Ws("连接已断开".to_string()));
+                                        }
                                     }
                                 }
                                 Message::Pong(_) => {

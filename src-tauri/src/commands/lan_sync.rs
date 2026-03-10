@@ -1,9 +1,24 @@
 use crate::services;
 use lan_sync_core::Snapshot;
+use serde::Serialize;
+
+#[derive(Serialize)]
+pub struct LanSyncInfo {
+    pub device_id: String,
+    pub snapshot: Snapshot,
+}
 
 #[tauri::command]
 pub async fn lan_sync_get_snapshot() -> Result<Snapshot, String> {
     Ok(services::lan_sync::get_snapshot().await)
+}
+
+#[tauri::command]
+pub async fn lan_sync_get_info() -> Result<LanSyncInfo, String> {
+    Ok(LanSyncInfo {
+        device_id: services::lan_sync::device_id(),
+        snapshot: services::lan_sync::get_snapshot().await,
+    })
 }
 
 #[tauri::command]

@@ -208,6 +208,7 @@ pub fn run() {
                 commands::reload_all_windows,
                 commands::check_updates_and_open_window,
                 commands::lan_sync_get_snapshot,
+                commands::lan_sync_get_info,
                 commands::lan_sync_set_enabled,
                 commands::lan_sync_start_server,
                 commands::lan_sync_connect_peer,
