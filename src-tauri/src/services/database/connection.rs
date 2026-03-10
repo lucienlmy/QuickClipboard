@@ -261,6 +261,11 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
     ).map_err(|e| format!("创建内容类型索引失败: {}", e))?;
 
     conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_clipboard_uuid_unique ON clipboard(uuid) WHERE uuid IS NOT NULL AND uuid <> ''",
+        [],
+    ).map_err(|e| format!("创建剪贴板 UUID 唯一索引失败: {}", e))?;
+
+    conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_favorites_group ON favorites(group_name, item_order)",
         [],
     ).map_err(|e| format!("创建收藏索引失败: {}", e))?;

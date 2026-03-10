@@ -264,7 +264,11 @@ pub fn get_clipboard_item_id_by_uuid(uuid: &str) -> Result<Option<i64>, String> 
 pub fn insert_remote_clipboard_record(
     record: &lan_sync_core::ClipboardRecord,
 ) -> Result<i64, String> {
-    with_connection(|conn| {
+    if record.uuid.trim().is_empty() {
+        return Err("远端记录缺少 uuid".to_string());
+    }
+
+    let inserted_or_existing: Option<i64> = with_connection(|conn| {
         let existing: Option<i64> = conn
             .query_row(
                 "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
@@ -273,7 +277,7 @@ pub fn insert_remote_clipboard_record(
             )
             .optional()?;
         if let Some(id) = existing {
-            return Ok(id);
+            return Ok(Some(id));
         }
 
         let max_order: i64 = conn
@@ -284,7 +288,7 @@ pub fn insert_remote_clipboard_record(
         let new_order = max_order + 1;
 
         conn.execute(
-            "INSERT INTO clipboard (uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, char_count, created_at, updated_at) 
+            "INSERT OR IGNORE INTO clipboard (uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, char_count, created_at, updated_at) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 record.uuid,
@@ -305,8 +309,22 @@ pub fn insert_remote_clipboard_record(
             ],
         )?;
 
-        Ok(conn.last_insert_rowid())
-    })
+        if conn.changes() > 0 {
+            return Ok(Some(conn.last_insert_rowid()));
+        }
+
+        let id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
+                params![record.uuid],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        Ok(id)
+    })?;
+
+    inserted_or_existing.ok_or_else(|| "插入远端记录失败".to_string())
 }
 
 // 根据ID获取剪贴板项（指定截断长度）
