@@ -22,6 +22,7 @@ struct Inner {
     event_tx: tokio::sync::broadcast::Sender<CoreEvent>,
     client_out_tx: Option<tokio::sync::mpsc::UnboundedSender<LanSyncMessage>>,
     client_send_queue: VecDeque<LanSyncMessage>,
+    server_peer_out_txs: HashMap<String, tokio::sync::mpsc::UnboundedSender<LanSyncMessage>>,
     active_by_device_id: HashMap<String, (u64, AbortHandle)>,
     next_conn_id: u64,
     client_auto_reconnect: bool,
@@ -44,6 +45,7 @@ impl LanSyncManager {
             event_tx,
             client_out_tx: None,
             client_send_queue: VecDeque::new(),
+            server_peer_out_txs: HashMap::new(),
             active_by_device_id: HashMap::new(),
             next_conn_id: 1,
             client_auto_reconnect: false,
@@ -98,6 +100,7 @@ impl LanSyncManager {
             inner.snapshot.state = ConnectionState::Listening;
             inner.snapshot.server_connected_count = 0;
             inner.snapshot.server_connected_device_ids.clear();
+            inner.server_peer_out_txs.clear();
         }
 
         let listener = TcpListener::bind(("0.0.0.0", port))
@@ -224,6 +227,33 @@ impl LanSyncManager {
         }
     }
 
+    pub async fn broadcast_clipboard_record(&self, record: ClipboardRecord) -> Result<(), LanSyncError> {
+        let inner = self.inner.lock().await;
+        if !inner.snapshot.enabled {
+            return Err(LanSyncError::NotEnabled);
+        }
+        if inner.server_task.is_none() {
+            return Err(LanSyncError::Ws("服务端未启动".to_string()));
+        }
+        if inner.server_peer_out_txs.is_empty() {
+            return Err(LanSyncError::Ws("没有已连接的客户端".to_string()));
+        }
+
+        let msg = LanSyncMessage::ClipboardRecord { record };
+        let mut ok_any = false;
+        for tx in inner.server_peer_out_txs.values() {
+            if tx.send(msg.clone()).is_ok() {
+                ok_any = true;
+            }
+        }
+
+        if ok_any {
+            Ok(())
+        } else {
+            Err(LanSyncError::Ws("发送失败".to_string()))
+        }
+    }
+
     pub async fn send_clipboard_record(&self, record: ClipboardRecord) -> Result<(), LanSyncError> {
         let mut inner = self.inner.lock().await;
         if !inner.snapshot.enabled {
@@ -288,6 +318,12 @@ impl LanSyncManager {
             .register_connection(remote_device_id.clone(), abort_handle)
             .await;
 
+        let (peer_out_tx, mut peer_out_rx) = tokio::sync::mpsc::unbounded_channel::<LanSyncMessage>();
+        {
+            let mut inner = self.inner.lock().await;
+            inner.server_peer_out_txs.insert(remote_device_id.clone(), peer_out_tx);
+        }
+
         let (ping_interval, idle_timeout, respond_to_ping) = {
             let inner = self.inner.lock().await;
             (
@@ -311,6 +347,13 @@ impl LanSyncManager {
 
         let res: Result<(), LanSyncError> = loop {
             tokio::select! {
+                outgoing = peer_out_rx.recv() => {
+                    if let Some(m) = outgoing {
+                        if let Ok(payload) = serde_json::to_string(&m) {
+                            let _ = write.send(Message::Text(payload.into())).await;
+                        }
+                    }
+                }
                 _ = ping.tick() => {
                     if last_rx.elapsed() > idle_timeout {
                         break Err(LanSyncError::Timeout);
@@ -359,7 +402,12 @@ impl LanSyncManager {
             }
         };
 
+        let remote_id = remote_device_id.clone();
         self.unregister_connection(remote_device_id, conn_id).await;
+        {
+            let mut inner = self.inner.lock().await;
+            inner.server_peer_out_txs.remove(&remote_id);
+        }
 
         res
     }
@@ -435,6 +483,8 @@ impl LanSyncManager {
         let mut last_rx = Instant::now();
         let mut ping = tokio::time::interval_at(Instant::now() + ping_interval, ping_interval);
 
+        let event_tx = { self.inner.lock().await.event_tx.clone() };
+
         loop {
             tokio::select! {
                 outgoing = out_rx.recv() => {
@@ -467,8 +517,23 @@ impl LanSyncManager {
                                 Message::Pong(_) => {
                                     last_rx = Instant::now();
                                 }
-                                Message::Text(_) | Message::Binary(_) => {
+                                Message::Text(t) => {
                                     last_rx = Instant::now();
+                                    if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
+                                        if let LanSyncMessage::ClipboardRecord { record } = m {
+                                            let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                        }
+                                    }
+                                }
+                                Message::Binary(b) => {
+                                    last_rx = Instant::now();
+                                    if let Ok(t) = String::from_utf8(b.to_vec()) {
+                                        if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
+                                            if let LanSyncMessage::ClipboardRecord { record } = m {
+                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                            }
+                                        }
+                                    }
                                 }
                                 _ => {}
                             }
