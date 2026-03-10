@@ -4,6 +4,7 @@ use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use std::collections::HashSet;
 use chrono;
+use uuid::Uuid;
 
 // 计算文本字符数
 fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
@@ -247,6 +248,44 @@ pub fn get_clipboard_count() -> Result<i64, String> {
 // 根据ID获取剪贴板项（完整内容，不截断）
 pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String> {
     get_clipboard_item_by_id_with_limit(id, None)
+}
+
+pub fn ensure_clipboard_item_uuid(id: i64) -> Result<String, String> {
+    let maybe_uuid: Option<String> = with_connection(|conn| {
+        let existing: Option<Option<String>> = conn
+            .query_row(
+                "SELECT uuid FROM clipboard WHERE id = ?1 LIMIT 1",
+                params![id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+
+        let existing = existing.flatten();
+
+        if let Some(uuid) = existing.clone().filter(|u| !u.trim().is_empty()) {
+            return Ok(Some(uuid));
+        }
+
+        let new_uuid = Uuid::new_v4().to_string();
+        conn.execute(
+            "UPDATE clipboard SET uuid = ?1 WHERE id = ?2 AND (uuid IS NULL OR uuid = '')",
+            params![new_uuid, id],
+        )?;
+
+        let uuid: Option<Option<String>> = conn
+            .query_row(
+                "SELECT uuid FROM clipboard WHERE id = ?1 LIMIT 1",
+                params![id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+
+        Ok(uuid.flatten())
+    })?;
+
+    maybe_uuid
+        .filter(|u| !u.trim().is_empty())
+        .ok_or_else(|| "生成 uuid 失败".to_string())
 }
 
 pub fn get_clipboard_item_id_by_uuid(uuid: &str) -> Result<Option<i64>, String> {

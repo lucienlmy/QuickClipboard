@@ -211,6 +211,8 @@ pub fn run() {
                 commands::lan_sync_set_enabled,
                 commands::lan_sync_start_server,
                 commands::lan_sync_connect_peer,
+                commands::lan_sync_disconnect_peer,
+                commands::lan_sync_sync_clipboard_item,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,

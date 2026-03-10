@@ -50,6 +50,52 @@ pub async fn send_clipboard_record(record: ClipboardRecord) -> Result<(), LanSyn
     MANAGER.send_clipboard_record(record).await
 }
 
+pub async fn sync_clipboard_item(clipboard_id: i64) -> Result<String, LanSyncError> {
+    let item = crate::services::database::get_clipboard_item_by_id(clipboard_id)
+        .map_err(|e| LanSyncError::Protocol(e))?
+        .ok_or_else(|| LanSyncError::Protocol("记录不存在".to_string()))?;
+
+    if item.is_remote {
+        return Err(LanSyncError::Protocol("远端记录无需手动同步".to_string()));
+    }
+
+    let uuid = match item.uuid.clone().filter(|u| !u.trim().is_empty()) {
+        Some(u) => u,
+        None => crate::services::database::ensure_clipboard_item_uuid(clipboard_id)
+            .map_err(|e| LanSyncError::Protocol(e))?,
+    };
+
+    let record = ClipboardRecord {
+        uuid,
+        source_device_id: device_id(),
+        is_remote: false,
+        content: item.content,
+        html_content: item.html_content,
+        content_type: item.content_type,
+        image_id: item.image_id,
+        source_app: item.source_app,
+        source_icon_hash: item.source_icon_hash,
+        char_count: item.char_count,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+    };
+
+    let snapshot = MANAGER.get_snapshot().await;
+
+    if snapshot.server_port.is_some() && snapshot.server_connected_count > 0 {
+        MANAGER.broadcast_clipboard_record(record).await?;
+        return Ok("broadcast".to_string());
+    }
+
+    send_clipboard_record(record).await?;
+
+    if snapshot.state == lan_sync_core::ConnectionState::Connected && snapshot.peer_url.is_some() {
+        Ok("sent".to_string())
+    } else {
+        Ok("queued".to_string())
+    }
+}
+
 pub async fn subscribe() -> tokio::sync::broadcast::Receiver<CoreEvent> {
     MANAGER.subscribe().await
 }
