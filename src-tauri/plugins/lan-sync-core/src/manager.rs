@@ -9,14 +9,16 @@ use tokio::time::{timeout, Duration, Instant};
 use tokio_tungstenite::{accept_async, connect_async, tungstenite::{Bytes, Message}};
 use url::Url;
 
-use crate::protocol::LanSyncMessage;
-use crate::types::{ConnectionState, LanSyncConfig, LanSyncError, Snapshot};
+use crate::protocol::{ClipboardRecord, LanSyncMessage};
+use crate::types::{ConnectionState, CoreEvent, LanSyncConfig, LanSyncError, Snapshot};
 
 struct Inner {
     config: LanSyncConfig,
     snapshot: Snapshot,
     server_task: Option<JoinHandle<()>>,
     client_task: Option<JoinHandle<()>>,
+    event_tx: tokio::sync::broadcast::Sender<CoreEvent>,
+    client_out_tx: Option<tokio::sync::mpsc::UnboundedSender<LanSyncMessage>>,
     active_by_device_id: HashMap<String, (u64, AbortHandle)>,
     next_conn_id: u64,
     client_auto_reconnect: bool,
@@ -30,11 +32,14 @@ pub struct LanSyncManager {
 
 impl LanSyncManager {
     pub fn new(config: LanSyncConfig) -> Self {
+        let (event_tx, _) = tokio::sync::broadcast::channel::<CoreEvent>(128);
         let inner = Inner {
             config,
             snapshot: Snapshot::default(),
             server_task: None,
             client_task: None,
+            event_tx,
+            client_out_tx: None,
             active_by_device_id: HashMap::new(),
             next_conn_id: 1,
             client_auto_reconnect: false,
@@ -57,6 +62,7 @@ impl LanSyncManager {
             if let Some(h) = inner.server_task.take() {
                 h.abort();
             }
+            inner.client_out_tx = None;
             inner.snapshot.state = ConnectionState::Stopped;
             inner.snapshot.server_port = None;
             inner.snapshot.peer_url = None;
@@ -64,6 +70,10 @@ impl LanSyncManager {
             inner.snapshot.reconnect_attempt = 0;
             inner.snapshot.next_retry_in_ms = None;
         }
+    }
+
+    pub async fn subscribe(&self) -> tokio::sync::broadcast::Receiver<CoreEvent> {
+        self.inner.lock().await.event_tx.subscribe()
     }
 
     pub async fn get_snapshot(&self) -> Snapshot {
@@ -202,9 +212,20 @@ impl LanSyncManager {
         inner.snapshot.reconnecting = false;
         inner.snapshot.reconnect_attempt = 0;
         inner.snapshot.next_retry_in_ms = None;
+        inner.client_out_tx = None;
         if let Some(h) = inner.client_task.take() {
             h.abort();
         }
+    }
+
+    pub async fn send_clipboard_record(&self, record: ClipboardRecord) -> Result<(), LanSyncError> {
+        let tx = { self.inner.lock().await.client_out_tx.clone() };
+        let Some(tx) = tx else {
+            return Err(LanSyncError::Ws("未连接".to_string()));
+        };
+        tx.send(LanSyncMessage::ClipboardRecord { record })
+            .map_err(|_| LanSyncError::Ws("发送失败".to_string()))?;
+        Ok(())
     }
 
     async fn handle_incoming(
@@ -242,6 +263,9 @@ impl LanSyncManager {
 
         let remote_device_id = match remote_hello {
             LanSyncMessage::Hello { device_id, .. } => device_id,
+            LanSyncMessage::ClipboardRecord { .. } => {
+                return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
+            }
         };
 
         let conn_id = self
@@ -267,6 +291,8 @@ impl LanSyncManager {
         let mut last_rx = Instant::now();
         let mut ping = tokio::time::interval_at(Instant::now() + ping_interval, ping_interval);
 
+        let event_tx = { self.inner.lock().await.event_tx.clone() };
+
         let res: Result<(), LanSyncError> = loop {
             tokio::select! {
                 _ = ping.tick() => {
@@ -290,8 +316,23 @@ impl LanSyncManager {
                                 Message::Pong(_) => {
                                     last_rx = Instant::now();
                                 }
-                                Message::Text(_) | Message::Binary(_) => {
+                                Message::Text(t) => {
                                     last_rx = Instant::now();
+                                    if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
+                                        if let LanSyncMessage::ClipboardRecord { record } = m {
+                                            let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                        }
+                                    }
+                                }
+                                Message::Binary(b) => {
+                                    last_rx = Instant::now();
+                                    if let Ok(t) = String::from_utf8(b.to_vec()) {
+                                        if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
+                                            if let LanSyncMessage::ClipboardRecord { record } = m {
+                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                            }
+                                        }
+                                    }
                                 }
                                 _ => {}
                             }
@@ -339,8 +380,14 @@ impl LanSyncManager {
         let Some(Ok(Message::Text(text))) = remote else {
             return Err(LanSyncError::Protocol("缺少 Hello 握手".to_string()));
         };
-        let _remote_hello: LanSyncMessage =
+        let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+        match remote_hello {
+            LanSyncMessage::Hello { .. } => {}
+            LanSyncMessage::ClipboardRecord { .. } => {
+                return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
+            }
+        }
 
         {
             let mut inner = self.inner.lock().await;
@@ -357,11 +404,27 @@ impl LanSyncManager {
             )
         };
 
+        let (out_tx, mut out_rx) = tokio::sync::mpsc::unbounded_channel::<LanSyncMessage>();
+        {
+            let mut inner = self.inner.lock().await;
+            inner.client_out_tx = Some(out_tx);
+        }
+
         let mut last_rx = Instant::now();
         let mut ping = tokio::time::interval_at(Instant::now() + ping_interval, ping_interval);
 
         loop {
             tokio::select! {
+                outgoing = out_rx.recv() => {
+                    match outgoing {
+                        Some(m) => {
+                            if let Ok(payload) = serde_json::to_string(&m) {
+                                let _ = write.send(Message::Text(payload.into())).await;
+                            }
+                        }
+                        None => {}
+                    }
+                }
                 _ = ping.tick() => {
                     if last_rx.elapsed() > idle_timeout {
                         return Err(LanSyncError::Timeout);
@@ -392,6 +455,11 @@ impl LanSyncManager {
                     }
                 }
             }
+        }
+
+        {
+            let mut inner = self.inner.lock().await;
+            inner.client_out_tx = None;
         }
 
         Ok(())

@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error;
 
+use crate::protocol::ClipboardRecord;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ConnectionState {
     Stopped,
@@ -44,6 +46,7 @@ impl Default for Snapshot {
 pub enum CoreEvent {
     Log { level: String, message: String },
     StatusChanged { snapshot: Snapshot },
+    RemoteClipboardRecord { record: ClipboardRecord },
 }
 
 #[derive(Debug, Clone)]
