@@ -137,7 +137,7 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         }
         
         let query_sql = format!(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
              FROM clipboard 
              {} 
              ORDER BY is_pinned DESC, item_order DESC, updated_at DESC 
@@ -156,10 +156,13 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
             rusqlite::params_from_iter(query_params.iter().map(|p| p.as_ref())),
             |row| {
                 let id: i64 = row.get(0)?;
-                let content: String = row.get(1)?;
-                let html_content: Option<String> = row.get(2)?;
-                let content_type: String = row.get(3)?;
-                let char_count: Option<i64> = row.get(12)?;
+                let uuid: Option<String> = row.get(1)?;
+                let source_device_id: Option<String> = row.get(2)?;
+                let is_remote: i64 = row.get(3)?;
+                let content: String = row.get(4)?;
+                let html_content: Option<String> = row.get(5)?;
+                let content_type: String = row.get(6)?;
+                let char_count: Option<i64> = row.get(15)?;
                 
                 let (truncated_content, truncated_html) = if content_type == "text" || content_type == "rich_text" || content_type == "link" {
                     let truncated_content = if content.len() > MAX_CONTENT_LENGTH {
@@ -198,18 +201,21 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
                 
                 Ok((ClipboardItem {
                     id,
+                    uuid,
+                    source_device_id,
+                    is_remote: is_remote != 0,
                     content: truncated_content,
                     html_content: truncated_html,
                     content_type: content_type.clone(),
-                    image_id: row.get(4)?,
-                    item_order: row.get(5)?,
-                    is_pinned: row.get::<_, i64>(6)? != 0,
-                    paste_count: row.get(7)?,
-                    source_app: row.get(8)?,
-                    source_icon_hash: row.get(9)?,
+                    image_id: row.get(7)?,
+                    item_order: row.get(8)?,
+                    is_pinned: row.get::<_, i64>(9)? != 0,
+                    paste_count: row.get(10)?,
+                    source_app: row.get(11)?,
+                    source_icon_hash: row.get(12)?,
                     char_count: final_char_count,
-                    created_at: row.get(10)?,
-                    updated_at: row.get(11)?,
+                    created_at: row.get(13)?,
+                    updated_at: row.get(14)?,
                 }, char_count.is_none() && needs_char_count, id, content, content_type))
             }
         )?
@@ -247,14 +253,17 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
 pub fn get_clipboard_item_by_id_with_limit(id: i64, max_content_length: Option<usize>) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {
         conn.query_row(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
              FROM clipboard WHERE id = ?",
             params![id],
             |row| {
-                let content: String = row.get(1)?;
-                let html_content: Option<String> = row.get(2)?;
-                let content_type: String = row.get(3)?;
-                let char_count: Option<i64> = row.get(12)?;
+                let uuid: Option<String> = row.get(1)?;
+                let source_device_id: Option<String> = row.get(2)?;
+                let is_remote: i64 = row.get(3)?;
+                let content: String = row.get(4)?;
+                let html_content: Option<String> = row.get(5)?;
+                let content_type: String = row.get(6)?;
+                let char_count: Option<i64> = row.get(15)?;
                 let final_content = if let Some(max_len) = max_content_length {
                     let is_text_type = content_type == "text" || content_type == "rich_text" || content_type == "link";
                     if is_text_type && content.len() > max_len {
@@ -275,18 +284,21 @@ pub fn get_clipboard_item_by_id_with_limit(id: i64, max_content_length: Option<u
                 
                 Ok(ClipboardItem {
                     id: row.get(0)?,
+                    uuid,
+                    source_device_id,
+                    is_remote: is_remote != 0,
                     content: final_content,
                     html_content,
                     content_type,
-                    image_id: row.get(4)?,
-                    item_order: row.get(5)?,
-                    is_pinned: row.get::<_, i64>(6)? != 0,
-                    paste_count: row.get(7)?,
-                    source_app: row.get(8)?,
-                    source_icon_hash: row.get(9)?,
+                    image_id: row.get(7)?,
+                    item_order: row.get(8)?,
+                    is_pinned: row.get::<_, i64>(9)? != 0,
+                    paste_count: row.get(10)?,
+                    source_app: row.get(11)?,
+                    source_icon_hash: row.get(12)?,
                     char_count: final_char_count,
-                    created_at: row.get(10)?,
-                    updated_at: row.get(11)?,
+                    created_at: row.get(13)?,
+                    updated_at: row.get(14)?,
                 })
             }
         )

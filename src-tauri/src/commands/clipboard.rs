@@ -164,6 +164,9 @@ pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), S
         // 将收藏项转换为剪贴板项格式
         let item = ClipboardItem {
             id: 0,
+            uuid: None,
+            source_device_id: None,
+            is_remote: false,
             content: favorite.content,
             html_content: favorite.html_content,
             content_type: favorite.content_type,

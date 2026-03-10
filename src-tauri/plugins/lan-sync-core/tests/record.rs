@@ -37,7 +37,17 @@ async fn record_roundtrip_text() -> AnyResult<()> {
 
     let rec = ClipboardRecord {
         uuid: "u1".to_string(),
+        source_device_id: "client".to_string(),
+        is_remote: false,
         content: "hello".to_string(),
+        html_content: None,
+        content_type: "text".to_string(),
+        image_id: None,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: Some(5),
+        created_at: 1,
+        updated_at: 1,
     };
     client.send_clipboard_record(rec.clone()).await?;
 
@@ -104,7 +114,17 @@ async fn server_broadcast_to_two_clients() -> AnyResult<()> {
 
     let rec = ClipboardRecord {
         uuid: "s2".to_string(),
+        source_device_id: "server".to_string(),
+        is_remote: true,
         content: "to_all".to_string(),
+        html_content: None,
+        content_type: "text".to_string(),
+        image_id: None,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: Some(6),
+        created_at: 1,
+        updated_at: 1,
     };
     server.broadcast_clipboard_record(rec.clone()).await?;
 
@@ -169,7 +189,17 @@ async fn server_broadcast_to_client() -> AnyResult<()> {
 
     let rec = ClipboardRecord {
         uuid: "s1".to_string(),
+        source_device_id: "server".to_string(),
+        is_remote: true,
         content: "from_server".to_string(),
+        html_content: None,
+        content_type: "text".to_string(),
+        image_id: None,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: Some(11),
+        created_at: 1,
+        updated_at: 1,
     };
     server.broadcast_clipboard_record(rec.clone()).await?;
 
@@ -204,7 +234,17 @@ async fn record_queue_flush_on_connect() -> AnyResult<()> {
 
     let rec = ClipboardRecord {
         uuid: "u2".to_string(),
+        source_device_id: "client".to_string(),
+        is_remote: false,
         content: "queued".to_string(),
+        html_content: None,
+        content_type: "text".to_string(),
+        image_id: None,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: Some(6),
+        created_at: 1,
+        updated_at: 1,
     };
     client.send_clipboard_record(rec.clone()).await?;
 
