@@ -55,6 +55,81 @@ async fn record_roundtrip_text() -> AnyResult<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn server_broadcast_to_two_clients() -> AnyResult<()> {
+    let server = LanSyncManager::new(LanSyncConfig {
+        device_id: "server".to_string(),
+        ..Default::default()
+    });
+    server.set_enabled(true).await;
+    let port = server.start_server(0).await?;
+
+    let client1 = LanSyncManager::new(LanSyncConfig {
+        device_id: "c1".to_string(),
+        ..Default::default()
+    });
+    let client2 = LanSyncManager::new(LanSyncConfig {
+        device_id: "c2".to_string(),
+        ..Default::default()
+    });
+    client1.set_enabled(true).await;
+    client2.set_enabled(true).await;
+    let mut ev1 = client1.subscribe().await;
+    let mut ev2 = client2.subscribe().await;
+
+    client1
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .await?;
+    client2
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .await?;
+
+    let start = std::time::Instant::now();
+    loop {
+        let s = server.get_snapshot().await;
+        let c1 = client1.get_snapshot().await;
+        let c2 = client2.get_snapshot().await;
+        if c1.state == ConnectionState::Connected
+            && c2.state == ConnectionState::Connected
+            && s.server_connected_count >= 2
+            && s.server_connected_device_ids.iter().any(|d| d == "c1")
+            && s.server_connected_device_ids.iter().any(|d| d == "c2")
+        {
+            break;
+        }
+        if start.elapsed() > Duration::from_secs(2) {
+            return Err("等待连接超时".into());
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    let rec = ClipboardRecord {
+        uuid: "s2".to_string(),
+        content: "to_all".to_string(),
+    };
+    server.broadcast_clipboard_record(rec.clone()).await?;
+
+    let got1 = tokio::time::timeout(Duration::from_secs(2), ev1.recv()).await??;
+    let got2 = tokio::time::timeout(Duration::from_secs(2), ev2.recv()).await??;
+
+    let check = |ev: CoreEvent| -> AnyResult<()> {
+        match ev {
+            CoreEvent::RemoteClipboardRecord { record } => {
+                if record.uuid != rec.uuid || record.content != rec.content {
+                    return Err("收到的记录不一致".into());
+                }
+                Ok(())
+            }
+            _ => Err("收到的事件类型不正确".into()),
+        }
+    };
+
+    check(got1)?;
+    check(got2)?;
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn server_broadcast_to_client() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
