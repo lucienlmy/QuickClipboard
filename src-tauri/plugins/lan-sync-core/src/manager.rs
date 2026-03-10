@@ -390,7 +390,11 @@ impl LanSyncManager {
                                     last_rx = Instant::now();
                                     if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
                                         if let LanSyncMessage::ClipboardRecord { record } = m {
-                                            let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                            let _ = event_tx
+                                                .send(CoreEvent::RemoteClipboardRecord { record: record.clone() });
+                                            let _ = self
+                                                .broadcast_clipboard_record_excluding(record, Some(&remote_device_id))
+                                                .await;
                                         }
                                     }
                                 }
@@ -399,7 +403,11 @@ impl LanSyncManager {
                                     if let Ok(t) = String::from_utf8(b.to_vec()) {
                                         if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
                                             if let LanSyncMessage::ClipboardRecord { record } = m {
-                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                                let _ = event_tx
+                                                    .send(CoreEvent::RemoteClipboardRecord { record: record.clone() });
+                                                let _ = self
+                                                    .broadcast_clipboard_record_excluding(record, Some(&remote_device_id))
+                                                    .await;
                                             }
                                         }
                                     }
