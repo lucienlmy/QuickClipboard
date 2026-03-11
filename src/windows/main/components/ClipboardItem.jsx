@@ -13,6 +13,7 @@ import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
+import logoIcon from '@/assets/icon1024.png';
 
 const closeImagePreview = (previewTimerRef) => {
   if (previewTimerRef.current) {
@@ -53,6 +54,21 @@ function ClipboardItem({
   const [sourceIconUrl, setSourceIconUrl] = useState(null);
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
 
+  const isLanSyncRemote = Boolean(item?.is_remote);
+
+  const sourceTitle = (() => {
+    if (!isLanSyncRemote) return item.source_app || '';
+
+    const parts = [];
+    if (typeof item.source_device_id === 'string' && item.source_device_id.trim()) {
+      parts.push(`设备：${item.source_device_id.trim()}`);
+    }
+    if (typeof item.source_app === 'string' && item.source_app.trim()) {
+      parts.push(`应用：${item.source_app.trim()}`);
+    }
+    return parts.join('\n');
+  })();
+
   const { previewTitle, loadPreview, clearPreview } = useTextPreview(
     item, 
     contentType, 
@@ -63,6 +79,12 @@ function ClipboardItem({
   );
   
   useEffect(() => {
+    if (isLanSyncRemote) {
+      setSourceIconUrl(logoIcon);
+      setIconLoadFailed(false);
+      return;
+    }
+
     if (item.source_icon_hash) {
       setIconLoadFailed(false);
       invoke('get_data_directory').then(dataDir => {
@@ -75,7 +97,7 @@ function ClipboardItem({
       setSourceIconUrl(null);
       setIconLoadFailed(false);
     }
-  }, [item.source_icon_hash]);
+  }, [item.source_icon_hash, isLanSyncRemote]);
 
   const hasFileMissing = (() => {
     if (!isFileType && !isImageType) return false;
@@ -407,14 +429,28 @@ function ClipboardItem({
             {getShortcut()}
           </span>}
         {/* 来源图标 */}
-        {settings.showSourceIcon !== false && sourceIconUrl && !iconLoadFailed && (
-          <span className={iconBadgeClasses} title={item.source_app || ''}>
-            <img 
-              src={sourceIconUrl} 
-              alt="" 
-              className="w-full h-full object-cover pointer-events-none"
-              onError={() => setIconLoadFailed(true)}
-            />
+        {settings.showSourceIcon !== false && !iconLoadFailed && (sourceIconUrl || isLanSyncRemote) && (
+          <span className={iconBadgeClasses} title={sourceTitle}>
+            {sourceIconUrl ? (
+              <img 
+                src={sourceIconUrl} 
+                alt="" 
+                className="w-full h-full object-cover pointer-events-none "
+                onError={() => setIconLoadFailed(true)}
+              />
+            ) : (
+              <i className="ti ti-wifi" style={{ fontSize: 12}}></i>
+            )}
+            {isLanSyncRemote && (
+              <span
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                style={{
+                  background: 'transparent'
+                }}
+              >
+                <i className="ti ti-wifi" style={{ fontSize: 13, color: 'rgba(59,130,246,1)', lineHeight: 1 }}></i>
+              </span>
+            )}
           </span>
         )}
         {/* 序号 */}
