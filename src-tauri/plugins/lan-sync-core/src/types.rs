@@ -47,6 +47,17 @@ pub enum CoreEvent {
     Log { level: String, message: String },
     StatusChanged { snapshot: Snapshot },
     RemoteClipboardRecord { record: ClipboardRecord },
+    AttachmentRequest {
+        requester_device_id: String,
+        preferred_provider_device_id: Option<String>,
+        image_id: String,
+    },
+    RemoteAttachmentChunk {
+        image_id: String,
+        total_len: u64,
+        offset: u64,
+        data: Vec<u8>,
+    },
 }
 
 #[derive(Debug, Clone)]
