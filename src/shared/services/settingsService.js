@@ -141,6 +141,7 @@ export const defaultSettings = {
 
   // LAN Sync 设置
   lanSyncEnabled: false,
+  lanSyncAutoStart: false,
   lanSyncMode: 'off',
   lanSyncServerPort: 18181,
   lanSyncPeerUrl: 'ws://127.0.0.1:18181',

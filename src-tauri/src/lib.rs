@@ -341,6 +341,39 @@ pub fn run() {
                     let _ = start_clipboard_monitor();
                 }
 
+                if !settings.lan_sync_auto_start && settings.lan_sync_enabled {
+                    settings.lan_sync_enabled = false;
+                    let _ = update_settings(settings.clone());
+                }
+
+                {
+                    let cfg = settings.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let _ = crate::services::lan_sync::set_enabled(false).await;
+                        let _ = crate::services::lan_sync::disconnect_peer().await;
+
+                        if !cfg.lan_sync_enabled || cfg.lan_sync_mode == "off" {
+                            return;
+                        }
+
+                        let _ = crate::services::lan_sync::set_enabled(true).await;
+
+                        match cfg.lan_sync_mode.as_str() {
+                            "server" => {
+                                let _ = crate::services::lan_sync::start_server(cfg.lan_sync_server_port).await;
+                            }
+                            "client" => {
+                                let _ = crate::services::lan_sync::connect_peer(
+                                    &cfg.lan_sync_peer_url,
+                                    cfg.lan_sync_auto_reconnect,
+                                )
+                                .await;
+                            }
+                            _ => {}
+                        }
+                    });
+                }
+
                 {
                     let app_handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {

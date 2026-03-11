@@ -437,6 +437,13 @@ impl LanSyncManager {
         let mut inner = self.inner.lock().await;
         inner.snapshot.enabled = enabled;
         if !enabled {
+            for (_device_id, (_conn_id, abort_handle)) in inner.active_by_device_id.drain() {
+                abort_handle.abort();
+            }
+            inner.server_peer_out_txs.clear();
+            inner.snapshot.server_connected_count = 0;
+            inner.snapshot.server_connected_device_ids.clear();
+
             inner.client_manual_disconnect = true;
             if let Some(h) = inner.client_task.take() {
                 h.abort();

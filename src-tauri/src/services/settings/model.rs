@@ -144,6 +144,8 @@ pub struct AppSettings {
 
     // LAN Sync 设置
     pub lan_sync_enabled: bool,
+    #[serde(default)]
+    pub lan_sync_auto_start: bool,
     pub lan_sync_mode: String,
     pub lan_sync_server_port: u16,
     pub lan_sync_peer_url: String,
@@ -272,6 +274,7 @@ impl Default for AppSettings {
             use_custom_storage: false,
 
             lan_sync_enabled: false,
+            lan_sync_auto_start: false,
             lan_sync_mode: "off".to_string(),
             lan_sync_server_port: 18181,
             lan_sync_peer_url: "ws://127.0.0.1:18181".to_string(),

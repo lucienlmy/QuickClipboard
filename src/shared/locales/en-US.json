@@ -224,6 +224,8 @@
       "serverPortDesc": "Port to listen on when running as server",
       "peerUrl": "Server URL",
       "peerUrlDesc": "WebSocket URL to connect to when running as client",
+      "autoStart": "Auto Start Sync On Launch",
+      "autoStartDesc": "Automatically start LAN Sync on app launch (server listens, client connects)",
       "autoReconnect": "Auto Reconnect",
       "autoReconnectDesc": "Automatically reconnect when disconnected"
     },

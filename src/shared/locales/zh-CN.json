@@ -224,6 +224,8 @@
       "serverPortDesc": "本机作为服务端监听的端口",
       "peerUrl": "服务端地址",
       "peerUrlDesc": "客户端要连接的 WebSocket 地址",
+      "autoStart": "启动时自动启动同步",
+      "autoStartDesc": "程序启动后自动启动局域网同步（服务端将开始监听，客户端将自动连接）",
       "autoReconnect": "自动重连",
       "autoReconnectDesc": "连接断开后自动尝试重连"
     },

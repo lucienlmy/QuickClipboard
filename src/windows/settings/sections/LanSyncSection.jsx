@@ -165,6 +165,12 @@ function LanSyncSection({
             </div>
           </StatusCard>
 
+          <StatusCard label={t('settings.lanSync.autoStart')}>
+            <div className="mt-1">
+              <Toggle checked={settings.lanSyncAutoStart !== false} onChange={checked => onSettingChange('lanSyncAutoStart', checked)} />
+            </div>
+          </StatusCard>
+
           <StatusCard label={t('settings.lanSync.mode')}>
             <div className="mt-1">
               <Select value={settings.lanSyncMode || 'off'} onChange={value => onSettingChange('lanSyncMode', value)} options={modeOptions} className="w-full" />
