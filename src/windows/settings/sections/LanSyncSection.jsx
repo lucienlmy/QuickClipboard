@@ -5,7 +5,6 @@ import { copyTextToClipboard } from '@shared/api/system';
 import QRCode from 'qrcode';
 import { createPortal } from 'react-dom';
 import SettingsSection from '../components/SettingsSection';
-import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
 import Input from '@shared/components/ui/Input';
@@ -136,26 +135,90 @@ function LanSyncSection({
 
   return <SettingsSection title={t('settings.lanSync.title')} description={t('settings.lanSync.description')}>
       <div className="py-3.5 border-b border-gray-100 dark:border-gray-700/50">
-        <label className="block text-sm font-medium text-gray-800 dark:text-white">{t('settings.lanSync.status')}</label>
-        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t('settings.lanSync.statusDesc')}</p>
-        <div className="mt-2 flex flex-col gap-1 text-sm">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-gray-700 dark:text-gray-200">{t('settings.lanSync.statusEnabled')}: {snapshot ? (snapshot.enabled ? t('settings.lanSync.statusYes') : t('settings.lanSync.statusNo')) : '-'}</span>
-            <span className="text-gray-700 dark:text-gray-200">{t('settings.lanSync.statusState')}: {snapshot ? stateLabel : '-'}</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <label className="block text-sm font-medium text-gray-800 dark:text-white">{t('settings.lanSync.status')}</label>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t('settings.lanSync.statusDesc')}</p>
           </div>
-          <div className="text-gray-600 dark:text-gray-300 break-all">{t('settings.lanSync.statusDeviceId')}: {deviceId || '-'}</div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-gray-600 dark:text-gray-300">{t('settings.lanSync.statusServerPort')}: {snapshot?.server_port ?? '-'}</span>
-            <span className="text-gray-600 dark:text-gray-300">{t('settings.lanSync.statusConnectedCount')}: {snapshot?.server_connected_count ?? 0}</span>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <StatusBadge
+              enabled={Boolean(snapshot?.enabled)}
+              text={snapshot ? (snapshot.enabled ? t('settings.lanSync.statusYes') : t('settings.lanSync.statusNo')) : '-'}
+            />
+            <StatusBadge
+              variant="neutral"
+              text={snapshot ? stateLabel : '-'}
+              title={t('settings.lanSync.statusState')}
+            />
           </div>
-          <div className="text-gray-600 dark:text-gray-300 break-all">{t('settings.lanSync.statusPeerUrl')}: {snapshot?.peer_url ?? '-'}</div>
-          {snapshot?.reconnecting ? (
-            <div className="text-gray-600 dark:text-gray-300">{t('settings.lanSync.statusReconnecting')} #{snapshot?.reconnect_attempt ?? 0}{snapshot?.next_retry_in_ms != null ? `, ${t('settings.lanSync.statusNextRetry')} ${Math.ceil(snapshot.next_retry_in_ms / 1000)}s` : ''}</div>
-          ) : null}
-          {snapshotError ? (
-            <div className="text-red-600">{t('settings.lanSync.statusFetchFailed')}: {snapshotError}</div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+          <StatusCard label={t('settings.lanSync.statusDeviceId')} value={deviceId || '-'} />
+          <StatusCard label={t('settings.lanSync.statusConnectedCount')} value={snapshot?.server_connected_count ?? 0} />
+          <StatusCard label={t('settings.lanSync.statusPeerUrl')} value={snapshot?.peer_url ?? '-'} />
+
+          <StatusCard label={t('settings.lanSync.enabled')}>
+            <div className="mt-1">
+              <Toggle checked={Boolean(settings.lanSyncEnabled)} onChange={checked => onSettingChange('lanSyncEnabled', checked)} />
+            </div>
+          </StatusCard>
+
+          <StatusCard label={t('settings.lanSync.mode')}>
+            <div className="mt-1">
+              <Select value={settings.lanSyncMode || 'off'} onChange={value => onSettingChange('lanSyncMode', value)} options={modeOptions} className="w-full" />
+            </div>
+          </StatusCard>
+
+          {settings.lanSyncEnabled && isServer ? (
+            <StatusCard label={t('settings.lanSync.serverPort')}>
+              <div className="mt-1">
+                <Input
+                  type="number"
+                  value={settings.lanSyncServerPort ?? 18181}
+                  onChange={e => onSettingChange('lanSyncServerPort', parseInt(e.target.value) || 18181)}
+                  min={1}
+                  max={65535}
+                  className="w-full"
+                />
+              </div>
+            </StatusCard>
+          ) : (
+            <StatusCard label={t('settings.lanSync.statusServerPort')} value={snapshot?.server_port ?? '-'} />
+          )}
+
+          {settings.lanSyncEnabled && isClient ? (
+            <>
+              <StatusCard label={t('settings.lanSync.peerUrl')}>
+                <div className="mt-1">
+                  <Input
+                    type="text"
+                    value={settings.lanSyncPeerUrl || ''}
+                    onChange={e => onSettingChange('lanSyncPeerUrl', e.target.value)}
+                    className="w-full"
+                    placeholder="ws://127.0.0.1:18181"
+                  />
+                </div>
+              </StatusCard>
+              <StatusCard label={t('settings.lanSync.autoReconnect')}>
+                <div className="mt-1">
+                  <Toggle checked={settings.lanSyncAutoReconnect !== false} onChange={checked => onSettingChange('lanSyncAutoReconnect', checked)} />
+                </div>
+              </StatusCard>
+            </>
           ) : null}
         </div>
+
+        {snapshot?.reconnecting ? (
+          <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
+            {t('settings.lanSync.statusReconnecting')} #{snapshot?.reconnect_attempt ?? 0}{snapshot?.next_retry_in_ms != null ? `, ${t('settings.lanSync.statusNextRetry')} ${Math.ceil(snapshot.next_retry_in_ms / 1000)}s` : ''}
+          </div>
+        ) : null}
+
+        {snapshotError ? (
+          <div className="mt-2 text-xs text-red-600 break-all">{t('settings.lanSync.statusFetchFailed')}: {snapshotError}</div>
+        ) : null}
       </div>
 
       <div className="py-3.5 border-b border-gray-100 dark:border-gray-700/50">
@@ -173,18 +236,22 @@ function LanSyncSection({
                     onClick={() => openQr(url)}
                     title={t('settings.lanSync.qrShow')}
                     aria-label={t('settings.lanSync.qrShow')}
-                    className="px-2"
+                    className="min-w-16"
                     icon={<i className="ti ti-qrcode" />}
-                  />
+                  >
+                    {t('settings.lanSync.qrShow')}
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => onCopy(url)}
                     title={t('common.copy')}
                     aria-label={t('common.copy')}
-                    className="px-2"
+                    className="min-w-16"
                     icon={<i className="ti ti-copy" />}
-                  />
+                  >
+                    {t('common.copy')}
+                  </Button>
                 </div>
               ))}
             </div>
@@ -270,32 +337,36 @@ function LanSyncSection({
         document.body
       ) : null}
 
-      <SettingItem label={t('settings.lanSync.enabled')} description={t('settings.lanSync.enabledDesc')}>
-        <Toggle checked={settings.lanSyncEnabled} onChange={checked => onSettingChange('lanSyncEnabled', checked)} />
-      </SettingItem>
-
-      <SettingItem label={t('settings.lanSync.mode')} description={t('settings.lanSync.modeDesc')}>
-        <Select value={settings.lanSyncMode || 'off'} onChange={value => onSettingChange('lanSyncMode', value)} options={modeOptions} className="w-56" />
-      </SettingItem>
-
-      {settings.lanSyncEnabled && isServer && (
-        <SettingItem label={t('settings.lanSync.serverPort')} description={t('settings.lanSync.serverPortDesc')}>
-          <Input type="number" value={settings.lanSyncServerPort ?? 18181} onChange={e => onSettingChange('lanSyncServerPort', parseInt(e.target.value) || 18181)} min={1} max={65535} className="w-32" />
-        </SettingItem>
-      )}
-
-      {settings.lanSyncEnabled && isClient && (
-        <>
-          <SettingItem label={t('settings.lanSync.peerUrl')} description={t('settings.lanSync.peerUrlDesc')}>
-            <Input type="text" value={settings.lanSyncPeerUrl || ''} onChange={e => onSettingChange('lanSyncPeerUrl', e.target.value)} className="w-[420px]" placeholder="ws://127.0.0.1:18181" />
-          </SettingItem>
-
-          <SettingItem label={t('settings.lanSync.autoReconnect')} description={t('settings.lanSync.autoReconnectDesc')}>
-            <Toggle checked={settings.lanSyncAutoReconnect !== false} onChange={checked => onSettingChange('lanSyncAutoReconnect', checked)} />
-          </SettingItem>
-        </>
-      )}
     </SettingsSection>;
 }
 
 export default LanSyncSection;
+
+function StatusBadge({ enabled, text, title, variant }) {
+  const base = 'px-2 py-1 rounded-full text-xs font-medium border';
+  const v = variant || (enabled ? 'success' : 'danger');
+  const cls = v === 'success'
+    ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800/60'
+    : v === 'danger'
+      ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800/60'
+      : 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/40 dark:text-gray-200 dark:border-gray-700/60';
+
+  return (
+    <div className={`${base} ${cls}`} title={title}>
+      {text}
+    </div>
+  );
+}
+
+function StatusCard({ label, value, children }) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/60">
+      <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+      {children != null ? (
+        <div className="mt-1">{children}</div>
+      ) : value !== undefined ? (
+        <div className="mt-0.5 text-sm font-medium text-gray-800 dark:text-gray-100 break-all">{value}</div>
+      ) : null}
+    </div>
+  );
+}

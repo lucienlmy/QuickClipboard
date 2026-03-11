@@ -84,3 +84,11 @@ body.dragging-cursor * {
 .settings-tab-bar button.bg-blue-500 {
   background-color: rgb(59, 130, 246);
 }
+
+input, select {
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+  font-size: 14px;
+  height: 36px;
+}

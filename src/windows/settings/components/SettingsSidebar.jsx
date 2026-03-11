@@ -19,13 +19,6 @@ export const navigationItems = [{
   icon: "ti ti-clipboard",
   labelKey: 'settings.sections.clipboard'
 }, {
-  id: 'lanSync',
-  icon: "ti ti-wifi",
-  labelKey: 'settings.sections.lanSync'
-},
-// { id: 'aiConfig', icon:"ti ti-brain", labelKey: 'settings.sections.aiConfig' },
-// { id: 'translation', icon:"ti ti-language", labelKey: 'settings.sections.translation' },
-{
   id: 'quickpaste',
   icon: "ti ti-clipboard-check",
   labelKey: 'settings.sections.quickpaste'
@@ -41,6 +34,10 @@ export const navigationItems = [{
   id: 'appFilter',
   icon: "ti ti-filter",
   labelKey: 'settings.sections.appFilter'
+}, {
+  id: 'lanSync',
+  icon: "ti ti-wifi",
+  labelKey: 'settings.sections.lanSync'
 }, {
   id: 'dataManagement',
   icon: "ti ti-database",
