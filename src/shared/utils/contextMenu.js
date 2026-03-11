@@ -16,7 +16,8 @@ import {
   copyTextToClipboard,
   recognizeImageOcr,
   moveClipboardItemToTop,
-  copyClipboardItem
+  copyClipboardItem,
+  syncClipboardItemToLanSync
 } from '@shared/api'
 import { getToolState } from '@shared/services/toolActions'
 import { clipboardStore } from '@shared/store/clipboardStore'
@@ -358,9 +359,20 @@ export async function showClipboardItemContextMenu(event, item, index) {
   const contentType = item.content_type || 'text'
   const plainText = typeof item.content === 'string' ? item.content.trim() : ''
 
+  const ct = String(contentType || '').trim().toLowerCase()
+  const isFileType = ct === 'file' || ct.startsWith('file/')
+  const isImageType = ct === 'image' || ct.startsWith('image/')
+  const hasImageId = typeof item.image_id === 'string' && item.image_id.trim().length > 0
+  const lanSyncEnabled = Boolean(settingsStore.lanSyncEnabled)
+
   const pasteMenuItem = createPasteMenuItem(contentType, !!item.html_content)
   menuItems.push(pasteMenuItem)
   menuItems.push(createMenuItem('copy-item', i18n.t('contextMenu.copy'), { icon: 'ti ti-copy' }))
+
+  if (!isFileType) {
+    const disabled = !lanSyncEnabled || (isImageType && !hasImageId)
+    menuItems.push(createMenuItem('lan-sync-item', i18n.t('contextMenu.lanSync'), { icon: 'ti ti-wifi', disabled }))
+  }
   menuItems.push(createSeparator())
 
   const { menuItems: linkMenuItems, links } = createLinkMenuItems(item)
@@ -415,6 +427,20 @@ export async function showClipboardItemContextMenu(event, item, index) {
     if (result === 'copy-item') {
       await copyClipboardItem(item.id)
       toast.success(i18n.t('contextMenu.copied'), TOAST_CONFIG)
+      return
+    }
+
+    if (result === 'lan-sync-item') {
+      const r = await syncClipboardItemToLanSync(item.id)
+      if (r === 'broadcast') {
+        toast.success(i18n.t('contextMenu.lanSyncBroadcasted'), TOAST_CONFIG)
+      } else if (r === 'sent') {
+        toast.success(i18n.t('contextMenu.lanSyncSent'), TOAST_CONFIG)
+      } else if (r === 'queued') {
+        toast.success(i18n.t('contextMenu.lanSyncQueued'), TOAST_CONFIG)
+      } else {
+        toast.success(i18n.t('contextMenu.lanSyncDone'), TOAST_CONFIG)
+      }
       return
     }
 
