@@ -9,7 +9,7 @@ use tokio::time::{timeout, Duration, Instant};
 use tokio_tungstenite::{accept_async, connect_async, tungstenite::{Bytes, Message}};
 use url::Url;
 
-use crate::protocol::{ClipboardRecord, LanSyncMessage};
+use crate::protocol::{ClipboardItem, ClipboardRecord, LanSyncMessage};
 use crate::types::{ConnectionState, CoreEvent, LanSyncConfig, LanSyncError, Snapshot};
 
 const CLIENT_SEND_QUEUE_MAX: usize = 200;
@@ -22,6 +22,47 @@ const ATTACH_CHUNK_TO_TYPE: u8 = 3;
 enum OutgoingFrame {
     Json(LanSyncMessage),
     Binary(Vec<u8>),
+}
+
+fn record_to_clipboard_item(record: &ClipboardRecord) -> ClipboardItem {
+    ClipboardItem {
+        uuid: record.uuid.clone(),
+        source_device_id: record.source_device_id.clone(),
+        content: record.content.clone(),
+        html_content: record.html_content.clone(),
+        content_type: record.content_type.clone(),
+        image_id: record.image_id.clone(),
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+    }
+}
+
+fn should_send_clipboard_item(record: &ClipboardRecord) -> bool {
+    let ct = record.content_type.trim().to_lowercase();
+    if ct == "file" {
+        return false;
+    }
+    if ct == "image" || ct.starts_with("image/") {
+        return false;
+    }
+    true
+}
+
+fn clipboard_item_to_record(item: ClipboardItem) -> ClipboardRecord {
+    ClipboardRecord {
+        uuid: item.uuid,
+        source_device_id: item.source_device_id,
+        is_remote: true,
+        content: item.content,
+        html_content: item.html_content,
+        content_type: item.content_type,
+        image_id: item.image_id,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: None,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+    }
 }
 
 fn encode_attachment_chunk_to_frame(
@@ -657,14 +698,23 @@ impl LanSyncManager {
             return Err(LanSyncError::Ws("没有已连接的客户端".to_string()));
         }
 
-        let msg = OutgoingFrame::Json(LanSyncMessage::ClipboardRecord { record });
+        let msg_record = OutgoingFrame::Json(LanSyncMessage::ClipboardRecord { record: record.clone() });
+        let msg_item = if should_send_clipboard_item(&record) {
+            Some(OutgoingFrame::Json(LanSyncMessage::ClipboardItem(record_to_clipboard_item(&record))))
+        } else {
+            None
+        };
+
         let mut ok_any = false;
         for (device_id, tx) in inner.server_peer_out_txs.iter() {
             if exclude_device_id.is_some_and(|x| x == device_id.as_str()) {
                 continue;
             }
-            if tx.send(msg.clone()).is_ok() {
+            if tx.send(msg_record.clone()).is_ok() {
                 ok_any = true;
+            }
+            if let Some(m) = msg_item.clone() {
+                let _ = tx.send(m);
             }
         }
 
@@ -681,17 +731,32 @@ impl LanSyncManager {
             return Err(LanSyncError::NotEnabled);
         }
 
-        let msg = OutgoingFrame::Json(LanSyncMessage::ClipboardRecord { record });
+        let msg_record = OutgoingFrame::Json(LanSyncMessage::ClipboardRecord { record: record.clone() });
+        let msg_item = if should_send_clipboard_item(&record) {
+            Some(OutgoingFrame::Json(LanSyncMessage::ClipboardItem(record_to_clipboard_item(&record))))
+        } else {
+            None
+        };
+
         if let Some(tx) = inner.client_out_tx.clone() {
-            tx.send(msg)
+            tx.send(msg_record)
                 .map_err(|_| LanSyncError::Ws("发送失败".to_string()))?;
+            if let Some(m) = msg_item {
+                let _ = tx.send(m);
+            }
             return Ok(());
         }
 
         if inner.client_send_queue.len() >= CLIENT_SEND_QUEUE_MAX {
             inner.client_send_queue.pop_front();
         }
-        inner.client_send_queue.push_back(msg);
+        inner.client_send_queue.push_back(msg_record);
+        if let Some(m) = msg_item {
+            if inner.client_send_queue.len() >= CLIENT_SEND_QUEUE_MAX {
+                inner.client_send_queue.pop_front();
+            }
+            inner.client_send_queue.push_back(m);
+        }
         Ok(())
     }
 
@@ -730,7 +795,7 @@ impl LanSyncManager {
 
         let remote_device_id = match remote_hello {
             LanSyncMessage::Hello { device_id, .. } => device_id,
-            LanSyncMessage::ClipboardRecord { .. } => {
+            LanSyncMessage::ClipboardRecord { .. } | LanSyncMessage::ClipboardItem(_) => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
@@ -814,12 +879,21 @@ impl LanSyncManager {
                                 Message::Text(t) => {
                                     last_rx = Instant::now();
                                     if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
-                                        if let LanSyncMessage::ClipboardRecord { record } = m {
-                                            let _ = event_tx
-                                                .send(CoreEvent::RemoteClipboardRecord { record: record.clone() });
-                                            let _ = self
-                                                .broadcast_clipboard_record_excluding(record, Some(&remote_device_id))
-                                                .await;
+                                        match m {
+                                            LanSyncMessage::ClipboardRecord { record } => {
+                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record: record.clone() });
+                                                let _ = self
+                                                    .broadcast_clipboard_record_excluding(record, Some(&remote_device_id))
+                                                    .await;
+                                            }
+                                            LanSyncMessage::ClipboardItem(item) => {
+                                                let record = clipboard_item_to_record(item);
+                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record: record.clone() });
+                                                let _ = self
+                                                    .broadcast_clipboard_record_excluding(record, Some(&remote_device_id))
+                                                    .await;
+                                            }
+                                            _ => {}
                                         }
                                     }
                                 }
@@ -938,7 +1012,7 @@ impl LanSyncManager {
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
         match remote_hello {
             LanSyncMessage::Hello { .. } => {}
-            LanSyncMessage::ClipboardRecord { .. } => {
+            LanSyncMessage::ClipboardRecord { .. } | LanSyncMessage::ClipboardItem(_) => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         }
@@ -1025,8 +1099,15 @@ impl LanSyncManager {
                                 Message::Text(t) => {
                                     last_rx = Instant::now();
                                     if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
-                                        if let LanSyncMessage::ClipboardRecord { record } = m {
-                                            let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                        match m {
+                                            LanSyncMessage::ClipboardRecord { record } => {
+                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                            }
+                                            LanSyncMessage::ClipboardItem(item) => {
+                                                let record = clipboard_item_to_record(item);
+                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                            }
+                                            _ => {}
                                         }
                                     }
                                 }
@@ -1044,8 +1125,15 @@ impl LanSyncManager {
                                         let _ = event_tx.send(CoreEvent::RemoteAttachmentChunk { image_id, total_len, offset, data });
                                     } else if let Ok(t) = String::from_utf8(b.to_vec()) {
                                         if let Ok(m) = serde_json::from_str::<LanSyncMessage>(&t) {
-                                            if let LanSyncMessage::ClipboardRecord { record } = m {
-                                                let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                            match m {
+                                                LanSyncMessage::ClipboardRecord { record } => {
+                                                    let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                                }
+                                                LanSyncMessage::ClipboardItem(item) => {
+                                                    let record = clipboard_item_to_record(item);
+                                                    let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                                }
+                                                _ => {}
                                             }
                                         }
                                     }
