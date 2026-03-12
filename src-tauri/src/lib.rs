@@ -212,7 +212,12 @@ pub fn run() {
                 commands::lan_sync_set_enabled,
                 commands::lan_sync_start_server,
                 commands::lan_sync_connect_peer,
+                commands::lan_sync_get_server_pair_code,
+                commands::lan_sync_refresh_server_pair_code,
                 commands::lan_sync_disconnect_peer,
+                commands::lan_sync_list_trusted_devices,
+                commands::lan_sync_disconnect_device,
+                commands::lan_sync_remove_trusted_device,
                 commands::lan_sync_sync_clipboard_item,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
@@ -366,6 +371,7 @@ pub fn run() {
                                 let _ = crate::services::lan_sync::connect_peer(
                                     &cfg.lan_sync_peer_url,
                                     cfg.lan_sync_auto_reconnect,
+                                    None,
                                 )
                                 .await;
                             }
@@ -545,6 +551,9 @@ pub fn run() {
                                     if is_complete {
                                         attachment_progress.remove(&image_id);
                                     }
+                                }
+                                lan_sync_core::CoreEvent::Paired { device_id, pair_secret } => {
+                                    crate::services::lan_sync::on_paired(device_id, pair_secret);
                                 }
                                 _ => {}
                             }

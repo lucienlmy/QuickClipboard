@@ -3,13 +3,15 @@ use std::sync::Arc;
 
 use futures_util::future::{AbortHandle, Abortable};
 use futures_util::{SinkExt, StreamExt};
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration, Instant};
 use tokio_tungstenite::{accept_async, connect_async, tungstenite::{Bytes, Message}};
 use url::Url;
 
-use crate::protocol::{ClipboardItem, ClipboardRecord, LanSyncMessage};
+use crate::protocol::{AuthChallenge, AuthResponse, ClipboardItem, ClipboardRecord, HelloMessage, LanSyncMessage};
 use crate::types::{ConnectionState, CoreEvent, LanSyncConfig, LanSyncError, Snapshot};
 
 const CLIENT_SEND_QUEUE_MAX: usize = 200;
@@ -18,10 +20,55 @@ const ATTACH_CHUNK_TYPE: u8 = 1;
 const ATTACH_REQ_TYPE: u8 = 2;
 const ATTACH_CHUNK_TO_TYPE: u8 = 3;
 
+const PAIR_CODE_TTL: Duration = Duration::from_secs(5 * 60);
+const KICK_TTL: Duration = Duration::from_secs(10);
+const AUTH_TS_SKEW: Duration = Duration::from_secs(30);
+
 #[derive(Debug, Clone)]
 enum OutgoingFrame {
     Json(LanSyncMessage),
     Binary(Vec<u8>),
+}
+
+#[derive(Clone)]
+pub struct LanSyncManager {
+    inner: Arc<tokio::sync::Mutex<Inner>>,
+}
+
+fn gen_pair_secret() -> String {
+    let mut out = String::with_capacity(64);
+    for _ in 0..32 {
+        let b: u8 = fastrand::u8(..);
+        out.push_str(&format!("{:02x}", b));
+    }
+    out
+}
+
+fn gen_nonce() -> String {
+    let mut out = String::with_capacity(32);
+    for _ in 0..16 {
+        let b: u8 = fastrand::u8(..);
+        out.push_str(&format!("{:02x}", b));
+    }
+    out
+}
+
+fn current_time_ms() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::from_secs(0))
+        .as_millis() as u64
+}
+
+fn compute_auth_sig(pair_secret: &str, device_id: &str, nonce: &str, ts_ms: u64) -> String {
+    let msg = format!("{}:{}:{}", device_id, nonce, ts_ms);
+    let mut mac = Hmac::<Sha256>::new_from_slice(pair_secret.as_bytes()).unwrap_or_else(|_| {
+        Hmac::<Sha256>::new_from_slice(b"invalid").expect("hmac init")
+    });
+    mac.update(msg.as_bytes());
+    let out = mac.finalize().into_bytes();
+    hex::encode(out)
 }
 
 fn record_to_clipboard_item(record: &ClipboardRecord) -> ClipboardItem {
@@ -264,15 +311,22 @@ struct Inner {
     client_out_tx: Option<tokio::sync::mpsc::UnboundedSender<OutgoingFrame>>,
     client_send_queue: VecDeque<OutgoingFrame>,
     server_peer_out_txs: HashMap<String, tokio::sync::mpsc::UnboundedSender<OutgoingFrame>>,
+
     active_by_device_id: HashMap<String, (u64, AbortHandle)>,
     next_conn_id: u64,
+
+    kicked_until_by_device_id: HashMap<String, Instant>,
+    banned_pair_code_by_device_id: HashMap<String, String>,
+
+    trusted_pair_secret_by_device_id: HashMap<String, String>,
+
     client_auto_reconnect: bool,
     client_manual_disconnect: bool,
-}
 
-#[derive(Clone)]
-pub struct LanSyncManager {
-    inner: Arc<tokio::sync::Mutex<Inner>>,
+    server_pair_code: Option<String>,
+    server_pair_code_expires_at: Option<Instant>,
+
+    client_pair_code: Option<String>,
 }
 
 impl LanSyncManager {
@@ -287,15 +341,49 @@ impl LanSyncManager {
             client_out_tx: None,
             client_send_queue: VecDeque::new(),
             server_peer_out_txs: HashMap::new(),
+
             active_by_device_id: HashMap::new(),
             next_conn_id: 1,
+
+            kicked_until_by_device_id: HashMap::new(),
+            banned_pair_code_by_device_id: HashMap::new(),
+
+            trusted_pair_secret_by_device_id: HashMap::new(),
+
             client_auto_reconnect: false,
             client_manual_disconnect: false,
+
+            server_pair_code: None,
+            server_pair_code_expires_at: None,
+
+            client_pair_code: None,
         };
 
         Self {
             inner: Arc::new(tokio::sync::Mutex::new(inner)),
         }
+    }
+
+    pub async fn set_server_pair_code(&self, code: Option<String>) {
+        let mut inner = self.inner.lock().await;
+        inner.server_pair_code = code;
+        inner.banned_pair_code_by_device_id.clear();
+        inner.server_pair_code_expires_at = inner
+            .server_pair_code
+            .as_ref()
+            .map(|_| Instant::now() + PAIR_CODE_TTL);
+    }
+
+    pub async fn get_server_pair_code(&self) -> Option<(String, u64)> {
+        let inner = self.inner.lock().await;
+        let code = inner.server_pair_code.clone()?;
+        let expires_at = inner.server_pair_code_expires_at?;
+        let now = Instant::now();
+        if now >= expires_at {
+            return None;
+        }
+        let remaining_ms = expires_at.saturating_duration_since(now).as_millis() as u64;
+        Some((code, remaining_ms))
     }
 
     pub async fn broadcast_attachment_chunk(
@@ -557,7 +645,64 @@ impl LanSyncManager {
         Ok(bound_port)
     }
 
-    pub async fn connect_peer(&self, peer_url: &str, auto_reconnect: bool) -> Result<(), LanSyncError> {
+    pub async fn disconnect_device(&self, device_id: &str) -> bool {
+        let abort_handle = {
+            let mut inner = self.inner.lock().await;
+            let Some((_conn_id, abort_handle)) = inner.active_by_device_id.remove(device_id) else {
+                return false;
+            };
+
+            inner.server_peer_out_txs.remove(device_id);
+            inner
+                .kicked_until_by_device_id
+                .insert(device_id.to_string(), Instant::now() + KICK_TTL);
+            Self::refresh_server_snapshot_locked(&mut inner);
+            abort_handle
+        };
+
+        abort_handle.abort();
+        true
+    }
+
+    pub async fn ban_device_for_current_pair_code(&self, device_id: &str) -> bool {
+        let mut inner = self.inner.lock().await;
+        let Some(code) = inner.server_pair_code.clone() else {
+            return false;
+        };
+        inner
+            .banned_pair_code_by_device_id
+            .insert(device_id.to_string(), code);
+        true
+    }
+
+    pub async fn set_trusted_device_pair_secret(&self, device_id: &str, pair_secret: &str) {
+        let mut inner = self.inner.lock().await;
+        inner
+            .trusted_pair_secret_by_device_id
+            .insert(device_id.to_string(), pair_secret.to_string());
+    }
+
+    pub async fn remove_trusted_device_pair_secret(&self, device_id: &str) {
+        let mut inner = self.inner.lock().await;
+        inner.trusted_pair_secret_by_device_id.remove(device_id);
+    }
+
+    pub async fn set_trusted_devices_pair_secrets(&self, devices: Vec<(String, String)>) {
+        let mut inner = self.inner.lock().await;
+        inner.trusted_pair_secret_by_device_id.clear();
+        for (device_id, pair_secret) in devices {
+            inner
+                .trusted_pair_secret_by_device_id
+                .insert(device_id, pair_secret);
+        }
+    }
+
+    pub async fn connect_peer(
+        &self,
+        peer_url: &str,
+        auto_reconnect: bool,
+        pair_code: Option<String>,
+    ) -> Result<(), LanSyncError> {
         let _ = Url::parse(peer_url).map_err(|_| LanSyncError::InvalidUrl)?;
 
         {
@@ -575,6 +720,7 @@ impl LanSyncManager {
             inner.snapshot.next_retry_in_ms = None;
             inner.client_auto_reconnect = auto_reconnect;
             inner.client_manual_disconnect = false;
+            inner.client_pair_code = pair_code;
         }
 
         let this = self.clone();
@@ -775,7 +921,11 @@ impl LanSyncManager {
             (inner.config.device_id.clone(), inner.config.protocol_version)
         };
 
-        let hello = LanSyncMessage::Hello { device_id, version };
+        let hello = LanSyncMessage::Hello(HelloMessage {
+            device_id,
+            version,
+            pair_code: None,
+        });
         let hello_text = serde_json::to_string(&hello).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
         write
             .send(Message::Text(hello_text.into()))
@@ -793,12 +943,172 @@ impl LanSyncManager {
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
 
-        let remote_device_id = match remote_hello {
-            LanSyncMessage::Hello { device_id, .. } => device_id,
-            LanSyncMessage::ClipboardRecord { .. } | LanSyncMessage::ClipboardItem(_) => {
+        let (remote_device_id, remote_pair_code) = match remote_hello {
+            LanSyncMessage::Hello(h) => (h.device_id, h.pair_code),
+            LanSyncMessage::ClipboardRecord { .. }
+            | LanSyncMessage::ClipboardItem(_)
+            | LanSyncMessage::AuthChallenge(_)
+            | LanSyncMessage::AuthResponse(_)
+            | LanSyncMessage::PairAccepted { .. }
+            | LanSyncMessage::PairDenied { .. } => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
+
+        {
+            let denied_reason = {
+                let mut inner = self.inner.lock().await;
+
+                let now = Instant::now();
+                inner.kicked_until_by_device_id.retain(|_, until| *until > now);
+
+                if let Some(until) = inner.kicked_until_by_device_id.get(&remote_device_id) {
+                    if now < *until {
+                        Some("设备已被断开，请稍后重试".to_string())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            };
+
+            if let Some(reason) = denied_reason {
+                let denied = LanSyncMessage::PairDenied { reason };
+                let payload = serde_json::to_string(&denied).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                let _ = write.send(Message::Text(payload.into())).await;
+                return Err(LanSyncError::Protocol("设备已被断开".to_string()));
+            }
+        }
+
+        {
+            let denied_reason = {
+                let inner = self.inner.lock().await;
+                let expected = inner.server_pair_code.as_ref();
+                let banned_code = inner.banned_pair_code_by_device_id.get(&remote_device_id);
+                match (expected, banned_code) {
+                    (Some(expected), Some(banned_code)) if banned_code.trim() == expected.trim() => {
+                        let provided = remote_pair_code.clone().unwrap_or_default();
+                        if provided.trim() == banned_code.trim() {
+                            Some("该设备已被移除，需要刷新配对码后重新配对".to_string())
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
+            };
+
+            if let Some(reason) = denied_reason {
+                let denied = LanSyncMessage::PairDenied { reason };
+                let payload = serde_json::to_string(&denied).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                let _ = write.send(Message::Text(payload.into())).await;
+                return Err(LanSyncError::Protocol("设备已被移除".to_string()));
+            }
+        }
+
+        // 服务端：已信任设备优先免配对码鉴权（pair_code 有无都不影响）
+        let mut authed = false;
+        {
+            let maybe_secret = {
+                let inner = self.inner.lock().await;
+                inner
+                    .trusted_pair_secret_by_device_id
+                    .get(&remote_device_id)
+                    .cloned()
+            };
+
+            if let Some(pair_secret) = maybe_secret {
+                let nonce = gen_nonce();
+                let ts_ms = current_time_ms();
+                let challenge = LanSyncMessage::AuthChallenge(AuthChallenge { nonce: nonce.clone(), ts_ms });
+                let payload = serde_json::to_string(&challenge).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                write
+                    .send(Message::Text(payload.into()))
+                    .await
+                    .map_err(|e| LanSyncError::Ws(e.to_string()))?;
+
+                let res = timeout(Duration::from_secs(5), read.next())
+                    .await
+                    .map_err(|_| LanSyncError::Timeout)?;
+
+                if let Some(Ok(Message::Text(text))) = res {
+                    if let Ok(msg) = serde_json::from_str::<LanSyncMessage>(&text) {
+                        if let LanSyncMessage::AuthResponse(AuthResponse { nonce: n2, ts_ms: t2, sig }) = msg {
+                            let now_ms = current_time_ms();
+                            let skew_ok = if now_ms >= t2 {
+                                (now_ms - t2) <= AUTH_TS_SKEW.as_millis() as u64
+                            } else {
+                                (t2 - now_ms) <= AUTH_TS_SKEW.as_millis() as u64
+                            };
+
+                            if skew_ok && n2 == nonce {
+                                let expected = compute_auth_sig(&pair_secret, &remote_device_id, &nonce, ts_ms);
+                                if sig.trim().eq_ignore_ascii_case(expected.trim()) {
+                                    authed = true;
+                                    let accepted = LanSyncMessage::PairAccepted { pair_secret: None };
+                                    let payload = serde_json::to_string(&accepted).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                                    write
+                                        .send(Message::Text(payload.into()))
+                                        .await
+                                        .map_err(|e| LanSyncError::Ws(e.to_string()))?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if !authed {
+            // 服务端：配对码校验
+            {
+                let inner = self.inner.lock().await;
+                if let Some(expected) = inner.server_pair_code.as_ref() {
+                    let Some(expire_at) = inner.server_pair_code_expires_at else {
+                        let denied = LanSyncMessage::PairDenied { reason: "配对码已过期".to_string() };
+                        let payload = serde_json::to_string(&denied).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                        let _ = write.send(Message::Text(payload.into())).await;
+                        return Err(LanSyncError::Protocol("配对码已过期".to_string()));
+                    };
+                    if Instant::now() > expire_at {
+                        let denied = LanSyncMessage::PairDenied { reason: "配对码已过期".to_string() };
+                        let payload = serde_json::to_string(&denied).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                        let _ = write.send(Message::Text(payload.into())).await;
+                        return Err(LanSyncError::Protocol("配对码已过期".to_string()));
+                    }
+
+                    let provided = remote_pair_code.unwrap_or_default();
+                    if provided.trim() != expected.trim() {
+                        let denied = LanSyncMessage::PairDenied { reason: "配对码错误".to_string() };
+                        let payload = serde_json::to_string(&denied).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                        let _ = write.send(Message::Text(payload.into())).await;
+                        return Err(LanSyncError::Protocol("配对码错误".to_string()));
+                    }
+                }
+            }
+
+            // 服务端：配对通过
+            {
+                let pair_secret = gen_pair_secret();
+                let accepted = LanSyncMessage::PairAccepted {
+                    pair_secret: Some(pair_secret.clone()),
+                };
+                let payload = serde_json::to_string(&accepted).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                write
+                    .send(Message::Text(payload.into()))
+                    .await
+                    .map_err(|e| LanSyncError::Ws(e.to_string()))?;
+
+                let event_tx = { self.inner.lock().await.event_tx.clone() };
+                let _ = event_tx.send(CoreEvent::Paired {
+                    device_id: remote_device_id.clone(),
+                    pair_secret: pair_secret.clone(),
+                });
+                self.set_trusted_device_pair_secret(&remote_device_id, &pair_secret)
+                    .await;
+            }
+        }
 
         let conn_id = self
             .register_connection(remote_device_id.clone(), abort_handle)
@@ -893,6 +1203,9 @@ impl LanSyncManager {
                                                     .broadcast_clipboard_record_excluding(record, Some(&remote_device_id))
                                                     .await;
                                             }
+                                            LanSyncMessage::PairAccepted { .. }
+                                            | LanSyncMessage::PairDenied { .. }
+                                            | LanSyncMessage::Hello(_) => {}
                                             _ => {}
                                         }
                                     }
@@ -994,7 +1307,12 @@ impl LanSyncManager {
             (inner.config.device_id.clone(), inner.config.protocol_version)
         };
 
-        let hello = LanSyncMessage::Hello { device_id, version };
+        let pair_code = { self.inner.lock().await.client_pair_code.clone() };
+        let hello = LanSyncMessage::Hello(HelloMessage {
+            device_id,
+            version,
+            pair_code,
+        });
         let hello_text = serde_json::to_string(&hello).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
         write
             .send(Message::Text(hello_text.into()))
@@ -1010,11 +1328,89 @@ impl LanSyncManager {
         };
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
-        match remote_hello {
-            LanSyncMessage::Hello { .. } => {}
-            LanSyncMessage::ClipboardRecord { .. } | LanSyncMessage::ClipboardItem(_) => {
+        let server_device_id = match remote_hello {
+            LanSyncMessage::Hello(h) => h.device_id,
+            LanSyncMessage::ClipboardRecord { .. }
+            | LanSyncMessage::ClipboardItem(_)
+            | LanSyncMessage::AuthChallenge(_)
+            | LanSyncMessage::AuthResponse(_)
+            | LanSyncMessage::PairAccepted { .. }
+            | LanSyncMessage::PairDenied { .. } => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
+        };
+
+        // 客户端：等待鉴权挑战或配对结果
+        let pair_res = timeout(Duration::from_secs(5), read.next())
+            .await
+            .map_err(|_| LanSyncError::Timeout)?;
+
+        let Some(Ok(Message::Text(pair_text))) = pair_res else {
+            return Err(LanSyncError::Protocol("缺少配对结果".to_string()));
+        };
+
+        let pair_msg: LanSyncMessage =
+            serde_json::from_str(&pair_text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+
+        let pair_secret_opt = match pair_msg {
+            LanSyncMessage::AuthChallenge(AuthChallenge { nonce, ts_ms }) => {
+                let (self_device_id, maybe_secret) = {
+                    let inner = self.inner.lock().await;
+                    (
+                        inner.config.device_id.clone(),
+                        inner
+                            .trusted_pair_secret_by_device_id
+                            .get(&server_device_id)
+                            .cloned(),
+                    )
+                };
+
+                let Some(pair_secret) = maybe_secret else {
+                    return Err(LanSyncError::Protocol("缺少配对密钥，请重新配对".to_string()));
+                };
+
+                let sig = compute_auth_sig(&pair_secret, &self_device_id, &nonce, ts_ms);
+                let resp = LanSyncMessage::AuthResponse(AuthResponse { nonce, ts_ms, sig });
+                let payload = serde_json::to_string(&resp).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                write
+                    .send(Message::Text(payload.into()))
+                    .await
+                    .map_err(|e| LanSyncError::Ws(e.to_string()))?;
+
+                let final_res = timeout(Duration::from_secs(5), read.next())
+                    .await
+                    .map_err(|_| LanSyncError::Timeout)?;
+                let Some(Ok(Message::Text(final_text))) = final_res else {
+                    return Err(LanSyncError::Protocol("缺少鉴权结果".to_string()));
+                };
+                let final_msg: LanSyncMessage =
+                    serde_json::from_str(&final_text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
+                match final_msg {
+                    LanSyncMessage::PairAccepted { pair_secret } => pair_secret,
+                    LanSyncMessage::PairDenied { reason } => {
+                        return Err(LanSyncError::Protocol(format!("鉴权失败: {}", reason)));
+                    }
+                    _ => {
+                        return Err(LanSyncError::Protocol("鉴权阶段收到了非结果消息".to_string()));
+                    }
+                }
+            }
+            LanSyncMessage::PairAccepted { pair_secret } => pair_secret,
+            LanSyncMessage::PairDenied { reason } => {
+                return Err(LanSyncError::Protocol(format!("配对失败: {}", reason)));
+            }
+            _ => {
+                return Err(LanSyncError::Protocol("配对阶段收到了非配对结果消息".to_string()));
+            }
+        };
+
+        if let Some(pair_secret) = pair_secret_opt.clone() {
+            let event_tx = { self.inner.lock().await.event_tx.clone() };
+            let _ = event_tx.send(CoreEvent::Paired {
+                device_id: server_device_id.clone(),
+                pair_secret: pair_secret.clone(),
+            });
+            self.set_trusted_device_pair_secret(&server_device_id, &pair_secret).await;
         }
 
         {

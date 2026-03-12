@@ -91,11 +91,15 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
                 }
                 "client" => {
                     let _ = crate::services::lan_sync::disconnect_peer().await;
-                    let _ = crate::services::lan_sync::connect_peer(
-                        &cfg.lan_sync_peer_url,
-                        cfg.lan_sync_auto_reconnect,
-                    )
-                    .await;
+                    let trusted = crate::services::lan_sync::list_trusted_devices().await;
+                    if !trusted.is_empty() {
+                        let _ = crate::services::lan_sync::connect_peer(
+                            &cfg.lan_sync_peer_url,
+                            cfg.lan_sync_auto_reconnect,
+                            None,
+                        )
+                        .await;
+                    }
                 }
                 _ => {}
             }

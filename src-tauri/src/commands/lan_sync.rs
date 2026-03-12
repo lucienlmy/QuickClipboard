@@ -85,10 +85,24 @@ pub async fn lan_sync_start_server(port: u16) -> Result<u16, String> {
 }
 
 #[tauri::command]
-pub async fn lan_sync_connect_peer(peer_url: String, auto_reconnect: bool) -> Result<(), String> {
-    services::lan_sync::connect_peer(&peer_url, auto_reconnect)
+pub async fn lan_sync_connect_peer(
+    peer_url: String,
+    auto_reconnect: bool,
+    pair_code: Option<String>,
+) -> Result<(), String> {
+    services::lan_sync::connect_peer(&peer_url, auto_reconnect, pair_code)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_sync_get_server_pair_code() -> Result<Option<(String, u64)>, String> {
+    Ok(services::lan_sync::get_server_pair_code().await)
+}
+
+#[tauri::command]
+pub async fn lan_sync_refresh_server_pair_code() -> Result<Option<(String, u64)>, String> {
+    Ok(services::lan_sync::refresh_server_pair_code().await)
 }
 
 #[tauri::command]
@@ -102,4 +116,19 @@ pub async fn lan_sync_sync_clipboard_item(clipboard_id: i64) -> Result<String, S
 pub async fn lan_sync_disconnect_peer() -> Result<(), String> {
     services::lan_sync::disconnect_peer().await;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn lan_sync_list_trusted_devices() -> Result<Vec<services::lan_sync::TrustedDeviceInfo>, String> {
+    Ok(services::lan_sync::list_trusted_devices().await)
+}
+
+#[tauri::command]
+pub async fn lan_sync_disconnect_device(device_id: String) -> Result<bool, String> {
+    Ok(services::lan_sync::disconnect_device(&device_id).await)
+}
+
+#[tauri::command]
+pub async fn lan_sync_remove_trusted_device(device_id: String) -> Result<bool, String> {
+    Ok(services::lan_sync::remove_trusted_device(&device_id).await)
 }

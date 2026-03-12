@@ -46,6 +46,10 @@ impl Default for Snapshot {
 pub enum CoreEvent {
     Log { level: String, message: String },
     StatusChanged { snapshot: Snapshot },
+    Paired {
+        device_id: String,
+        pair_secret: String,
+    },
     RemoteClipboardRecord { record: ClipboardRecord },
     AttachmentRequest {
         requester_device_id: String,
