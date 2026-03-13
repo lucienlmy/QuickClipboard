@@ -376,6 +376,42 @@ pub async fn sync_clipboard_item(clipboard_id: i64) -> Result<String, LanSyncErr
     }
 }
 
+pub async fn sync_favorite_item(favorite_id: String) -> Result<String, LanSyncError> {
+    let item = crate::services::database::get_favorite_by_id(&favorite_id)
+        .map_err(|e| LanSyncError::Protocol(e))?
+        .ok_or_else(|| LanSyncError::Protocol("收藏项不存在".to_string()))?;
+
+    let record = ClipboardRecord {
+        uuid: format!("fav:{}", item.id),
+        source_device_id: device_id(),
+        is_remote: false,
+        content: item.content,
+        html_content: item.html_content,
+        content_type: item.content_type,
+        image_id: item.image_id,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: item.char_count,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+    };
+
+    let snapshot = MANAGER.get_snapshot().await;
+
+    if snapshot.server_port.is_some() && snapshot.server_connected_count > 0 {
+        MANAGER.broadcast_clipboard_record(record).await?;
+        return Ok("broadcast".to_string());
+    }
+
+    send_clipboard_record(record).await?;
+
+    if snapshot.state == lan_sync_core::ConnectionState::Connected && snapshot.peer_url.is_some() {
+        Ok("sent".to_string())
+    } else {
+        Ok("queued".to_string())
+    }
+}
+
 pub async fn subscribe() -> tokio::sync::broadcast::Receiver<CoreEvent> {
     MANAGER.subscribe().await
 }

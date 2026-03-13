@@ -113,6 +113,13 @@ pub async fn lan_sync_sync_clipboard_item(clipboard_id: i64) -> Result<String, S
 }
 
 #[tauri::command]
+pub async fn lan_sync_sync_favorite_item(favorite_id: String) -> Result<String, String> {
+    services::lan_sync::sync_favorite_item(favorite_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn lan_sync_disconnect_peer() -> Result<(), String> {
     services::lan_sync::disconnect_peer().await;
     Ok(())

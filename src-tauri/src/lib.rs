@@ -219,6 +219,7 @@ pub fn run() {
                 commands::lan_sync_disconnect_device,
                 commands::lan_sync_remove_trusted_device,
                 commands::lan_sync_sync_clipboard_item,
+                commands::lan_sync_sync_favorite_item,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
