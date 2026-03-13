@@ -145,7 +145,9 @@ export const defaultSettings = {
   lanSyncMode: 'off',
   lanSyncServerPort: 18181,
   lanSyncPeerUrl: 'ws://127.0.0.1:18181',
-  lanSyncAutoReconnect: true
+  lanSyncAutoReconnect: true,
+  lanSyncSendEnabled: true,
+  lanSyncReceiveEnabled: true
 }
 
 // 加载设置

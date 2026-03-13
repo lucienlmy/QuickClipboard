@@ -146,10 +146,18 @@ pub struct AppSettings {
     pub lan_sync_enabled: bool,
     #[serde(default)]
     pub lan_sync_auto_start: bool,
+    #[serde(default = "default_true")]
+    pub lan_sync_send_enabled: bool,
+    #[serde(default = "default_true")]
+    pub lan_sync_receive_enabled: bool,
     pub lan_sync_mode: String,
     pub lan_sync_server_port: u16,
     pub lan_sync_peer_url: String,
     pub lan_sync_auto_reconnect: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -275,6 +283,8 @@ impl Default for AppSettings {
 
             lan_sync_enabled: false,
             lan_sync_auto_start: false,
+            lan_sync_send_enabled: true,
+            lan_sync_receive_enabled: true,
             lan_sync_mode: "off".to_string(),
             lan_sync_server_port: 18181,
             lan_sync_peer_url: "ws://127.0.0.1:18181".to_string(),

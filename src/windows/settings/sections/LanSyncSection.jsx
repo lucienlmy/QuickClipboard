@@ -577,6 +577,24 @@ function StatusOverviewCard({
           </div>
         </StatusCard>
 
+        <StatusCard label={t('settings.lanSync.sendEnabled')} desc={t('settings.lanSync.sendEnabledDesc')}>
+          <div className="mt-2">
+            <Toggle
+              checked={settings.lanSyncSendEnabled !== false}
+              onChange={checked => onSettingChange('lanSyncSendEnabled', checked)}
+            />
+          </div>
+        </StatusCard>
+
+        <StatusCard label={t('settings.lanSync.receiveEnabled')} desc={t('settings.lanSync.receiveEnabledDesc')}>
+          <div className="mt-2">
+            <Toggle
+              checked={settings.lanSyncReceiveEnabled !== false}
+              onChange={checked => onSettingChange('lanSyncReceiveEnabled', checked)}
+            />
+          </div>
+        </StatusCard>
+
         <StatusCard label={t('settings.lanSync.mode')} desc={t('settings.lanSync.modeDesc')}>
           <div className="mt-2">
             <Select

@@ -229,6 +229,10 @@ fn handle_clipboard_change() -> Result<(), String> {
                                 }
 
                                 let Some(record) = clipboard_item_to_lan_sync_record(item) else { return; };
+                                let settings = crate::services::get_settings();
+                                if !settings.lan_sync_send_enabled {
+                                    return;
+                                }
                                 let _ = crate::services::lan_sync::send_clipboard_record(record).await;
                             });
                         }

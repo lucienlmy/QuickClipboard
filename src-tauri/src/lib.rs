@@ -461,6 +461,11 @@ pub fn run() {
 
                             match ev {
                                 lan_sync_core::CoreEvent::RemoteClipboardRecord { record } => {
+                                    let settings = services::get_settings();
+                                    if !settings.lan_sync_receive_enabled {
+                                        continue;
+                                    }
+
                                     if record.source_device_id == crate::services::lan_sync::device_id() {
                                         continue;
                                     }
@@ -503,9 +508,17 @@ pub fn run() {
                                     }
                                 }
                                 lan_sync_core::CoreEvent::AttachmentRequest { requester_device_id, preferred_provider_device_id: _, image_id } => {
+                                    let settings = services::get_settings();
+                                    if !settings.lan_sync_receive_enabled {
+                                        continue;
+                                    }
                                     let _ = crate::services::lan_sync::handle_attachment_request(&requester_device_id, &image_id).await;
                                 }
                                 lan_sync_core::CoreEvent::RemoteAttachmentChunk { image_id, total_len, offset, data } => {
+                                    let settings = services::get_settings();
+                                    if !settings.lan_sync_receive_enabled {
+                                        continue;
+                                    }
                                     let end = offset.saturating_add(data.len() as u64);
                                     let now = Instant::now();
                                     let progress = attachment_progress.entry(image_id.clone()).or_insert_with(|| AttachmentProgress {
