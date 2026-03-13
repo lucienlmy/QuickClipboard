@@ -316,6 +316,44 @@ pub fn insert_remote_clipboard_record(
             )
             .optional()?;
         if let Some(id) = existing {
+            let max_order: i64 = conn
+                .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| {
+                    row.get(0)
+                })
+                .unwrap_or(0);
+            let new_order = max_order + 1;
+
+            let now = chrono::Local::now().timestamp();
+
+            conn.execute(
+                "UPDATE clipboard SET 
+                    source_device_id = ?1,
+                    is_remote = 1,
+                    content = ?2,
+                    html_content = ?3,
+                    content_type = ?4,
+                    image_id = ?5,
+                    source_app = ?6,
+                    source_icon_hash = ?7,
+                    char_count = ?8,
+                    item_order = ?9,
+                    updated_at = ?10
+                 WHERE id = ?11",
+                params![
+                    record.source_device_id,
+                    record.content,
+                    record.html_content,
+                    record.content_type,
+                    record.image_id,
+                    record.source_app,
+                    record.source_icon_hash,
+                    record.char_count,
+                    new_order,
+                    now,
+                    id,
+                ],
+            )?;
+
             return Ok(Some(id));
         }
 

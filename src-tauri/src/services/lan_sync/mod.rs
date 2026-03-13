@@ -339,10 +339,6 @@ pub async fn sync_clipboard_item(clipboard_id: i64) -> Result<String, LanSyncErr
         .map_err(|e| LanSyncError::Protocol(e))?
         .ok_or_else(|| LanSyncError::Protocol("记录不存在".to_string()))?;
 
-    if item.is_remote {
-        return Err(LanSyncError::Protocol("远端记录无需手动同步".to_string()));
-    }
-
     let uuid = match item.uuid.clone().filter(|u| !u.trim().is_empty()) {
         Some(u) => u,
         None => crate::services::database::ensure_clipboard_item_uuid(clipboard_id)
