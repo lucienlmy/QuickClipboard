@@ -231,6 +231,8 @@
       "serverPortDesc": "Port to listen on when running as server",
       "peerUrl": "Server URL",
       "peerUrlDesc": "WebSocket URL to connect to when running as client",
+      "connectionConfig": "Connection Setup",
+      "connectionConfigDesc": "Configure the server URL and pair code",
       "pairCode": "Pair Code",
       "pairCodeDesc": "Enter the 10-digit pair code to connect to the server",
       "connectionControl": "Connection",

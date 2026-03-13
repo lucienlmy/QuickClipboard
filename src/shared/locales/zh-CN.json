@@ -231,6 +231,8 @@
       "serverPortDesc": "本机作为服务端监听的端口",
       "peerUrl": "服务端地址",
       "peerUrlDesc": "客户端要连接的 WebSocket 地址",
+      "connectionConfig": "连接配置",
+      "connectionConfigDesc": "配置要连接的服务端地址与配对码",
       "pairCode": "配对码",
       "pairCodeDesc": "连接服务端需要输入 10 位配对码",
       "connectionControl": "连接控制",

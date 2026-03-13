@@ -769,6 +769,8 @@ impl LanSyncManager {
                     tokio::time::sleep(backoff).await;
                     backoff = std::cmp::min(backoff.saturating_mul(2), max_backoff);
                 } else {
+                    attempt = 0;
+                    backoff = Duration::from_millis(200);
                     {
                         let mut inner = this.inner.lock().await;
                         inner.snapshot.next_retry_in_ms = Some(200);

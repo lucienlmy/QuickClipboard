@@ -1,15 +1,14 @@
-import { useTranslation } from 'react-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useTranslation } from 'react-i18next';
+import Button from '@shared/components/ui/Button';
+import Input from '@shared/components/ui/Input';
 import { showConfirm } from '../../../shared/utils/dialog';
 import { copyTextToClipboard } from '@shared/api/system';
 import QRCode from 'qrcode';
-import { createPortal } from 'react-dom';
 import SettingsSection from '../components/SettingsSection';
 import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
-import Input from '@shared/components/ui/Input';
-import Button from '@shared/components/ui/Button';
 
 function LanSyncSection({
   settings,
@@ -426,295 +425,277 @@ function LanSyncSection({
     await refreshTrustedDevices();
   };
 
-  return <SettingsSection title={t('settings.lanSync.title')} description={t('settings.lanSync.description')}>
-      <div className="py-3.5 border-b border-gray-100 dark:border-gray-700/50">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <label className="block text-sm font-medium text-gray-800 dark:text-white">{t('settings.lanSync.status')}</label>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t('settings.lanSync.statusDesc')}</p>
-          </div>
+  return (
+    <SettingsSection
+      title={t('settings.lanSync.title')}
+      description={t('settings.lanSync.description')}
+    >
+      <div className="space-y-6">
+        {/* 状态概览卡片 */}
+        <StatusOverviewCard
+          snapshot={snapshot}
+          deviceId={deviceId}
+          stateLabel={stateLabel}
+          settings={settings}
+          onSettingChange={onSettingChange}
+          modeOptions={modeOptions}
+        />
 
-          <div className="flex items-center gap-2 shrink-0">
-            <StatusBadge
-              enabled={Boolean(snapshot?.enabled)}
-              text={snapshot ? (snapshot.enabled ? t('settings.lanSync.statusYes') : t('settings.lanSync.statusNo')) : '-'}
-            />
-            <StatusBadge
-              variant="neutral"
-              text={snapshot ? stateLabel : '-'}
-              title={t('settings.lanSync.statusState')}
-            />
+        {/* 错误显示 */}
+        {snapshotError && (
+          <div className="p-4 rounded-xl bg-red-50/50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30">
+            <div className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
+              <i className="ti ti-alert-circle" />
+              {t('settings.lanSync.statusFetchFailed')}
+            </div>
+            <div className="text-xs text-red-600 dark:text-red-400 opacity-80 break-all font-mono leading-relaxed">
+              {snapshotError}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-          <StatusCard
-            label={t('settings.lanSync.statusDeviceId')}
-            desc={t('settings.lanSync.statusDeviceIdDesc')}
-            value={deviceId || '-'}
+        {/* 服务器模式功能 */}
+        {settings.lanSyncEnabled && isServer && (
+          <ServerFeatures
+            localUrlsAll={localUrlsAll}
+            localUrlsVisible={localUrlsVisible}
+            localUrlLimit={localUrlLimit}
+            hasMoreLocalUrls={hasMoreLocalUrls}
+            showAllLocalUrls={showAllLocalUrls}
+            setShowAllLocalUrls={setShowAllLocalUrls}
+            openQr={openQr}
+            qrUrl={qrUrl}
+            qrDataUrl={qrDataUrl}
+            qrLoading={qrLoading}
+            qrError={qrError}
+            closeQr={closeQr}
+            onCopy={onCopy}
+            copyTip={copyTip}
+            serverPairCode={serverPairCode}
+            serverPairCodeRemainingMs={serverPairCodeRemainingMs}
+            formatPairCode={formatPairCode}
+            formatRemaining={formatRemaining}
+            refreshPairCode={refreshPairCode}
+            trustedDevices={trustedDevices}
+            refreshTrustedDevices={refreshTrustedDevices}
+            disconnectTrustedDevice={disconnectTrustedDevice}
+            removeTrustedDevice={removeTrustedDevice}
           />
+        )}
 
-          {settings.lanSyncEnabled && isServer ? (
-            <StatusCard
-              label={t('settings.lanSync.statusConnectedCount')}
-              desc={t('settings.lanSync.statusConnectedCountDesc')}
-              value={snapshot?.server_connected_count ?? 0}
-            />
-          ) : null}
+        {/* 客户端模式功能 */}
+        {settings.lanSyncEnabled && isClient && (
+          <ClientFeatures
+            snapshot={snapshot}
+            settings={settings}
+            clientPairCode={clientPairCode}
+            onClientPairCodeChange={onClientPairCodeChange}
+            clientConnecting={clientConnecting}
+            clientDisconnecting={clientDisconnecting}
+            connectClientNow={connectClientNow}
+            disconnectClientNow={disconnectClientNow}
+            onSettingChange={onSettingChange}
+          />
+        )}
+      </div>
+    </SettingsSection>
+  );
+}
 
-          {settings.lanSyncEnabled && isClient ? (
-            <StatusCard
-              label={t('settings.lanSync.statusPeerUrl')}
-              desc={t('settings.lanSync.statusPeerUrlDesc')}
-              value={snapshot?.peer_url ?? '-'}
-            />
-          ) : null}
+export default LanSyncSection;
 
-          <StatusCard label={t('settings.lanSync.enabled')} desc={t('settings.lanSync.enabledDesc')}>
-            <div className="mt-1">
-              <Toggle checked={Boolean(settings.lanSyncEnabled)} onChange={checked => onSettingChange('lanSyncEnabled', checked)} />
-            </div>
-          </StatusCard>
+// 状态概览卡片组件
+function StatusOverviewCard({
+  snapshot,
+  deviceId,
+  stateLabel,
+  settings,
+  onSettingChange,
+  modeOptions
+}) {
+  const { t } = useTranslation();
 
-          <StatusCard label={t('settings.lanSync.autoStart')} desc={t('settings.lanSync.autoStartDesc')}>
-            <div className="mt-1">
-              <Toggle checked={settings.lanSyncAutoStart !== false} onChange={checked => onSettingChange('lanSyncAutoStart', checked)} />
-            </div>
-          </StatusCard>
-
-          <StatusCard label={t('settings.lanSync.mode')} desc={t('settings.lanSync.modeDesc')}>
-            <div className="mt-1">
-              <Select value={settings.lanSyncMode || 'off'} onChange={value => onSettingChange('lanSyncMode', value)} options={modeOptions} className="w-full" />
-            </div>
-          </StatusCard>
-
-          {settings.lanSyncEnabled && isClient ? (
-            <StatusCard label={t('settings.lanSync.autoReconnect')} desc={t('settings.lanSync.autoReconnectDesc')}>
-              <div className="mt-1">
-                <Toggle checked={settings.lanSyncAutoReconnect !== false} onChange={checked => onSettingChange('lanSyncAutoReconnect', checked)} />
-              </div>
-            </StatusCard>
-          ) : null}
-
-          {settings.lanSyncEnabled && isServer ? (
-            <StatusCard label={t('settings.lanSync.serverPort')} desc={t('settings.lanSync.serverPortDesc')}>
-              <div className="mt-1">
-                <Input
-                  type="number"
-                  value={settings.lanSyncServerPort ?? 18181}
-                  onChange={e => onSettingChange('lanSyncServerPort', parseInt(e.target.value) || 18181)}
-                  min={1}
-                  max={65535}
-                  className="w-full"
-                />
-              </div>
-            </StatusCard>
-          ) : null}
-
-          {settings.lanSyncEnabled && isClient ? (
-            <>
-              <StatusCard label={t('settings.lanSync.peerUrl')} desc={t('settings.lanSync.peerUrlDesc')}>
-                <div className="mt-1">
-                  <Input
-                    type="text"
-                    value={settings.lanSyncPeerUrl || ''}
-                    onChange={e => onSettingChange('lanSyncPeerUrl', e.target.value)}
-                    className="w-full"
-                    placeholder="ws://127.0.0.1:18181"
-                  />
-                </div>
-              </StatusCard>
-              <StatusCard label={t('settings.lanSync.pairCode')} desc={t('settings.lanSync.pairCodeDesc')}>
-                <div className="mt-1">
-                  <Input
-                    type="text"
-                    value={clientPairCode}
-                    onChange={e => onClientPairCodeChange(e.target.value)}
-                    className="w-full"
-                    placeholder="1234567890"
-                  />
-                </div>
-              </StatusCard>
-
-              <StatusCard label={t('settings.lanSync.connectionControl')} desc={t('settings.lanSync.connectionControlDesc')}>
-                <div className="mt-2 flex items-center justify-end gap-2">
-                  {(() => {
-                    const s = snapshot?.state;
-                    const isConnected = s === 'Connected';
-                    const isConnectingState = s === 'Connecting';
-                    const connectDisabled = !settings.lanSyncPeerUrl || clientConnecting || clientDisconnecting || isConnected || isConnectingState;
-                    const disconnectDisabled = clientDisconnecting || clientConnecting || !snapshot || s === 'Stopped' || s === 'Disconnected';
-                    const connectLabel = (clientConnecting || isConnectingState) ? t('common.connecting') : t('common.connect');
-                    const disconnectLabel = clientDisconnecting ? t('common.disconnecting') : t('common.disconnect');
-
-                    return (
-                      <>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={connectClientNow}
-                    className="min-w-16"
-                    icon={<i className="ti ti-plug-connected" />}
-                    disabled={connectDisabled}
-                  >
-                    {connectLabel}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={disconnectClientNow}
-                    className="min-w-16"
-                    icon={<i className="ti ti-plug-connected-x" />}
-                    disabled={disconnectDisabled}
-                  >
-                    {disconnectLabel}
-                  </Button>
-                      </>
-                    );
-                  })()}
-                </div>
-              </StatusCard>
-            </>
-          ) : null}
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-6 bg-blue-500 rounded-full" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {t('settings.lanSync.status')}
+          </h3>
         </div>
-
-        {settings.lanSyncEnabled && isServer ? (
-          <div className="mt-3">
-            <label className="block text-sm font-medium text-gray-800 dark:text-white">{t('settings.lanSync.pairCodeTitle')}</label>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t('settings.lanSync.pairCodeTitleDesc')}</p>
-
-            <div className="mt-2 flex items-center gap-2">
-              <div className="px-3 py-2 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40 font-mono text-sm text-gray-800 dark:text-gray-100">
-                {serverPairCode ? formatPairCode(serverPairCode) : '-'}
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => onCopy(serverPairCode || '')}
-                title={t('common.copy')}
-                aria-label={t('common.copy')}
-                className="min-w-16"
-                icon={<i className="ti ti-copy" />}
-                disabled={!serverPairCode}
-              >
-                {t('common.copy')}
-              </Button>
-              <div className="text-xs text-gray-600 dark:text-gray-300">
-                {serverPairCodeRemainingMs != null ? `${t('settings.lanSync.pairCodeRemaining')}: ${formatRemaining(serverPairCodeRemainingMs)}` : ''}
-              </div>
-              {copyTip ? (
-                <div className="text-xs text-gray-600 dark:text-gray-300">{copyTip}</div>
-              ) : null}
-              <div className="flex-1" />
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={refreshPairCode}
-                title={t('settings.lanSync.pairCodeRefresh')}
-                aria-label={t('settings.lanSync.pairCodeRefresh')}
-                className="min-w-16"
-                icon={<i className="ti ti-refresh" />}
-              >
-                {t('settings.lanSync.pairCodeRefresh')}
-              </Button>
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-800 dark:text-white">{t('settings.lanSync.trustedDevicesTitle')}</label>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t('settings.lanSync.trustedDevicesDesc')}</p>
-
-              <div className="mt-2 flex flex-col gap-2">
-                {Array.isArray(trustedDevices) && trustedDevices.length ? (
-                  <div className="flex flex-col gap-2">
-                    {trustedDevices.map(d => (
-                      <div
-                        key={d.device_id}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm text-gray-800 dark:text-gray-100 break-all font-mono">{d.device_id}</div>
-                          <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                            <span
-                              className={d.connected
-                                ? 'inline-block w-2 h-2 rounded-full bg-green-500'
-                                : 'inline-block w-2 h-2 rounded-full bg-gray-400'}
-                            />
-                            <span>
-                              {d.connected ? t('settings.lanSync.trustedDeviceConnected') : t('settings.lanSync.trustedDeviceDisconnected')}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => disconnectTrustedDevice(d.device_id)}
-                          disabled={!d.connected}
-                          className="min-w-16"
-                          icon={<i className="ti ti-plug-connected-x" />}
-                        >
-                          {t('settings.lanSync.trustedDeviceDisconnect')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => removeTrustedDevice(d.device_id)}
-                          className="min-w-16"
-                          icon={<i className="ti ti-trash" />}
-                        >
-                          {t('settings.lanSync.trustedDeviceRemove')}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500">{t('settings.lanSync.trustedDeviceEmpty')}</div>
-                )}
-
-                <div className="flex items-center justify-end">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={refreshTrustedDevices}
-                    className="min-w-16"
-                    icon={<i className="ti ti-refresh" />}
-                  >
-                    {t('settings.common.refresh')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {settings.lanSyncEnabled && isClient && snapshot?.reconnecting ? (
-          <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
-            {t('settings.lanSync.statusReconnecting')} #{snapshot?.reconnect_attempt ?? 0}{snapshot?.next_retry_in_ms != null ? `, ${t('settings.lanSync.statusNextRetry')} ${Math.ceil(snapshot.next_retry_in_ms / 1000)}s` : ''}
-          </div>
-        ) : null}
-
-        {snapshotError ? (
-          <div className="mt-2 text-xs text-red-600 break-all">{t('settings.lanSync.statusFetchFailed')}: {snapshotError}</div>
-        ) : null}
+        <div className="flex items-center gap-2">
+          <StatusBadge
+            enabled={Boolean(snapshot?.enabled)}
+            text={snapshot ? (snapshot.enabled ? t('settings.lanSync.statusYes') : t('settings.lanSync.statusNo')) : '-'}
+          />
+          <StatusBadge
+            variant="neutral"
+            text={snapshot ? stateLabel : '-'}
+          />
+        </div>
       </div>
 
-      {settings.lanSyncEnabled && isServer ? (
-        <div className="py-3.5 border-b border-gray-100 dark:border-gray-700/50">
-          <label className="block text-sm font-medium text-gray-800 dark:text-white">{t('settings.lanSync.localUrls')}</label>
-          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t('settings.lanSync.localUrlsDesc')}</p>
-          <div className="mt-2 flex flex-col gap-2">
-            {localUrlsAll?.length ? (
-              <div className="flex flex-col gap-2 max-h-56 overflow-auto pr-1">
-                {localUrlsVisible.map(url => (
-                  <div key={url} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40">
-                    <div className="text-sm text-gray-700 dark:text-gray-200 break-all flex-1">{url}</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatusCard
+          label={t('settings.lanSync.statusDeviceId')}
+          desc={t('settings.lanSync.statusDeviceIdDesc')}
+          value={deviceId || '-'}
+        />
+
+        {settings.lanSyncEnabled && settings.lanSyncMode === 'server' && (
+          <StatusCard
+            label={t('settings.lanSync.statusConnectedCount')}
+            desc={t('settings.lanSync.statusConnectedCountDesc')}
+            value={snapshot?.server_connected_count ?? 0}
+          />
+        )}
+
+        {settings.lanSyncEnabled && settings.lanSyncMode === 'client' && (
+          <StatusCard
+            label={t('settings.lanSync.statusPeerUrl')}
+            desc={t('settings.lanSync.statusPeerUrlDesc')}
+            value={snapshot?.peer_url ?? '-'}
+          />
+        )}
+
+        <StatusCard label={t('settings.lanSync.enabled')} desc={t('settings.lanSync.enabledDesc')}>
+          <div className="mt-2">
+            <Toggle
+              checked={Boolean(settings.lanSyncEnabled)}
+              onChange={checked => onSettingChange('lanSyncEnabled', checked)}
+            />
+          </div>
+        </StatusCard>
+
+        <StatusCard label={t('settings.lanSync.autoStart')} desc={t('settings.lanSync.autoStartDesc')}>
+          <div className="mt-2">
+            <Toggle
+              checked={settings.lanSyncAutoStart !== false}
+              onChange={checked => onSettingChange('lanSyncAutoStart', checked)}
+            />
+          </div>
+        </StatusCard>
+
+        <StatusCard label={t('settings.lanSync.mode')} desc={t('settings.lanSync.modeDesc')}>
+          <div className="mt-2">
+            <Select
+              value={settings.lanSyncMode || 'off'}
+              onChange={value => onSettingChange('lanSyncMode', value)}
+              options={modeOptions}
+              className="w-full"
+            />
+          </div>
+        </StatusCard>
+
+        {settings.lanSyncEnabled && settings.lanSyncMode === 'client' && (
+          <StatusCard label={t('settings.lanSync.autoReconnect')} desc={t('settings.lanSync.autoReconnectDesc')}>
+            <div className="mt-2">
+              <Toggle
+                checked={settings.lanSyncAutoReconnect !== false}
+                onChange={checked => onSettingChange('lanSyncAutoReconnect', checked)}
+              />
+            </div>
+          </StatusCard>
+        )}
+
+        {settings.lanSyncEnabled && settings.lanSyncMode === 'server' && (
+          <StatusCard label={t('settings.lanSync.serverPort')} desc={t('settings.lanSync.serverPortDesc')}>
+            <div className="mt-2">
+              <Input
+                type="number"
+                value={settings.lanSyncServerPort ?? 18181}
+                onChange={e => onSettingChange('lanSyncServerPort', parseInt(e.target.value) || 18181)}
+                min={1}
+                max={65535}
+                className="w-full"
+              />
+            </div>
+          </StatusCard>
+        )}
+      </div>
+
+      {settings.lanSyncEnabled &&
+        settings.lanSyncMode === 'client' &&
+        snapshot?.reconnecting &&
+        snapshot?.state !== 'Connected' && (
+          <div className="mt-4 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100/50 dark:border-blue-800/30 flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+            <i className="ti ti-refresh animate-spin" />
+            <span>{t('settings.lanSync.statusReconnecting')} #{snapshot?.reconnect_attempt ?? 0}</span>
+            {snapshot?.next_retry_in_ms != null && (
+              <span className="opacity-70">
+                ({t('settings.lanSync.statusNextRetry')} {Math.ceil(snapshot.next_retry_in_ms / 1000)}s)
+              </span>
+            )}
+          </div>
+        )}
+    </div>
+  );
+}
+
+// 服务器功能组件
+function ServerFeatures({
+  localUrlsAll,
+  localUrlsVisible,
+  localUrlLimit,
+  hasMoreLocalUrls,
+  showAllLocalUrls,
+  setShowAllLocalUrls,
+  openQr,
+  qrUrl,
+  qrDataUrl,
+  qrLoading,
+  qrError,
+  closeQr,
+  onCopy,
+  copyTip,
+  serverPairCode,
+  serverPairCodeRemainingMs,
+  formatPairCode,
+  formatRemaining,
+  refreshPairCode,
+  trustedDevices,
+  refreshTrustedDevices,
+  disconnectTrustedDevice,
+  removeTrustedDevice
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-6">
+      {/* 本地URL区域 */}
+      <div className="relative bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+              <i className="ti ti-broadcast text-blue-500" />
+              {t('settings.lanSync.localUrls')}
+            </label>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {t('settings.lanSync.localUrlsDesc')}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {localUrlsAll?.length ? (
+            <div className="space-y-2 max-h-64 overflow-auto pr-2">
+              {localUrlsVisible.map(url => (
+                <div
+                  key={url}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-gray-200/70 dark:border-gray-600/50 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="text-sm text-gray-700 dark:text-gray-200 break-all flex-1 font-mono">
+                    {url}
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Button
                       size="sm"
                       variant="secondary"
                       onClick={() => openQr(url)}
                       title={t('settings.lanSync.qrShow')}
                       aria-label={t('settings.lanSync.qrShow')}
-                      className="min-w-16"
+                      className="!px-3"
                       icon={<i className="ti ti-qrcode" />}
                     >
                       {t('settings.lanSync.qrShow')}
@@ -725,119 +706,335 @@ function LanSyncSection({
                       onClick={() => onCopy(url)}
                       title={t('common.copy')}
                       aria-label={t('common.copy')}
-                      className="min-w-16"
+                      className="!px-3"
                       icon={<i className="ti ti-copy" />}
                     >
                       {t('common.copy')}
                     </Button>
                   </div>
-                ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700/50">
+              <div className="ti ti-devices text-3xl text-gray-300 dark:text-gray-600 mb-3" />
+              <div className="text-sm text-gray-400 dark:text-gray-500">
+                {t('settings.lanSync.localUrlsEmpty')}
               </div>
-            ) : (
-              <div className="text-sm text-gray-500">{t('settings.lanSync.localUrlsEmpty')}</div>
-            )}
+            </div>
+          )}
 
-            {hasMoreLocalUrls ? (
-              <div className="flex items-center">
-                <button
-                  type="button"
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                  onClick={() => setShowAllLocalUrls(v => !v)}
-                >
-                  {showAllLocalUrls ? t('settings.lanSync.localUrlsCollapse') : t('settings.lanSync.localUrlsMore', { count: localUrlsAll.length - localUrlLimit })}
-                </button>
-              </div>
-            ) : null}
-            {copyTip ? (
-              <div className="text-xs text-gray-500">{copyTip}</div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {qrUrl ? createPortal(
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeQr();
-          }}
-        >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[340px] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('settings.lanSync.qrTitle')}</h3>
+          {hasMoreLocalUrls && (
+            <div className="flex justify-center">
               <button
-                onClick={closeQr}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
-                aria-label={t('common.close')}
-                title={t('common.close')}
+                type="button"
+                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                onClick={() => setShowAllLocalUrls(v => !v)}
               >
-                <i className="ti ti-x" style={{ fontSize: 20 }} />
+                {showAllLocalUrls
+                  ? t('settings.lanSync.localUrlsCollapse')
+                  : t('settings.lanSync.localUrlsMore', { count: localUrlsAll.length - localUrlLimit })}
               </button>
             </div>
+          )}
 
-            <div className="p-4 flex flex-col gap-3">
-              <div className="text-xs text-gray-500 dark:text-gray-400 break-all">{qrUrl}</div>
+          {copyTip && (
+            <div className="text-center text-sm text-green-600 dark:text-green-400 animate-fade-in">
+              {copyTip}
+            </div>
+          )}
+        </div>
 
-              {serverPairCodeRemainingMs != null ? (
-                <div className="text-xs text-gray-600 dark:text-gray-300">
-                  {t('settings.lanSync.pairCodeRemaining')}: {formatRemaining(serverPairCodeRemainingMs)}
-                </div>
-              ) : null}
-
-              <div className="flex items-center justify-center">
-                {qrLoading ? (
-                  <div className="text-sm text-gray-500">{t('common.loading')}</div>
-                ) : qrDataUrl ? (
-                  <img src={qrDataUrl} alt={t('settings.lanSync.qrTitle')} className="w-[240px] h-[240px] bg-white rounded-md" />
-                ) : (
-                  <div className="text-sm text-gray-500">{t('settings.lanSync.qrFailed')}</div>
-                )}
+        {qrUrl && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/50 backdrop-blur-sm p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeQr();
+            }}
+          >
+            {qrLoading ? (
+              <div className="flex flex-col items-center gap-2 text-white/90">
+                <i className="ti ti-loader-2 animate-spin text-3xl" />
+                <span className="text-sm">{t('common.loading')}</span>
               </div>
-
-              {qrError ? (
-                <div className="text-xs text-red-600 break-all">{qrError}</div>
-              ) : null}
-
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onCopy(qrUrl)}
-                  icon={<i className="ti ti-copy" />}
-                >
-                  {t('common.copy')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={closeQr}
-                  icon={<i className="ti ti-x" />}
-                >
-                  {t('common.close')}
-                </Button>
+            ) : qrDataUrl ? (
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <img src={qrDataUrl} alt={t('settings.lanSync.qrTitle')} className="w-56 h-56" />
               </div>
+            ) : (
+              <div className="text-sm text-white/90 text-center px-4">
+                {qrError ? qrError : t('settings.lanSync.qrFailed')}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 配对码区域 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+            <i className="ti ti-key text-amber-500" />
+            {t('settings.lanSync.pairCodeTitle')}
+          </label>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t('settings.lanSync.pairCodeTitleDesc')}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/30 border border-gray-200/70 dark:border-gray-600/50">
+          <div className="flex-1">
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              {t('settings.lanSync.pairCode')}
+            </div>
+            <div className="font-mono text-xl font-bold tracking-wider text-blue-600 dark:text-blue-400">
+              {serverPairCode ? formatPairCode(serverPairCode) : '---- ---- --'}
             </div>
           </div>
-        </div>,
-        document.body
-      ) : null}
 
-    </SettingsSection>;
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('settings.lanSync.pairCodeRemaining')}
+              </div>
+              <div className="font-mono text-lg font-semibold text-gray-700 dark:text-gray-200">
+                {serverPairCodeRemainingMs != null ? formatRemaining(serverPairCodeRemainingMs) : '--:--'}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => onCopy(serverPairCode || '')}
+                className="!w-11 !h-11 !p-0 flex items-center justify-center rounded-lg"
+                icon={<i className="ti ti-copy text-lg" />}
+                disabled={!serverPairCode}
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={refreshPairCode}
+                className="!w-11 !h-11 !p-0 flex items-center justify-center rounded-lg"
+                icon={<i className="ti ti-refresh text-lg" />}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 受信任设备区域 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+              <i className="ti ti-devices text-purple-500" />
+              {t('settings.lanSync.trustedDevicesTitle')}
+            </label>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {t('settings.lanSync.trustedDevicesDesc')}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={refreshTrustedDevices}
+            className="h-9 text-sm opacity-70 hover:opacity-100"
+            icon={<i className="ti ti-refresh" />}
+          >
+            {t('settings.common.refresh')}
+          </Button>
+        </div>
+
+        <div>
+          {Array.isArray(trustedDevices) && trustedDevices.length ? (
+            <div className="space-y-3">
+              {trustedDevices.map(d => (
+                <div
+                  key={d.device_id}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-gray-200/70 dark:border-gray-600/50 bg-gray-50 dark:bg-gray-700/30"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100 break-all font-mono">
+                      {d.device_id}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                      <span
+                        className={`inline-block w-2 h-2 rounded-full ${
+                          d.connected ? 'bg-green-500' : 'bg-gray-400'
+                        }`}
+                      />
+                      <span>
+                        {d.connected
+                          ? t('settings.lanSync.trustedDeviceConnected')
+                          : t('settings.lanSync.trustedDeviceDisconnected')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => disconnectTrustedDevice(d.device_id)}
+                      disabled={!d.connected}
+                      className="!px-3"
+                      icon={<i className="ti ti-plug-connected-x" />}
+                    >
+                      {t('settings.lanSync.trustedDeviceDisconnect')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => removeTrustedDevice(d.device_id)}
+                      className="!px-3"
+                      icon={<i className="ti ti-trash" />}
+                    >
+                      {t('settings.lanSync.trustedDeviceRemove')}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700/50">
+              <div className="ti ti-devices text-3xl text-gray-300 dark:text-gray-600 mb-3" />
+              <div className="text-sm text-gray-400 dark:text-gray-500">
+                {t('settings.lanSync.trustedDeviceEmpty')}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default LanSyncSection;
+// 客户端功能组件
+function ClientFeatures({
+  snapshot,
+  settings,
+  clientPairCode,
+  onClientPairCodeChange,
+  clientConnecting,
+  clientDisconnecting,
+  connectClientNow,
+  disconnectClientNow,
+  onSettingChange
+}) {
+  const { t } = useTranslation();
 
-function StatusBadge({ enabled, text, title, variant }) {
-  const base = 'px-2 py-1 rounded-full text-xs font-medium border';
-  const v = variant || (enabled ? 'success' : 'danger');
-  const cls = v === 'success'
-    ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800/60'
-    : v === 'danger'
-      ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800/60'
-      : 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/40 dark:text-gray-200 dark:border-gray-700/60';
+  const s = snapshot?.state;
+  const isConnected = s === 'Connected';
+  const isConnectingState = s === 'Connecting';
+
+  const connectDisabled = !settings.lanSyncPeerUrl || clientConnecting || clientDisconnecting || isConnected || isConnectingState;
+  const disconnectDisabled = clientDisconnecting || clientConnecting || !snapshot || s === 'Stopped' || s === 'Disconnected';
+
+  const connectLabel = (clientConnecting || isConnectingState) ? t('common.connecting') : t('common.connect');
+  const disconnectLabel = clientDisconnecting ? t('common.disconnecting') : t('common.disconnect');
 
   return (
-    <div className={`${base} ${cls}`} title={title}>
+    <div className="space-y-6">
+      {/* 连接配置 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+            <i className="ti ti-settings text-green-500" />
+            {t('settings.lanSync.connectionConfig')}
+          </label>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t('settings.lanSync.connectionConfigDesc')}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('settings.lanSync.peerUrl')}
+            </label>
+            <Input
+              type="text"
+              value={settings.lanSyncPeerUrl || ''}
+              onChange={e => onSettingChange('lanSyncPeerUrl', e.target.value)}
+              className="w-full"
+              placeholder="ws://127.0.0.1:18181"
+            />
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {t('settings.lanSync.peerUrlDesc')}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('settings.lanSync.pairCode')}
+            </label>
+            <Input
+              type="text"
+              value={clientPairCode}
+              onChange={e => onClientPairCodeChange(e.target.value)}
+              className="w-full"
+              placeholder="1234567890"
+            />
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {t('settings.lanSync.pairCodeDesc')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 连接控制 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+            <i className="ti ti-plug text-purple-500" />
+            {t('settings.lanSync.connectionControl')}
+          </label>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t('settings.lanSync.connectionControlDesc')}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            size="md"
+            variant="primary"
+            onClick={connectClientNow}
+            className="min-w-24"
+            icon={<i className="ti ti-plug-connected" />}
+            disabled={connectDisabled}
+          >
+            {connectLabel}
+          </Button>
+          <Button
+            size="md"
+            variant="secondary"
+            onClick={disconnectClientNow}
+            className="min-w-24"
+            icon={<i className="ti ti-plug-connected-x" />}
+            disabled={disconnectDisabled}
+          >
+            {disconnectLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// UI 组件
+function StatusBadge({ enabled, text, title, variant }) {
+  const base = 'px-3 py-1.5 rounded-full text-xs font-medium border';
+  const v = variant || (enabled ? 'success' : 'danger');
+
+  const styles = {
+    success: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800/60',
+    danger: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800/60',
+    neutral: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/40 dark:text-gray-200 dark:border-gray-700/60'
+  };
+
+  return (
+    <div className={`${base} ${styles[v]}`} title={title}>
       {text}
     </div>
   );
@@ -845,20 +1042,26 @@ function StatusBadge({ enabled, text, title, variant }) {
 
 function StatusCard({ label, desc, value, children }) {
   return (
-    <div className="group relative px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/60 transition-colors hover:bg-gray-100/70 dark:hover:bg-gray-900/55 hover:border-gray-300/80 dark:hover:border-gray-600/80">
-      <div className="text-xs text-gray-500 dark:text-gray-400 pr-5">{label}</div>
-      {desc ? (
+    <div className="group relative p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600">
+      <div className="text-xs text-gray-500 dark:text-gray-400 pr-6 mb-2">
+        {label}
+      </div>
+
+      {desc && (
         <div
-          className="absolute top-2 right-2 w-4 h-4 rounded-full border border-gray-300/80 dark:border-gray-600 flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-300 bg-white/60 dark:bg-gray-900/40 cursor-help transition-colors group-hover:border-gray-400 dark:group-hover:border-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-200"
+          className="absolute top-3 right-3 w-5 h-5 rounded-full border border-gray-300/80 dark:border-gray-600 flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-300 bg-white/60 dark:bg-gray-900/40 cursor-help transition-colors group-hover:border-gray-400 dark:group-hover:border-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-200"
           title={desc}
         >
           ?
         </div>
-      ) : null}
+      )}
+
       {children != null ? (
-        <div className="mt-1">{children}</div>
+        <div>{children}</div>
       ) : value !== undefined ? (
-        <div className="mt-0.5 text-sm font-medium text-gray-800 dark:text-gray-100 break-all">{value}</div>
+        <div className="text-base font-semibold text-gray-800 dark:text-gray-100 break-all">
+          {value}
+        </div>
       ) : null}
     </div>
   );
