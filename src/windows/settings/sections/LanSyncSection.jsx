@@ -605,7 +605,11 @@ function StatusOverviewCard({
               <Input
                 type="number"
                 value={settings.lanSyncServerPort ?? 18181}
-                onChange={e => onSettingChange('lanSyncServerPort', parseInt(e.target.value) || 18181)}
+                commitOnBlur
+                onCommit={(raw) => {
+                  const v = parseInt(String(raw), 10);
+                  onSettingChange('lanSyncServerPort', Number.isFinite(v) ? v : 18181);
+                }}
                 min={1}
                 max={65535}
                 className="w-full"
@@ -956,7 +960,8 @@ function ClientFeatures({
             <Input
               type="text"
               value={settings.lanSyncPeerUrl || ''}
-              onChange={e => onSettingChange('lanSyncPeerUrl', e.target.value)}
+              commitOnBlur
+              onCommit={(v) => onSettingChange('lanSyncPeerUrl', String(v))}
               className="w-full"
               placeholder="ws://127.0.0.1:18181"
             />
