@@ -54,7 +54,7 @@ function SettingsSidebar({
   const {
     t
   } = useTranslation();
-  return <aside className="settings-sidebar w-56 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 overflow-y-auto transition-colors duration-500">
+  return <aside className="settings-sidebar w-max max-w-80 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 overflow-y-auto transition-colors duration-500">
       <nav className="p-3 space-y-0.5">
         {navigationItems.map(({
         id,

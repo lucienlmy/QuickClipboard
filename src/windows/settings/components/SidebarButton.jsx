@@ -61,7 +61,7 @@ function SidebarButton({
         fontSize: 18
       }} data-strokewidth={2} />
 
-        <span className={uiAnimationEnabled ? 'transition-transform duration-200 group-hover:translate-x-0.5' : ''}>
+        <span className={`${uiAnimationEnabled ? 'transition-transform duration-200 group-hover:translate-x-0.5' : ''} whitespace-nowrap`}>
           {label}
         </span>
       </button>

@@ -11,7 +11,7 @@ pub fn create_settings_window(app: &AppHandle) -> Result<(), String> {
     .inner_size(900.0, 630.0)
     .min_inner_size(800.0, 600.0)
     .center()
-    .resizable(false)
+    .resizable(true)
     .maximizable(false)
     .decorations(false)
     .transparent(true)
