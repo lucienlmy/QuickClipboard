@@ -4,6 +4,7 @@ use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use std::collections::HashSet;
 use chrono;
+use uuid::Uuid;
 
 // 计算文本字符数
 fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
@@ -137,7 +138,7 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         }
         
         let query_sql = format!(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
              FROM clipboard 
              {} 
              ORDER BY is_pinned DESC, item_order DESC, updated_at DESC 
@@ -156,10 +157,13 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
             rusqlite::params_from_iter(query_params.iter().map(|p| p.as_ref())),
             |row| {
                 let id: i64 = row.get(0)?;
-                let content: String = row.get(1)?;
-                let html_content: Option<String> = row.get(2)?;
-                let content_type: String = row.get(3)?;
-                let char_count: Option<i64> = row.get(12)?;
+                let uuid: Option<String> = row.get(1)?;
+                let source_device_id: Option<String> = row.get(2)?;
+                let is_remote: i64 = row.get(3)?;
+                let content: String = row.get(4)?;
+                let html_content: Option<String> = row.get(5)?;
+                let content_type: String = row.get(6)?;
+                let char_count: Option<i64> = row.get(15)?;
                 
                 let (truncated_content, truncated_html) = if content_type == "text" || content_type == "rich_text" || content_type == "link" {
                     let truncated_content = if content.len() > MAX_CONTENT_LENGTH {
@@ -198,18 +202,21 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
                 
                 Ok((ClipboardItem {
                     id,
+                    uuid,
+                    source_device_id,
+                    is_remote: is_remote != 0,
                     content: truncated_content,
                     html_content: truncated_html,
                     content_type: content_type.clone(),
-                    image_id: row.get(4)?,
-                    item_order: row.get(5)?,
-                    is_pinned: row.get::<_, i64>(6)? != 0,
-                    paste_count: row.get(7)?,
-                    source_app: row.get(8)?,
-                    source_icon_hash: row.get(9)?,
+                    image_id: row.get(7)?,
+                    item_order: row.get(8)?,
+                    is_pinned: row.get::<_, i64>(9)? != 0,
+                    paste_count: row.get(10)?,
+                    source_app: row.get(11)?,
+                    source_icon_hash: row.get(12)?,
                     char_count: final_char_count,
-                    created_at: row.get(10)?,
-                    updated_at: row.get(11)?,
+                    created_at: row.get(13)?,
+                    updated_at: row.get(14)?,
                 }, char_count.is_none() && needs_char_count, id, content, content_type))
             }
         )?
@@ -243,18 +250,175 @@ pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String
     get_clipboard_item_by_id_with_limit(id, None)
 }
 
+pub fn ensure_clipboard_item_uuid(id: i64) -> Result<String, String> {
+    let maybe_uuid: Option<String> = with_connection(|conn| {
+        let existing: Option<Option<String>> = conn
+            .query_row(
+                "SELECT uuid FROM clipboard WHERE id = ?1 LIMIT 1",
+                params![id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+
+        let existing = existing.flatten();
+
+        if let Some(uuid) = existing.clone().filter(|u| !u.trim().is_empty()) {
+            return Ok(Some(uuid));
+        }
+
+        let new_uuid = Uuid::new_v4().to_string();
+        conn.execute(
+            "UPDATE clipboard SET uuid = ?1 WHERE id = ?2 AND (uuid IS NULL OR uuid = '')",
+            params![new_uuid, id],
+        )?;
+
+        let uuid: Option<Option<String>> = conn
+            .query_row(
+                "SELECT uuid FROM clipboard WHERE id = ?1 LIMIT 1",
+                params![id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+
+        Ok(uuid.flatten())
+    })?;
+
+    maybe_uuid
+        .filter(|u| !u.trim().is_empty())
+        .ok_or_else(|| "生成 uuid 失败".to_string())
+}
+
+pub fn get_clipboard_item_id_by_uuid(uuid: &str) -> Result<Option<i64>, String> {
+    with_connection(|conn| {
+        conn.query_row(
+            "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
+            params![uuid],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.into())
+    })
+}
+
+pub fn insert_remote_clipboard_record(
+    record: &lan_sync_core::ClipboardRecord,
+) -> Result<i64, String> {
+    if record.uuid.trim().is_empty() {
+        return Err("远端记录缺少 uuid".to_string());
+    }
+
+    let inserted_or_existing: Option<i64> = with_connection(|conn| {
+        let existing: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
+                params![record.uuid],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(id) = existing {
+            let max_order: i64 = conn
+                .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| {
+                    row.get(0)
+                })
+                .unwrap_or(0);
+            let new_order = max_order + 1;
+
+            let now = chrono::Local::now().timestamp();
+
+            conn.execute(
+                "UPDATE clipboard SET 
+                    source_device_id = ?1,
+                    is_remote = 1,
+                    content = ?2,
+                    html_content = ?3,
+                    content_type = ?4,
+                    image_id = ?5,
+                    source_app = ?6,
+                    source_icon_hash = ?7,
+                    char_count = ?8,
+                    item_order = ?9,
+                    updated_at = ?10
+                 WHERE id = ?11",
+                params![
+                    record.source_device_id,
+                    record.content,
+                    record.html_content,
+                    record.content_type,
+                    record.image_id,
+                    record.source_app,
+                    record.source_icon_hash,
+                    record.char_count,
+                    new_order,
+                    now,
+                    id,
+                ],
+            )?;
+
+            return Ok(Some(id));
+        }
+
+        let max_order: i64 = conn
+            .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(0);
+        let new_order = max_order + 1;
+
+        conn.execute(
+            "INSERT OR IGNORE INTO clipboard (uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, char_count, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![
+                record.uuid,
+                record.source_device_id,
+                1,
+                record.content,
+                record.html_content,
+                record.content_type,
+                record.image_id,
+                new_order,
+                0,
+                0,
+                record.source_app,
+                record.source_icon_hash,
+                record.char_count,
+                record.created_at,
+                record.updated_at,
+            ],
+        )?;
+
+        if conn.changes() > 0 {
+            return Ok(Some(conn.last_insert_rowid()));
+        }
+
+        let id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
+                params![record.uuid],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        Ok(id)
+    })?;
+
+    inserted_or_existing.ok_or_else(|| "插入远端记录失败".to_string())
+}
+
 // 根据ID获取剪贴板项（指定截断长度）
 pub fn get_clipboard_item_by_id_with_limit(id: i64, max_content_length: Option<usize>) -> Result<Option<ClipboardItem>, String> {
     with_connection(|conn| {
         conn.query_row(
-            "SELECT id, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, created_at, updated_at, char_count 
              FROM clipboard WHERE id = ?",
             params![id],
             |row| {
-                let content: String = row.get(1)?;
-                let html_content: Option<String> = row.get(2)?;
-                let content_type: String = row.get(3)?;
-                let char_count: Option<i64> = row.get(12)?;
+                let uuid: Option<String> = row.get(1)?;
+                let source_device_id: Option<String> = row.get(2)?;
+                let is_remote: i64 = row.get(3)?;
+                let content: String = row.get(4)?;
+                let html_content: Option<String> = row.get(5)?;
+                let content_type: String = row.get(6)?;
+                let char_count: Option<i64> = row.get(15)?;
                 let final_content = if let Some(max_len) = max_content_length {
                     let is_text_type = content_type == "text" || content_type == "rich_text" || content_type == "link";
                     if is_text_type && content.len() > max_len {
@@ -275,18 +439,21 @@ pub fn get_clipboard_item_by_id_with_limit(id: i64, max_content_length: Option<u
                 
                 Ok(ClipboardItem {
                     id: row.get(0)?,
+                    uuid,
+                    source_device_id,
+                    is_remote: is_remote != 0,
                     content: final_content,
                     html_content,
                     content_type,
-                    image_id: row.get(4)?,
-                    item_order: row.get(5)?,
-                    is_pinned: row.get::<_, i64>(6)? != 0,
-                    paste_count: row.get(7)?,
-                    source_app: row.get(8)?,
-                    source_icon_hash: row.get(9)?,
+                    image_id: row.get(7)?,
+                    item_order: row.get(8)?,
+                    is_pinned: row.get::<_, i64>(9)? != 0,
+                    paste_count: row.get(10)?,
+                    source_app: row.get(11)?,
+                    source_icon_hash: row.get(12)?,
                     char_count: final_char_count,
-                    created_at: row.get(10)?,
-                    updated_at: row.get(11)?,
+                    created_at: row.get(13)?,
+                    updated_at: row.get(14)?,
                 })
             }
         )

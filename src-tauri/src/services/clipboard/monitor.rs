@@ -32,6 +32,29 @@ static LAST_CONTENT_HASHES: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(Vec::new()))
 });
 
+fn clipboard_item_to_lan_sync_record(item: crate::services::database::ClipboardItem) -> Option<lan_sync_core::ClipboardRecord> {
+    if item.is_remote {
+        return None;
+    }
+
+    let uuid = item.uuid.clone().filter(|u| !u.trim().is_empty())?;
+
+    Some(lan_sync_core::ClipboardRecord {
+        uuid,
+        source_device_id: crate::services::lan_sync::device_id(),
+        is_remote: false,
+        content: item.content,
+        html_content: item.html_content,
+        content_type: item.content_type,
+        image_id: item.image_id,
+        source_app: item.source_app,
+        source_icon_hash: item.source_icon_hash,
+        char_count: item.char_count,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+    })
+}
+
 // 清除上一次内容缓存（用于删除剪贴板项后允许重新添加相同内容）
 pub fn clear_last_content_cache() {
     let mut last_hashes = LAST_CONTENT_HASHES.lock();
@@ -179,7 +202,40 @@ fn handle_clipboard_change() -> Result<(), String> {
             match process_content(content) {
                 Ok(processed) => {
                     match store_clipboard_item(processed) {
-                        Ok(_) => any_stored = true,
+                        Ok(id) => {
+                            any_stored = true;
+                            tauri::async_runtime::spawn(async move {
+                                let item = tokio::task::spawn_blocking(move || {
+                                    crate::services::database::get_clipboard_item_by_id(id)
+                                })
+                                .await
+                                .ok()
+                                .and_then(|r| r.ok())
+                                .flatten();
+
+                                let Some(mut item) = item else { return; };
+
+                                if item.uuid.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
+                                    let ensured = tokio::task::spawn_blocking(move || {
+                                        crate::services::database::ensure_clipboard_item_uuid(id)
+                                    })
+                                    .await
+                                    .ok()
+                                    .and_then(|r| r.ok());
+
+                                    if let Some(uuid) = ensured {
+                                        item.uuid = Some(uuid);
+                                    }
+                                }
+
+                                let Some(record) = clipboard_item_to_lan_sync_record(item) else { return; };
+                                let settings = crate::services::get_settings();
+                                if !settings.lan_sync_send_enabled {
+                                    return;
+                                }
+                                let _ = crate::services::lan_sync::send_clipboard_record(record).await;
+                            });
+                        }
                         Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
                         Err(e) => eprintln!("存储剪贴板内容失败: {}", e),
                     }
@@ -230,6 +286,46 @@ pub fn set_last_hash_text(text: &str) {
     
     let mut last_hashes = LAST_CONTENT_HASHES.lock();
     *last_hashes = vec![hash];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mk_item() -> crate::services::database::ClipboardItem {
+        crate::services::database::ClipboardItem {
+            id: 1,
+            uuid: Some("u".to_string()),
+            source_device_id: None,
+            is_remote: false,
+            content: "c".to_string(),
+            html_content: None,
+            content_type: "text".to_string(),
+            image_id: None,
+            item_order: 1,
+            is_pinned: false,
+            paste_count: 0,
+            source_app: None,
+            source_icon_hash: None,
+            char_count: Some(1),
+            created_at: 1,
+            updated_at: 1,
+        }
+    }
+
+    #[test]
+    fn remote_item_never_produces_record() {
+        let mut item = mk_item();
+        item.is_remote = true;
+        assert!(clipboard_item_to_lan_sync_record(item).is_none());
+    }
+
+    #[test]
+    fn missing_uuid_never_produces_record() {
+        let mut item = mk_item();
+        item.uuid = None;
+        assert!(clipboard_item_to_lan_sync_record(item).is_none());
+    }
 }
 
 // 预设哈希缓存（文件类型）

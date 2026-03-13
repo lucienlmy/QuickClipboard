@@ -48,6 +48,9 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             image_id TEXT,
             item_order INTEGER NOT NULL DEFAULT 0,
             is_pinned INTEGER NOT NULL DEFAULT 0,
+            uuid TEXT,
+            source_device_id TEXT,
+            is_remote INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         )",
@@ -191,6 +194,48 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             .map_err(|e| format!("添加剪贴板字符数量字段失败: {}", e))?;
     }
 
+    let clip_uuid_exists = conn
+        .prepare("PRAGMA table_info(clipboard)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "uuid"))
+        })
+        .unwrap_or(false);
+
+    if !clip_uuid_exists {
+        conn.execute("ALTER TABLE clipboard ADD COLUMN uuid TEXT", [])
+            .map_err(|e| format!("添加剪贴板 UUID 字段失败: {}", e))?;
+    }
+
+    let clip_source_device_id_exists = conn
+        .prepare("PRAGMA table_info(clipboard)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "source_device_id"))
+        })
+        .unwrap_or(false);
+
+    if !clip_source_device_id_exists {
+        conn.execute("ALTER TABLE clipboard ADD COLUMN source_device_id TEXT", [])
+            .map_err(|e| format!("添加剪贴板来源设备字段失败: {}", e))?;
+    }
+
+    let clip_is_remote_exists = conn
+        .prepare("PRAGMA table_info(clipboard)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "is_remote"))
+        })
+        .unwrap_or(false);
+
+    if !clip_is_remote_exists {
+        conn.execute("ALTER TABLE clipboard ADD COLUMN is_remote INTEGER NOT NULL DEFAULT 0", [])
+            .map_err(|e| format!("添加剪贴板远端标记字段失败: {}", e))?;
+    }
+
     let fav_char_count_exists = conn
         .prepare("PRAGMA table_info(favorites)")
         .and_then(|mut stmt| {
@@ -214,6 +259,11 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         "CREATE INDEX IF NOT EXISTS idx_clipboard_content_type ON clipboard(content_type)",
         [],
     ).map_err(|e| format!("创建内容类型索引失败: {}", e))?;
+
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_clipboard_uuid_unique ON clipboard(uuid) WHERE uuid IS NOT NULL AND uuid <> ''",
+        [],
+    ).map_err(|e| format!("创建剪贴板 UUID 唯一索引失败: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_favorites_group ON favorites(group_name, item_order)",

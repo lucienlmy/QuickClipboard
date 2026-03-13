@@ -1,6 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import SidebarButton from './SidebarButton';
+
 export const navigationItems = [{
   id: 'general',
   icon: "ti ti-settings",
@@ -17,10 +18,7 @@ export const navigationItems = [{
   id: 'clipboard',
   icon: "ti ti-clipboard",
   labelKey: 'settings.sections.clipboard'
-},
-// { id: 'aiConfig', icon:"ti ti-brain", labelKey: 'settings.sections.aiConfig' },
-// { id: 'translation', icon:"ti ti-language", labelKey: 'settings.sections.translation' },
-{
+}, {
   id: 'quickpaste',
   icon: "ti ti-clipboard-check",
   labelKey: 'settings.sections.quickpaste'
@@ -36,6 +34,10 @@ export const navigationItems = [{
   id: 'appFilter',
   icon: "ti ti-filter",
   labelKey: 'settings.sections.appFilter'
+}, {
+  id: 'lanSync',
+  icon: "ti ti-wifi",
+  labelKey: 'settings.sections.lanSync'
 }, {
   id: 'dataManagement',
   icon: "ti ti-database",

@@ -5,6 +5,7 @@ use crate::services::settings::get_settings;
 use rusqlite::params;
 use chrono;
 use serde_json::Value;
+use uuid::Uuid;
 
 // 计算文本字符数
 fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
@@ -45,10 +46,11 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
             .unwrap_or(0);
         let new_order = max_order + 1;
         let char_count = calculate_char_count(&content.content, &content.content_type);
+        let uuid = Uuid::new_v4().to_string();
         
         conn.execute(
-            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, source_app, source_icon_hash, char_count, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, source_app, source_icon_hash, char_count, uuid, source_device_id, is_remote, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 content.content,
                 content.html_content,
@@ -58,6 +60,9 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
                 content.source_app,
                 content.source_icon_hash,
                 char_count,
+                uuid,
+                Option::<String>::None,
+                0,
                 now,
                 now
             ],

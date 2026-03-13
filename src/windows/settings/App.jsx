@@ -12,6 +12,7 @@ import GeneralSection from './sections/GeneralSection';
 import AppearanceSection from './sections/AppearanceSection';
 import ShortcutsSection from './sections/ShortcutsSection';
 import ClipboardSection from './sections/ClipboardSection';
+import LanSyncSection from './sections/LanSyncSection';
 import AIConfigSection from './sections/AIConfigSection';
 import TranslationSection from './sections/TranslationSection';
 import PreviewSection from './sections/PreviewSection';
@@ -21,6 +22,7 @@ import AppFilterSection from './sections/AppFilterSection';
 import DataManagementSection from './sections/DataManagementSection';
 import AboutSection from './sections/AboutSection';
 import ToastContainer from '@shared/components/common/ToastContainer';
+
 function App() {
   const { t } = useTranslation();
   const snap = useSnapshot(settingsStore);
@@ -127,6 +129,9 @@ function App() {
         break;
       case 'clipboard':
         content = <ClipboardSection settings={snap} onSettingChange={handleSettingChange} />;
+        break;
+      case 'lanSync':
+        content = <LanSyncSection settings={snap} onSettingChange={handleSettingChange} />;
         break;
       case 'aiConfig':
         content = <AIConfigSection settings={snap} onSettingChange={handleSettingChange} />;

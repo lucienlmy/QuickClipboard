@@ -87,3 +87,7 @@ export async function copyFavoriteItem(id) {
   return await invoke('copy_favorite_item', { id })
 }
 
+export async function syncFavoriteItemToLanSync(favoriteId) {
+  return await invoke('lan_sync_sync_favorite_item', { favoriteId })
+}
+

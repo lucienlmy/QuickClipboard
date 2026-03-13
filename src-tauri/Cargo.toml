@@ -35,6 +35,7 @@ chrono = "0.4"
 dirs = "5.0"
 sha2 = "0.10"
 rodio = "0.17"
+if-addrs = "0.13"
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "time", "fs", "io-util"] }
 fastrand = "2.0"
 regex = "1.11.1"
@@ -54,6 +55,7 @@ atree = "0.5.2"
 rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
 winreg = "0.55"
+lan-sync-core = { path = "plugins/lan-sync-core" }
 
 screenshot-suite = { path = "plugins/screenshot-suite", optional = true }
 

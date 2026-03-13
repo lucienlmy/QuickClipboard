@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClipboardItem {
     pub id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_device_id: Option<String>,
+    pub is_remote: bool,
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html_content: Option<String>,
