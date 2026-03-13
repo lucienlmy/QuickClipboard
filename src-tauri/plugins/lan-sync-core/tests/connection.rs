@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use lan_sync_core::{ConnectionState, LanSyncConfig, LanSyncManager};
+use lan_sync_core::{ConnectionState, CoreEvent, LanSyncConfig, LanSyncManager};
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -48,7 +48,7 @@ async fn ping_keeps_connection_alive() -> AnyResult<()> {
     });
     client.set_enabled(true).await;
     client
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
 
     wait_until_async(Duration::from_secs(2), || async {
@@ -77,8 +77,8 @@ async fn server_snapshot_tracks_multiple_peers() -> AnyResult<()> {
     c1.set_enabled(true).await;
     c2.set_enabled(true).await;
 
-    c1.connect_peer(&url, false).await?;
-    c2.connect_peer(&url, false).await?;
+    c1.connect_peer(&url, false, None).await?;
+    c2.connect_peer(&url, false, None).await?;
 
     wait_until_async(Duration::from_secs(2), || async {
         let snap = server.get_snapshot().await;
@@ -117,7 +117,7 @@ async fn auto_reconnect_recovers() -> AnyResult<()> {
     drop(temp);
 
     let url = format!("ws://127.0.0.1:{}", port);
-    client.connect_peer(&url, true).await?;
+    client.connect_peer(&url, true, None).await?;
 
     wait_until_async(Duration::from_secs(2), || async {
         let snap = client.get_snapshot().await;
@@ -156,7 +156,7 @@ async fn manual_disconnect_prevents_reconnect() -> AnyResult<()> {
     let client = mk_mgr("client");
     client.set_enabled(true).await;
     let url = format!("ws://127.0.0.1:{}", port);
-    client.connect_peer(&url, true).await?;
+    client.connect_peer(&url, true, None).await?;
 
     wait_until_async(Duration::from_secs(2), || async {
         client.get_snapshot().await.state == ConnectionState::Connected
@@ -184,7 +184,7 @@ async fn connect_success() -> AnyResult<()> {
 
     let port = server.start_server(0).await?;
     client
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
 
     wait_until_async(Duration::from_secs(2), || async {
@@ -206,7 +206,7 @@ async fn no_deadlock_under_load() -> AnyResult<()> {
         for i in 0..20u32 {
             let client = mk_mgr(&format!("c{}", i));
             client.set_enabled(true).await;
-            client.connect_peer(&url, false).await?;
+            client.connect_peer(&url, false, None).await?;
 
             wait_until_async(Duration::from_secs(2), || async {
                 client.get_snapshot().await.state == ConnectionState::Connected
@@ -233,22 +233,37 @@ async fn kick_old_keep_new() -> AnyResult<()> {
     client1.set_enabled(true).await;
     client2.set_enabled(true).await;
 
+    let mut client1_events = client1.subscribe().await;
+
     let port = server.start_server(0).await?;
     let url = format!("ws://127.0.0.1:{}", port);
 
-    client1.connect_peer(&url, false).await?;
+    client1.connect_peer(&url, false, None).await?;
     wait_until_async(Duration::from_secs(2), || async {
         client1.get_snapshot().await.state == ConnectionState::Connected
     })
     .await?;
 
-    client2.connect_peer(&url, false).await?;
+    let pair_secret = loop {
+        let ev = tokio::time::timeout(Duration::from_secs(2), client1_events.recv()).await??;
+        if let CoreEvent::Paired { device_id, pair_secret } = ev {
+            if device_id == "server" {
+                break pair_secret;
+            }
+        }
+    };
+
+    client2
+        .set_trusted_device_pair_secret("server", &pair_secret)
+        .await;
+
+    client2.connect_peer(&url, false, None).await?;
     wait_until_async(Duration::from_secs(2), || async {
         client2.get_snapshot().await.state == ConnectionState::Connected
     })
     .await?;
 
-    wait_until_async(Duration::from_secs(2), || async {
+    wait_until_async(Duration::from_secs(5), || async {
         client1.get_snapshot().await.state == ConnectionState::Disconnected
     })
     .await?;
@@ -266,7 +281,7 @@ async fn disconnect_detected() -> AnyResult<()> {
 
     let port = server.start_server(0).await?;
     client
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
 
     wait_until_async(Duration::from_secs(2), || async {
@@ -296,7 +311,7 @@ async fn reconnect_after_disconnect() -> AnyResult<()> {
     let port = server.start_server(0).await?;
     let url = format!("ws://127.0.0.1:{}", port);
 
-    client.connect_peer(&url, false).await?;
+    client.connect_peer(&url, false, None).await?;
 
     wait_until_async(Duration::from_secs(2), || async {
         client.get_snapshot().await.state == ConnectionState::Connected
@@ -306,7 +321,7 @@ async fn reconnect_after_disconnect() -> AnyResult<()> {
     client.set_enabled(false).await;
     client.set_enabled(true).await;
 
-    client.connect_peer(&url, false).await?;
+    client.connect_peer(&url, false, None).await?;
 
     wait_until_async(Duration::from_secs(2), || async {
         client.get_snapshot().await.state == ConnectionState::Connected

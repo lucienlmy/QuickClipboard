@@ -4,6 +4,53 @@ use lan_sync_core::{ClipboardRecord, ConnectionState, CoreEvent, LanSyncConfig, 
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+async fn recv_remote_record(
+    events: &mut tokio::sync::broadcast::Receiver<CoreEvent>,
+    timeout_dur: Duration,
+) -> AnyResult<ClipboardRecord> {
+    let start = std::time::Instant::now();
+    loop {
+        let left = timeout_dur
+            .checked_sub(start.elapsed())
+            .unwrap_or(Duration::from_millis(0));
+        if left.is_zero() {
+            return Err("超时".into());
+        }
+
+        let ev = tokio::time::timeout(left, events.recv()).await??;
+        if let CoreEvent::RemoteClipboardRecord { record } = ev {
+            return Ok(record);
+        }
+    }
+}
+
+async fn ensure_no_remote_record(
+    events: &mut tokio::sync::broadcast::Receiver<CoreEvent>,
+    timeout_dur: Duration,
+) -> AnyResult<()> {
+    let start = std::time::Instant::now();
+    loop {
+        let left = timeout_dur
+            .checked_sub(start.elapsed())
+            .unwrap_or(Duration::from_millis(0));
+        if left.is_zero() {
+            return Ok(());
+        }
+
+        let recv_res = tokio::time::timeout(left, events.recv()).await;
+        match recv_res {
+            Ok(Ok(CoreEvent::RemoteClipboardRecord { .. })) => {
+                return Err("不应收到回环/广播".into());
+            }
+            Ok(Ok(_)) => {
+                // 忽略其它事件
+            }
+            Ok(Err(e)) => return Err(e.into()),
+            Err(_) => return Ok(()),
+        }
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn record_roundtrip_text() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
@@ -21,7 +68,7 @@ async fn record_roundtrip_text() -> AnyResult<()> {
     });
     client.set_enabled(true).await;
     client
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
 
     let start = std::time::Instant::now();
@@ -51,14 +98,9 @@ async fn record_roundtrip_text() -> AnyResult<()> {
     };
     client.send_clipboard_record(rec.clone()).await?;
 
-    let ev = tokio::time::timeout(Duration::from_secs(2), server_events.recv()).await??;
-    match ev {
-        CoreEvent::RemoteClipboardRecord { record } => {
-            if record.uuid != rec.uuid || record.content != rec.content {
-                return Err("收到的记录不一致".into());
-            }
-        }
-        _ => return Err("收到的事件类型不正确".into()),
+    let record = recv_remote_record(&mut server_events, Duration::from_secs(2)).await?;
+    if record.uuid != rec.uuid || record.content != rec.content {
+        return Err("收到的记录不一致".into());
     }
 
     Ok(())
@@ -87,8 +129,8 @@ async fn client_to_server_is_forwarded_to_others() -> AnyResult<()> {
     let mut ev1 = c1.subscribe().await;
     let mut ev2 = c2.subscribe().await;
 
-    c1.connect_peer(&format!("ws://127.0.0.1:{}", port), false).await?;
-    c2.connect_peer(&format!("ws://127.0.0.1:{}", port), false).await?;
+    c1.connect_peer(&format!("ws://127.0.0.1:{}", port), false, None).await?;
+    c2.connect_peer(&format!("ws://127.0.0.1:{}", port), false, None).await?;
 
     let start = std::time::Instant::now();
     loop {
@@ -120,20 +162,12 @@ async fn client_to_server_is_forwarded_to_others() -> AnyResult<()> {
 
     c1.send_clipboard_record(rec.clone()).await?;
 
-    let got2 = tokio::time::timeout(Duration::from_secs(2), ev2.recv()).await??;
-    match got2 {
-        CoreEvent::RemoteClipboardRecord { record } => {
-            if record.uuid != rec.uuid || record.content != rec.content {
-                return Err("收到的记录不一致".into());
-            }
-        }
-        _ => return Err("收到的事件类型不正确".into()),
+    let record2 = recv_remote_record(&mut ev2, Duration::from_secs(2)).await?;
+    if record2.uuid != rec.uuid || record2.content != rec.content {
+        return Err("收到的记录不一致".into());
     }
 
-    let got1 = tokio::time::timeout(Duration::from_millis(200), ev1.recv()).await;
-    if got1.is_ok() {
-        return Err("发送端不应收到回环".into());
-    }
+    ensure_no_remote_record(&mut ev1, Duration::from_millis(200)).await?;
 
     Ok(())
 }
@@ -160,8 +194,8 @@ async fn server_broadcast_excluding_source() -> AnyResult<()> {
     let mut ev1 = c1.subscribe().await;
     let mut ev2 = c2.subscribe().await;
 
-    c1.connect_peer(&format!("ws://127.0.0.1:{}", port), false).await?;
-    c2.connect_peer(&format!("ws://127.0.0.1:{}", port), false).await?;
+    c1.connect_peer(&format!("ws://127.0.0.1:{}", port), false, None).await?;
+    c2.connect_peer(&format!("ws://127.0.0.1:{}", port), false, None).await?;
 
     let start = std::time::Instant::now();
     loop {
@@ -200,20 +234,12 @@ async fn server_broadcast_excluding_source() -> AnyResult<()> {
         .broadcast_clipboard_record_excluding(rec.clone(), Some("c1"))
         .await?;
 
-    let got2 = tokio::time::timeout(Duration::from_secs(2), ev2.recv()).await??;
-    match got2 {
-        CoreEvent::RemoteClipboardRecord { record } => {
-            if record.uuid != rec.uuid || record.content != rec.content {
-                return Err("收到的记录不一致".into());
-            }
-        }
-        _ => return Err("收到的事件类型不正确".into()),
+    let record2 = recv_remote_record(&mut ev2, Duration::from_secs(2)).await?;
+    if record2.uuid != rec.uuid || record2.content != rec.content {
+        return Err("收到的记录不一致".into());
     }
 
-    let got1 = tokio::time::timeout(Duration::from_millis(200), ev1.recv()).await;
-    if got1.is_ok() {
-        return Err("来源端不应收到广播".into());
-    }
+    ensure_no_remote_record(&mut ev1, Duration::from_millis(200)).await?;
 
     Ok(())
 }
@@ -241,10 +267,10 @@ async fn server_broadcast_to_two_clients() -> AnyResult<()> {
     let mut ev2 = client2.subscribe().await;
 
     client1
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
     client2
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
 
     let start = std::time::Instant::now();
@@ -282,23 +308,13 @@ async fn server_broadcast_to_two_clients() -> AnyResult<()> {
     };
     server.broadcast_clipboard_record(rec.clone()).await?;
 
-    let got1 = tokio::time::timeout(Duration::from_secs(2), ev1.recv()).await??;
-    let got2 = tokio::time::timeout(Duration::from_secs(2), ev2.recv()).await??;
-
-    let check = |ev: CoreEvent| -> AnyResult<()> {
-        match ev {
-            CoreEvent::RemoteClipboardRecord { record } => {
-                if record.uuid != rec.uuid || record.content != rec.content {
-                    return Err("收到的记录不一致".into());
-                }
-                Ok(())
-            }
-            _ => Err("收到的事件类型不正确".into()),
+    let record1 = recv_remote_record(&mut ev1, Duration::from_secs(2)).await?;
+    let record2 = recv_remote_record(&mut ev2, Duration::from_secs(2)).await?;
+    for record in [record1, record2] {
+        if record.uuid != rec.uuid || record.content != rec.content {
+            return Err("收到的记录不一致".into());
         }
-    };
-
-    check(got1)?;
-    check(got2)?;
+    }
 
     Ok(())
 }
@@ -320,7 +336,7 @@ async fn server_broadcast_to_client() -> AnyResult<()> {
     let mut client_events = client.subscribe().await;
 
     client
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
 
     let start = std::time::Instant::now();
@@ -357,14 +373,9 @@ async fn server_broadcast_to_client() -> AnyResult<()> {
     };
     server.broadcast_clipboard_record(rec.clone()).await?;
 
-    let ev = tokio::time::timeout(Duration::from_secs(2), client_events.recv()).await??;
-    match ev {
-        CoreEvent::RemoteClipboardRecord { record } => {
-            if record.uuid != rec.uuid || record.content != rec.content {
-                return Err("收到的记录不一致".into());
-            }
-        }
-        _ => return Err("收到的事件类型不正确".into()),
+    let record = recv_remote_record(&mut client_events, Duration::from_secs(2)).await?;
+    if record.uuid != rec.uuid || record.content != rec.content {
+        return Err("收到的记录不一致".into());
     }
 
     Ok(())
@@ -403,7 +414,7 @@ async fn record_queue_flush_on_connect() -> AnyResult<()> {
     client.send_clipboard_record(rec.clone()).await?;
 
     client
-        .connect_peer(&format!("ws://127.0.0.1:{}", port), false)
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
         .await?;
 
     let start = std::time::Instant::now();
@@ -417,14 +428,9 @@ async fn record_queue_flush_on_connect() -> AnyResult<()> {
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
 
-    let ev = tokio::time::timeout(Duration::from_secs(2), server_events.recv()).await??;
-    match ev {
-        CoreEvent::RemoteClipboardRecord { record } => {
-            if record.uuid != rec.uuid || record.content != rec.content {
-                return Err("收到的记录不一致".into());
-            }
-        }
-        _ => return Err("收到的事件类型不正确".into()),
+    let record = recv_remote_record(&mut server_events, Duration::from_secs(2)).await?;
+    if record.uuid != rec.uuid || record.content != rec.content {
+        return Err("收到的记录不一致".into());
     }
 
     Ok(())
