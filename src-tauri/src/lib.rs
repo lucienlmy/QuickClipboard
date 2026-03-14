@@ -321,10 +321,11 @@ pub fn run() {
                 utils::init_screen_utils(app.handle().clone());
                 hotkey::init_hotkey_manager(app.handle().clone(), window.clone());
                 input_monitor::init_input_monitor(window.clone());
+                #[cfg(target_os = "windows")]
+                services::system::raw_input::start_raw_input_if_needed();
                 init_edge_monitor(window.clone());
                 setup_tray(app.handle())?;
                 hotkey::reload_from_settings()?;
-                input_monitor::start_monitoring();
                 windows::plugins::context_menu::init();
                 windows::plugins::input_dialog::init();
                 quickpaste::init_quickpaste_state();

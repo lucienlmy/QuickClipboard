@@ -1,24 +1,40 @@
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use rdev::{grab, Event, EventType, Key};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
-use std::collections::HashMap;
 use tauri::{Emitter, Manager, WebviewWindow};
 
-static MAIN_WINDOW: Mutex<Option<WebviewWindow>> = Mutex::new(None);
-static MONITORING_ACTIVE: AtomicBool = AtomicBool::new(false);
-static MONITORING_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
+use super::input_common;
 
-static NAVIGATION_KEYS_ENABLED: AtomicBool = AtomicBool::new(false);
-static MOUSE_MONITORING_ENABLED: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "windows")]
+use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_LCONTROL, VK_RCONTROL, VK_MENU, VK_LMENU, VK_RMENU, VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_LWIN, VK_RWIN};
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::WindowsAndMessaging::{
+    CallNextHookEx, DispatchMessageW, GetMessageW, PostThreadMessageW, SetWindowsHookExW, TranslateMessage,
+    UnhookWindowsHookEx, KBDLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN,
+    WM_SYSKEYUP,
+};
+
+#[cfg(target_os = "windows")]
+static KEYBOARD_HOOK_ACTIVE: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "windows")]
+static KEYBOARD_HOOK_THREAD_ID: AtomicU32 = AtomicU32::new(0);
+#[cfg(target_os = "windows")]
+static KEYBOARD_HOOK_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
+
+#[cfg(target_os = "windows")]
+static QUICKPASTE_HIDE_TRIGGERED: AtomicBool = AtomicBool::new(false);
+
 static QUICKPASTE_KEYBOARD_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
 
-// 中键按下时间记录
-static MIDDLE_BUTTON_PRESS_TIME: Mutex<Option<Instant>> = Mutex::new(None);
-// 长按是否已触发标记
-static LONG_PRESS_TRIGGERED: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "windows")]
+static QUICKPASTE_REQUIRED_MODIFIER_MASK: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+static NAVIGATION_KEYS_ENABLED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Default)]
 struct KeyboardState {
@@ -26,6 +42,48 @@ struct KeyboardState {
     alt: bool,
     shift: bool,
     meta: bool,
+}
+
+#[cfg(target_os = "windows")]
+fn get_modifier_keys_state_from_os() -> (bool, bool, bool, bool) {
+    unsafe {
+        let ctrl = (GetAsyncKeyState(VK_CONTROL.0 as i32) as u16 & 0x8000) != 0;
+        let alt = (GetAsyncKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0;
+        let shift = (GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0;
+        let meta = (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000) != 0
+            || (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000) != 0;
+        (ctrl, alt, shift, meta)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn refresh_modifier_state_from_os() -> (bool, bool, bool, bool) {
+    let (ctrl, alt, shift, meta) = get_modifier_keys_state_from_os();
+    {
+        let mut state = KEYBOARD_STATE.lock();
+        state.ctrl = ctrl;
+        state.alt = alt;
+        state.shift = shift;
+        state.meta = meta;
+    }
+    (ctrl, alt, shift, meta)
+}
+
+#[cfg(target_os = "windows")]
+fn modifier_mask_from_vk(vk: u32) -> u8 {
+    if vk == VK_CONTROL.0 as u32 || vk == VK_LCONTROL.0 as u32 || vk == VK_RCONTROL.0 as u32 {
+        return 0x01;
+    }
+    if vk == VK_MENU.0 as u32 || vk == VK_LMENU.0 as u32 || vk == VK_RMENU.0 as u32 {
+        return 0x02;
+    }
+    if vk == VK_SHIFT.0 as u32 || vk == VK_LSHIFT.0 as u32 || vk == VK_RSHIFT.0 as u32 {
+        return 0x04;
+    }
+    if vk == VK_LWIN.0 as u32 || vk == VK_RWIN.0 as u32 {
+        return 0x08;
+    }
+    0
 }
 
 static KEYBOARD_STATE: Mutex<KeyboardState> = Mutex::new(KeyboardState {
@@ -36,6 +94,8 @@ static KEYBOARD_STATE: Mutex<KeyboardState> = Mutex::new(KeyboardState {
 });
 
 static THROTTLE_STATE: Lazy<Mutex<HashMap<String, Instant>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+static CONSUMED_KEYS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
 fn get_throttle_delay(action: &str) -> Option<Duration> {
     match action {
@@ -48,219 +108,125 @@ fn get_throttle_delay(action: &str) -> Option<Duration> {
 }
 
 pub fn init_input_monitor(window: WebviewWindow) {
-    *MAIN_WINDOW.lock() = Some(window);
+    input_common::set_main_window(window);
 }
 
 pub fn update_main_window(window: WebviewWindow) {
-    *MAIN_WINDOW.lock() = Some(window);
-}
-
-pub fn start_monitoring() {
-    if MONITORING_ACTIVE.load(Ordering::SeqCst) {
-        return;
-    }
-
-    MONITORING_ACTIVE.store(true, Ordering::SeqCst);
-
-    let handle = thread::spawn(|| {
-        if let Err(error) = grab(move |event| {
-            if !MONITORING_ACTIVE.load(Ordering::SeqCst) {
-                return Some(event);
-            }
-            
-            handle_input_event(event)
-        }) {
-            eprintln!("输入监控错误: {:?}", error);
-        }
-    });
-
-    *MONITORING_THREAD.lock() = Some(handle);
-}
-
-pub fn stop_monitoring() {
-    MONITORING_ACTIVE.store(false, Ordering::SeqCst);
-}
-
-pub fn is_monitoring_active() -> bool {
-    MONITORING_ACTIVE.load(Ordering::SeqCst)
+    input_common::set_main_window(window);
 }
 
 pub fn enable_navigation_keys() {
     NAVIGATION_KEYS_ENABLED.store(true, Ordering::SeqCst);
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = refresh_modifier_state_from_os();
+        start_keyboard_hook_if_needed();
+    }
 }
 
 pub fn disable_navigation_keys() {
     NAVIGATION_KEYS_ENABLED.store(false, Ordering::SeqCst);
-}
 
-pub fn is_navigation_keys_enabled() -> bool {
-    NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst)
+    #[cfg(target_os = "windows")]
+    stop_keyboard_hook_if_needed();
 }
 
 pub fn enable_mouse_monitoring() {
-    MOUSE_MONITORING_ENABLED.store(true, Ordering::Relaxed);
+    input_common::set_mouse_monitoring_enabled(true);
 }
 
 pub fn disable_mouse_monitoring() {
-    MOUSE_MONITORING_ENABLED.store(false, Ordering::Relaxed);
+    input_common::set_mouse_monitoring_enabled(false);
 }
 
 pub fn is_mouse_monitoring_enabled() -> bool {
-    MOUSE_MONITORING_ENABLED.load(Ordering::Relaxed)
+    input_common::is_mouse_monitoring_enabled()
 }
 
 pub fn enable_quickpaste_keyboard_mode() {
-    QUICKPASTE_KEYBOARD_MODE_ENABLED.store(true, Ordering::SeqCst);
+    let settings = crate::get_settings();
+    if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
+        #[cfg(target_os = "windows")]
+        {
+            QUICKPASTE_KEYBOARD_MODE_ENABLED.store(false, Ordering::SeqCst);
+            QUICKPASTE_REQUIRED_MODIFIER_MASK.store(0, Ordering::Relaxed);
+            QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
+            stop_keyboard_hook_if_needed();
+        }
+        return;
+    }
+
+    let shortcut = settings.quickpaste_shortcut;
+    let mut mask: u8 = 0;
+    for part in shortcut.split('+') {
+        match part.trim() {
+            "Ctrl" | "Control" => mask |= 0x01,
+            "Alt" => mask |= 0x02,
+            "Shift" => mask |= 0x04,
+            "Win" | "Super" | "Meta" | "Cmd" | "Command" => mask |= 0x08,
+            _ => {}
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        QUICKPASTE_KEYBOARD_MODE_ENABLED.store(true, Ordering::SeqCst);
+        QUICKPASTE_REQUIRED_MODIFIER_MASK.store(mask, Ordering::Relaxed);
+        QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
+
+        // 按需安装钩子时，Ctrl 等修饰键可能在钩子安装前就已经按下（用于触发显示快捷键）。
+        // 若不初始化状态，释放其它修饰键会导致误判为“全部松开”。
+        {
+            let mut state = KEYBOARD_STATE.lock();
+            unsafe {
+                state.ctrl = (GetAsyncKeyState(VK_CONTROL.0 as i32) as u16 & 0x8000) != 0;
+                state.alt = (GetAsyncKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0;
+                state.shift = (GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0;
+                state.meta = (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000) != 0
+                    || (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000) != 0;
+            }
+        }
+
+        start_keyboard_hook_if_needed();
+    }
 }
 
 pub fn disable_quickpaste_keyboard_mode() {
-    QUICKPASTE_KEYBOARD_MODE_ENABLED.store(false, Ordering::SeqCst);
-}
-
-pub fn is_quickpaste_keyboard_mode_enabled() -> bool {
-    QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst)
+    #[cfg(target_os = "windows")]
+    {
+        QUICKPASTE_KEYBOARD_MODE_ENABLED.store(false, Ordering::SeqCst);
+        QUICKPASTE_REQUIRED_MODIFIER_MASK.store(0, Ordering::Relaxed);
+        QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
+        stop_keyboard_hook_if_needed();
+    }
 }
 
 pub fn get_modifier_keys_state() -> (bool, bool, bool, bool) {
-    let state = KEYBOARD_STATE.lock();
-    (state.ctrl, state.alt, state.shift, state.meta)
-}
+    #[cfg(target_os = "windows")]
+    {
+        unsafe {
+            let ctrl = (GetAsyncKeyState(VK_CONTROL.0 as i32) as u16 & 0x8000) != 0;
+            let alt = (GetAsyncKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0;
+            let shift = (GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0;
+            let meta = (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000) != 0
+                || (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000) != 0;
+            (ctrl, alt, shift, meta)
+        }
+    }
 
-fn handle_input_event(event: Event) -> Option<Event> {
-    match event.event_type {
-        EventType::KeyPress(key) => {
-            if handle_key_press(key, &event) {
-                None
-            } else {
-                Some(event)
-            }
-        }
-        EventType::KeyRelease(key) => {
-            handle_key_release(key);
-            Some(event)
-        }
-        EventType::ButtonPress(button) => {
-            handle_mouse_button_press(button);
-            Some(event)
-        }
-        EventType::ButtonRelease(button) => {
-            handle_mouse_button_release(button);
-            Some(event)
-        }
-        EventType::MouseMove { x, y } => {
-            handle_mouse_move(x, y);
-            Some(event)
-        }
-        EventType::Wheel { delta_y, .. } => {
-            handle_wheel_event(delta_y);
-            Some(event)
-        }
-    }
-}
-
-fn handle_key_press(key: Key, _event: &Event) -> bool {
-    update_modifier_key(key, true);
-    if QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) {
-        if handle_quickpaste_key_press(key) {
-            return true;
-        }
-    }
-    
-    // Ctrl+V 粘贴音效
-    if matches!(key, Key::KeyV) {
-        if let Some(state) = KEYBOARD_STATE.try_lock() {
-            if state.ctrl && !state.alt && !state.shift && !state.meta {
-                crate::AppSounds::play_paste_immediate();
-            }
-        }
-    }
-    
-    // Shift+Insert 粘贴音效
-    if matches!(key, Key::Insert) {
-        if let Some(state) = KEYBOARD_STATE.try_lock() {
-            if state.shift && !state.ctrl && !state.alt && !state.meta {
-                crate::AppSounds::play_paste_immediate();
-            }
-        }
-    }
-    
-    if NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst) {
-        return handle_navigation_key(key);
-    }
-    
-    false
-}
-
-fn handle_key_release(key: Key) {
-    update_modifier_key(key, false);
-    
-    if QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) {
-        handle_quickpaste_key_release(key);
-    }
-}
-
-fn handle_quickpaste_key_press(key: Key) -> bool {
-    let is_modifier = matches!(
-        key,
-        Key::ControlLeft | Key::ControlRight |
-        Key::Alt | Key::AltGr |
-        Key::ShiftLeft | Key::ShiftRight |
-        Key::MetaLeft | Key::MetaRight
-    );
-    
-    if !is_modifier {
-        if let Some(window) = MAIN_WINDOW.lock().as_ref() {
-            if let Some(qp_window) = window.app_handle().get_webview_window("quickpaste") {
-                let _ = qp_window.emit("quickpaste-next", ());
-            }
-        }
-        return true;
-    }
-    
-    false
-}
-
-fn handle_quickpaste_key_release(key: Key) {
-    let is_modifier = matches!(
-        key,
-        Key::ControlLeft | Key::ControlRight |
-        Key::Alt | Key::AltGr |
-        Key::ShiftLeft | Key::ShiftRight |
-        Key::MetaLeft | Key::MetaRight
-    );
-    
-    if is_modifier {
+    #[cfg(not(target_os = "windows"))]
+    {
         let state = KEYBOARD_STATE.lock();
-        let all_modifiers_released = !state.ctrl && !state.alt && !state.shift && !state.meta;
-        drop(state);
-        
-        if all_modifiers_released {
-            if let Some(window) = MAIN_WINDOW.lock().as_ref() {
-                if let Some(qp_window) = window.app_handle().get_webview_window("quickpaste") {
-                    let _ = qp_window.emit("quickpaste-hide", ());
-                }
-                let app = window.app_handle().clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_millis(50));
-                    let _ = crate::windows::quickpaste::hide_quickpaste_window(&app);
-                });
-            }
-        }
+        (state.ctrl, state.alt, state.shift, state.meta)
     }
 }
 
-fn update_modifier_key(key: Key, pressed: bool) {
-    let mut state = KEYBOARD_STATE.lock();
-    match key {
-        Key::ControlLeft | Key::ControlRight => state.ctrl = pressed,
-        Key::Alt | Key::AltGr => state.alt = pressed,
-        Key::ShiftLeft | Key::ShiftRight => state.shift = pressed,
-        Key::MetaLeft | Key::MetaRight => state.meta = pressed,
-        _ => {}
-    }
-}
+fn handle_navigation_key(vk: u32) -> bool {
+    #[cfg(target_os = "windows")]
+    let modifier_state = refresh_modifier_state_from_os();
 
-fn handle_navigation_key(key: Key) -> bool {
+    #[cfg(not(target_os = "windows"))]
     let modifier_state = match KEYBOARD_STATE.try_lock() {
         Some(state) => (state.ctrl, state.alt, state.shift, state.meta),
         None => return false,
@@ -269,9 +235,9 @@ fn handle_navigation_key(key: Key) -> bool {
     if crate::services::system::is_front_app_globally_disabled_from_settings() {
         return false;
     }
-    
+
     let settings = crate::get_settings();
-    
+
     let shortcuts = [
         (&settings.navigate_up_shortcut, "navigate-up"),
         (&settings.navigate_down_shortcut, "navigate-down"),
@@ -286,35 +252,28 @@ fn handle_navigation_key(key: Key) -> bool {
     ];
 
     for (shortcut_str, action) in shortcuts {
-        if check_shortcut_match_fast(key, shortcut_str, modifier_state) {
+        if check_shortcut_match_fast(vk, shortcut_str, modifier_state) {
             if should_throttle(action) {
                 return true;
             }
-            
-            if let Some(window) = MAIN_WINDOW.try_lock().and_then(|w| w.as_ref().cloned()) {
-                let _ = window.emit(
-                    "navigation-action",
-                    serde_json::json!({
-                        "action": action
-                    }),
-                );
-            }
+
+            emit_navigation_action(action);
             return true;
         }
     }
-    false 
+    false
 }
 
-fn check_shortcut_match_fast(key: Key, shortcut_str: &str, modifier_state: (bool, bool, bool, bool)) -> bool {
+fn check_shortcut_match_fast(vk: u32, shortcut_str: &str, modifier_state: (bool, bool, bool, bool)) -> bool {
     let (ctrl, alt, shift, meta) = modifier_state;
     let parts: Vec<&str> = shortcut_str.split('+').collect();
-    
+
     let mut required_ctrl = false;
     let mut required_alt = false;
     let mut required_shift = false;
     let mut required_meta = false;
     let mut main_key = "";
-    
+
     for part in &parts {
         match part.trim() {
             "Ctrl" | "Control" => required_ctrl = true,
@@ -328,8 +287,8 @@ fn check_shortcut_match_fast(key: Key, shortcut_str: &str, modifier_state: (bool
     if ctrl != required_ctrl || alt != required_alt || shift != required_shift || meta != required_meta {
         return false;
     }
-    
-    match_key(key, main_key)
+
+    match_key(vk, main_key)
 }
 
 fn should_throttle(action: &str) -> bool {
@@ -342,243 +301,301 @@ fn should_throttle(action: &str) -> bool {
         Some(state) => state,
         None => return false,
     };
-    
+
     let now = Instant::now();
-    
+
     if let Some(last_time) = throttle_state.get(action) {
         if now.duration_since(*last_time) < delay {
             return true;
         }
     }
-    
+
     throttle_state.insert(action.to_string(), now);
     false
 }
 
-fn match_key(key: Key, key_str: &str) -> bool {
-    use Key::*;
-    
-    let target_key = match key_str {
+fn match_key(vk: u32, key_str: &str) -> bool {
+    let target_vk: u32 = match key_str {
         // 方向键
-        "ArrowUp" | "Up" => UpArrow,
-        "ArrowDown" | "Down" => DownArrow,
-        "ArrowLeft" | "Left" => LeftArrow,
-        "ArrowRight" | "Right" => RightArrow,
+        "ArrowUp" | "Up" => 0x26,
+        "ArrowDown" | "Down" => 0x28,
+        "ArrowLeft" | "Left" => 0x25,
+        "ArrowRight" | "Right" => 0x27,
         // 特殊键
-        "Enter" | "Return" => Return,
-        "Escape" | "Esc" => Escape,
-        "Tab" => Tab,
-        "Space" => Space,
-        "Backspace" => Backspace,
-        "Delete" => Delete,
-        "Home" => Home,
-        "End" => End,
-        "PageUp" => PageUp,
-        "PageDown" => PageDown,
+        "Enter" | "Return" => 0x0D,
+        "Escape" | "Esc" => 0x1B,
+        "Tab" => 0x09,
+        "Space" => 0x20,
+        "Backspace" => 0x08,
+        "Delete" => 0x2E,
+        "Home" => 0x24,
+        "End" => 0x23,
+        "PageUp" => 0x21,
+        "PageDown" => 0x22,
+        "Insert" => 0x2D,
         // 字母键 A-Z
-        "A" => KeyA, "B" => KeyB, "C" => KeyC, "D" => KeyD, "E" => KeyE,
-        "F" => KeyF, "G" => KeyG, "H" => KeyH, "I" => KeyI, "J" => KeyJ,
-        "K" => KeyK, "L" => KeyL, "M" => KeyM, "N" => KeyN, "O" => KeyO,
-        "P" => KeyP, "Q" => KeyQ, "R" => KeyR, "S" => KeyS, "T" => KeyT,
-        "U" => KeyU, "V" => KeyV, "W" => KeyW, "X" => KeyX, "Y" => KeyY, "Z" => KeyZ,
+        "A" => 0x41,
+        "B" => 0x42,
+        "C" => 0x43,
+        "D" => 0x44,
+        "E" => 0x45,
+        "F" => 0x46,
+        "G" => 0x47,
+        "H" => 0x48,
+        "I" => 0x49,
+        "J" => 0x4A,
+        "K" => 0x4B,
+        "L" => 0x4C,
+        "M" => 0x4D,
+        "N" => 0x4E,
+        "O" => 0x4F,
+        "P" => 0x50,
+        "Q" => 0x51,
+        "R" => 0x52,
+        "S" => 0x53,
+        "T" => 0x54,
+        "U" => 0x55,
+        "V" => 0x56,
+        "W" => 0x57,
+        "X" => 0x58,
+        "Y" => 0x59,
+        "Z" => 0x5A,
         // 数字键 0-9
-        "0" => Num0, "1" => Num1, "2" => Num2, "3" => Num3, "4" => Num4,
-        "5" => Num5, "6" => Num6, "7" => Num7, "8" => Num8, "9" => Num9,
+        "0" => 0x30,
+        "1" => 0x31,
+        "2" => 0x32,
+        "3" => 0x33,
+        "4" => 0x34,
+        "5" => 0x35,
+        "6" => 0x36,
+        "7" => 0x37,
+        "8" => 0x38,
+        "9" => 0x39,
         // 功能键 F1-F12
-        "F1" => F1, "F2" => F2, "F3" => F3, "F4" => F4,
-        "F5" => F5, "F6" => F6, "F7" => F7, "F8" => F8,
-        "F9" => F9, "F10" => F10, "F11" => F11, "F12" => F12,
+        "F1" => 0x70,
+        "F2" => 0x71,
+        "F3" => 0x72,
+        "F4" => 0x73,
+        "F5" => 0x74,
+        "F6" => 0x75,
+        "F7" => 0x76,
+        "F8" => 0x77,
+        "F9" => 0x78,
+        "F10" => 0x79,
+        "F11" => 0x7A,
+        "F12" => 0x7B,
         _ => return false,
     };
-    
-    std::mem::discriminant(&key) == std::mem::discriminant(&target_key)
+
+    vk == target_vk
 }
 
-fn handle_mouse_button_press(button: rdev::Button) {
-    let settings = crate::get_settings();
-    
-    // 处理中键按下
-    if button == rdev::Button::Middle && settings.mouse_middle_button_enabled {
-        if settings.mouse_middle_button_modifier == "None" {
-            *MIDDLE_BUTTON_PRESS_TIME.lock() = Some(Instant::now());
-            LONG_PRESS_TRIGGERED.store(false, Ordering::SeqCst);
-            
-            if settings.mouse_middle_button_trigger == "long_press" {
-                let threshold_ms = settings.mouse_middle_button_long_press_ms;
-                thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(threshold_ms as u64));
-                    
-                    if MIDDLE_BUTTON_PRESS_TIME.lock().is_some() {
-                        LONG_PRESS_TRIGGERED.store(true, Ordering::SeqCst);
-                        handle_middle_button_action();
-                    }
-                });
-            }
-            return;
-        }
+fn emit_navigation_action(action: &str) {
+    if let Some(window) = input_common::try_get_main_window() {
+        let _ = window.emit(
+            "navigation-action",
+            serde_json::json!({
+                "action": action
+            }),
+        );
     }
-    
-    let mouse_monitoring_enabled = MOUSE_MONITORING_ENABLED.load(Ordering::Relaxed);
-    let context_menu_visible = crate::is_context_menu_visible();
-    
-    if !mouse_monitoring_enabled && !context_menu_visible {
+}
+
+fn handle_quickpaste_next_request_impl() {
+    let settings = crate::get_settings();
+    if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
         return;
     }
 
-    if matches!(button, rdev::Button::Left | rdev::Button::Right) {
-        handle_click_outside();
-    }
-}
-
-fn handle_mouse_button_release(button: rdev::Button) {
-    let settings = crate::get_settings();
-    
-    if button == rdev::Button::Middle && settings.mouse_middle_button_enabled {
-        if settings.mouse_middle_button_modifier != "None" {
-            handle_middle_button_action();
-            return;
-        }
-        
-        let press_time = MIDDLE_BUTTON_PRESS_TIME.lock().take();
-        
-        if settings.mouse_middle_button_trigger == "short_press" {
-            if let Some(start) = press_time {
-                let duration = start.elapsed();
-                let threshold = Duration::from_millis(settings.mouse_middle_button_long_press_ms as u64);
-                if duration < threshold {
-                    handle_middle_button_action();
-                }
-            }
-        }
-    }
-}
-
-fn handle_mouse_move(x: f64, y: f64) {
-    crate::mouse::update_cursor_position(x, y);
-}
-
-static LAST_WHEEL_TIME: Mutex<Option<Instant>> = Mutex::new(None);
-const WHEEL_THROTTLE_MS: u64 = 30;
-
-// 滚轮状态
-static SCROLL_DIRECTION: Mutex<i8> = Mutex::new(0); 
-pub fn get_scroll_direction() -> i8 {
-    *SCROLL_DIRECTION.lock()
-}
-
-// 重置滚轮方向状态
-pub fn reset_scroll_direction() {
-    *SCROLL_DIRECTION.lock() = 0;
-}
-
-fn handle_wheel_event(delta_y: i64) {
-    let dir = if delta_y > 0 { 1 } else if delta_y < 0 { -1 } else { 0 };
-    *SCROLL_DIRECTION.lock() = dir;
-
-    #[cfg(feature = "screenshot-suite")]
-    screenshot_suite::set_scroll_direction(dir);
-
-    use crate::windows::tray::{is_menu_visible, scroll_page};
-
-    if !is_menu_visible() {
+    if !crate::windows::quickpaste::is_visible() {
         return;
     }
 
+    if let Some(app) = input_common::try_get_app_handle() {
+        if let Some(window) = app.get_webview_window("quickpaste") {
+            let _ = window.emit("quickpaste-next", ());
+        }
+    }
+}
+
+fn handle_quickpaste_hide_request_impl() {
+    let settings = crate::get_settings();
+    if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
+        return;
+    }
+
+    if !crate::windows::quickpaste::is_visible() {
+        return;
+    }
+
+    let app = match input_common::try_get_app_handle() {
+        Some(a) => a,
+        None => return,
+    };
+
+    if let Some(window) = app.get_webview_window("quickpaste") {
+        let _ = window.emit("quickpaste-hide", ());
+    }
+
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let _ = crate::windows::quickpaste::hide_quickpaste_window(&app);
+    });
+}
+
+#[cfg(target_os = "windows")]
+fn start_keyboard_hook_if_needed() {
+    if !NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst)
+        && !QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst)
     {
-        let mut last_time = LAST_WHEEL_TIME.lock();
-        let now = Instant::now();
-        if let Some(last) = *last_time {
-            if now.duration_since(last) < Duration::from_millis(WHEEL_THROTTLE_MS) {
+        return;
+    }
+
+    if KEYBOARD_HOOK_ACTIVE.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let handle = thread::spawn(|| unsafe {
+        let hook = match SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), None, 0) {
+            Ok(h) => h,
+            Err(_) => {
+                eprintln!("[钩子] 安装 WH_KEYBOARD_LL 失败");
+                KEYBOARD_HOOK_ACTIVE.store(false, Ordering::SeqCst);
                 return;
             }
+        };
+
+        if hook.0.is_null() {
+            eprintln!("[钩子] 安装 WH_KEYBOARD_LL 失败：hook 句柄为空");
+            KEYBOARD_HOOK_ACTIVE.store(false, Ordering::SeqCst);
+            return;
         }
-        *last_time = Some(now);
-    }
 
-    let delta = if delta_y < 0 { 1 } else { -1 };
+        println!("[钩子] 已安装 WH_KEYBOARD_LL");
 
-    scroll_page(delta);
+        let tid = windows::Win32::System::Threading::GetCurrentThreadId();
+        KEYBOARD_HOOK_THREAD_ID.store(tid, Ordering::SeqCst);
+
+        let mut msg = MSG::default();
+        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+
+            if !KEYBOARD_HOOK_ACTIVE.load(Ordering::SeqCst) {
+                break;
+            }
+        }
+
+        let _ = UnhookWindowsHookEx(hook);
+        println!("[钩子] 已卸载 WH_KEYBOARD_LL（线程退出）");
+
+        KEYBOARD_HOOK_THREAD_ID.store(0, Ordering::SeqCst);
+        KEYBOARD_HOOK_ACTIVE.store(false, Ordering::SeqCst);
+    });
+
+    *KEYBOARD_HOOK_THREAD.lock() = Some(handle);
 }
 
-fn handle_middle_button_action() {
-    if crate::services::low_memory::is_low_memory_mode() {
+#[cfg(target_os = "windows")]
+fn stop_keyboard_hook_if_needed() {
+    if NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst)
+        || QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst)
+    {
         return;
     }
 
-    if crate::services::system::is_front_app_globally_disabled_from_settings() {
-        return;
-    }
-
-    let settings = crate::get_settings();
-    if !check_modifier_requirement(&settings.mouse_middle_button_modifier) {
-        return;
-    }
-
-    if let Some(window) = MAIN_WINDOW.lock().as_ref() {
-        crate::show_main_window(window);
+    if KEYBOARD_HOOK_ACTIVE.swap(false, Ordering::SeqCst) {
+        let tid = KEYBOARD_HOOK_THREAD_ID.load(Ordering::SeqCst);
+        if tid != 0 {
+            unsafe {
+                let _ = PostThreadMessageW(tid, WM_QUIT, WPARAM(0), LPARAM(0));
+            }
+        }
     }
 }
 
-fn check_modifier_requirement(required: &str) -> bool {
-    let (ctrl, alt, shift, _meta) = get_modifier_keys_state();
-    
-    if required == "None" || required.is_empty() {
-        return true;
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    if code < 0 {
+        return CallNextHookEx(None, code, wparam, lparam);
     }
-    
-    let parts: Vec<&str> = required.split('+').collect();
-    let need_ctrl = parts.contains(&"Ctrl");
-    let need_alt = parts.contains(&"Alt");
-    let need_shift = parts.contains(&"Shift");
-    
-    (!need_ctrl || ctrl) && (!need_alt || alt) && (!need_shift || shift)
-        && (need_ctrl || !ctrl) && (need_alt || !alt) && (need_shift || !shift)
-}
 
-// 检查鼠标是否在窗口外部
-fn is_mouse_outside_window(window: &WebviewWindow) -> bool {
-    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
-    
-    let (win_x, win_y, win_width, win_height) = match crate::get_window_bounds(window) {
-        Ok(bounds) => bounds,
-        Err(_) => return false,
-    };
-    
-    cursor_x < win_x || cursor_x > win_x + win_width as i32
-        || cursor_y < win_y || cursor_y > win_y + win_height as i32
-}
+    let msg = wparam.0 as u32;
+    if msg != WM_KEYDOWN && msg != WM_KEYUP && msg != WM_SYSKEYDOWN && msg != WM_SYSKEYUP {
+        return CallNextHookEx(None, code, wparam, lparam);
+    }
 
-// 处理点击窗口外部事件
-fn handle_click_outside() {
-    // 右键菜单
-    if crate::is_context_menu_visible() {
-        if let Some(main_window) = MAIN_WINDOW.lock().as_ref() {
-            if let Some(menu_window) = main_window.app_handle().get_webview_window("context-menu") {
-                let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
-                if menu_window.is_visible().unwrap_or(false) && !crate::windows::plugins::context_menu::is_point_in_menu_region(cursor_x, cursor_y) {
-                    let _ = menu_window.emit("close-context-menu", ());
+    let kb = *(lparam.0 as *const KBDLLHOOKSTRUCT);
+    let vk = kb.vkCode;
+
+    let pressed = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
+    update_modifier_vk(vk, pressed);
+
+    let is_modifier_vk = vk == VK_CONTROL.0 as u32
+        || vk == VK_LCONTROL.0 as u32
+        || vk == VK_RCONTROL.0 as u32
+        || vk == VK_MENU.0 as u32
+        || vk == VK_LMENU.0 as u32
+        || vk == VK_RMENU.0 as u32
+        || vk == VK_SHIFT.0 as u32
+        || vk == VK_LSHIFT.0 as u32
+        || vk == VK_RSHIFT.0 as u32
+        || vk == VK_LWIN.0 as u32
+        || vk == VK_RWIN.0 as u32;
+
+    if QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) {
+        if pressed {
+            // 便捷粘贴键盘模式下，任意非修饰键按下 => 下一条
+            if !is_modifier_vk {
+                handle_quickpaste_next_request_impl();
+                return LRESULT(1);
+            }
+        } else {
+            // 仅当释放的是“快捷键所需的修饰键”时，才检查是否全部松开
+            let required = QUICKPASTE_REQUIRED_MODIFIER_MASK.load(Ordering::Relaxed);
+            let released_mask = modifier_mask_from_vk(vk);
+            if required != 0 && is_modifier_vk && (released_mask & required) != 0 {
+                let state = KEYBOARD_STATE.lock();
+                let all_released = ((required & 0x01) == 0 || !state.ctrl)
+                    && ((required & 0x02) == 0 || !state.alt)
+                    && ((required & 0x04) == 0 || !state.shift)
+                    && ((required & 0x08) == 0 || !state.meta);
+                drop(state);
+
+                if all_released && !QUICKPASTE_HIDE_TRIGGERED.swap(true, Ordering::SeqCst) {
+                    handle_quickpaste_hide_request_impl();
                 }
             }
         }
-        return;
     }
-    
-    // 主窗口
-    if let Some(window) = MAIN_WINDOW.lock().as_ref() {
-        let state = crate::get_window_state();
 
-        if state.is_hidden {
-            return;
+    if !pressed {
+        let mut consumed = CONSUMED_KEYS.lock();
+        if consumed.remove(&vk) {
+            return LRESULT(1);
         }
+        return CallNextHookEx(None, code, wparam, lparam);
+    }
 
-        if state.is_pinned {
-            return;
+    if NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst) {
+        if handle_navigation_key(vk) {
+            CONSUMED_KEYS.lock().insert(vk);
+            return LRESULT(1);
         }
+    }
 
-        if window.is_visible().unwrap_or(false) && is_mouse_outside_window(window) {
-            let _ = crate::check_snap(window);
-            crate::hide_main_window(window);
-        }
+    CallNextHookEx(None, code, wparam, lparam)
+}
+
+#[cfg(target_os = "windows")]
+fn update_modifier_vk(vk: u32, pressed: bool) {
+    let mut state = KEYBOARD_STATE.lock();
+    match vk {
+        x if x == VK_CONTROL.0 as u32 || x == VK_LCONTROL.0 as u32 || x == VK_RCONTROL.0 as u32 => state.ctrl = pressed,
+        x if x == VK_MENU.0 as u32 || x == VK_LMENU.0 as u32 || x == VK_RMENU.0 as u32 => state.alt = pressed,
+        x if x == VK_SHIFT.0 as u32 || x == VK_LSHIFT.0 as u32 || x == VK_RSHIFT.0 as u32 => state.shift = pressed,
+        x if x == VK_LWIN.0 as u32 || x == VK_RWIN.0 as u32 => state.meta = pressed,
+        _ => {}
     }
 }
 
