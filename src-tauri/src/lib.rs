@@ -505,6 +505,39 @@ pub fn run() {
                                             }
                                         }
 
+                                        if settings.lan_sync_receive_write_clipboard {
+                                            let should_write = if record.content_type == "image" {
+                                                record.image_id.as_ref().is_some_and(|image_ids| {
+                                                    if image_ids.trim().is_empty() {
+                                                        return false;
+                                                    }
+                                                    if let Ok(data_dir) = crate::services::get_data_directory() {
+                                                        for iid in image_ids.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                                                            let p = data_dir
+                                                                .join("clipboard_images")
+                                                                .join(format!("{}.png", iid));
+                                                            if !p.exists() {
+                                                                return false;
+                                                            }
+                                                        }
+                                                        return true;
+                                                    }
+                                                    false
+                                                })
+                                            } else {
+                                                true
+                                            };
+
+                                            if should_write {
+                                                let _ = crate::services::paste::set_clipboard_from_item(
+                                                    &record.content_type,
+                                                    &record.content,
+                                                    &record.html_content,
+                                                    true,
+                                                );
+                                            }
+                                        }
+
                                         use tauri::Emitter;
                                         let _ = app_handle.emit("clipboard-updated", ());
                                     }

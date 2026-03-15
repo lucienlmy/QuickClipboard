@@ -226,6 +226,8 @@
       "sendEnabledDesc": "Whether to automatically send the latest local clipboard record to other devices on the LAN",
       "receiveEnabled": "Receive",
       "receiveEnabledDesc": "Whether to accept clipboard records sent from other devices on the LAN",
+      "receiveWriteClipboard": "Write To Clipboard",
+      "receiveWriteClipboardDesc": "When enabled, received sync data will be written to the system clipboard for quick paste",
       "mode": "Mode",
       "modeDesc": "Run as server or connect to a server",
       "modeOff": "Off",

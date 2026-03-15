@@ -595,6 +595,16 @@ function StatusOverviewCard({
           </div>
         </StatusCard>
 
+        <StatusCard label={t('settings.lanSync.receiveWriteClipboard')} desc={t('settings.lanSync.receiveWriteClipboardDesc')}>
+          <div className="mt-2">
+            <Toggle
+              checked={Boolean(settings.lanSyncReceiveWriteClipboard)}
+              onChange={checked => onSettingChange('lanSyncReceiveWriteClipboard', checked)}
+              disabled={settings.lanSyncReceiveEnabled === false}
+            />
+          </div>
+        </StatusCard>
+
         <StatusCard label={t('settings.lanSync.mode')} desc={t('settings.lanSync.modeDesc')}>
           <div className="mt-2">
             <Select
