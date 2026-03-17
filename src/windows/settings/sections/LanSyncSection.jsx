@@ -516,7 +516,7 @@ function StatusOverviewCard({
   const { t } = useTranslation();
 
   return (
-    <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
+    <div className="p-1">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-6 bg-blue-500 rounded-full" />
@@ -696,7 +696,7 @@ function ServerFeatures({
   return (
     <div className="space-y-6">
       {/* 本地URL区域 */}
-      <div className="relative bg-qc-surface rounded-lg p-5 border border-qc-border">
+      <div className="relative p-1">
         <div className="flex items-center justify-between mb-4">
           <div>
             <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
@@ -803,7 +803,7 @@ function ServerFeatures({
       </div>
 
       {/* 配对码区域 */}
-      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
+      <div className="p-1">
         <div className="mb-4">
           <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
             <i className="ti ti-key text-amber-500" />
@@ -856,7 +856,7 @@ function ServerFeatures({
       </div>
 
       {/* 受信任设备区域 */}
-      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
+      <div className="p-1">
         <div className="flex items-center justify-between mb-4">
           <div>
             <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
@@ -969,7 +969,7 @@ function ClientFeatures({
   return (
     <div className="space-y-6">
       {/* 连接配置 */}
-      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
+      <div className="p-1">
         <div className="mb-4">
           <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
             <i className="ti ti-settings text-green-500" />
@@ -1017,7 +1017,7 @@ function ClientFeatures({
       </div>
 
       {/* 连接控制 */}
-      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
+      <div className="p-1">
         <div className="mb-4">
           <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
             <i className="ti ti-plug text-purple-500" />
@@ -1075,14 +1075,14 @@ function StatusBadge({ enabled, text, title, variant }) {
 
 function StatusCard({ label, desc, value, children }) {
   return (
-    <div className="group relative p-4 rounded-xl bg-qc-surface border border-qc-border transition-all hover:shadow-md hover:border-qc-border-strong">
+    <div className="group relative p-4 rounded-xl bg-qc-panel-2 border border-qc-border transition-all hover:shadow-md hover:border-qc-border-strong">
       <div className="text-xs text-qc-fg-muted pr-6 mb-2">
         {label}
       </div>
 
       {desc && (
         <div
-          className="absolute top-3 right-3 w-5 h-5 rounded-full border border-qc-border flex items-center justify-center text-[10px] text-qc-fg-muted bg-qc-surface/60 cursor-help transition-colors group-hover:border-qc-border-strong group-hover:text-qc-fg"
+          className="absolute top-3 right-3 w-5 h-5 rounded-full border border-qc-border flex items-center justify-center text-[10px] text-qc-fg-muted bg-qc-panel/70 cursor-help transition-colors group-hover:border-qc-border-strong group-hover:text-qc-fg"
           title={desc}
         >
           ?
