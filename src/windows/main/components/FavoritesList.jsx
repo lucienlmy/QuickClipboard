@@ -213,8 +213,15 @@ const FavoritesList = forwardRef(({
   }
   const rowConfig = ROW_HEIGHT_CONFIG[settings.rowHeight] || ROW_HEIGHT_CONFIG.medium;
   const isCardStyle = settings.listStyle === 'card';
-  const defaultHeight = isCardStyle ? rowConfig.cardPx : rowConfig.px;
+  const cardSpacingPx = typeof settings.cardSpacing === 'number' ? settings.cardSpacing : 12;
+  const defaultHeight = isCardStyle ? rowConfig.cardPx + cardSpacingPx : rowConfig.px;
   const heightClass = isCardStyle ? rowConfig.cardClass : rowConfig.class;
+  const getCardOuterStyle = (index) => isCardStyle ? {
+    paddingLeft: '0.625rem',
+    paddingRight: '0.625rem',
+    marginTop: index === 0 ? `${cardSpacingPx}px` : undefined,
+    marginBottom: `${cardSpacingPx}px`
+  } : undefined;
   
   return <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={onDragEnd} onDragCancel={handleDragCancel} modifiers={modifiers}>
       <div className="flex-1 bg-gray-50 dark:bg-gray-800 overflow-hidden custom-scrollbar-container transition-colors duration-500 favorites-list" data-no-drag>
@@ -232,17 +239,28 @@ const FavoritesList = forwardRef(({
         }} itemContent={index => {
           const item = itemsWithId[index];
           if (!item || item._isPlaceholder) {
-            return <div className={`${heightClass} ${isCardStyle ? 'px-2.5 pb-2 pt-1' : ''}`}>
-                    <div className={`h-full ${isCardStyle ? 'rounded-lg border' : 'border-b'} border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 animate-pulse`}>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                    </div>
-                  </div>;
+            return isCardStyle ? <div style={getCardOuterStyle(index)}>
+                <div className={heightClass}>
+                  <div className="h-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 animate-pulse">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  </div>
+                </div>
+              </div> : <div className={heightClass}>
+                <div className="h-full border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 animate-pulse">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                </div>
+              </div>;
           }
           const animationDelay = settings.uiAnimationEnabled !== false ? Math.min(index * 20, 100) : 0;
-          return <div className={`${heightClass} ${isCardStyle ? 'px-2.5 pb-2 pt-1' : ''}`}>
-                    <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} isDragActive={dragActive} animationDelay={animationDelay} />
-                  </div>;
+          return isCardStyle ? <div style={getCardOuterStyle(index)}>
+                <div className={heightClass}>
+                  <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} isDragActive={dragActive} animationDelay={animationDelay} />
+                </div>
+              </div> : <div className={heightClass}>
+                <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} isDragActive={dragActive} animationDelay={animationDelay} />
+              </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
           height: '100%'
         }} />
@@ -252,7 +270,7 @@ const FavoritesList = forwardRef(({
       <DragOverlay dropAnimation={null}>
         {activeItem && activeIndex !== -1 && (() => {
           const overlayClass = settings.rowHeight === 'auto' ? 'h-auto max-h-[350px]' : heightClass;
-          return <div className={`${overlayClass} ${isCardStyle ? 'px-2.5 pb-2 pt-1' : ''}`}>
+          return <div className={overlayClass}>
             <FavoriteItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} isDragActive={true} />
           </div>;
         })()}

@@ -312,8 +312,8 @@ function ClipboardItem({
   // 键盘选中样式
   const selectedClasses = isCardStyle
     ? (isSelected 
-        ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border' 
-        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border')
+        ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400 ring-inset shadow-md shadow-blue-500/10 dark:shadow-black/20' 
+        : 'bg-gray-50 dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 ring-inset shadow-sm shadow-black/5 dark:shadow-black/20')
     : (isSelected 
         ? 'bg-blue-100 dark:bg-blue-900/40 border-b border-gray-200 dark:border-gray-700' 
         : 'bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700');
@@ -463,7 +463,9 @@ function ClipboardItem({
     // 小行高模式：显示内容（隐藏时间）
     <div className="flex items-center gap-2 h-full overflow-hidden">
           <div className="flex-1 min-w-0 overflow-hidden h-full">
-            {renderContent(true)}
+            {renderContent(true, false, {
+              availableHeightPx: 50 - 16,
+            })}
           </div>
         </div> :
     // 中/大/自适应行高模式
@@ -482,7 +484,14 @@ function ClipboardItem({
 
           {/* 内容区 */}
           <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
-            {renderContent()}
+            {renderContent(false, false, {
+              availableHeightPx: (() => {
+                if (settings.rowHeight === 'auto') return undefined;
+                const rowPx = 90;
+                const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : rowPx;
+                return base - 16 - 22;
+              })(),
+            })}
           </div>
         </>}
     </div>;

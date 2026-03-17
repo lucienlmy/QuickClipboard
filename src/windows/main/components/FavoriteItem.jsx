@@ -259,8 +259,8 @@ function FavoriteItem({
   // 键盘选中样式
   const selectedClasses = isCardStyle
     ? (isSelected 
-        ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 shadow-md ring-2 ring-blue-500 dark:ring-blue-400 ring-opacity-50 border' 
-        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 border')
+        ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400 ring-inset shadow-md shadow-blue-500/10 dark:shadow-black/20' 
+        : 'bg-gray-50 dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 ring-inset shadow-sm shadow-black/5 dark:shadow-black/20')
     : (isSelected 
         ? 'bg-blue-100 dark:bg-blue-900/40 border-b border-gray-200 dark:border-gray-700' 
         : 'bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700');
@@ -431,7 +431,15 @@ function FavoriteItem({
 
       {/* 内容区域 */}
       <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
-        {renderContent(false, shouldShowTitle())}
+        {renderContent(false, shouldShowTitle(), {
+          availableHeightPx: (() => {
+            if (settings.rowHeight === 'auto') return undefined;
+            const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : 90;
+            const timeCost = 22;
+            const titleCost = shouldShowTitle() ? 20 : 0;
+            return base - 16 - timeCost - titleCost;
+          })()
+        })}
       </div>
     </>}
   </div>;

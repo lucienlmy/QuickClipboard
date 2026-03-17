@@ -8,12 +8,8 @@ import {
 // 设置 Store
 export const settingsStore = proxy({
   ...defaultSettings,
-  
   // UI 专属设置（localStorage）
   fontSize: 14,
-  rowHeight: 'medium',
-  fileDisplayMode: 'detailed',
-  listStyle: 'compact', // 'compact' | 'card'
   footerLeftRatio: 0.5,
   
   // 系统主题状态
@@ -93,24 +89,6 @@ export const settingsStore = proxy({
     localStorage.setItem('fontSize', String(size))
   },
   
-  // 行高
-  setRowHeight(height) {
-    this.rowHeight = height
-    localStorage.setItem('rowHeight', height)
-  },
-  
-  // 文件显示模式
-  setFileDisplayMode(mode) {
-    this.fileDisplayMode = mode
-    localStorage.setItem('fileDisplayMode', mode)
-  },
-  
-  // 列表风格
-  setListStyle(style) {
-    this.listStyle = style
-    localStorage.setItem('listStyle', style)
-  },
-  
   // 底部栏左侧占比
   setFooterLeftRatio(ratio) {
     this.footerLeftRatio = ratio
@@ -127,19 +105,28 @@ export const settingsStore = proxy({
 export async function initSettings() {
   // 从 localStorage 恢复 UI 设置
   const fontSize = localStorage.getItem('fontSize')
-  const rowHeight = localStorage.getItem('rowHeight')
-  const fileDisplayMode = localStorage.getItem('fileDisplayMode')
-  const listStyle = localStorage.getItem('listStyle')
   const footerLeftRatio = localStorage.getItem('footerLeftRatio')
+
+  const legacyRowHeight = localStorage.getItem('rowHeight')
+  const legacyFileDisplayMode = localStorage.getItem('fileDisplayMode')
+  const legacyListStyle = localStorage.getItem('listStyle')
   
   if (fontSize) settingsStore.fontSize = parseInt(fontSize)
-  if (rowHeight) settingsStore.rowHeight = rowHeight
-  if (fileDisplayMode) settingsStore.fileDisplayMode = fileDisplayMode
-  if (listStyle) settingsStore.listStyle = listStyle
   if (footerLeftRatio) settingsStore.footerLeftRatio = parseFloat(footerLeftRatio)
   
   // 从后端加载所有配置
   await settingsStore.loadSettings()
+
+  // 把旧 localStorage 值迁移到配置文件（仅当后端还是默认值时）
+  const migrateIfNeeded = async (key, legacyValue) => {
+    if (!legacyValue) return
+    if (settingsStore[key] !== defaultSettings[key]) return
+    await settingsStore.saveSetting(key, legacyValue, { showToast: false })
+    try { localStorage.removeItem(key) } catch (_) {}
+  }
+  await migrateIfNeeded('rowHeight', legacyRowHeight)
+  await migrateIfNeeded('fileDisplayMode', legacyFileDisplayMode)
+  await migrateIfNeeded('listStyle', legacyListStyle)
  
   if (settingsStore.language) {
     const i18n = (await import('@shared/i18n')).default

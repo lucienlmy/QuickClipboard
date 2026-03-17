@@ -7,6 +7,7 @@ import { toast } from '@shared/store/toastStore';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
+import SegmentedControl from '@shared/components/ui/SegmentedControl';
 import ThemeOption from '../components/ThemeOption';
 function AppearanceSection({
   settings,
@@ -159,6 +160,50 @@ function AppearanceSection({
           <SettingItem label={t('settings.appearance.uiAnimation')} description={t('settings.appearance.uiAnimationDesc')}>
             <Toggle checked={settings.uiAnimationEnabled} onChange={checked => onSettingChange('uiAnimationEnabled', checked)} />
           </SettingItem>
+
+          <SettingItem label={t('listSettings.listStyle.label')} description={t('listSettings.title')}>
+            <SegmentedControl value={settings.listStyle || 'compact'} onChange={value => onSettingChange('listStyle', value)} options={[{
+              value: 'compact',
+              label: t('listSettings.listStyle.compact')
+            }, {
+              value: 'card',
+              label: t('listSettings.listStyle.card')
+            }]} className="max-w-sm" />
+          </SettingItem>
+
+          <SettingItem label={t('listSettings.rowHeight.label')} description={t('listSettings.title')}>
+            <SegmentedControl value={settings.rowHeight || 'medium'} onChange={value => onSettingChange('rowHeight', value)} options={[{
+              value: 'auto',
+              label: t('listSettings.rowHeight.auto')
+            }, {
+              value: 'large',
+              label: t('listSettings.rowHeight.large')
+            }, {
+              value: 'medium',
+              label: t('listSettings.rowHeight.medium')
+            }, {
+              value: 'small',
+              label: t('listSettings.rowHeight.small')
+            }]} className="max-w-xl" />
+          </SettingItem>
+
+          {settings.listStyle === 'card' && <SettingItem label={t('settings.appearance.cardSpacing')} description={t('settings.appearance.cardSpacingDesc')}>
+              <SegmentedControl value={String(settings.cardSpacing ?? 12)} onChange={value => onSettingChange('cardSpacing', parseInt(value, 10))} options={[0, 4, 8, 12, 16, 20].map(v => ({
+              value: String(v),
+              label: `${v}px`
+            }))} wrap columns={3} className="max-w-sm" />
+            </SettingItem>}
+            
+          <SettingItem label={t('listSettings.fileDisplayMode.label')} description={t('listSettings.title')}>
+            <SegmentedControl value={settings.fileDisplayMode || 'detailed'} onChange={value => onSettingChange('fileDisplayMode', value)} options={[{
+              value: 'detailed',
+              label: t('listSettings.fileDisplayMode.detailed')
+            }, {
+              value: 'iconOnly',
+              label: t('listSettings.fileDisplayMode.iconOnly')
+            }]} className="max-w-md" />
+          </SettingItem>
+
         </div>
       </div>
     </SettingsSection>;

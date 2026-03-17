@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import { highlightText, scrollToFirstHighlight } from '@shared/utils/highlightText';
 
 // 文本内容组件
-function TextContent({ content, lineClampClass, searchKeyword,rowHeight = 'medium' }) {
+function TextContent({ content, lineClampClass, searchKeyword, rowHeight = 'medium', availableHeightPx, clampLines }) {
   const containerRef = useRef(null);
   const hasScrolledRef = useRef(false);
   const prevKeywordRef = useRef('');
@@ -27,16 +27,27 @@ function TextContent({ content, lineClampClass, searchKeyword,rowHeight = 'mediu
 
   const clampClass = searchKeyword ? '' : lineClampClass;
 
-  const textClass = rowHeight === 'large' || rowHeight === 'auto'
+  const textClass = rowHeight === 'auto'
     ? 'text-sm leading-normal'
-    : 'text-sm leading-tight';
+    : 'text-sm';
+
+  const computedLineHeightPx = (() => {
+    if (rowHeight === 'auto') return undefined;
+    if (!availableHeightPx || !clampLines) return undefined;
+    const v = Math.floor(availableHeightPx / clampLines);
+    if (!Number.isFinite(v) || v <= 0) return undefined;
+    return v;
+  })();
 
   return (
-    <div
-      ref={containerRef}
-      className={`${textClass} text-gray-800 dark:text-gray-200 break-all h-full ${clampClass} overflow-hidden`}
-    >
-      {renderedContent}
+    <div className="h-full min-h-0 overflow-hidden">
+      <div
+        ref={containerRef}
+        className={`${textClass} text-gray-800 dark:text-gray-200 break-all ${clampClass} overflow-hidden min-h-0 w-full`}
+        style={computedLineHeightPx ? { lineHeight: `${computedLineHeightPx}px` } : undefined}
+      >
+        {renderedContent}
+      </div>
     </div>
   );
 }

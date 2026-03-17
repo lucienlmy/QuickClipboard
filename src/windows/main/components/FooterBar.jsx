@@ -4,7 +4,6 @@ import { useSnapshot } from 'valtio';
 import { useRef, useState, useEffect } from 'react';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
 import { settingsStore } from '@shared/store/settingsStore';
-import BottomMenuPopup from './BottomMenuPopup';
 
 function FooterBar({
   children
@@ -66,62 +65,10 @@ function FooterBar({
     };
   }, [isDragging, leftRatio]);
 
-  const menuItems = [{
-    id: 'listStyle',
-    label: t('listSettings.listStyle.label'),
-    icon: "ti ti-layout-list",
-    currentValue: settings.listStyle,
-    options: [{
-      value: 'compact',
-      label: t('listSettings.listStyle.compact')
-    }, {
-      value: 'card',
-      label: t('listSettings.listStyle.card')
-    }],
-    onSelect: value => settingsStore.setListStyle(value)
-  }, {
-    id: 'rowHeight',
-    label: t('listSettings.rowHeight.label'),
-    icon: "ti ti-row-insert-bottom",
-    currentValue: settings.rowHeight,
-    options: [{
-      value: 'auto',
-      label: t('listSettings.rowHeight.auto')
-    }, {
-      value: 'large',
-      label: t('listSettings.rowHeight.large')
-    }, {
-      value: 'medium',
-      label: t('listSettings.rowHeight.medium')
-    }, {
-      value: 'small',
-      label: t('listSettings.rowHeight.small')
-    }],
-    onSelect: value => settingsStore.setRowHeight(value)
-  }, {
-    id: 'fileDisplayMode',
-    label: t('listSettings.fileDisplayMode.label'),
-    icon: "ti ti-layout-grid",
-    currentValue: settings.fileDisplayMode,
-    options: [{
-      value: 'detailed',
-      label: t('listSettings.fileDisplayMode.detailed')
-    }, {
-      value: 'iconOnly',
-      label: t('listSettings.fileDisplayMode.iconOnly')
-    }],
-    onSelect: value => settingsStore.setFileDisplayMode(value)
-  }];
-
   return <div ref={(el) => { dragRef.current = el; containerRef.current = el; }} className="flex-shrink-0 h-5 flex bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 relative footer-bar">
-    {/* 左侧：列表设置 */}
-    <div className="h-full" style={{ width: `${leftRatio * 100}%` }} data-no-drag>
-      <BottomMenuPopup
-        icon="ti ti-list"
-        label={t('listSettings.title')}
-        title={t('listSettings.title')}
-        menuItems={menuItems}
-      />
+    {/* 左侧：文件传输 */}
+    <div className="h-full flex items-center justify-center text-[10px] font-medium text-gray-600 dark:text-gray-400 select-none" style={{ width: `${leftRatio * 100}%` }} data-no-drag>
+      文件传输
     </div>
 
     {/* 分隔条 */}

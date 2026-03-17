@@ -322,7 +322,9 @@
       "clipboardAnimation": "Enable Clipboard Show/Hide Animation",
       "clipboardAnimationDesc": "Enable or disable animation effects for clipboard window show and hide",
       "uiAnimation": "Enable UI Animations",
-      "uiAnimationDesc": "Enable or disable UI animations (tab slider, hover float, list insert, panel show, etc.)"
+      "uiAnimationDesc": "Enable or disable UI animations (tab slider, hover float, list insert, panel show, etc.)",
+      "cardSpacing": "Card Spacing",
+      "cardSpacingDesc": "Spacing between items in card style (px)"
     },
     "shortcuts": {
       "title": "Shortcuts",
@@ -922,7 +924,7 @@
     "title": "List Settings",
     "listStyle": {
       "label": "List Style",
-      "compact": "Compact",
+      "compact": "Gapless",
       "card": "Card"
     },
     "rowHeight": {

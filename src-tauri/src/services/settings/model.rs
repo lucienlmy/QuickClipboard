@@ -85,6 +85,12 @@ pub struct AppSettings {
     pub clipboard_animation_enabled: bool,
     pub ui_animation_enabled: bool,
 
+    // 列表外观设置
+    pub row_height: String,
+    pub file_display_mode: String,
+    pub list_style: String,
+    pub card_spacing: u32,
+
     // 显示行为
     pub auto_scroll_to_top_on_show: bool,
     pub auto_clear_search: bool,
@@ -237,6 +243,11 @@ impl Default for AppSettings {
 
             clipboard_animation_enabled: true,
             ui_animation_enabled: true,
+
+            row_height: "medium".to_string(),
+            file_display_mode: "detailed".to_string(),
+            list_style: "compact".to_string(),
+            card_spacing: 12,
 
             auto_scroll_to_top_on_show: false,
             auto_clear_search: false,

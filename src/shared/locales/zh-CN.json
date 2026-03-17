@@ -314,7 +314,9 @@
       "clipboardAnimation": "启用剪贴板显示/隐藏动画",
       "clipboardAnimationDesc": "开启或关闭剪贴板窗口的显示和隐藏动画效果",
       "uiAnimation": "启用界面动效",
-      "uiAnimationDesc": "开启或关闭界面动效（如标签栏滑块、悬停浮动、列表插入、面板显示等动画）"
+      "uiAnimationDesc": "开启或关闭界面动效（如标签栏滑块、悬停浮动、列表插入、面板显示等动画）",
+      "cardSpacing": "卡片间距",
+      "cardSpacingDesc": "卡片风格下项目之间的间距（px）"
     },
     "shortcuts": {
       "tabs": {
@@ -915,7 +917,7 @@
     "title": "列表设置",
     "listStyle": {
       "label": "列表风格",
-      "compact": "紧凑",
+      "compact": "无间",
       "card": "卡片"
     },
     "rowHeight": {

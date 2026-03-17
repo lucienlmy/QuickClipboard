@@ -8,9 +8,9 @@ import { getPrimaryType } from '@shared/utils/contentType';
 // 行高配置常量
 export const ROW_HEIGHT_CONFIG = {
   auto: { px: 90, cardPx: 90, class: '', cardClass: '', itemClass: 'min-h-[50px] max-h-[350px]', lineClamp: 'line-clamp-none', lineClampWithTitle: 'line-clamp-none' },
-  large: { px: 120, cardPx: 132, class: 'h-[120px]', cardClass: 'h-[132px]', itemClass: 'h-full', lineClamp: 'line-clamp-4', lineClampWithTitle: 'line-clamp-3' },
-  medium: { px: 90, cardPx: 102, class: 'h-[90px]', cardClass: 'h-[102px]', itemClass: 'h-full', lineClamp: 'line-clamp-3', lineClampWithTitle: 'line-clamp-2' },
-  small: { px: 50, cardPx: 62, class: 'h-[50px]', cardClass: 'h-[62px]', itemClass: 'h-full', lineClamp: 'line-clamp-2', lineClampWithTitle: 'line-clamp-2' }
+  large: { px: 120, cardPx: 120, class: 'h-[120px]', cardClass: 'h-[120px]', itemClass: 'h-full', lineClamp: 'line-clamp-4', lineClampWithTitle: 'line-clamp-3' },
+  medium: { px: 90, cardPx: 90, class: 'h-[90px]', cardClass: 'h-[90px]', itemClass: 'h-full', lineClamp: 'line-clamp-3', lineClampWithTitle: 'line-clamp-2' },
+  small: { px: 50, cardPx: 50, class: 'h-[50px]', cardClass: 'h-[50px]', itemClass: 'h-full', lineClamp: 'line-clamp-2', lineClampWithTitle: 'line-clamp-2' }
 };
 
 // 剪贴板和收藏项的共同逻辑
@@ -88,10 +88,18 @@ export function useItemCommon(item, options = {}) {
   };
 
   // 渲染内容组件
-  const renderContent = (compact = false, hasTitle = false) => {
+  const renderContent = (compact = false, hasTitle = false, layout = {}) => {
     const lineClampClass = getLineClampClass(hasTitle);
     const primaryType = getPrimaryType(contentType);
     const rowHeight = settings.rowHeight;
+    const clampLines = (() => {
+      const m = String(lineClampClass).match(/line-clamp-(\d+)/);
+      return m ? parseInt(m[1], 10) : null;
+    })();
+    const textLayout = {
+      availableHeightPx: layout?.availableHeightPx,
+      clampLines
+    };
 
     // 图片类型
     if (primaryType === 'image') {
@@ -109,12 +117,12 @@ export function useItemCommon(item, options = {}) {
       if (settings.pasteWithFormat && item.html_content) {
         return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
       } else {
-        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
+        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} {...textLayout} />;
       }
     }
 
     // 默认文本类型
-    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
+    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} {...textLayout} />;
   };
   return {
     settings,

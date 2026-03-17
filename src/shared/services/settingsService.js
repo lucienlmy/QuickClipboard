@@ -27,6 +27,12 @@ export const defaultSettings = {
   backgroundImagePath: '',
   clipboardAnimationEnabled: true,
   uiAnimationEnabled: true,
+
+  // 列表外观
+  listStyle: 'compact', 
+  rowHeight: 'medium',
+  fileDisplayMode: 'detailed', 
+  cardSpacing: 12, 
   
   // 快捷键设置
   toggleShortcut: 'Shift+Space',
