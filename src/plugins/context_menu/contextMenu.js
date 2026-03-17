@@ -23,10 +23,13 @@ let isTrayMenu = false;
 const cssToLogical = v => v * textScale;
 const logicalToCss = v => v / textScale;
 
-function applyTheme(theme) {
+function applyTheme(options = {}) {
+    const theme = options?.theme ?? null;
+    const darkThemeStyle = options?.dark_theme_style ?? null;
     currentThemeSetting = theme;
     const isDark = theme === 'dark' || (theme !== 'light' && systemThemeMediaQuery.matches);
     document.body.classList.toggle('dark-theme', isDark);
+    document.body.classList.toggle('dark-classic', isDark && darkThemeStyle === 'classic');
 }
 
 systemThemeMediaQuery.addEventListener('change', e => {
@@ -298,7 +301,7 @@ async function renderMenu(options) {
     };
     windowOrigin = { x: 0, y: 0 };
     
-    applyTheme(options.theme);
+    applyTheme(options);
     menuContainer.innerHTML = '';
     options.items.forEach(item => menuContainer.appendChild(createMenuItem(item)));
     positionMenuAtCursor(options);

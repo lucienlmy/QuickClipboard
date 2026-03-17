@@ -67,6 +67,8 @@ pub struct ContextMenuOptions {
     pub width: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dark_theme_style: Option<String>,
     pub session_id: u64,
     #[serde(default)]
     pub monitor_x: f64,

@@ -422,6 +422,7 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
         cursor_y: 0,
         width: None,
         theme: Some(theme),
+        dark_theme_style: Some(settings.dark_theme_style),
         session_id: 0,
         monitor_x: 0.0,
         monitor_y: 0.0,
