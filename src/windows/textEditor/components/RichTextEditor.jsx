@@ -28,8 +28,8 @@ function TextEditor({
   return <div className="flex-1 flex flex-col overflow-hidden">
       <textarea ref={editorRef} value={content} onChange={handleTextChange} placeholder={t('textEditor.placeholder')} className={`
           flex-1 w-full p-4
-          bg-white dark:bg-gray-900
-          text-gray-900 dark:text-white
+          bg-qc-surface
+          text-qc-fg
           resize-none
           focus:outline-none
           font-mono text-sm

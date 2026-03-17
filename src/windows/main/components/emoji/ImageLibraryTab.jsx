@@ -363,10 +363,10 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
             onMouseDown={(e) => !item.loading && item.path && handleDragMouseDown(e, [item.path], item.path)}
             role="button"
             title={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
-            className="relative group aspect-square rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
+            className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
           >
             {item.loading ? (
-              <i className="ti ti-loader-2 animate-spin text-2xl text-gray-400"></i>
+              <i className="ti ti-loader-2 animate-spin text-2xl text-qc-fg-subtle"></i>
             ) : (
               <>
                 <img 
@@ -418,18 +418,18 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
       onDrop={handleDrop}
     >
         {imageTotal === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+          <div className="flex-1 flex flex-col items-center justify-center text-qc-fg-subtle">
             <div className={`w-20 h-20 rounded-2xl border-2 border-dashed flex items-center justify-center mb-3 transition-colors ${
-              isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'
+              isDragging ? 'border-blue-500 bg-blue-50' : 'border-qc-border-strong'
             }`}>
               <i className={`ti ${imageCategory === 'gifs' ? 'ti-gif' : 'ti-photo'} text-4xl ${isDragging ? 'text-blue-500' : ''}`}></i>
             </div>
             <p className="text-sm mb-1">{t('emoji.dragToAdd') || '拖入图片添加'}</p>
-            <p className="text-xs text-gray-400">{t('emoji.supportFormats') || '支持 PNG, JPG, GIF, WebP'}</p>
+            <p className="text-xs text-qc-fg-subtle">{t('emoji.supportFormats') || '支持 PNG, JPG, GIF, WebP'}</p>
           </div>
         ) : imageRowCount === 0 ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-gray-400 dark:text-gray-500 text-sm">{t('common.noResults') || '无搜索结果'}</p>
+            <p className="text-qc-fg-subtle text-sm">{t('common.noResults') || '无搜索结果'}</p>
           </div>
         ) : (
           <div className="flex-1 overflow-hidden custom-scrollbar-container">
@@ -448,21 +448,21 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
 
       {isDragging && (
         <div className="absolute inset-0 bg-blue-500/10 pointer-events-none flex items-center justify-center z-10 ring-2 ring-blue-500 ring-inset">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
+          <div className="bg-qc-panel rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
             <i className="ti ti-upload text-2xl text-blue-500"></i>
-            <span className="text-gray-700 dark:text-gray-200">{t('emoji.dropToAdd')}</span>
+            <span className="text-qc-fg">{t('emoji.dropToAdd')}</span>
           </div>
         </div>
       )}
 
       {isUploading && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[9999]">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg px-6 py-4 flex flex-col items-center gap-3">
+          <div className="bg-qc-panel rounded-xl shadow-lg px-6 py-4 flex flex-col items-center gap-3">
             <i className="ti ti-loader-2 animate-spin text-3xl text-blue-500"></i>
-            <span className="text-gray-700 dark:text-gray-200">
+            <span className="text-qc-fg">
               {t('emoji.uploading', { current: uploadProgress.current, total: uploadProgress.total })}
             </span>
-            <div className="w-40 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="w-40 h-1.5 bg-qc-panel-2 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-blue-500 transition-all duration-200"
                 style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}

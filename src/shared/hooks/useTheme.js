@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
-import darkThemeCss from '../styles/dark-theme.css?inline'
 import backgroundThemeCss from '../styles/theme-background.css?inline'
 
 // 系统主题媒体查询
@@ -23,25 +22,7 @@ export function getEffectiveTheme(theme, systemIsDark = settingsStore.systemIsDa
   return theme
 }
 
-// 动态加载/卸载暗色主题CSS
-let darkThemeStyleElement = null
 let backgroundThemeStyleElement = null
-
-function loadDarkThemeCSS() {
-  if (darkThemeStyleElement) return
-
-  darkThemeStyleElement = document.createElement('style')
-  darkThemeStyleElement.id = 'dark-theme-classic'
-  darkThemeStyleElement.textContent = darkThemeCss
-  document.head.appendChild(darkThemeStyleElement)
-}
-
-function unloadDarkThemeCSS() {
-  if (darkThemeStyleElement) {
-    document.head.removeChild(darkThemeStyleElement)
-    darkThemeStyleElement = null
-  }
-}
 
 function loadBackgroundThemeCSS() {
   if (backgroundThemeStyleElement) return
@@ -62,17 +43,10 @@ function unloadBackgroundThemeCSS() {
 export function useTheme() {
   const { theme, darkThemeStyle, backgroundImagePath, systemIsDark } = useSnapshot(settingsStore)
 
-  // 动态加载/卸载暗色主题CSS
+  // 背景主题 CSS 注入
   useEffect(() => {
     const effectiveTheme = getEffectiveTheme(theme, systemIsDark)
     const isDark = effectiveTheme === 'dark'
-
-    if (isDark && darkThemeStyle === 'classic') {
-      loadDarkThemeCSS()
-    } else {
-      // 否则卸载 CSS
-      unloadDarkThemeCSS()
-    }
 
     if (theme === 'background') {
       loadBackgroundThemeCSS()
@@ -105,9 +79,10 @@ export function applyThemeToBody(theme, windowName = '') {
 
   const body = document.body
   const effectiveTheme = getEffectiveTheme(theme)
+  const darkThemeStyle = settingsStore.darkThemeStyle
 
   // 移除所有主题类
-  body.classList.remove('theme-light', 'theme-dark', 'theme-background', 'has-dynamic-titlebar')
+  body.classList.remove('theme-light', 'theme-dark', 'theme-background', 'has-dynamic-titlebar', 'theme-dark-classic')
 
   // 添加窗口专属类名（防止多窗口CSS冲突）
   if (windowName) {
@@ -119,6 +94,9 @@ export function applyThemeToBody(theme, windowName = '') {
     body.classList.add('theme-background')
   } else if (effectiveTheme === 'dark') {
     body.classList.add('theme-dark')
+    if (darkThemeStyle === 'classic') {
+      body.classList.add('theme-dark-classic')
+    }
   } else {
     body.classList.add('theme-light')
   }

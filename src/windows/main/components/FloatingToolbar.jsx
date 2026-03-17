@@ -81,12 +81,12 @@ function FloatingToolbar({
     absolute
     right-4
     flex flex-col
-    bg-white dark:bg-gray-800
+    bg-qc-panel
     rounded-md
     shadow-lg
     p-1
     z-30
-    border border-gray-300/80 dark:border-gray-700/30
+    border border-qc-border
     ${isDragging ? '' : 'transition-all duration-300'}
     ${shouldShow ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}
   `.trim().replace(/\s+/g, ' ');
@@ -96,9 +96,9 @@ function FloatingToolbar({
     flex items-center justify-center
     w-6 h-6
     rounded
-    bg-gray-100 dark:bg-gray-700
-    hover:bg-gray-200 dark:hover:bg-gray-600
-    text-gray-700 dark:text-gray-200
+    bg-qc-panel-2
+    hover:bg-qc-hover
+    text-qc-fg
     transition-colors duration-150
     cursor-pointer
   `.trim().replace(/\s+/g, ' ');
@@ -112,8 +112,8 @@ function FloatingToolbar({
     w-full h-2 mt-1
     flex items-center justify-center
     ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
-    text-gray-400 dark:text-gray-600
-    hover:text-gray-600 dark:hover:text-gray-400
+    text-qc-fg-subtle
+    hover:text-qc-fg-muted
     transition-colors duration-150
   `.trim().replace(/\s+/g, ' ');
   return <div ref={containerRef} className={containerClasses} style={{

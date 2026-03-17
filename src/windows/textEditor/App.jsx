@@ -21,7 +21,8 @@ function App() {
   } = useSnapshot(settingsStore);
   const {
     isDark,
-    effectiveTheme
+    effectiveTheme,
+    darkThemeStyle
   } = useTheme();
   const [editorData, setEditorData] = useState(null);
   const [title, setTitle] = useState('');
@@ -46,7 +47,7 @@ function App() {
   useEffect(() => {
     const editorTheme = theme === 'background' ? 'light' : theme;
     applyThemeToBody(editorTheme, 'text-editor');
-  }, [theme, effectiveTheme]);
+  }, [theme, darkThemeStyle, effectiveTheme]);
 
   // 加载分组列表
   useEffect(() => {
@@ -160,7 +161,7 @@ function App() {
   const containerClasses = `
     h-screen w-screen
     flex flex-col
-    bg-white dark:bg-gray-900
+    bg-qc-surface
     ${isDark ? 'dark' : ''}
   `.trim().replace(/\s+/g, ' ');
   return <div className={containerClasses}>

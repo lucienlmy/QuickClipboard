@@ -16,6 +16,7 @@ import { openEditorForFavorite } from '@shared/api/textEditor';
 import { updateFavorite } from '@shared/api';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { highlightText } from '@shared/utils/highlightText';
+import { useTheme } from '@shared/hooks/useTheme';
 
 const closeImagePreview = (previewTimerRef) => {
   if (previewTimerRef.current) {
@@ -48,6 +49,7 @@ function FavoriteItem({
     renderContent,
     searchKeyword
   } = useItemCommon(item, { isFavorite: true });
+  const { isBackground } = useTheme();
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const previewTimerRef = useRef(null);
@@ -259,11 +261,11 @@ function FavoriteItem({
   // 键盘选中样式
   const selectedClasses = isCardStyle
     ? (isSelected 
-        ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400 ring-inset shadow-md shadow-blue-500/10 dark:shadow-black/20' 
-        : 'bg-gray-50 dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 ring-inset shadow-sm shadow-black/5 dark:shadow-black/20')
+        ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10' 
+        : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} ring-1 ring-qc-border ring-inset shadow-sm shadow-black/5`)
     : (isSelected 
-        ? 'bg-blue-100 dark:bg-blue-900/40 border-b border-gray-200 dark:border-gray-700' 
-        : 'bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700');
+        ? 'bg-qc-active border-b border-qc-border' 
+        : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} border-b border-qc-border`);
   const smallElementClasses = `
     flex items-center justify-center
     w-5 h-5
@@ -275,13 +277,13 @@ function FavoriteItem({
   // 按钮样式
   const actionButtonClasses = `
     ${smallElementClasses}
-    text-gray-500 dark:text-gray-400
-    border-gray-200 dark:border-gray-600
-    bg-white/60 dark:bg-gray-900/60
+    text-qc-fg-subtle
+    border-qc-border
+    bg-qc-panel/60
     backdrop-blur-md
-    hover:text-amber-600 dark:hover:text-amber-400
-    hover:border-amber-300 dark:hover:border-amber-700
-    hover:bg-amber-50/80 dark:hover:bg-amber-900/40
+    hover:text-amber-600
+    hover:border-amber-300
+    hover:bg-amber-50/80
     opacity-0 group-hover:opacity-100
     focus:opacity-100
   `.trim().replace(/\s+/g, ' ');
@@ -289,9 +291,9 @@ function FavoriteItem({
   // 序号样式
   const numberBadgeClasses = `
     ${smallElementClasses}
-    text-blue-600 dark:text-blue-400
-    border-blue-200 dark:border-blue-700
-    bg-blue-50/80 dark:bg-blue-900/40
+    text-blue-600
+    border-qc-border
+    bg-qc-panel/80
     backdrop-blur-md
     font-semibold
   `.trim().replace(/\s+/g, ' ');
@@ -304,7 +306,7 @@ function FavoriteItem({
     border rounded-md
     transition-all
     backdrop-blur-md
-    ${color ? 'text-white border-white/20 shadow-sm' : 'text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 bg-gray-100/80 dark:bg-gray-700/80'}
+    ${color ? 'text-white border-white/20 shadow-sm' : 'text-qc-fg-muted border-qc-border bg-qc-panel/80'}
   `.trim().replace(/\s+/g, ' ');
   const isSmallHeight = settings.rowHeight === 'small';
 
@@ -381,7 +383,7 @@ function FavoriteItem({
           onKeyDown={handleTitleKeyDown}
           onClick={(e) => e.stopPropagation()}
           autoFocus
-          className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border border-blue-400 dark:border-blue-500 rounded px-1.5 outline-none focus:ring-1 focus:ring-blue-400"
+          className="flex-1 min-w-0 text-sm text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 outline-none focus:ring-1 focus:ring-blue-400"
           placeholder={t('favorites.titlePlaceholder', '输入标题...')}
         />
       ) : (
@@ -392,7 +394,7 @@ function FavoriteItem({
     </div> : <>
       {/* 时间戳 */}
       <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
-        <span className="text-xs text-gray-400 dark:text-gray-500 leading-5">
+        <span className="text-xs text-qc-fg-subtle leading-5">
           {formatTime()}
           {item.char_count != null && (
             <span className="ml-1.5">
@@ -417,13 +419,13 @@ function FavoriteItem({
             onKeyDown={handleTitleKeyDown}
             onClick={(e) => e.stopPropagation()}
             autoFocus
-            className="w-full text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border border-blue-400 dark:border-blue-500 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-400"
+            className="w-full text-sm font-semibold text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-400"
             placeholder={t('favorites.titlePlaceholder', '输入标题...')}
           />
         </div>
       ) : shouldShowTitle() && (
         <div className="flex-shrink-0 mb-0">
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-16 leading-tight">
+          <p className="text-sm font-semibold text-qc-fg truncate pr-16 leading-tight">
             {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
           </p>
         </div>

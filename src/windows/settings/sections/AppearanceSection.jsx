@@ -68,10 +68,10 @@ function AppearanceSection({
   return <SettingsSection title={t('settings.appearance.title')} description={t('settings.appearance.description')}>
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+          <label className="block text-sm font-medium text-qc-fg mb-3">
             {t('settings.appearance.themeSelect')}
           </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+          <p className="text-xs text-qc-fg-muted mb-4">
             {t('settings.appearance.themeSelectDesc')}
           </p>
           
@@ -81,10 +81,10 @@ function AppearanceSection({
         </div>
 
         {(theme === 'dark' || theme === 'auto') && <div className="animate-slide-in-left-fast">
-            <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+            <label className="block text-sm font-medium text-qc-fg mb-3">
               {t('settings.appearance.darkThemeStyle') || '暗色风格'}
             </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-xs text-qc-fg-muted mb-4">
               {t('settings.appearance.darkThemeStyleDesc') || '选择暗色主题的显示风格'}
             </p>
             
@@ -93,13 +93,13 @@ function AppearanceSection({
                   flex flex-col items-start gap-2 p-4 rounded-lg border-2 
                   transition-all duration-300 
                   focus:outline-none active:scale-95
-                  ${darkThemeStyle === 'modern' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-102 shadow-lg shadow-blue-500/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:scale-101 hover:shadow-md'}
+                  ${darkThemeStyle === 'modern' ? 'border-blue-500 bg-qc-active scale-102 shadow-lg shadow-blue-500/20' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
                 `}>
                 <div className="w-full">
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                  <div className="text-sm font-semibold text-qc-fg mb-1">
                     {t('settings.appearance.darkThemeModern') || '现代风格'}
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <div className="text-xs text-qc-fg-muted">
                     {t('settings.appearance.darkThemeModernDesc') || '色彩丰富的现代暗色主题'}
                   </div>
                 </div>
@@ -109,13 +109,13 @@ function AppearanceSection({
                   flex flex-col items-start gap-2 p-4 rounded-lg border-2 
                   transition-all duration-300 
                   focus:outline-none active:scale-95
-                  ${darkThemeStyle === 'classic' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-102 shadow-lg shadow-blue-500/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:scale-101 hover:shadow-md'}
+                  ${darkThemeStyle === 'classic' ? 'border-blue-500 bg-qc-active scale-102 shadow-lg shadow-blue-500/20' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
                 `}>
                 <div className="w-full">
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                  <div className="text-sm font-semibold text-qc-fg mb-1">
                     {t('settings.appearance.darkThemeClassic') || '经典风格'}
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <div className="text-xs text-qc-fg-muted">
                     {t('settings.appearance.darkThemeClassicDesc') || '低调优雅的灰色暗色主题'}
                   </div>
                 </div>
@@ -124,10 +124,10 @@ function AppearanceSection({
           </div>}
 
         {theme === 'background' && <div className="space-y-3 animate-slide-in-left-fast">
-            <label className="block text-sm font-medium text-gray-900 dark:text-white">
+            <label className="block text-sm font-medium text-qc-fg">
               {t('settings.appearance.backgroundImage')}
             </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-qc-fg-muted">
               {t('settings.appearance.backgroundImageDesc')}
             </p>
             
@@ -139,7 +139,7 @@ function AppearanceSection({
                 {backgroundImagePath ? t('settings.appearance.changeBackgroundImage') : t('settings.appearance.selectBackgroundImage')}
               </button>
 
-              {backgroundImagePath && <button onClick={handleClearBackgroundImage} className="flex items-center gap-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors">
+              {backgroundImagePath && <button onClick={handleClearBackgroundImage} className="flex items-center gap-2 px-4 py-2 bg-qc-panel hover:bg-qc-hover text-qc-fg rounded-lg transition-colors">
                   <i className="ti ti-x" style={{
               fontSize: 18
             }}></i>
@@ -147,7 +147,7 @@ function AppearanceSection({
                 </button>}
             </div>
 
-            {backgroundImagePath && <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+            {backgroundImagePath && <div className="text-xs text-qc-fg-muted truncate">
                 {t('settings.appearance.currentImage')}: {backgroundImagePath}
               </div>}
           </div>}

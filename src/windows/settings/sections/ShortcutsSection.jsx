@@ -77,7 +77,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
                 />
                 <button
                   type="button"
-                  className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                  className="text-xs text-blue-500 hover:text-blue-600 hover:underline"
                   onClick={async () => {
                     try {
                       await onSettingChange('toggleShortcut', 'Shift+Space');
@@ -245,7 +245,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
                 <ShortcutComboInput value={settings.numberShortcutsModifier} onChange={value => onSettingChange('numberShortcutsModifier', value)} modifierOptions={['Ctrl', 'Shift']} fixedKeyOptions={numberKeyTypeOptions} />
               </SettingItem>
               {hasBackendError('number_shortcuts') && (
-                <div className="px-4 py-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md">
+                <div className="px-4 py-2 text-sm text-amber-600 bg-amber-50 rounded-md">
                   <span className="font-medium">{t('settings.shortcuts.numberRegistrationFailed')}：</span>
                   {statuses['number_shortcuts']?.shortcut}
                 </div>
@@ -278,7 +278,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
   };
 
   return (
-    <div className={uiAnimationEnabled ? 'animate-slide-in-left-fast' : ''} key={activeTab}>
+    <div className={uiAnimationEnabled ? 'animate-slide-in-left-fast-no-opacity' : ''} key={activeTab}>
       {renderTabContent()}
     </div>
   );

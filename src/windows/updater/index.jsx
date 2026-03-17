@@ -179,7 +179,7 @@ function App() {
   const pct = progress.total > 0 ? Math.min(100, Math.round(progress.downloaded * 100 / progress.total)) : 0
 
   return (
-    <div className="h-full w-full bg-white/90 border border-gray-200 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-2 flex flex-col rounded-lg overflow-hidden" style={{ boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'}} data-tauri-drag-region>
+    <div className="h-full w-full bg-qc-surface/90 border border-qc-border text-qc-fg p-2 flex flex-col rounded-lg overflow-hidden" style={{ boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'}} data-tauri-drag-region>
       <style>{`
         @keyframes qc-updater-marquee {
           0% { transform: translateX(100%); }
@@ -196,7 +196,7 @@ function App() {
         <div className="flex-1 min-w-0 px-2" data-tauri-drag-region>
           {isPortable && status === 'available' ? (
             <div className="w-full overflow-hidden" data-tauri-drag-region>
-              <div className="qc-updater-marquee-track text-xs text-amber-800 dark:text-amber-300 whitespace-nowrap" data-tauri-drag-region>
+              <div className="qc-updater-marquee-track text-xs text-amber-800 whitespace-nowrap" data-tauri-drag-region>
                 {t('updater.portableNotice', { defaultValue: '便携版提示' })}：{t('updater.portableNoAutoUpdate', { defaultValue: '便携版/绿色版不支持自动更新，请手动下载新版本替换当前文件。' })}
               </div>
             </div>
@@ -222,23 +222,23 @@ function App() {
 
             {versionInfo && (status === 'available' || status === 'downloading' || status === 'error') && (
               <div className="text-xs opacity-90 flex items-center gap-2 flex-wrap" data-tauri-drag-region>
-                <div className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                <div className="px-2 py-0.5 rounded-full bg-qc-panel">
                   <span className="font-medium">{currentVersion || '--'}</span>
                 </div>
-                <i className="ti ti-arrow-right text-gray-400" />
-                <div className="px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                <i className="ti ti-arrow-right text-qc-fg-subtle" />
+                <div className="px-2 py-0.5 rounded-full bg-green-50 text-green-700">
                   <span className="font-semibold">{versionInfo.version || '--'}</span>
                 </div>
               </div>
             )}
 
             {status === 'error' && (
-              <div className="w-full p-2 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800" data-tauri-drag-region>
-                <div className="flex items-center gap-2 text-red-700 dark:text-red-400" data-tauri-drag-region>
+              <div className="w-full p-2 bg-red-50 rounded-md border border-red-200" data-tauri-drag-region>
+                <div className="flex items-center gap-2 text-red-700" data-tauri-drag-region>
                   <i className="ti ti-alert-circle" />
                   <span className="text-xs font-medium">{t('updater.updateFailed', { defaultValue: '更新失败' })}</span>
                 </div>
-                <div className="text-xs mt-1 text-red-600 dark:text-red-400" data-tauri-drag-region>
+                <div className="text-xs mt-1 text-red-600" data-tauri-drag-region>
                   {message}
                 </div>
                 <a 
@@ -255,9 +255,9 @@ function App() {
         )}
       </div>
 
-      <div className={`shrink-0 relative pt-2 mt-2 ${status === 'downloading' ? '' : 'border-t border-gray-200 dark:border-gray-700'}`} data-tauri-drag-region>
+      <div className={`shrink-0 relative pt-2 mt-2 ${status === 'downloading' ? '' : 'border-t border-qc-border'}`} data-tauri-drag-region>
         {status === 'downloading' && (
-          <div className="absolute left-0 right-0 top-0 h-0.5 bg-gray-200 dark:bg-gray-700" data-tauri-drag-region>
+          <div className="absolute left-0 right-0 top-0 h-0.5 bg-qc-border" data-tauri-drag-region>
             <div className="h-0.5 bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
           </div>
         )}
@@ -278,7 +278,7 @@ function App() {
                   <i className="ti ti-download" /> {t('updater.downloadAndInstall', { defaultValue: '下载并安装' })}
                 </button>
               )}
-              <button onClick={handleClose} className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
+              <button onClick={handleClose} className="px-3 py-2 rounded bg-qc-panel hover:bg-qc-hover text-sm">
                 {t('updater.later', { defaultValue: '稍后' })}
               </button>
             </>
@@ -289,7 +289,7 @@ function App() {
                 const w = getCurrentWebviewWindow();
                 try { await w.hide(); } catch (_) {}
               }}
-              className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm"
+              className="px-3 py-2 rounded bg-qc-panel hover:bg-qc-hover text-sm"
             >
               {t('updater.backgroundUpdate', { defaultValue: '后台更新' })}
             </button>
@@ -299,7 +299,7 @@ function App() {
               <button onClick={() => startDownload()} className="px-3 py-2 rounded bg-blue-600 text-white text-sm flex items-center gap-2">
                 <i className="ti ti-refresh" /> {t('updater.retry', { defaultValue: '重试' })}
               </button>
-              <button onClick={handleClose} className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm flex items-center gap-2">
+              <button onClick={handleClose} className="px-3 py-2 rounded bg-qc-panel hover:bg-qc-hover text-sm flex items-center gap-2">
                 {forceUpdate ? (
                   <><i className="ti ti-power" /> {t('updater.exitApp', { defaultValue: '退出程序' })}</>
                 ) : (
@@ -309,7 +309,7 @@ function App() {
             </>
           )}
           {status === 'none' && (
-            <button onClick={handleClose} className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm">
+            <button onClick={handleClose} className="px-3 py-2 rounded bg-qc-panel hover:bg-qc-hover text-sm">
               {t('common.close', { defaultValue: '关闭' })}
             </button>
           )}

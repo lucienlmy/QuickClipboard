@@ -1,6 +1,7 @@
 @import './htmlContent.css';
 @import './customScrollbar.css';
 @import './animations.css';
+@import './dark-theme.css';
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -8,13 +9,88 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* QuickClipboard 主题 token（默认给 light，具体主题由 body 的 theme-* 类覆盖） */
+body {
+  --qc-fg: #111827;
+  --qc-fg-muted: #6b7280;
+  --qc-fg-subtle: #9ca3af;
+  --qc-surface: #ffffff;
+  --qc-panel: #f3f4f6;
+  --qc-panel-2: #e5e7eb;
+  --qc-hover: rgba(156, 163, 175, 0.25);
+  --qc-active: rgba(59, 130, 246, 0.12);
+  --qc-border: rgba(17, 24, 39, 0.12);
+  --qc-border-strong: rgba(17, 24, 39, 0.22);
+
+  /* accent (for slider/radio/etc.) */
+  --qc-accent: #3b82f6;
+  --qc-accent-hover: #2563eb;
+
+  /* controls */
+  --qc-toggle-track-off: var(--qc-panel-2);
+  --qc-toggle-track-on: #3b82f6;
+  --qc-toggle-thumb: var(--qc-surface);
+
+  /* 当前主题别名（给 bg-theme-100 / text-theme-200 这种用） */
+  --theme-100: var(--qc-surface);
+  --theme-200: var(--qc-panel);
+  --theme-300: var(--qc-panel-2);
+  --theme-400: var(--qc-hover);
+  --theme-500: var(--qc-active);
+  --theme-600: var(--qc-border);
+  --theme-700: var(--qc-border-strong);
+
+  /* 主题具名变量（可选：bg-theme-light-100 这种用） */
+  --theme-light-100: var(--qc-surface);
+  --theme-light-200: var(--qc-panel);
+  --theme-light-300: var(--qc-panel-2);
+  --theme-light-400: var(--qc-hover);
+  --theme-light-500: var(--qc-active);
+  --theme-light-600: var(--qc-border);
+  --theme-light-700: var(--qc-border-strong);
+}
+
+body.theme-dark {
+  --qc-fg: #e5e7eb;
+  --qc-fg-muted: #cbd5e1;
+  --qc-fg-subtle: #94a3b8;
+  --qc-surface: #111827;
+  --qc-panel: #1f2937;
+  --qc-panel-2: #2d3342;
+  --qc-hover: rgba(148, 163, 184, 0.16);
+  --qc-active: rgba(96, 165, 250, 0.18);
+  --qc-border: rgba(255, 255, 255, 0.12);
+  --qc-border-strong: rgba(255, 255, 255, 0.22);
+
+  --qc-accent: #3b82f6;
+  --qc-accent-hover: #2563eb;
+
+  --qc-toggle-track-off: var(--qc-panel-2);
+  --qc-toggle-track-on: #3b82f6;
+  --qc-toggle-thumb: var(--qc-surface);
+
+  --theme-100: var(--qc-surface);
+  --theme-200: var(--qc-panel);
+  --theme-300: var(--qc-panel-2);
+  --theme-400: var(--qc-hover);
+  --theme-500: var(--qc-active);
+  --theme-600: var(--qc-border);
+  --theme-700: var(--qc-border-strong);
+
+  --theme-dark-100: var(--qc-surface);
+  --theme-dark-200: var(--qc-panel);
+  --theme-dark-300: var(--qc-panel-2);
+  --theme-dark-400: var(--qc-hover);
+  --theme-dark-500: var(--qc-active);
+  --theme-dark-600: var(--qc-border);
+  --theme-dark-700: var(--qc-border-strong);
 }
 
 * {
@@ -29,6 +105,7 @@ body {
   display: flex;
   place-items: center;
   background: none !important;
+  color: var(--qc-fg);
 }
 
 body.dragging-cursor,
@@ -38,13 +115,6 @@ body.dragging-cursor * {
 
 #root {
   width: 100%;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
 }
 
 /* 自定义滚动条样式 */
@@ -83,6 +153,29 @@ body.dragging-cursor * {
 
 .settings-tab-bar button.bg-blue-500 {
   background-color: rgb(59, 130, 246);
+}
+
+.settings-section-header {
+  display: inline-flex;
+  padding: 12px;
+  background-color: var(--qc-panel);
+  border: 1px solid var(--qc-border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  margin-bottom: -1px;
+}
+
+.settings-section-content {
+  border-top-left-radius: 0;
+  border-top-right-radius: 12px;
+}
+
+.settings-section-content > [data-setting-anchor]:first-child {
+  padding-top: 0;
+}
+
+.settings-section-content > [data-setting-anchor]:last-child {
+  padding-bottom: 0;
 }
 
 input, select {

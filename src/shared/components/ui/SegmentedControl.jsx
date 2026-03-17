@@ -7,8 +7,8 @@ function SegmentedControl({
   className = ''
 }) {
   const containerClass = wrap
-    ? 'grid gap-0 overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
-    : 'inline-flex w-fit overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700';
+    ? 'grid gap-0 overflow-hidden rounded-lg border border-qc-border bg-qc-panel'
+    : 'inline-flex w-fit overflow-hidden rounded-lg border border-qc-border bg-qc-panel';
 
   const containerStyle = wrap && columns
     ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
@@ -25,28 +25,28 @@ function SegmentedControl({
 
       return [
         'px-3 py-2 text-sm font-medium transition-colors duration-150',
-        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset',
-        col !== 0 ? 'border-l border-gray-300 dark:border-gray-600' : '',
-        row !== 0 ? 'border-t border-gray-300 dark:border-gray-600' : '',
+        'focus:outline-none focus:ring-2 focus:ring-[var(--qc-accent)] focus:ring-inset',
+        col !== 0 ? 'border-l border-qc-border' : '',
+        row !== 0 ? 'border-t border-qc-border' : '',
         index === 0 ? 'rounded-tl-lg' : '',
         index === lastInFirstRow ? 'rounded-tr-lg' : '',
         row === lastRow && col === 0 ? 'rounded-bl-lg' : '',
         index === lastIndex ? 'rounded-br-lg' : '',
         value === optionValue
-          ? '!bg-blue-500 hover:!bg-blue-600 !text-white'
-          : 'bg-transparent text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600'
+          ? '!bg-[var(--qc-accent)] hover:!bg-[var(--qc-accent-hover)] !text-white'
+          : 'bg-transparent text-qc-fg hover:bg-qc-hover'
       ].filter(Boolean).join(' ');
     }
 
     return [
       'px-3 py-2 text-sm font-medium transition-colors duration-150',
-      'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset',
+      'focus:outline-none focus:ring-2 focus:ring-[var(--qc-accent)] focus:ring-inset',
       index === 0 ? 'rounded-l-lg' : '',
       index === options.length - 1 ? 'rounded-r-lg' : '',
-      index !== 0 ? 'border-l border-gray-300 dark:border-gray-600' : '',
+      index !== 0 ? 'border-l border-qc-border' : '',
       value === optionValue
-        ? '!bg-blue-500 hover:!bg-blue-600 !text-white'
-        : 'bg-transparent text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600'
+        ? '!bg-[var(--qc-accent)] hover:!bg-[var(--qc-accent-hover)] !text-white'
+        : 'bg-transparent text-qc-fg hover:bg-qc-hover'
     ].filter(Boolean).join(' ');
   };
 

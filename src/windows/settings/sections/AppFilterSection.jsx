@@ -117,16 +117,16 @@ function AppFilterSection({
         </SettingItem>
 
         {settings.appFilterEnabled && (
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex items-start gap-2">
-              <div className="text-blue-600 dark:text-blue-400 mt-0.5">
+              <div className="text-blue-600 mt-0.5">
                 <i className="ti ti-info-circle w-5 h-5"></i>
               </div>
               <div>
-                <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                <div className="text-sm font-medium text-blue-900">
                   {t('settings.appFilter.statusTitle')}
                 </div>
-                <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                <div className="text-xs text-blue-700 mt-1">
                   {settings.appFilterMode === 'blacklist'
                     ? t('settings.appFilter.statusBlacklist', {
                       count: appList.length
@@ -145,16 +145,16 @@ function AppFilterSection({
         <div className="flex gap-4">
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterMode" value="blacklist" checked={settings.appFilterMode === 'blacklist'} onChange={e => onSettingChange('appFilterMode', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                <div className="p-2 rounded-lg bg-red-100 text-red-600">
                   <i className="ti ti-ban w-5 h-5"></i>
                 </div>
                 <div>
-                  <div className="font-medium text-gray-900 dark:text-white">
+                  <div className="font-medium text-qc-fg">
                     {t('settings.appFilter.blacklist')}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-qc-fg-muted mt-0.5">
                     {t('settings.appFilter.blacklistDesc')}
                   </div>
                 </div>
@@ -164,16 +164,16 @@ function AppFilterSection({
 
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterMode" value="whitelist" checked={settings.appFilterMode === 'whitelist'} onChange={e => onSettingChange('appFilterMode', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                <div className="p-2 rounded-lg bg-green-100 text-green-600">
                   <i className="ti ti-check w-5 h-5"></i>
                 </div>
                 <div>
-                  <div className="font-medium text-gray-900 dark:text-white">
+                  <div className="font-medium text-qc-fg">
                     {t('settings.appFilter.whitelist')}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-qc-fg-muted mt-0.5">
                     {t('settings.appFilter.whitelistDesc')}
                   </div>
                 </div>
@@ -187,16 +187,16 @@ function AppFilterSection({
         <div className="flex gap-4">
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterEffect" value="clipboard_only" checked={(settings.appFilterEffect || 'clipboard_only') === 'clipboard_only'} onChange={e => onSettingChange('appFilterEffect', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
                   <i className="ti ti-clipboard w-5 h-5"></i>
                 </div>
                 <div>
-                  <div className="font-medium text-gray-900 dark:text-white">
+                  <div className="font-medium text-qc-fg">
                     {t('settings.appFilter.effectClipboardOnly')}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-qc-fg-muted mt-0.5">
                     {t('settings.appFilter.effectClipboardOnlyDesc')}
                   </div>
                 </div>
@@ -206,16 +206,16 @@ function AppFilterSection({
 
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterEffect" value="global_disable" checked={settings.appFilterEffect === 'global_disable'} onChange={e => onSettingChange('appFilterEffect', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
                   <i className="ti ti-shield-off w-5 h-5"></i>
                 </div>
                 <div>
-                  <div className="font-medium text-gray-900 dark:text-white">
+                  <div className="font-medium text-qc-fg">
                     {t('settings.appFilter.effectGlobalDisable')}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-qc-fg-muted mt-0.5">
                     {t('settings.appFilter.effectGlobalDisableDesc')}
                   </div>
                 </div>
@@ -238,25 +238,25 @@ function AppFilterSection({
         <div className="grid grid-cols-2 gap-4 mt-6">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+              <h4 className="text-sm font-medium text-qc-fg">
                 {t('settings.appFilter.addedApps')}
               </h4>
               <Button onClick={handleClearList} variant="secondary" size="sm" icon={<i className="ti ti-trash w-3.5 h-3.5"></i>}>
                 {t('settings.common.clear')}
               </Button>
             </div>
-            <div className="h-80 overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              {appList.length === 0 ? <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+            <div className="h-80 overflow-hidden border border-qc-border rounded-lg p-3">
+              {appList.length === 0 ? <div className="text-sm text-qc-fg-muted text-center py-8">
                 {t('settings.appFilter.noApps')}
               </div> : <Virtuoso totalCount={appList.length} computeItemKey={index => appList[index] || `app-${index}`} itemContent={index => {
                 const app = appList[index];
                 return <div className={index === 0 ? '' : 'mt-2'}>
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  <div className="flex items-center gap-2 p-2 bg-qc-panel rounded hover:bg-qc-hover transition-colors">
                     {appIconMap.get(app) && <img src={appIconMap.get(app)} alt="" className="w-4 h-4 flex-shrink-0" />}
-                    <span className="text-sm text-gray-900 dark:text-white truncate flex-1">
+                    <span className="text-sm text-qc-fg truncate flex-1">
                       {app}
                     </span>
-                    <button onClick={() => handleRemoveApp(index)} className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors flex-shrink-0">
+                    <button onClick={() => handleRemoveApp(index)} className="p-1 rounded hover:bg-red-100 text-red-600 transition-colors flex-shrink-0">
                       <i className="ti ti-x w-4 h-4"></i>
                     </button>
                   </div>
@@ -267,26 +267,26 @@ function AppFilterSection({
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+              <h4 className="text-sm font-medium text-qc-fg">
                 {t('settings.appFilter.availableApps')}
               </h4>
               <Button onClick={handleRefreshWindows} variant="secondary" size="sm" icon={<i className="ti ti-refresh"></i>} disabled={isRefreshing}>
                 {t('settings.common.refresh')}
               </Button>
             </div>
-            <div className="h-80 overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              {availableApps.length === 0 ? <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+            <div className="h-80 overflow-hidden border border-qc-border rounded-lg p-3">
+              {availableApps.length === 0 ? <div className="text-sm text-qc-fg-muted text-center py-8">
                 {t('settings.appFilter.clickRefresh')}
               </div> : <Virtuoso totalCount={availableApps.length} computeItemKey={index => availableApps[index]?.process || `avail-${index}`} itemContent={index => {
                 const app = availableApps[index];
                 if (!app) return null;
                 return <div className={index === 0 ? '' : 'mt-2'}>
-                  <button onClick={() => handleAddAvailableApp(app)} className="w-full flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-500 transition-colors text-left">
+                  <button onClick={() => handleAddAvailableApp(app)} className="w-full flex items-center gap-2 p-2 bg-qc-panel rounded hover:bg-blue-50 hover:border-blue-500 transition-colors text-left">
                     {app.icon && <img src={app.icon} alt="" className="w-4 h-4 flex-shrink-0" />}
-                    <span className="text-sm text-gray-900 dark:text-white truncate flex-1">
+                    <span className="text-sm text-qc-fg truncate flex-1">
                       {app.process}
                     </span>
-                    <i className="ti ti-plus w-4 h-4 text-gray-400 flex-shrink-0"></i>
+                    <i className="ti ti-plus w-4 h-4 text-qc-fg-muted flex-shrink-0"></i>
                   </button>
                 </div>;
               }} style={{ height: '100%' }} />}
@@ -294,8 +294,8 @@ function AppFilterSection({
           </div>
         </div>
 
-        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div className="mt-4 p-4 bg-qc-panel rounded-lg">
+          <div className="flex items-start gap-2 text-sm text-qc-fg-muted">
             <i className="ti ti-bulb w-5 h-5 mt-0.5 flex-shrink-0"></i>
             <div className="space-y-1">
               <div>{t('settings.appFilter.tip1')}</div>

@@ -10,8 +10,8 @@ function StatusBar({
   const {
     t
   } = useTranslation();
-  return <div className="min-h-14 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+  return <div className="min-h-14 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t border-qc-border bg-qc-surface">
+      <div className="flex flex-wrap items-center gap-3 text-sm text-qc-fg-muted">
         <span className="whitespace-nowrap">{t('textEditor.charCount', {
           count: charCount
         })}</span>
@@ -22,7 +22,7 @@ function StatusBar({
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        <button className="flex items-center gap-2 px-3 h-9 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium transition-colors" onClick={onCancel}>
+        <button className="flex items-center gap-2 px-3 h-9 rounded border border-qc-border bg-qc-surface hover:bg-qc-hover text-qc-fg font-medium transition-colors" onClick={onCancel}>
           <i className="ti ti-x" style={{
           fontSize: 16
         }}></i>

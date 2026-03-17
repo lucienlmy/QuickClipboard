@@ -43,7 +43,7 @@ function TextContent({ content, lineClampClass, searchKeyword, rowHeight = 'medi
     <div className="h-full min-h-0 overflow-hidden">
       <div
         ref={containerRef}
-        className={`${textClass} text-gray-800 dark:text-gray-200 break-all ${clampClass} overflow-hidden min-h-0 w-full`}
+        className={`${textClass} text-qc-fg break-all ${clampClass} overflow-hidden min-h-0 w-full`}
         style={computedLineHeightPx ? { lineHeight: `${computedLineHeightPx}px` } : undefined}
       >
         {renderedContent}

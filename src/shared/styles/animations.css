@@ -56,6 +56,15 @@
   }
 }
 
+@keyframes slideInLeftNoOpacity {
+  from {
+    transform: translateX(-20px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* 粒子爆炸动画 */
 @keyframes particleExplosion {
   0% {
@@ -161,6 +170,10 @@
 
 .animate-slide-in-left-fast {
   animation: slideInLeft 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-slide-in-left-fast-no-opacity {
+  animation: slideInLeftNoOpacity 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 .animate-toggle-bounce {

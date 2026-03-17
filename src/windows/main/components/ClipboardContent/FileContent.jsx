@@ -66,13 +66,13 @@ function FileContent({
     }
   } catch (error) {
     console.error('解析文件数据失败:', error);
-    return <div className="text-sm text-red-500 dark:text-red-400">
+    return <div className="text-sm text-red-500">
       文件数据解析错误
     </div>;
   }
   
   if (!filesData || !filesData.files || filesData.files.length === 0) {
-    return <div className="text-sm text-gray-500 dark:text-gray-400">
+    return <div className="text-sm text-qc-fg-muted">
       无文件信息
     </div>;
   }
@@ -111,8 +111,8 @@ function FileContent({
               key={index}
               className={`flex items-center justify-center rounded border transition-colors flex-shrink-0 ${
                 exists 
-                  ? `bg-white dark:bg-gray-900/50 border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600${canDrag ? ' cursor-grab active:cursor-grabbing' : ''}`
-                  : 'bg-red-50 dark:bg-red-900/20 border-red-300/60 dark:border-red-700/60 opacity-60'
+                  ? `bg-qc-panel border-qc-border hover:border-qc-border-strong${canDrag ? ' cursor-grab active:cursor-grabbing' : ''}`
+                  : 'bg-red-50 border-red-300/60 opacity-60'
               }`}
               style={{
                 width: `${itemSize}px`,
@@ -146,22 +146,22 @@ function FileContent({
             key={index}
             className={`flex items-center gap-1 px-1 rounded border transition-colors h-full ${
               exists
-                ? `bg-white dark:bg-gray-900/50 border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600${exists ? ' cursor-grab active:cursor-grabbing' : ''}`
-                : 'bg-red-50 dark:bg-red-900/20 border-red-300/60 dark:border-red-700/60 opacity-60'
+                ? `bg-qc-panel border-qc-border hover:border-qc-border-strong${exists ? ' cursor-grab active:cursor-grabbing' : ''}`
+                : 'bg-red-50 border-red-300/60 opacity-60'
             }`}
             {...fileDragProps}
           >
             <FileIcon file={file} size={24} />
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-1">
-                <span className={`text-xs truncate font-medium ${exists ? 'text-gray-800 dark:text-gray-200' : 'text-red-600 dark:text-red-400 line-through'}`}>
+                <span className={`text-xs truncate font-medium ${exists ? 'text-qc-fg' : 'text-red-600 line-through'}`}>
                   {renderFileName(file.name)}
                 </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                <span className="text-xs text-qc-fg-subtle flex-shrink-0">
                   {exists ? formatFileSize(file.size || 0) : t('clipboard.fileNotFound', '文件不存在')}
                 </span>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">
+              <div className="text-xs text-qc-fg-muted truncate leading-tight">
                 {renderFilePath(file.path)}
               </div>
             </div>
@@ -189,8 +189,8 @@ function FileContent({
           key={index}
           className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors h-full ${
             exists
-              ? `bg-white dark:bg-gray-900/50 border-gray-200/60 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600${exists ? ' cursor-grab active:cursor-grabbing' : ''}`
-              : 'bg-red-50 dark:bg-red-900/20 border-red-300/60 dark:border-red-700/60 opacity-60'
+              ? `bg-qc-panel border-qc-border hover:border-qc-border-strong${exists ? ' cursor-grab active:cursor-grabbing' : ''}`
+              : 'bg-red-50 border-red-300/60 opacity-60'
           }`}
           {...fileDragProps}
         >
@@ -200,14 +200,14 @@ function FileContent({
           {/* 文件信息 */}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
-              <span className={`text-sm truncate font-medium ${exists ? 'text-gray-800 dark:text-gray-200' : 'text-red-600 dark:text-red-400 line-through'}`}>
+              <span className={`text-sm truncate font-medium ${exists ? 'text-qc-fg' : 'text-red-600 line-through'}`}>
                 {renderFileName(file.name)}
               </span>
-              <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+              <span className="text-xs text-qc-fg-subtle flex-shrink-0">
                 {exists ? formatFileSize(file.size || 0) : t('clipboard.fileNotFound', '文件不存在')}
               </span>
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+            <div className="text-xs text-qc-fg-muted truncate mt-0.5">
               {renderFilePath(file.path)}
             </div>
           </div>

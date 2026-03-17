@@ -17,12 +17,12 @@ function SettingsHeader({ onNavigate }) {
   const handleClose = async () => {
     await currentWindow.close();
   };
-  return <header data-tauri-drag-region className="settings-header flex-shrink-0 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-5">
+  return <header data-tauri-drag-region className="settings-header flex-shrink-0 h-14 bg-qc-panel border-b border-qc-border flex items-center justify-between px-5">
       <div className="flex items-center gap-3">
-        <i className="ti ti-settings text-gray-600 dark:text-gray-400" style={{
+        <i className="ti ti-settings text-qc-fg-muted" style={{
         fontSize: 20
       }}></i>
-        <h1 className="text-base font-semibold text-gray-900 dark:text-white">
+        <h1 className="text-base font-semibold text-qc-fg">
           {t('settings.title')}
         </h1>
       </div>
@@ -31,20 +31,20 @@ function SettingsHeader({ onNavigate }) {
         <SettingsSearch onNavigate={onNavigate} className="w-80" />
 
         <div className="flex items-center gap-0.5">
-          <button onClick={handleMinimize} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="最小化">
-            <i className="ti ti-minus text-gray-600 dark:text-gray-400" style={{
+          <button onClick={handleMinimize} className="p-1.5 hover:bg-qc-hover rounded transition-colors" title="最小化">
+            <i className="ti ti-minus text-qc-fg-muted" style={{
             fontSize: 16
           }}></i>
           </button>
 
-          <button onClick={handleMaximize} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="最大化">
-            <i className="ti ti-square text-gray-600 dark:text-gray-400" style={{
+          <button onClick={handleMaximize} className="p-1.5 hover:bg-qc-hover rounded transition-colors" title="最大化">
+            <i className="ti ti-square text-qc-fg-muted" style={{
             fontSize: 16
           }}></i>
           </button>
 
-          <button onClick={handleClose} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors" title="关闭">
-            <i className="ti ti-x text-gray-600 dark:text-gray-400 hover:text-red-600" style={{
+          <button onClick={handleClose} className="p-1.5 hover:bg-red-50 rounded transition-colors" title="关闭">
+            <i className="ti ti-x text-qc-fg-muted hover:text-red-600" style={{
             fontSize: 16
           }}></i>
           </button>

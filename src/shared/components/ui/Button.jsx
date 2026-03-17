@@ -18,7 +18,7 @@ function Button({
   const baseClasses = `${sizeClasses[size]} rounded-lg font-medium transition-all duration-200 flex items-center gap-2 justify-center disabled:opacity-50 disabled:cursor-not-allowed`;
   const variantClasses = {
     primary: 'bg-blue-500 hover:bg-blue-600 text-white',
-    secondary: 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white',
+    secondary: 'bg-qc-panel-2 hover:bg-qc-hover text-qc-fg border border-qc-border',
     danger: 'bg-red-500 hover:bg-red-600 text-white'
   };
   const isDisabled = disabled || loading;

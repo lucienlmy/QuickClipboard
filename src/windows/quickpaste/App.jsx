@@ -30,7 +30,7 @@ function QuickPasteWindow() {
   const clipSnap = useSnapshot(clipboardStore);
   const favSnap = useSnapshot(favoritesStore);
   const settings = useSnapshot(settingsStore);
-  const { theme, effectiveTheme, isDark } = useTheme();
+  const { theme, effectiveTheme, isDark, darkThemeStyle } = useTheme();
   useSettingsSync();
 
   const isClipboardTab = navSnap.activeTab === 'clipboard';
@@ -121,7 +121,7 @@ function QuickPasteWindow() {
   }, []);
   useEffect(() => {
     applyThemeToBody(theme, 'quickpaste');
-  }, [theme, effectiveTheme]);
+  }, [theme, darkThemeStyle, effectiveTheme]);
 
   // 窗口隐藏时执行粘贴
   useEffect(() => {
@@ -246,8 +246,8 @@ function QuickPasteWindow() {
       return (
         <div className="w-full flex items-center">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" />
-            <span className="text-xs text-gray-400">加载中...</span>
+            <div className="w-2 h-2 bg-qc-fg-subtle rounded-full animate-pulse" />
+            <span className="text-xs text-qc-fg-muted">加载中...</span>
           </div>
         </div>
       );
@@ -307,12 +307,12 @@ function QuickPasteWindow() {
       >
         {!totalCount ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="px-6 py-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/30">
+            <div className="px-6 py-4 bg-qc-surface/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-qc-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-xl">
-                  <i className={`ti ti-${isClipboardTab ? 'clipboard-off' : 'star-off'} text-gray-400 dark:text-gray-500 text-lg`} />
+                <div className="w-10 h-10 flex items-center justify-center bg-qc-panel rounded-xl">
+                  <i className={`ti ti-${isClipboardTab ? 'clipboard-off' : 'star-off'} text-qc-fg-subtle text-lg`} />
                 </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                <span className="text-sm text-qc-fg-muted font-medium">
                   {isClipboardTab ? t('settings.quickpaste.window.emptyClipboard') : t('settings.quickpaste.window.emptyFavorites')}
                 </span>
               </div>
@@ -348,7 +348,7 @@ function QuickPasteWindow() {
                     transition-all duration-100 ease-out origin-center
                     ${active
                       ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg shadow-blue-500/40 scale-100'
-                      : 'bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-md shadow-black/8 dark:shadow-black/20 scale-[0.92] opacity-80 hover:opacity-90 hover:shadow-lg'
+                      : 'bg-qc-surface/80 backdrop-blur-xl shadow-md shadow-black/8 scale-[0.92] opacity-80 hover:opacity-90 hover:shadow-lg'
                     }
                   `}
                   style={{ 
@@ -362,7 +362,7 @@ function QuickPasteWindow() {
                     flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold
                     ${active
                       ? 'bg-white/25 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      : 'bg-qc-panel text-qc-fg-muted'
                     }
                   `}>
                     {index + 1}
@@ -371,12 +371,12 @@ function QuickPasteWindow() {
                   {/* 内容区域 */}
                   <div className={`
                     flex-1 min-w-0 text-sm
-                    ${active ? 'text-white font-medium' : 'text-gray-700 dark:text-gray-200'}
+                    ${active ? 'text-white font-medium' : 'text-qc-fg'}
                   `}>
                     {item ? renderItemContent(item) : (
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full animate-pulse" />
-                        <div className="flex-1 h-3 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                        <div className="w-2 h-2 bg-qc-fg-subtle rounded-full animate-pulse" />
+                        <div className="flex-1 h-3 bg-qc-panel rounded animate-pulse" />
                       </div>
                     )}
                   </div>
@@ -387,7 +387,7 @@ function QuickPasteWindow() {
                       flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium
                       ${active
                         ? 'bg-white/20 text-white/90'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
+                        : 'bg-qc-panel text-qc-fg-subtle'
                       }
                     `}>
                       {getTypeLabel(item)}

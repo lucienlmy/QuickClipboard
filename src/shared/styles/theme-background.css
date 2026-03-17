@@ -3,6 +3,36 @@
 /* 基础透明背景 */
 body.theme-background {
   background: transparent;
+
+  --qc-surface: rgba(255, 255, 255, 0.08);
+  --qc-panel: rgba(255, 255, 255, 0.18);
+  --qc-panel-2: rgba(255, 255, 255, 0.26);
+  --qc-border: rgba(255, 255, 255, 0.22);
+  --qc-border-strong: rgba(255, 255, 255, 0.32);
+  --qc-hover: rgba(255, 255, 255, 0.18);
+  --qc-active: color-mix(in srgb, var(--bg-dynamic-primary, #3b82f6) 18%, transparent);
+  --qc-accent: var(--bg-dynamic-primary, #3b82f6);
+  --qc-accent-hover: var(--bg-dynamic-dark, #2563eb);
+
+  --qc-toggle-track-off: color-mix(in srgb, var(--bg-dynamic-primary, #3b82f6) 22%, var(--bg-titlebar-bg, #ffffff));
+  --qc-toggle-track-on: var(--bg-dynamic-primary, #3b82f6);
+  --qc-toggle-thumb: rgba(255, 255, 255, 0.78);
+
+  --theme-100: var(--qc-surface);
+  --theme-200: var(--qc-panel);
+  --theme-300: var(--qc-panel-2);
+  --theme-400: var(--qc-hover);
+  --theme-500: var(--qc-active);
+  --theme-600: var(--qc-border);
+  --theme-700: var(--qc-border-strong);
+
+  --theme-superbg-classic-100: var(--qc-surface);
+  --theme-superbg-classic-200: var(--qc-panel);
+  --theme-superbg-classic-300: var(--qc-panel-2);
+  --theme-superbg-classic-400: var(--qc-hover);
+  --theme-superbg-classic-500: var(--qc-active);
+  --theme-superbg-classic-600: var(--qc-border);
+  --theme-superbg-classic-700: var(--qc-border-strong);
 }
 
 .theme-background .main-container,
@@ -188,17 +218,6 @@ body.theme-background {
 }
 
 /* 设置窗口 Tab 栏毛玻璃效果 */
-.theme-background .settings-tab-bar {
-  background-color: rgba(255, 255, 255, 0.55) !important;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-bottom-color: rgba(229, 231, 235, 0.8);
-}
-
-.theme-background.dark .settings-tab-bar {
-  background-color: rgba(0, 0, 0, 0.2) !important;
-  border-bottom-color: rgba(75, 85, 99, 0.5);
-}
 
 /* 设置窗口搜索框增强透明度 */
 .theme-background .settings-header input[type="text"][placeholder*="搜索"] {
@@ -215,78 +234,20 @@ body.theme-background {
   -webkit-backdrop-filter: blur(8px) !important;
 }
 
-/* 设置窗口内容区域完全透明 */
 .theme-background .settings-container main {
   background-color: transparent !important;
 }
 
-/* 设置窗口各个设置项卡片毛玻璃效果 */
-.theme-background .settings-container .bg-white,
-.theme-background .settings-container .settings-section-content {
-  background-color: rgba(255, 255, 255, 0.5) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-/* 背景主题下设置窗口文字增强清晰度 */
-.theme-background .settings-container {
-  color: #1a1a1a !important;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-}
-
-.theme-background .settings-container .text-gray-900 {
-  color: #0f172a !important;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
-  font-weight: 600 !important;
-}
-
-.theme-background .settings-container .text-gray-800 {
-  color: #1e293b !important;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-  font-weight: 500 !important;
-}
-
-.theme-background .settings-container .text-white {
-  color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  font-weight: 600 !important;
-}
-
-.theme-background .settings-container .text-gray-500 {
-  color: #2d3748 !important;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
-}
-
-.theme-background .settings-container .text-gray-600 {
-  color: #1f2937 !important;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
-}
-
-.theme-background .settings-container .text-gray-400 {
-  color: #4a5568 !important;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
-}
-
-.theme-background .settings-container .text-blue-600 {
-  color: #1e40af !important;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
-}
-
-.theme-background .settings-container .text-green-600 {
-  color: #059669 !important;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
-}
-
-.theme-background .settings-container .text-red-600 {
-  color: #dc2626 !important;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+.theme-background .settings-section-header {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 /* 暗色主题下的设置窗口样式 */
 .theme-background.dark .settings-header {
   background-color: rgba(0, 0, 0, 0.3) !important;
   border-bottom-color: rgba(75, 85, 99, 0.5);
+  backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -294,6 +255,7 @@ body.theme-background {
 .theme-background.dark .settings-sidebar {
   background-color: rgba(0, 0, 0, 0.2) !important;
   border-right-color: rgba(75, 85, 99, 0.5);
+  backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -309,45 +271,9 @@ body.theme-background {
 
 
 
-/* 列表背景全透明 */
-.theme-background .clipboard-list,
-.theme-background .favorites-list,
-.theme-background .groups-list {
-  background-color: transparent;
-}
-
-/* 列表项半透明背景 */
-.theme-background .clipboard-item,
-.theme-background .favorite-item,
-.theme-background .group-item,
-.theme-background .card {
-  background-color: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(8px) !important;
-}
-
-.theme-background .clipboard-item:hover:not(.no-animation),
-.theme-background .favorite-item:hover:not(.no-animation){
-  transform: translateY(-1px) scale(1.05);
-}
-/* 骨架屏背景 */
-.theme-background .animate-pulse.bg-white.dark\:bg-gray-800,
-.theme-background .animate-pulse .bg-white.dark\:bg-gray-800 {
-  background-color: rgba(255, 255, 255, 0.85) !important;
-}
-
-/* 骨架屏内部元素 */
-.theme-background .animate-pulse .bg-gray-200.dark\:bg-gray-700,
-.theme-background .animate-pulse.bg-gray-200.dark\:bg-gray-700 {
-  background-color: rgba(229, 231, 235, 0.75) !important;
-}
-
-/* Tab导航栏 */
-.theme-background .tab-navigation {
-  background-color: color-mix(in srgb, var(--bg-titlebar-bg, rgb(240, 240, 240)) 80%, transparent);
+.theme-background .tools-panel {
   backdrop-filter: blur(10px);
-  background-image: none;
-  border-bottom-color: var(--bg-titlebar-border, rgba(232, 233, 234, 0.8));
-  color: var(--bg-titlebar-text, #333333);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 
@@ -374,24 +300,19 @@ body.theme-background {
 
 .theme-background .settings-section-content,
 .theme-background .settings-container .card {
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-/* 全透明背景 */
-.theme-background .bg-white:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.settings-section-content):not(.settings-container *) {
-  background-color: transparent;
+.theme-background .settings-tab-bar {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-.theme-background .bg-gray-50:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.settings-section-content):not(.settings-container *) {
-  background-color: transparent;
-}
-
-.theme-background .bg-gray-100:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.settings-section-content):not(.settings-container *) {
-  background-color: transparent;
-}
-
-.theme-background .bg-gray-200:not(.settings-sidebar):not(.settings-header):not(.title-bar):not(.settings-section-content):not(.settings-container *) {
-  background-color: transparent;
+.theme-background .clipboard-item,
+.theme-background .favorite-item {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 /* 动态主题色应用 */
@@ -417,30 +338,6 @@ body.theme-background {
   border-color: var(--bg-dynamic-primary, #4a89dc);
 }
 
-.theme-background .clipboard-item.bg-blue-100,
-.theme-background .favorite-item.bg-blue-100 {
-  background-color: rgba(203, 224, 250, 0.8) !important;
-}
-
-.theme-background .footer-bar button {
-  color: #374151 !important;
-  opacity: 0.9 !important;
-}
-
-.theme-background .footer-bar button:hover {
-  color: #1f2937 !important;
-  opacity: 1 !important;
-}
-
-.theme-background .footer-bar button svg {
-  color: #374151 !important;
-  opacity: 0.9 !important;
-}
-
-.theme-background .footer-bar button:hover svg {
-  color: #1f2937 !important;
-  opacity: 1 !important;
-}
 
 .theme-background.has-dynamic-titlebar button[role="switch"][aria-checked="true"] {
   background-color: var(--bg-dynamic-primary, #4a89dc);
@@ -507,59 +404,6 @@ body.theme-background {
   border-color: var(--bg-dynamic-primary, #4a89dc) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
-}
-
-.theme-background.dark .settings-container {
-  color: #ffffff !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-.theme-background.dark .settings-container .text-gray-900 {
-  color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  font-weight: 600 !important;
-}
-
-.theme-background.dark .settings-container .text-gray-800 {
-  color: #f9fafb !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  font-weight: 500 !important;
-}
-
-.theme-background.dark .settings-container .text-white {
-  color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-  font-weight: 600 !important;
-}
-
-.theme-background.dark .settings-container .text-gray-500 {
-  color: #e5e7eb !important;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
-}
-
-.theme-background.dark .settings-container .text-gray-600 {
-  color: #d1d5db !important;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
-}
-
-.theme-background.dark .settings-container .text-gray-400 {
-  color: #f3f4f6 !important;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-}
-
-.theme-background.dark .settings-container .text-blue-600 {
-  color: #60a5fa !important;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
-}
-
-.theme-background.dark .settings-container .text-green-600 {
-  color: #34d399 !important;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
-}
-
-.theme-background.dark .settings-container .text-red-600 {
-  color: #f87171 !important;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
 }
 
 
@@ -654,6 +498,7 @@ body.theme-background {
 
   .theme-background .settings-sidebar,
   .theme-background .clipboard-item,
+  .theme-background .favorite-item,
   .theme-background .card {
     backdrop-filter: none;
   }

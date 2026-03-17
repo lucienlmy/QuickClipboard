@@ -28,7 +28,7 @@ function TabButton({
           ${uiAnimationEnabled ? 'hover:scale-105' : ''}
           ${isActive
             ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
-            : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'}
+            : 'text-qc-fg-muted hover:bg-qc-hover'}
         `}
         style={uiAnimationEnabled ? {
           transitionProperty: 'transform, box-shadow, background-color, color',

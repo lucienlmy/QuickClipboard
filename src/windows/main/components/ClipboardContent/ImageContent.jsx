@@ -101,13 +101,13 @@ function ImageContent({
   const handleDragMouseDown = useDragWithThreshold({ onDragStart: handleDragStart });
 
   if (loading) {
-    return <div className="w-full min-h-[80px] bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
-      <span className="text-sm text-gray-500 dark:text-gray-400">加载中...</span>
+    return <div className="w-full min-h-[80px] bg-qc-panel-2 rounded flex items-center justify-center">
+      <span className="text-sm text-qc-fg-muted">加载中...</span>
     </div>;
   }
   if (error) {
-    return <div className="w-full min-h-[80px] bg-red-50 dark:bg-red-900/20 rounded flex items-center justify-center">
-      <span className="text-sm text-red-500 dark:text-red-400">{t('clipboard.imageLoadFailed', '图片加载失败')}</span>
+    return <div className="w-full min-h-[80px] bg-red-50 rounded flex items-center justify-center">
+      <span className="text-sm text-red-500">{t('clipboard.imageLoadFailed', '图片加载失败')}</span>
     </div>;
   }
   if (isOversized || !fileExists) {
@@ -122,20 +122,12 @@ function ImageContent({
       : `${imageDimensions.width} × ${imageDimensions.height}`;
 
     const colorClasses = !fileExists
-      ? 'from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/20 border-red-300/60 dark:border-red-700/60'
-      : 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200/60 dark:border-amber-700/40';
-    const iconColorClass = !fileExists
-      ? 'text-red-400 dark:text-red-500'
-      : 'text-amber-400 dark:text-amber-500';
-    const textColorClass = !fileExists
-      ? 'text-red-600 dark:text-red-400'
-      : 'text-amber-600 dark:text-amber-400';
-    const subTextColorClass = !fileExists
-      ? 'text-red-500/70 dark:text-red-500/50'
-      : 'text-amber-500/70 dark:text-amber-500/50';
-    const badgeColorClass = !fileExists
-      ? 'bg-red-500 dark:bg-red-600'
-      : 'bg-amber-500 dark:bg-amber-600';
+      ? 'from-red-50 to-red-50 border-red-300/60'
+      : 'from-amber-50 to-orange-50 border-amber-200/60';
+    const iconColorClass = !fileExists ? 'text-red-400' : 'text-amber-400';
+    const textColorClass = !fileExists ? 'text-red-600' : 'text-amber-600';
+    const subTextColorClass = !fileExists ? 'text-red-500/70' : 'text-amber-500/70';
+    const badgeColorClass = !fileExists ? 'bg-red-500' : 'bg-amber-500';
     const iconName = !fileExists ? 'ti-photo-off' : 'ti-photo';
     const badgeIcon = !fileExists ? 'ti-x' : 'ti-alert-triangle';
     

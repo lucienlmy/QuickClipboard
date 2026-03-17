@@ -220,7 +220,7 @@ const ClipboardList = forwardRef(({
   }));
   if (clipSnap.totalCount === 0) {
     return <div className="flex-1 flex items-center justify-center">
-        <p className="text-gray-400 dark:text-gray-500 text-sm">
+        <p className="text-qc-fg-subtle text-sm">
           暂无剪贴板记录
         </p>
       </div>;
@@ -238,7 +238,7 @@ const ClipboardList = forwardRef(({
   } : undefined;
   
   return <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={onDragEnd} onDragCancel={handleDragCancel} modifiers={modifiers}>
-      <div className="flex-1 bg-gray-50 dark:bg-gray-800 overflow-hidden custom-scrollbar-container transition-colors duration-500 clipboard-list" data-no-drag>
+      <div className="flex-1 bg-qc-surface overflow-hidden custom-scrollbar-container transition-colors duration-500 clipboard-list" data-no-drag>
         <SortableContext items={itemsWithId.map(item => item._sortId)} strategy={strategy}>
           <Virtuoso ref={virtuosoRef} totalCount={clipSnap.totalCount || 0} scrollerRef={scrollerRefCallback} atTopStateChange={atTop => {
           onScrollStateChange?.({
@@ -255,15 +255,15 @@ const ClipboardList = forwardRef(({
           if (!item || item._isPlaceholder) {
             return isCardStyle ? <div style={getCardOuterStyle(index)}>
                 <div className={heightClass}>
-                  <div className="h-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 animate-pulse">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-full rounded-lg border border-qc-border bg-qc-panel p-3 animate-pulse">
+                    <div className="h-4 bg-qc-panel-2 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-qc-panel-2 rounded w-1/2"></div>
                   </div>
                 </div>
               </div> : <div className={heightClass}>
-                <div className="h-full border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 animate-pulse">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                <div className="h-full border-b border-qc-border bg-qc-panel p-3 animate-pulse">
+                  <div className="h-4 bg-qc-panel-2 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-qc-panel-2 rounded w-1/2"></div>
                 </div>
               </div>;
           }

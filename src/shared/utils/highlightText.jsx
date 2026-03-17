@@ -14,7 +14,7 @@ export function highlightText(text, keyword) {
       return (
         <mark
           key={index}
-          className="search-highlight bg-yellow-300 dark:bg-yellow-500/70 text-gray-900 dark:text-gray-100 rounded-sm px-0.5"
+          className="search-highlight bg-yellow-300 text-qc-fg rounded-sm px-0.5"
           data-highlight="true"
         >
           {part}
@@ -64,7 +64,7 @@ export function highlightHtmlContent(container, keyword) {
         if (part.toLowerCase() === keyword.toLowerCase()) {
           const mark = document.createElement('mark');
           mark.className =
-            'search-highlight bg-yellow-300 dark:bg-yellow-500/70 text-gray-900 dark:text-gray-100 rounded-sm px-0.5';
+            'search-highlight bg-yellow-300 text-qc-fg rounded-sm px-0.5';
           mark.setAttribute('data-highlight', 'true');
           mark.textContent = part;
           fragment.appendChild(mark);

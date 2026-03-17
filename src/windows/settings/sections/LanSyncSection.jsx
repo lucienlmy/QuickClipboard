@@ -443,12 +443,12 @@ function LanSyncSection({
 
         {/* 错误显示 */}
         {snapshotError && (
-          <div className="p-4 rounded-xl bg-red-50/50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30">
-            <div className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
+          <div className="p-4 rounded-xl bg-red-50/50 border border-red-100">
+            <div className="flex items-center gap-2 text-sm font-semibold text-red-700 mb-1">
               <i className="ti ti-alert-circle" />
               {t('settings.lanSync.statusFetchFailed')}
             </div>
-            <div className="text-xs text-red-600 dark:text-red-400 opacity-80 break-all font-mono leading-relaxed">
+            <div className="text-xs text-red-600 opacity-80 break-all font-mono leading-relaxed">
               {snapshotError}
             </div>
           </div>
@@ -516,11 +516,11 @@ function StatusOverviewCard({
   const { t } = useTranslation();
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+    <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-6 bg-blue-500 rounded-full" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="text-lg font-semibold text-qc-fg">
             {t('settings.lanSync.status')}
           </h3>
         </div>
@@ -651,7 +651,7 @@ function StatusOverviewCard({
         settings.lanSyncMode === 'client' &&
         snapshot?.reconnecting &&
         snapshot?.state !== 'Connected' && (
-          <div className="mt-4 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100/50 dark:border-blue-800/30 flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+          <div className="mt-4 p-3 rounded-lg bg-blue-50/50 border border-blue-100/50 flex items-center gap-2 text-sm text-blue-700">
             <i className="ti ti-refresh animate-spin" />
             <span>{t('settings.lanSync.statusReconnecting')} #{snapshot?.reconnect_attempt ?? 0}</span>
             {snapshot?.next_retry_in_ms != null && (
@@ -696,14 +696,14 @@ function ServerFeatures({
   return (
     <div className="space-y-6">
       {/* 本地URL区域 */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="relative bg-qc-surface rounded-lg p-5 border border-qc-border">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+            <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
               <i className="ti ti-broadcast text-blue-500" />
               {t('settings.lanSync.localUrls')}
             </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-qc-fg-muted mt-1">
               {t('settings.lanSync.localUrlsDesc')}
             </p>
           </div>
@@ -715,9 +715,9 @@ function ServerFeatures({
               {localUrlsVisible.map(url => (
                 <div
                   key={url}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-gray-200/70 dark:border-gray-600/50 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-qc-border bg-qc-panel hover:bg-qc-hover transition-colors"
                 >
-                  <div className="text-sm text-gray-700 dark:text-gray-200 break-all flex-1 font-mono">
+                  <div className="text-sm text-qc-fg break-all flex-1 font-mono">
                     {url}
                   </div>
                   <div className="flex items-center gap-2">
@@ -748,9 +748,9 @@ function ServerFeatures({
               ))}
             </div>
           ) : (
-            <div className="py-10 text-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700/50">
-              <div className="ti ti-devices text-3xl text-gray-300 dark:text-gray-600 mb-3" />
-              <div className="text-sm text-gray-400 dark:text-gray-500">
+            <div className="py-10 text-center rounded-xl border-2 border-dashed border-qc-border">
+              <div className="ti ti-devices text-3xl text-qc-fg-subtle mb-3" />
+              <div className="text-sm text-qc-fg-muted">
                 {t('settings.lanSync.localUrlsEmpty')}
               </div>
             </div>
@@ -760,7 +760,7 @@ function ServerFeatures({
             <div className="flex justify-center">
               <button
                 type="button"
-                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
                 onClick={() => setShowAllLocalUrls(v => !v)}
               >
                 {showAllLocalUrls
@@ -771,7 +771,7 @@ function ServerFeatures({
           )}
 
           {copyTip && (
-            <div className="text-center text-sm text-green-600 dark:text-green-400 animate-fade-in">
+            <div className="text-center text-sm text-green-600 animate-fade-in">
               {copyTip}
             </div>
           )}
@@ -790,7 +790,7 @@ function ServerFeatures({
                 <span className="text-sm">{t('common.loading')}</span>
               </div>
             ) : qrDataUrl ? (
-              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="p-3 bg-qc-surface rounded-lg border border-qc-border">
                 <img src={qrDataUrl} alt={t('settings.lanSync.qrTitle')} className="w-56 h-56" />
               </div>
             ) : (
@@ -803,33 +803,33 @@ function ServerFeatures({
       </div>
 
       {/* 配对码区域 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
         <div className="mb-4">
-          <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+          <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
             <i className="ti ti-key text-amber-500" />
             {t('settings.lanSync.pairCodeTitle')}
           </label>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-qc-fg-muted mt-1">
             {t('settings.lanSync.pairCodeTitleDesc')}
           </p>
         </div>
 
-        <div className="flex items-center gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/30 border border-gray-200/70 dark:border-gray-600/50">
+        <div className="flex items-center gap-4 p-4 rounded-lg bg-qc-panel border border-qc-border">
           <div className="flex-1">
-            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+            <div className="text-xs text-qc-fg-muted mb-1">
               {t('settings.lanSync.pairCode')}
             </div>
-            <div className="font-mono text-xl font-bold tracking-wider text-blue-600 dark:text-blue-400">
+            <div className="font-mono text-xl font-bold tracking-wider text-blue-600">
               {serverPairCode ? formatPairCode(serverPairCode) : '---- ---- --'}
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="text-center">
-              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              <div className="text-xs text-qc-fg-muted mb-1">
                 {t('settings.lanSync.pairCodeRemaining')}
               </div>
-              <div className="font-mono text-lg font-semibold text-gray-700 dark:text-gray-200">
+              <div className="font-mono text-lg font-semibold text-qc-fg">
                 {serverPairCodeRemainingMs != null ? formatRemaining(serverPairCodeRemainingMs) : '--:--'}
               </div>
             </div>
@@ -856,14 +856,14 @@ function ServerFeatures({
       </div>
 
       {/* 受信任设备区域 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+            <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
               <i className="ti ti-devices text-purple-500" />
               {t('settings.lanSync.trustedDevicesTitle')}
             </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-qc-fg-muted mt-1">
               {t('settings.lanSync.trustedDevicesDesc')}
             </p>
           </div>
@@ -884,16 +884,16 @@ function ServerFeatures({
               {trustedDevices.map(d => (
                 <div
                   key={d.device_id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-gray-200/70 dark:border-gray-600/50 bg-gray-50 dark:bg-gray-700/30"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-qc-border bg-qc-panel"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100 break-all font-mono">
+                    <div className="text-sm font-medium text-qc-fg break-all font-mono">
                       {d.device_id}
                     </div>
-                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <div className="mt-1 text-xs text-qc-fg-muted flex items-center gap-2">
                       <span
                         className={`inline-block w-2 h-2 rounded-full ${
-                          d.connected ? 'bg-green-500' : 'bg-gray-400'
+                          d.connected ? 'bg-green-500' : 'bg-qc-fg-subtle'
                         }`}
                       />
                       <span>
@@ -929,9 +929,9 @@ function ServerFeatures({
               ))}
             </div>
           ) : (
-            <div className="py-10 text-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700/50">
-              <div className="ti ti-devices text-3xl text-gray-300 dark:text-gray-600 mb-3" />
-              <div className="text-sm text-gray-400 dark:text-gray-500">
+            <div className="py-10 text-center rounded-xl border-2 border-dashed border-qc-border">
+              <div className="ti ti-devices text-3xl text-qc-fg-subtle mb-3" />
+              <div className="text-sm text-qc-fg-muted">
                 {t('settings.lanSync.trustedDeviceEmpty')}
               </div>
             </div>
@@ -969,20 +969,20 @@ function ClientFeatures({
   return (
     <div className="space-y-6">
       {/* 连接配置 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
         <div className="mb-4">
-          <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+          <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
             <i className="ti ti-settings text-green-500" />
             {t('settings.lanSync.connectionConfig')}
           </label>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-qc-fg-muted mt-1">
             {t('settings.lanSync.connectionConfigDesc')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="text-sm font-medium text-qc-fg">
               {t('settings.lanSync.peerUrl')}
             </label>
             <Input
@@ -993,13 +993,13 @@ function ClientFeatures({
               className="w-full"
               placeholder="ws://127.0.0.1:18181"
             />
-            <div className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="text-xs text-qc-fg-muted">
               {t('settings.lanSync.peerUrlDesc')}
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="text-sm font-medium text-qc-fg">
               {t('settings.lanSync.pairCode')}
             </label>
             <Input
@@ -1009,7 +1009,7 @@ function ClientFeatures({
               className="w-full"
               placeholder="1234567890"
             />
-            <div className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="text-xs text-qc-fg-muted">
               {t('settings.lanSync.pairCodeDesc')}
             </div>
           </div>
@@ -1017,13 +1017,13 @@ function ClientFeatures({
       </div>
 
       {/* 连接控制 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="bg-qc-surface rounded-lg p-5 border border-qc-border">
         <div className="mb-4">
-          <label className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-100">
+          <label className="flex items-center gap-2 text-base font-semibold text-qc-fg">
             <i className="ti ti-plug text-purple-500" />
             {t('settings.lanSync.connectionControl')}
           </label>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-qc-fg-muted mt-1">
             {t('settings.lanSync.connectionControlDesc')}
           </p>
         </div>
@@ -1061,9 +1061,9 @@ function StatusBadge({ enabled, text, title, variant }) {
   const v = variant || (enabled ? 'success' : 'danger');
 
   const styles = {
-    success: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800/60',
-    danger: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800/60',
-    neutral: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/40 dark:text-gray-200 dark:border-gray-700/60'
+    success: 'bg-green-50 text-green-700 border-green-200',
+    danger: 'bg-red-50 text-red-700 border-red-200',
+    neutral: 'bg-qc-panel text-qc-fg-muted border-qc-border'
   };
 
   return (
@@ -1075,14 +1075,14 @@ function StatusBadge({ enabled, text, title, variant }) {
 
 function StatusCard({ label, desc, value, children }) {
   return (
-    <div className="group relative p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600">
-      <div className="text-xs text-gray-500 dark:text-gray-400 pr-6 mb-2">
+    <div className="group relative p-4 rounded-xl bg-qc-surface border border-qc-border transition-all hover:shadow-md hover:border-qc-border-strong">
+      <div className="text-xs text-qc-fg-muted pr-6 mb-2">
         {label}
       </div>
 
       {desc && (
         <div
-          className="absolute top-3 right-3 w-5 h-5 rounded-full border border-gray-300/80 dark:border-gray-600 flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-300 bg-white/60 dark:bg-gray-900/40 cursor-help transition-colors group-hover:border-gray-400 dark:group-hover:border-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-200"
+          className="absolute top-3 right-3 w-5 h-5 rounded-full border border-qc-border flex items-center justify-center text-[10px] text-qc-fg-muted bg-qc-surface/60 cursor-help transition-colors group-hover:border-qc-border-strong group-hover:text-qc-fg"
           title={desc}
         >
           ?
@@ -1092,7 +1092,7 @@ function StatusCard({ label, desc, value, children }) {
       {children != null ? (
         <div>{children}</div>
       ) : value !== undefined ? (
-        <div className="text-base font-semibold text-gray-800 dark:text-gray-100 break-all">
+        <div className="text-base font-semibold text-qc-fg break-all">
           {value}
         </div>
       ) : null}

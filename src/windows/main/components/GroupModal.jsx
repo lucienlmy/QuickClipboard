@@ -111,19 +111,19 @@ function GroupModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-transparent flex items-center justify-center z-50"
       onClick={handleOverlayClick}
     >
-      <div className="group-modal bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[320px] max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="group-modal bg-qc-panel rounded-lg shadow-xl w-[320px] max-h-[80vh] overflow-hidden flex flex-col">
 
         {/* header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-qc-border">
+          <h3 className="text-lg font-semibold text-qc-fg">
             {group ? t('groups.modal.titleEdit') : t('groups.modal.titleNew')}
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
+            className="p-1 rounded hover:bg-qc-hover text-qc-fg-muted"
           >
             <i className="ti ti-x" style={{ fontSize: 20 }} />
           </button>
@@ -134,7 +134,7 @@ function GroupModal({
 
           {/* name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-qc-fg mb-2">
               {t('groups.modal.nameLabel')}
             </label>
             <input
@@ -144,14 +144,14 @@ function GroupModal({
               onChange={e => setName(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('groups.modal.namePlaceholder')}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-qc-panel-2 border border-qc-border rounded-md text-qc-fg placeholder:text-qc-fg-subtle focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
           </div>
 
           {/* color */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-qc-fg mb-2">
               颜色
             </label>
 
@@ -160,7 +160,7 @@ function GroupModal({
               {/* custom */}
               <label
                 title={t('groups.modal.customColor')}
-                className="w-8 h-8 rounded-md border border-gray-400 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:border-blue-500 transition"
+                className="w-8 h-8 rounded-md border border-qc-border-strong flex items-center justify-center cursor-pointer hover:border-blue-500 transition text-qc-fg-muted"
               >
                 <input
                   type="color"
@@ -179,7 +179,7 @@ function GroupModal({
                   className={`w-8 h-8 rounded-md border transition
                   ${selectedColor === color
                       ? "border-blue-500 scale-110 shadow"
-                      : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                      : "border-qc-border hover:border-qc-border-strong"
                     }`}
                   style={{ backgroundColor: color }}
                 />
@@ -190,11 +190,11 @@ function GroupModal({
 
           {/* icon */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-qc-fg mb-2">
               {t('groups.modal.iconLabel')}
             </label>
 
-            <div className="grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900 rounded-md">
+            <div className="grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto p-2 bg-qc-panel-2 rounded-md">
               {AVAILABLE_ICONS.map(iconName => (
                 <button
                   key={iconName}
@@ -202,7 +202,7 @@ function GroupModal({
                   className={`p-2 rounded-md transition flex items-center justify-center border
                     ${selectedIcon === iconName
                       ? "bg-blue-500 border-blue-500 text-white shadow-md"
-                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:border-blue-400"
+                      : "bg-qc-panel text-qc-fg border-qc-border hover:border-blue-400"
                     }`}
                 >
                   <i
@@ -222,10 +222,10 @@ function GroupModal({
         </div>
 
         {/* footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-qc-border">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition"
+            className="px-4 py-2 text-sm font-medium text-qc-fg hover:bg-qc-hover rounded-md transition"
           >
             {t('common.cancel')}
           </button>

@@ -36,6 +36,19 @@ export default defineConfig({
   },
   theme: {
     colors: {
+      // QuickClipboard 主题 token（由 CSS 变量驱动）
+      qc: {
+        fg: 'var(--qc-fg, #111827)',
+        'fg-muted': 'var(--qc-fg-muted, #6b7280)',
+        'fg-subtle': 'var(--qc-fg-subtle, #9ca3af)',
+        surface: 'var(--qc-surface, #ffffff)',
+        panel: 'var(--qc-panel, #f3f4f6)',
+        'panel-2': 'var(--qc-panel-2, #e5e7eb)',
+        hover: 'var(--qc-hover, rgba(156, 163, 175, 0.25))',
+        active: 'var(--qc-active, rgba(59, 130, 246, 0.12))',
+        border: 'var(--qc-border, rgba(17, 24, 39, 0.12))',
+        'border-strong': 'var(--qc-border-strong, rgba(17, 24, 39, 0.22))',
+      },
       primary: {
         50: '#eff6ff',
         100: '#dbeafe',
@@ -50,7 +63,7 @@ export default defineConfig({
       },
       //灰色系主题
       gray: {
-        50: '#f9fafb',
+        50: '#ffffff',
         100: '#f3f4f6',
         200: '#e5e7eb',
         300: '#d1d5db',
@@ -105,69 +118,24 @@ export default defineConfig({
       },
     },
   },
-  safelist: [
-    // 确保关键类名在首次加载时就生成
-    'h-screen', 'w-screen', 'flex', 'flex-col', 'flex-1', 'overflow-hidden',
-    'items-center', 'justify-center', 'justify-end',
-    'bg-white', 'bg-gray-50', 'bg-gray-100', 'bg-gray-200', 'bg-gray-600', 'bg-gray-800', 'bg-gray-900',
-    'bg-transparent', 'bg-gray-300/50', 'dark:bg-gray-800/50',
-    'bg-white/90', 'dark:bg-gray-900/90',
-    'bg-white/70', 'dark:bg-gray-800/70',
-    'bg-gray-50/50', 'dark:bg-gray-900/50',
-    'dark:bg-gray-700', 'dark:bg-gray-800', 'dark:bg-gray-900',
-    'bg-blue-50', 'dark:bg-blue-900/20', 'dark:bg-blue-900/30',
-    'bg-gray-200/50', 'dark:bg-gray-700/50', 'bg-gray-200/60', 'dark:bg-gray-700/60',
-    'bg-blue-100/60',
-    'text-gray-100', 'text-gray-200', 'text-gray-400', 'text-gray-500', 'text-gray-600', 'text-gray-700', 'text-gray-800', 'text-gray-900',
-    'dark:text-gray-100', 'dark:text-gray-200', 'dark:text-gray-300', 'dark:text-gray-400', 'dark:text-gray-500',
-    'text-blue-400', 'text-blue-600', 'text-red-600',
-    'dark:text-blue-400',
-    'bg-gray-100', 'dark:bg-gray-700',
-    'hover:bg-gray-200', 'dark:hover:bg-gray-500',
-    'border', 'border-t', 'border-l', 'border-r',
-    'border-gray-200', 'border-gray-300', 'border-gray-700', 'dark:border-gray-700',
-    'border-gray-200/50', 'dark:border-gray-700/50',
-    'border-blue-200', 'dark:border-blue-800',
-    'border-transparent',
-    'rounded', 'rounded-lg', 'rounded-md', 'rounded-sm', 'rounded-xl', 'rounded-l-2xl', 'rounded-t-2xl', 'rounded-t-xl', 'rounded-t-md',
-    'object-cover', 'object-contain',
-    'backdrop-blur-xl',
-    'shadow-sm', 'shadow-md', 'shadow-lg', 'shadow-2xl',
-    'scale-105',
-    'bg-gradient-to-br', 'bg-gradient-to-r', 'from-blue-500', 'to-blue-600',
-    'bg-white/20', 'hover:bg-white/30', 'bg-white/90', 'bg-white/95', 'dark:bg-gray-800/90', 'dark:bg-gray-800/95',
-    'bg-gray-100/80', 'dark:bg-gray-700/50',
-    'hover:bg-red-100', 'dark:hover:bg-red-900/50',
-    'h-7', 'h-10', 'h-11', 'h-[50px]', 'h-[90px]', 'h-[120px]', 'max-h-[350px]', 'max-h-[400px]',
-    'w-[50px]', 'w-[100px]', 'w-[120px]', 'w-[140px]', 'w-[200px]', 'w-[300px]', 'w-[320px]',
-    'max-w-[60px]', 'max-w-[200px]',
-    'px-1', 'px-1.5', 'px-2', 'px-2.5', 'px-3', 'px-4', 'py-0.5', 'py-1', 'py-1.5', 'py-2', 'py-2.5', 'py-3',
-    'p-0.5', 'p-2', 'pl-8', 'pr-3',
-    'gap-0.5', 'gap-1', 'gap-1.5', 'gap-2', 'gap-3', 'gap-4', 'space-y-0.5', 'space-y-1', 'leading-tight', 'leading-none',
-    'grid', 'grid-cols-6',
-    'shadow-sm',
-    'text-[9px]', 'text-[10px]', 'text-xs', 'text-sm', 'text-base',
-    'min-w-[16px]', 'text-center', 'font-semibold', 'font-medium', 'pointer-events-none',
-    'truncate',
-    'hover:bg-gray-100', 'hover:bg-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600', 'dark:hover:bg-gray-700', 'dark:hover:bg-gray-800',
-    'hover:bg-red-100', 'dark:hover:bg-red-900/30', 'hover:text-red-600',
-    'hover:scale-105',
-    'bg-blue-500', 'hover:bg-blue-600', 'text-white',
-    'cursor-move', 'cursor-pointer', 'cursor-grab', 'cursor-grabbing',
-    'absolute', 'fixed', 'top-1', 'right-1', 'right-2', 'right-3', 'bottom-7', 'left-2', 'items-end', '-right-1', 'top-1/2', '-translate-y-1/2',
-    'translate-x-0', 'translate-x-[120px]',
-    'transition-transform', 'transition-opacity', 'transition-all', 'duration-300', 'ease-in-out',
-    'animate-fade-in', 'animate-fade-out', 'animate-slide-up', 'animate-slide-down',
-    'opacity-0', 'group-hover:opacity-100',
-    'hover:bg-blue-500/10',
-    'bg-bg-glass-50', 'bg-bg-glass-100', 'bg-bg-glass-200', 'bg-bg-glass-300', 'bg-bg-glass-400', 'bg-bg-glass-600', 'bg-bg-glass-800',
-    'bg-bg-titlebar-bg', 'text-bg-titlebar-text', 'border-bg-titlebar-border',
-    'bg-bg-dynamic-primary', 'bg-bg-dynamic-hover', 'bg-bg-dynamic-light', 'bg-bg-dynamic-dark',
-    'text-bg-dynamic-primary', 'hover:bg-bg-dynamic-hover',
-    'backdrop-blur-xs', 'backdrop-blur-sm', 'backdrop-blur-md',
-    'inset-0', 'relative',
-  ],
+  safelist: [],
   rules: [
+    // theme token helpers:
+    // - bg-theme-xxx-100   -> background-color: var(--theme-xxx-100)
+    // - text-theme-xxx-100 -> color: var(--theme-xxx-100)
+    // - border-theme-xxx-100 -> border-color: var(--theme-xxx-100)
+    // - theme-xxx-100      -> color: var(--theme-xxx-100)  (便捷写法，默认当 text 用)
+    //
+    // 支持 type 带连字符：dark-classic / superbg-classic 等
+    [/^bg-theme-([a-z0-9-]+)-(\d{1,4})$/i, ([, type, step]) => ({ 'background-color': `var(--theme-${type}-${step})` })],
+    [/^text-theme-([a-z0-9-]+)-(\d{1,4})$/i, ([, type, step]) => ({ color: `var(--theme-${type}-${step})` })],
+    [/^border-theme-([a-z0-9-]+)-(\d{1,4})$/i, ([, type, step]) => ({ 'border-color': `var(--theme-${type}-${step})` })],
+    [/^theme-([a-z0-9-]+)-(\d{1,4})$/i, ([, type, step]) => ({ color: `var(--theme-${type}-${step})` })],
+
+    // 当前主题别名：bg-theme-100 -> var(--theme-100)（由 body.theme-* 提供）
+    [/^bg-theme-(\d{1,4})$/, ([, step]) => ({ 'background-color': `var(--theme-${step})` })],
+    [/^text-theme-(\d{1,4})$/, ([, step]) => ({ color: `var(--theme-${step})` })],
+    [/^border-theme-(\d{1,4})$/, ([, step]) => ({ 'border-color': `var(--theme-${step})` })],
   ],
 })
 

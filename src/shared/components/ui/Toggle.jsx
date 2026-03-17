@@ -49,14 +49,37 @@ function Toggle({
     }
   };
   return <div className="relative">
-      <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={handleClick} onKeyDown={handleKeyDown} className={`w-11 h-6 rounded-full relative overflow-visible transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${uiAnimationEnabled ? 'hover:scale-105 active:scale-95' : ''} ${checked ? 'bg-blue-500 dark:bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`} style={{
-      backgroundColor: checked ? '#3b82f6' : '#d1d5db'
-    }}>
-        <span key={animationKey} className={`block w-5 h-5 rounded-full shadow-md absolute top-0.5 transition-transform duration-200 ${uiAnimationEnabled ? 'animate-toggle-bounce' : ''} ${checked ? 'bg-gray-100' : 'bg-white'}`} style={{
-        transform: checked ? 'translateX(22px)' : 'translateX(2px)',
-        '--toggle-start': checked ? '2px' : '22px',
-        '--toggle-end': checked ? '22px' : '2px'
-      }} />
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className={`w-11 h-6 rounded-full relative overflow-visible transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-qc-border ${uiAnimationEnabled ? 'hover:scale-105 active:scale-95' : ''}`}
+        style={{
+          backgroundColor: checked
+            ? 'var(--qc-toggle-track-on, #3b82f6)'
+            : 'var(--qc-toggle-track-off, var(--qc-panel-2))'
+        }}
+      >
+        <span
+          className="absolute top-1/2 left-0"
+          style={{ transform: 'translateY(-50%)' }}
+        >
+          <span
+            key={animationKey}
+            className={`block w-5 h-5 rounded-full transition-transform duration-200 ring-1 ring-qc-border-strong shadow-md ${uiAnimationEnabled ? 'animate-toggle-bounce' : ''}`}
+            style={uiAnimationEnabled ? {
+              '--toggle-start': checked ? '2px' : '22px',
+              '--toggle-end': checked ? '22px' : '2px',
+              backgroundColor: 'var(--qc-toggle-thumb, var(--qc-surface))'
+            } : {
+              transform: checked ? 'translateX(22px)' : 'translateX(2px)',
+              backgroundColor: 'var(--qc-toggle-thumb, var(--qc-surface))'
+            }}
+          />
+        </span>
 
         {/* 粒子效果 */}
         {uiAnimationEnabled && particles.map(particle => <div key={particle.id} className="absolute top-1/2 w-1.5 h-1.5 rounded-full bg-blue-400 pointer-events-none" style={{

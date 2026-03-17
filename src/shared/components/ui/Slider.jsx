@@ -49,9 +49,9 @@ function Slider({
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
-        className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 
+        className="w-24 h-2 bg-qc-panel-2 rounded-lg appearance-none cursor-pointer accent-[var(--qc-accent)]" 
       />
-      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+      <span className="text-sm font-medium text-qc-fg-muted whitespace-nowrap">
         {displayValue}{unit}
       </span>
     </div>;

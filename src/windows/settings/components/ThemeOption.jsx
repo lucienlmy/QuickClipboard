@@ -43,13 +43,13 @@ function ThemeOption({
           focus:outline-none
           ${uiAnimationEnabled ? 'transition-all duration-300 active:scale-95' : ''}
           ${isActive 
-            ? `border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-lg shadow-blue-500/30 ${uiAnimationEnabled ? 'scale-105' : ''}` 
-            : `border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 ${uiAnimationEnabled ? 'hover:scale-102 hover:shadow-md' : ''}`}
+            ? `border-blue-500 bg-qc-active shadow-lg shadow-blue-500/30 ${uiAnimationEnabled ? 'scale-105' : ''}` 
+            : `border-qc-border hover:border-qc-border-strong ${uiAnimationEnabled ? 'hover:scale-102 hover:shadow-md' : ''}`}
         `}>
         <div key={animationKey} className={`w-full h-16 rounded-md shadow-sm ${isActive && uiAnimationEnabled ? 'animate-theme-bounce' : ''}`} style={{
         background: option.preview
       }} />
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+        <span className="text-xs font-medium text-qc-fg-muted">
           {option.label}
         </span>
       </button>

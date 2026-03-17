@@ -158,7 +158,7 @@ function TabNavigation({
     onEmojiModeChange(id);
   };
 
-  return <div className="tab-navigation flex-shrink-0 bg-gray-100 dark:bg-gray-900 border-b border-gray-300/80 dark:border-gray-700/30 shadow-sm transition-colors duration-500 tab-bar">
+  return <div className="tab-navigation flex-shrink-0 bg-qc-panel border-b border-qc-border shadow-sm transition-colors duration-500 tab-bar">
     <div className="flex items-stretch h-9 whitespace-nowrap">
       {/* 左侧：标签切换 - 50% */}
       <div className="flex-1 flex items-center px-2 relative">
@@ -178,7 +178,7 @@ function TabNavigation({
       </div>
 
       {/* 分隔线 */}
-      <div className="w-px bg-gray-400/60 dark:bg-gray-600/60 my-1.5" />
+      <div className="w-px bg-qc-border-strong my-1.5" />
 
       {/* 右侧：内容筛选，Emoji/符号切换 - 50% */}
       <div className="flex-1 flex items-center px-1 relative">
@@ -202,7 +202,7 @@ function TabNavigation({
                     className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg focus:outline-none ${uiAnimationEnabled ? 'hover:scale-105' : ''} ${
                       emojiMode === mode.id
                         ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
-                        : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
+                        : 'text-qc-fg-muted hover:bg-qc-hover'
                     }`}
                     style={uiAnimationEnabled ? {
                       transitionProperty: 'transform, box-shadow, background-color, color',

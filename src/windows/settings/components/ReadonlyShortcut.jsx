@@ -6,8 +6,8 @@ function ReadonlyShortcut({ keys, groups }) {
       <span key={groupIndex} className="flex items-center gap-1.5">
         {list.map((key, index) => (
           <span key={index} className="flex items-center gap-1.5">
-            {index > 0 && <span className="text-gray-400 dark:text-gray-500 text-xs">+</span>}
-            <kbd className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600 shadow-sm min-w-[28px] text-center">
+            {index > 0 && <span className="text-qc-fg-subtle text-xs">+</span>}
+            <kbd className="px-2 py-1 text-xs font-medium bg-qc-panel-2 text-qc-fg rounded border border-qc-border shadow-sm min-w-[28px] text-center">
               {key}
             </kbd>
           </span>
@@ -21,7 +21,7 @@ function ReadonlyShortcut({ keys, groups }) {
       <div className="flex items-center gap-2 flex-wrap">
         {groups.map((group, index) => (
           <span key={index} className="flex items-center gap-2">
-            {index > 0 && <span className="text-gray-400 dark:text-gray-500 text-xs">/</span>}
+            {index > 0 && <span className="text-qc-fg-subtle text-xs">/</span>}
             {renderKeyGroup(group, index)}
           </span>
         ))}

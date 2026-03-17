@@ -13,6 +13,7 @@ import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
+import { useTheme } from '@shared/hooks/useTheme';
 import logoIcon from '@/assets/icon1024.png';
 
 const closeImagePreview = (previewTimerRef) => {
@@ -47,6 +48,7 @@ function ClipboardItem({
     formatTime,
     renderContent
   } = useItemCommon(item);
+  const { isBackground } = useTheme();
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const previewTimerRef = useRef(null);
@@ -312,11 +314,11 @@ function ClipboardItem({
   // 键盘选中样式
   const selectedClasses = isCardStyle
     ? (isSelected 
-        ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400 ring-inset shadow-md shadow-blue-500/10 dark:shadow-black/20' 
-        : 'bg-gray-50 dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 ring-inset shadow-sm shadow-black/5 dark:shadow-black/20')
+        ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10' 
+        : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} ring-1 ring-qc-border ring-inset shadow-sm shadow-black/5`)
     : (isSelected 
-        ? 'bg-blue-100 dark:bg-blue-900/40 border-b border-gray-200 dark:border-gray-700' 
-        : 'bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700');
+        ? 'bg-qc-active border-b border-qc-border' 
+        : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} border-b border-qc-border`);
   const smallElementClasses = `
     flex items-center justify-center
     w-5 h-5
@@ -328,13 +330,13 @@ function ClipboardItem({
   // 按钮样式
   const actionButtonClasses = `
     ${smallElementClasses}
-    text-gray-500 dark:text-gray-400
-    border-gray-200 dark:border-gray-600
-    bg-white/60 dark:bg-gray-900/60
+    text-qc-fg-subtle
+    border-qc-border
+    bg-qc-panel/60
     backdrop-blur-md
-    hover:text-blue-600 dark:hover:text-blue-400
-    hover:border-blue-300 dark:hover:border-blue-700
-    hover:bg-blue-50/80 dark:hover:bg-blue-900/40
+    hover:text-blue-600
+    hover:border-blue-300
+    hover:bg-qc-hover
     opacity-0 group-hover:opacity-100
     focus:opacity-100
   `.trim().replace(/\s+/g, ' ');
@@ -342,9 +344,9 @@ function ClipboardItem({
   // 序号样式
   const numberBadgeClasses = `
     ${smallElementClasses}
-    text-blue-600 dark:text-blue-400
-    border-blue-200 dark:border-blue-700
-    bg-blue-50/80 dark:bg-blue-900/40
+    text-blue-600
+    border-qc-border
+    bg-qc-panel/80
     backdrop-blur-md
     font-semibold
   `.trim().replace(/\s+/g, ' ');
@@ -353,8 +355,8 @@ function ClipboardItem({
     relative flex items-center justify-center
     w-5 h-5
     rounded-md overflow-hidden
-    border border-gray-200 dark:border-gray-600
-    bg-white/60 dark:bg-gray-900/60
+    border border-qc-border
+    bg-qc-panel/60
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
 
@@ -365,9 +367,9 @@ function ClipboardItem({
     text-xs font-medium
     border rounded-md
     transition-all
-    text-gray-500 dark:text-gray-400
-    border-gray-200 dark:border-gray-600
-    bg-gray-100/80 dark:bg-gray-800/80
+    text-qc-fg-subtle
+    border-qc-border
+    bg-qc-panel/80
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
   
@@ -421,7 +423,7 @@ function ClipboardItem({
           <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
         </button>
         {/* 置顶按钮 */}
-        <button className={`${actionButtonClasses} ${item.is_pinned ? '!opacity-100 !text-blue-500 dark:!text-blue-400' : ''}`} onClick={handlePinClick} title={item.is_pinned ? t('contextMenu.unpin') : t('contextMenu.pin')}>
+        <button className={`${actionButtonClasses} ${item.is_pinned ? '!opacity-100 !text-blue-500' : ''}`} onClick={handlePinClick} title={item.is_pinned ? t('contextMenu.unpin') : t('contextMenu.pin')}>
           <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
         </button>
         {/* 快捷键 */}
@@ -472,7 +474,7 @@ function ClipboardItem({
     <>
           {/* 时间戳 */}
           <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
-            <span className="text-xs text-gray-400 dark:text-gray-500 leading-5">
+            <span className="text-xs text-qc-fg-subtle leading-5">
               {formatTime()}
               {item.char_count != null && (
                 <span className="ml-1.5">

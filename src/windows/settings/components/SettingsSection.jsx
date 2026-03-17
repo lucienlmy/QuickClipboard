@@ -6,15 +6,17 @@ function SettingsSection({
   className = ''
 }) {
   return <div className={`settings-section mb-6 ${className}`}>
-      <div className="mb-3">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="settings-section-header mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="text-lg font-semibold text-qc-fg">
           {title}
         </h2>
-        {description && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        {description && (
+          <span className="text-xs leading-4 text-qc-fg-muted">
             {description}
-          </p>}
+          </span>
+        )}
       </div>
-      <div className="settings-section-content bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+      <div className="settings-section-content bg-qc-panel rounded-lg p-5 border border-qc-border">
         {children}
       </div>
     </div>;

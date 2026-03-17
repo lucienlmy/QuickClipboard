@@ -97,7 +97,7 @@ function App() {
   // 应用主题到body
   useEffect(() => {
     applyThemeToBody(theme, 'settings');
-  }, [theme, effectiveTheme]);
+  }, [theme, darkThemeStyle, effectiveTheme]);
 
   // 应用背景图片（仅在背景主题时）
   useEffect(() => {
@@ -160,9 +160,11 @@ function App() {
       default:
         content = <GeneralSection settings={snap} onSettingChange={handleSettingChange} />;
     }
-    return <div key={activeSection} className={uiAnimationEnabled ? 'animate-slide-in-left-fast' : ''} style={!uiAnimationEnabled ? {
-      transform: 'translateZ(0)'
-    } : {}}>
+    return <div
+      key={activeSection}
+      className={uiAnimationEnabled ? 'animate-slide-in-left-fast-no-opacity' : ''}
+      style={!uiAnimationEnabled ? { transform: 'translateZ(0)' } : {}}
+    >
         {content}
       </div>;
   };
@@ -173,9 +175,9 @@ function App() {
     flex flex-col 
     overflow-hidden 
     transition-colors duration-500 ease-in-out
-    ${isDark ? 'dark bg-gray-900' : ''}
-    ${!isDark ? 'bg-white' : ''}
-    ${isBackground ? 'backdrop-blur-md bg-opacity-0' : ''}
+    ${isDark ? 'dark' : ''}
+    bg-qc-surface
+    ${isBackground ? 'bg-opacity-0' : ''}
   `.trim().replace(/\s+/g, ' ');
   return <div className={containerClasses}>
       <SettingsHeader onNavigate={handleSearchNavigate} />
@@ -189,7 +191,7 @@ function App() {
             <TabBar tabs={shortcutsTabs} activeTab={shortcutsTab} onTabChange={setShortcutsTab} />
           )}
           
-          <main className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${isBackground ? 'bg-transparent' : 'bg-gray-50 dark:bg-gray-900'}`}>
+          <main className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${isBackground ? 'bg-transparent' : 'bg-qc-surface'}`}>
             {renderSection()}
           </main>
         </div>

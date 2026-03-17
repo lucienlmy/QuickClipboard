@@ -217,13 +217,13 @@ function ShortcutComboInput({
           className={`
             inline-flex items-center h-9 px-2 gap-1
             border rounded-lg cursor-pointer
-            bg-white dark:bg-gray-700
+            bg-qc-panel
             transition-all duration-200
             ${hasError 
               ? 'border-red-500 ring-1 ring-red-500/30' 
               : isDropdownOpen || isListeningKey
                 ? 'border-blue-500 ring-1 ring-blue-500/50' 
-                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                : 'border-qc-border hover:border-qc-border-strong'
             }
           `}
           onClick={() => {
@@ -238,8 +238,8 @@ function ShortcutComboInput({
               className={`
                 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs font-medium
                 ${fixedModifiers.includes(mod)
-                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                  : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-qc-panel-2 text-qc-fg'
                 }
               `}
             >
@@ -260,7 +260,7 @@ function ShortcutComboInput({
           
           {/* 固定按键文本显示 */}
           {fixedKey && (
-            <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+            <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
               {fixedKey}
             </span>
           )}
@@ -273,7 +273,7 @@ function ShortcutComboInput({
                 e.stopPropagation();
                 setDropdownType(dropdownType === 'keyType' ? null : 'keyType');
               }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-800/50"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100"
             >
               {currentKeyLabel}
               <svg className={`w-3 h-3 transition-transform ${dropdownType === 'keyType' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,7 +285,7 @@ function ShortcutComboInput({
           {/* 自定义按键输入 */}
           {showKeyInput && (
             customKey ? (
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
                 {customKey}
                 <button
                   type="button"
@@ -304,8 +304,8 @@ function ShortcutComboInput({
                 className={`
                   px-2 py-0.5 rounded text-xs border border-dashed
                   ${isListeningKey 
-                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 animate-pulse'
-                    : 'border-gray-300 dark:border-gray-500 text-gray-400 dark:text-gray-500 hover:border-gray-400 hover:text-gray-500'
+                    ? 'border-blue-400 bg-blue-50 text-blue-600 animate-pulse'
+                    : 'border-qc-border text-qc-fg-subtle hover:border-qc-border-strong hover:text-qc-fg-muted'
                   }
                 `}
               >
@@ -327,7 +327,7 @@ function ShortcutComboInput({
           
           {/* 下拉箭头 */}
           <svg 
-            className={`w-4 h-4 ml-auto text-gray-400 transition-transform ${dropdownType === 'modifier' ? 'rotate-180' : ''}`} 
+            className={`w-4 h-4 ml-auto text-qc-fg-subtle transition-transform ${dropdownType === 'modifier' ? 'rotate-180' : ''}`} 
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"
@@ -338,7 +338,7 @@ function ShortcutComboInput({
         
         {/* 下拉菜单 */}
         {isDropdownOpen && (
-          <div className="absolute top-full left-0 mt-1 min-w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 py-1">
+          <div className="absolute top-full left-0 mt-1 min-w-full bg-qc-panel border border-qc-border rounded-lg shadow-lg z-50 py-1">
             {dropdownType === 'modifier' && modifierOptions.map(mod => {
               const isSelected = modifiers.includes(mod);
               const isFixed = fixedModifiers.includes(mod);
@@ -352,10 +352,10 @@ function ShortcutComboInput({
                   className={`
                     w-full px-3 py-1.5 text-left text-sm flex items-center justify-between
                     ${isFixed 
-                      ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                      ? 'text-qc-fg-subtle cursor-not-allowed' 
                       : isSelected
-                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
-                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-qc-fg hover:bg-qc-hover'
                     }
                   `}
                 >
@@ -377,8 +377,8 @@ function ShortcutComboInput({
                 className={`
                   w-full px-3 py-1.5 text-left text-sm flex items-center justify-between
                   ${keyType === opt.value
-                    ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium'
-                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'
+                    ? 'bg-purple-50 text-purple-700 font-medium'
+                    : 'text-qc-fg hover:bg-qc-hover'
                   }
                 `}
               >
@@ -396,7 +396,7 @@ function ShortcutComboInput({
       
       {/* 错误信息 */}
       {hasError && errorMessage && (
-        <span className="text-xs text-red-500 dark:text-red-400">
+        <span className="text-xs text-red-500">
           {errorMessage}
         </span>
       )}

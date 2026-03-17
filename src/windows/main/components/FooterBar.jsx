@@ -65,19 +65,19 @@ function FooterBar({
     };
   }, [isDragging, leftRatio]);
 
-  return <div ref={(el) => { dragRef.current = el; containerRef.current = el; }} className="flex-shrink-0 h-5 flex bg-gray-200 dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 relative footer-bar">
+  return <div ref={(el) => { dragRef.current = el; containerRef.current = el; }} className="flex-shrink-0 h-5 flex bg-qc-panel border-t border-qc-border relative footer-bar">
     {/* 左侧：文件传输 */}
-    <div className="h-full flex items-center justify-center text-[10px] font-medium text-gray-600 dark:text-gray-400 select-none" style={{ width: `${leftRatio * 100}%` }} data-no-drag>
+    <div className="h-full flex items-center justify-center text-[10px] font-medium text-qc-fg-muted select-none" style={{ width: `${leftRatio * 100}%` }} data-no-drag>
       文件传输
     </div>
 
     {/* 分隔条 */}
     <div
-      className={`h-full w-1 cursor-col-resize flex items-center justify-center hover:bg-gray-400/50 dark:hover:bg-gray-600/50 transition-colors ${isDragging ? 'bg-blue-500/50' : ''}`}
+      className={`h-full w-1 cursor-col-resize flex items-center justify-center hover:bg-qc-hover transition-colors ${isDragging ? 'bg-qc-active' : ''}`}
       onMouseDown={handleDividerMouseDown}
       data-no-drag
     >
-      <div className="w-0.5 h-2 bg-gray-400 dark:bg-gray-600 rounded-full"></div>
+      <div className="w-0.5 h-2 bg-qc-border-strong rounded-full"></div>
     </div>
 
     {/* 右侧：分组等 */}

@@ -191,7 +191,7 @@ function App() {
   // 应用主题到body
   useEffect(() => {
     applyThemeToBody(theme, 'main');
-  }, [theme, effectiveTheme]);
+  }, [theme, darkThemeStyle, effectiveTheme]);
 
   // 应用背景图片（仅在背景主题时）
   useEffect(() => {
@@ -339,8 +339,7 @@ function App() {
     flex ${settings.titleBarPosition === 'left' || settings.titleBarPosition === 'right' ? 'flex-row' : 'flex-col'}
     overflow-hidden
     transition-colors duration-500 ease-in-out
-    ${isDark ? 'bg-gray-900' : ''}
-    ${!isDark ? 'bg-white' : ''}
+    bg-qc-surface
   `.trim().replace(/\s+/g, ' ');
   const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} onNavigate={handleSearchNavigate} position={settings.titleBarPosition} />;
   const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} />;

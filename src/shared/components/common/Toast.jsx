@@ -46,31 +46,31 @@ function Toast({
   const config = {
     success: {
       icon: "ti ti-check",
-      bgClass: 'bg-green-50 dark:bg-green-900/20',
-      borderClass: 'border-green-200 dark:border-green-800',
-      iconClass: 'text-green-600 dark:text-green-400',
-      textClass: 'text-green-800 dark:text-green-200'
+      bgClass: 'bg-green-50',
+      borderClass: 'border-green-200',
+      iconClass: 'text-green-600',
+      textClass: 'text-green-800'
     },
     error: {
       icon: "ti ti-x",
-      bgClass: 'bg-red-50 dark:bg-red-900/20',
-      borderClass: 'border-red-200 dark:border-red-800',
-      iconClass: 'text-red-600 dark:text-red-400',
-      textClass: 'text-red-800 dark:text-red-200'
+      bgClass: 'bg-red-50',
+      borderClass: 'border-red-200',
+      iconClass: 'text-red-600',
+      textClass: 'text-red-800'
     },
     warning: {
       icon: "ti ti-alert-triangle",
-      bgClass: 'bg-orange-50 dark:bg-orange-900/20',
-      borderClass: 'border-orange-200 dark:border-orange-800',
-      iconClass: 'text-orange-600 dark:text-orange-400',
-      textClass: 'text-orange-800 dark:text-orange-200'
+      bgClass: 'bg-orange-50',
+      borderClass: 'border-orange-200',
+      iconClass: 'text-orange-600',
+      textClass: 'text-orange-800'
     },
     info: {
       icon: "ti ti-info-circle",
-      bgClass: 'bg-blue-50 dark:bg-blue-900/20',
-      borderClass: 'border-blue-200 dark:border-blue-800',
-      iconClass: 'text-blue-600 dark:text-blue-400',
-      textClass: 'text-blue-800 dark:text-blue-200'
+      bgClass: 'bg-blue-50',
+      borderClass: 'border-blue-200',
+      iconClass: 'text-blue-600',
+      textClass: 'text-blue-800'
     }
   };
   const {
@@ -159,7 +159,7 @@ function Toast({
       <p className={`${sizeClasses.textSize} font-medium ${textClass} break-words`}>
         {message}
       </p>
-      <button onClick={handleClose} className={`flex-shrink-0 ${sizeClasses.closeButtonPadding} rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${iconClass}`} aria-label="关闭">
+      <button onClick={handleClose} className={`flex-shrink-0 ${sizeClasses.closeButtonPadding} rounded hover:bg-black/5 transition-colors ${iconClass}`} aria-label="关闭">
         <i className="ti ti-x"></i>
       </button>
     </div>;

@@ -301,24 +301,24 @@ function DataManagementSection() {
 
         <SettingItem label={t('settings.dataManagement.importMode')} description={t('settings.dataManagement.importModeDesc')}>
           <div className="flex flex-col gap-2">
-            <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <label className="flex items-start gap-3 p-3 border border-qc-border rounded-lg cursor-pointer hover:bg-qc-hover transition-colors">
               <input type="radio" name="import-mode" value="replace" checked={importMode === 'replace'} onChange={e => setImportMode(e.target.value)} className="mt-1" />
               <div className="flex-1">
-                <div className="font-medium text-gray-900 dark:text-white">
+                <div className="font-medium text-qc-fg">
                   {t('settings.dataManagement.modeReplace')}
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <div className="text-xs text-qc-fg-muted mt-1">
                   {t('settings.dataManagement.modeReplaceDesc')}
                 </div>
               </div>
             </label>
-            <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <label className="flex items-start gap-3 p-3 border border-qc-border rounded-lg cursor-pointer hover:bg-qc-hover transition-colors">
               <input type="radio" name="import-mode" value="merge" checked={importMode === 'merge'} onChange={e => setImportMode(e.target.value)} className="mt-1" />
               <div className="flex-1">
-                <div className="font-medium text-gray-900 dark:text-white">
+                <div className="font-medium text-qc-fg">
                   {t('settings.dataManagement.modeMerge')}
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <div className="text-xs text-qc-fg-muted mt-1">
                   {t('settings.dataManagement.modeMergeDesc')}
                 </div>
               </div>
@@ -371,9 +371,9 @@ function DataManagementSection() {
 
       {busy && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl flex items-center gap-3">
+          <div className="bg-qc-surface rounded-xl p-6 shadow-xl flex items-center gap-3 border border-qc-border">
             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <div className="text-sm text-gray-700 dark:text-gray-200">{busyText || t('settings.dataManagement.overlayMigrating')}</div>
+            <div className="text-sm text-qc-fg">{busyText || t('settings.dataManagement.overlayMigrating')}</div>
           </div>
         </div>,
         document.body
@@ -382,44 +382,44 @@ function DataManagementSection() {
       {/* 迁移模式选择对话框 */}
       {migrationDialog && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl max-w-md w-full mx-4">
+          <div className="bg-qc-surface rounded-xl p-6 shadow-xl max-w-md w-full mx-4 border border-qc-border">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <i className="ti ti-alert-triangle text-amber-600 dark:text-amber-400 text-xl"></i>
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <i className="ti ti-alert-triangle text-amber-600 text-xl"></i>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-semibold text-qc-fg">
                   {t('settings.dataManagement.migrationConflictTitle')}
                 </h3>
               </div>
             </div>
             
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-sm text-qc-fg-muted mb-4">
               {t('settings.dataManagement.migrationConflictDesc')}
             </p>
             
             {migrationDialog.targetInfo && (
-              <div className="bg-gray-100 dark:bg-gray-700/50 rounded-lg p-3 mb-4 text-sm">
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+              <div className="bg-qc-panel rounded-lg p-3 mb-4 text-sm">
+                <div className="flex items-center gap-2 text-qc-fg-muted">
                   <i className="ti ti-database"></i>
                   <span>{t('settings.dataManagement.targetHasDatabase')}: {migrationDialog.targetInfo.has_database ? t('common.confirm') : '-'}</span>
                   {migrationDialog.targetInfo.has_database && (
-                    <span className="text-gray-500">({formatSize(migrationDialog.targetInfo.database_size)})</span>
+                    <span className="text-qc-fg-muted">({formatSize(migrationDialog.targetInfo.database_size)})</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 mt-1">
+                <div className="flex items-center gap-2 text-qc-fg-muted mt-1">
                   <i className="ti ti-photo"></i>
                   <span>{t('settings.dataManagement.targetHasImages')}: {migrationDialog.targetInfo.images_count} {t('settings.dataManagement.imagesCount')}</span>
                   {migrationDialog.targetInfo.images_count > 0 && (
-                    <span className="text-gray-500">({formatSize(migrationDialog.targetInfo.images_size)})</span>
+                    <span className="text-qc-fg-muted">({formatSize(migrationDialog.targetInfo.images_size)})</span>
                   )}
                 </div>
                 {(migrationDialog.targetInfo.has_image_library || migrationDialog.targetInfo.image_library_count > 0) && (
-                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 mt-1">
+                  <div className="flex items-center gap-2 text-qc-fg-muted mt-1">
                     <i className="ti ti-photo-star"></i>
                     <span>{t('settings.dataManagement.targetHasImageLibrary')}: {migrationDialog.targetInfo.image_library_count} {t('settings.dataManagement.imagesCount')}</span>
                     {migrationDialog.targetInfo.image_library_count > 0 && (
-                      <span className="text-gray-500">({formatSize(migrationDialog.targetInfo.image_library_size)})</span>
+                      <span className="text-qc-fg-muted">({formatSize(migrationDialog.targetInfo.image_library_size)})</span>
                     )}
                   </div>
                 )}
@@ -429,14 +429,14 @@ function DataManagementSection() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => handleMigrationModeSelect('source_only')}
-                className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                className="flex items-start gap-3 p-3 border border-qc-border rounded-lg hover:bg-qc-hover transition-colors text-left"
               >
                 <i className="ti ti-replace text-blue-500 mt-0.5"></i>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white">
+                  <div className="font-medium text-qc-fg">
                     {t('settings.dataManagement.migrationSourceOnly')}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-qc-fg-muted mt-0.5">
                     {t('settings.dataManagement.migrationSourceOnlyDesc')}
                   </div>
                 </div>
@@ -444,14 +444,14 @@ function DataManagementSection() {
               
               <button
                 onClick={() => handleMigrationModeSelect('target_only')}
-                className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                className="flex items-start gap-3 p-3 border border-qc-border rounded-lg hover:bg-qc-hover transition-colors text-left"
               >
                 <i className="ti ti-file-check text-green-500 mt-0.5"></i>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white">
+                  <div className="font-medium text-qc-fg">
                     {t('settings.dataManagement.migrationTargetOnly')}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-qc-fg-muted mt-0.5">
                     {t('settings.dataManagement.migrationTargetOnlyDesc')}
                   </div>
                 </div>
@@ -459,24 +459,24 @@ function DataManagementSection() {
               
               <button
                 onClick={() => handleMigrationModeSelect('merge')}
-                className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                className="flex items-start gap-3 p-3 border border-qc-border rounded-lg hover:bg-qc-hover transition-colors text-left"
               >
                 <i className="ti ti-git-merge text-purple-500 mt-0.5"></i>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white">
+                  <div className="font-medium text-qc-fg">
                     {t('settings.dataManagement.migrationMerge')}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="text-xs text-qc-fg-muted mt-0.5">
                     {t('settings.dataManagement.migrationMergeDesc')}
                   </div>
                 </div>
               </button>
             </div>
             
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <div className="mt-4 pt-4 border-t border-qc-border flex justify-end">
               <button
                 onClick={() => setMigrationDialog(null)}
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-qc-fg-muted hover:text-qc-fg transition-colors"
               >
                 {t('common.cancel')}
               </button>
@@ -489,16 +489,16 @@ function DataManagementSection() {
       {/* 备份选择对话框 */}
       {backupDialog && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
+          <div className="bg-qc-surface rounded-xl p-6 shadow-xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col border border-qc-border">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <i className="ti ti-history text-blue-600 dark:text-blue-400 text-xl"></i>
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <i className="ti ti-history text-blue-600 text-xl"></i>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-semibold text-qc-fg">
                   {t('settings.dataManagement.selectBackup')}
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-qc-fg-muted">
                   {t('settings.dataManagement.selectBackupDesc')}
                 </p>
               </div>
@@ -509,14 +509,14 @@ function DataManagementSection() {
                 <button
                   key={index}
                   onClick={() => handleSelectBackup(backup.path)}
-                  className="w-full flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 border border-qc-border rounded-lg hover:bg-qc-hover transition-colors text-left"
                 >
                   <i className="ti ti-file-zip text-blue-500 text-xl"></i>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
+                    <div className="font-medium text-qc-fg truncate">
                       {backup.name}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-3">
+                    <div className="text-xs text-qc-fg-muted flex gap-3">
                       <span>{backup.created_at}</span>
                       <span>{formatSize(backup.size)}</span>
                     </div>
@@ -525,10 +525,10 @@ function DataManagementSection() {
               ))}
             </div>
             
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <div className="mt-4 pt-4 border-t border-qc-border flex justify-end">
               <button
                 onClick={() => setBackupDialog(null)}
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-qc-fg-muted hover:text-qc-fg transition-colors"
               >
                 {t('common.cancel')}
               </button>

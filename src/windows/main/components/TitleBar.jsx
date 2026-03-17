@@ -53,7 +53,7 @@ function DroppableTitlebar({
   } = useDroppable({
     id: 'titlebar-drop-zone'
   });
-  return <div ref={setNodeRef} className={`flex ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1 ${isEmpty ? (isVertical ? 'h-1 w-7' : 'w-1 h-7') + ' overflow-visible' : ''} ${isOver && isEmpty ? (isVertical ? '!h-auto py-8' : '!w-auto px-8') + ' bg-blue-50 dark:bg-blue-900/20 rounded-lg' : ''}`}>
+  return <div ref={setNodeRef} className={`flex ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1 ${isEmpty ? (isVertical ? 'h-1 w-7' : 'w-1 h-7') + ' overflow-visible' : ''} ${isOver && isEmpty ? (isVertical ? '!h-auto py-8' : '!w-auto px-8') + ' bg-blue-50 rounded-lg' : ''}`}>
       {children}
     </div>;
 }
@@ -171,7 +171,7 @@ const TitleBar = forwardRef(({
       }
     }
   }));
-  return <div ref={dragRef} className={`title-bar flex-shrink-0 flex ${isVertical ? 'w-10 h-full flex-col items-center justify-between py-2 bg-gray-100 dark:bg-gray-900 ' + (position === 'left' ? 'border-r border-gray-300/80 dark:border-gray-700/30' : 'border-l border-gray-300/80 dark:border-gray-700/30') : 'h-9 flex-row items-center justify-between px-2 bg-gray-100 dark:bg-gray-900 ' + (position === 'top' ? 'border-b border-gray-300/80 dark:border-gray-700/30' : 'border-t border-gray-300/80 dark:border-gray-700/30')} shadow-sm transition-colors duration-500`}>
+  return <div ref={dragRef} className={`title-bar flex-shrink-0 flex ${isVertical ? 'w-10 h-full flex-col items-center justify-between py-2 bg-qc-panel ' + (position === 'left' ? 'border-r border-qc-border' : 'border-l border-qc-border') : 'h-9 flex-row items-center justify-between px-2 bg-qc-panel ' + (position === 'top' ? 'border-b border-qc-border' : 'border-t border-qc-border')} shadow-sm transition-colors duration-500`}>
       {/* Logo */}
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
         <div className="w-6 h-6 flex items-center justify-center">
@@ -191,7 +191,7 @@ const TitleBar = forwardRef(({
             </DroppableTitlebar>
 
             {/* 展开/折叠按钮 */}
-            {layout.panel.length > 0 && <button id="tools-toggle" className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isExpanded ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 text-gray-600 hover:text-blue-500 dark:hover:bg-gray-700 dark:text-gray-300'}`} title={t('tools.panel')} onClick={() => toolsStore.toggleExpand()}>
+            {layout.panel.length > 0 && <button id="tools-toggle" className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isExpanded ? 'bg-blue-500 text-white' : 'hover:bg-qc-hover text-qc-fg-muted hover:text-blue-500'}`} title={t('tools.panel')} onClick={() => toolsStore.toggleExpand()}>
                 {isExpanded ? <i className="ti ti-chevron-up" style={{
               fontSize: 16
             }}></i> : <i className="ti ti-chevron-down" style={{
@@ -200,14 +200,14 @@ const TitleBar = forwardRef(({
               </button>}
 
             {/* 展开面板 */}
-            {isExpanded && layout.panel.length > 0 && <div className={`tools-panel absolute ${isVertical ? position === 'left' ? 'left-full bottom-0 ml-1' : 'right-full bottom-0 mr-1' : position === 'bottom' ? 'bottom-full right-0 mb-1' : 'top-full right-0 mt-1'} bg-white/80 border border-gray-200/80 rounded-lg shadow-lg py-2 px-2.5 z-40 backdrop-blur-sm dark:bg-gray-800/80 dark:border-gray-700/80`}>
+            {isExpanded && layout.panel.length > 0 && <div className={`tools-panel absolute ${isVertical ? position === 'left' ? 'left-full bottom-0 ml-1' : 'right-full bottom-0 mr-1' : position === 'bottom' ? 'bottom-full right-0 mb-1' : 'top-full right-0 mt-1'} bg-qc-panel border border-qc-border rounded-lg shadow-lg py-2 px-2.5 z-40 backdrop-blur-sm`}>
                 <div className="flex flex-wrap gap-1.5 max-w-[200px]">
                   {layout.panel.map(toolId => <SortableToolItem key={toolId} toolId={toolId} location="panel" />)}
                 </div>
 
                 {/* 底部操作 */}
-                <div className="mt-2 pt-2 border-t border-gray-200/80 dark:border-gray-700/80">
-                  <button className="w-full text-xs text-gray-600 hover:text-blue-500 transition-colors text-center py-1 dark:text-gray-300" onClick={() => toolsStore.resetLayout()}>
+                <div className="mt-2 pt-2 border-t border-qc-border">
+                  <button className="w-full text-xs text-qc-fg-muted hover:text-blue-500 transition-colors text-center py-1" onClick={() => toolsStore.resetLayout()}>
                     {t('tools.reset')}
                   </button>
                 </div>

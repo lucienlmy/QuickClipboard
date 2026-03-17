@@ -41,8 +41,8 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
       <div className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all ${
         isActive 
           ? 'bg-blue-500 text-white' 
-          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-      } ${isDragging ? 'shadow-lg rounded bg-white dark:bg-gray-800' : ''}`}>
+          : 'text-qc-fg hover:bg-qc-hover'
+      } ${isDragging ? 'shadow-lg rounded bg-qc-panel' : ''}`}>
         {/* 拖拽手柄 */}
         <div
           {...attributes}
@@ -75,8 +75,8 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
             onClick={(e) => onEdit(e, group)}
             className={`p-0.5 rounded transition-all ${
               isActive
-                ? 'bg-white/20 hover:bg-white/30 text-white'
-                : 'bg-white/80 hover:bg-gray-200 text-gray-700 dark:bg-gray-700/80 dark:hover:bg-gray-600 dark:text-gray-300'
+                ? 'bg-qc-border hover:bg-qc-border-strong text-white'
+                : 'bg-qc-panel/80 hover:bg-qc-hover text-qc-fg'
             }`}
             title={t('groups.edit')}
           >
@@ -86,8 +86,8 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
             onClick={(e) => onDelete(e, group.name)}
             className={`p-0.5 rounded transition-all ${
               isActive
-                ? 'bg-white/20 hover:bg-red-400/50 text-white'
-                : 'bg-white/80 hover:bg-red-100 text-gray-700 hover:text-red-600 dark:bg-gray-700/80 dark:hover:bg-red-900/50 dark:text-gray-300'
+                ? 'bg-qc-border hover:bg-red-400/50 text-white'
+                : 'bg-qc-panel/80 hover:bg-red-100 text-qc-fg hover:text-red-600'
             }`}
             title={t('groups.delete')}
           >
@@ -290,18 +290,18 @@ const GroupsPopup = forwardRef(({
       >
         {/* 弹出面板 */}
         {isOpen && (
-          <div className={`groups-panel absolute bottom-full left-0 right-0 max-h-[350px] backdrop-blur-xl bg-[#fdfdfd] dark:bg-gray-800 border border-b-0 border-gray-300/80 dark:border-gray-700/30 rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
+          <div className={`groups-panel absolute bottom-full left-0 right-0 max-h-[350px] backdrop-blur-xl bg-qc-panel border border-b-0 border-qc-border rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
             uiAnimationEnabled ? (isClosing ? 'animate-slide-down' : 'animate-slide-up') : ''
           }`}>
             {/* 头部 */}
-            <div className="flex items-center justify-between px-2.5 py-2 border-b border-gray-200/50 dark:border-gray-700/50">
-              <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+            <div className="flex items-center justify-between px-2.5 py-2 border-b border-qc-border">
+              <h3 className="text-xs font-semibold text-qc-fg">
                 {t('groups.title')}
               </h3>
               <div className="flex items-center gap-0.5">
                 <button
                   onClick={handleAddGroup}
-                  className="p-1 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/60 transition-all text-gray-500 dark:text-gray-400"
+                  className="p-1 rounded hover:bg-qc-hover transition-all text-qc-fg-muted"
                   title={t('groups.add')}
                 >
                   <i className="ti ti-plus" style={{ fontSize: 12 }}></i>
@@ -311,7 +311,7 @@ const GroupsPopup = forwardRef(({
                   className={`p-1 rounded transition-all ${
                     isPinned
                       ? 'bg-blue-500 text-white'
-                      : 'hover:bg-gray-200/60 dark:hover:bg-gray-700/60 text-gray-500 dark:text-gray-400'
+                      : 'hover:bg-qc-hover text-qc-fg-muted'
                   }`}
                   title={isPinned ? t('groups.unpin') : t('groups.pin')}
                 >
@@ -335,7 +335,7 @@ const GroupsPopup = forwardRef(({
                   <div className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all ${
                     groups.currentGroup === group.name
                       ? 'bg-blue-500 text-white'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                      : 'text-qc-fg hover:bg-qc-hover'
                   }`}>
 
                     <div className="flex-shrink-0 opacity-0">
@@ -383,8 +383,8 @@ const GroupsPopup = forwardRef(({
           onClick={togglePopup}
           className={`flex items-center justify-center gap-1.5 w-full h-full px-3 transition-all duration-300 ${
             isOpen
-              ? 'bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 shadow-lg border border-t-0 border-gray-200/50 dark:border-gray-700/50'
-              : 'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-300/50 dark:hover:bg-gray-800/50'
+              ? 'bg-qc-panel/95 text-qc-fg shadow-lg border border-t-0 border-qc-border'
+              : 'bg-transparent text-qc-fg-muted hover:bg-qc-hover'
           }`}
           title={t('groups.title')}
         >

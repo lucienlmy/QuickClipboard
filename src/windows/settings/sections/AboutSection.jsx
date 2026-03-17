@@ -76,16 +76,16 @@ function AboutSection() {
     <SettingsSection title={t('settings.about.title')} description={t('settings.about.description')}>
       <div className="space-y-6">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full mb-3 overflow-hidden">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-3 overflow-hidden">
             <img src={logoIcon} alt="QuickClipboard Logo" className="w-12 h-12 object-contain" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+          <h3 className="text-xl font-bold text-qc-fg mb-1">
             {t('settings.about.appName')}
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          <p className="text-sm text-qc-fg-muted mb-3">
             {t('settings.about.version')} {version}
           </p>
-          <p className="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto">
+          <p className="text-sm text-qc-fg-muted max-w-md mx-auto">
             {t('settings.about.descriptionText')}
           </p>
         </div>
@@ -112,21 +112,21 @@ function AboutSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-qc-panel rounded-lg">
               <i className="ti ti-star text-yellow-500 text-lg"></i>
-              <span className="text-sm text-gray-600 dark:text-gray-300">{t('settings.about.star')}</span>
+              <span className="text-sm text-qc-fg-muted">{t('settings.about.star')}</span>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-qc-panel rounded-lg">
               <i className="ti ti-bug text-red-500 text-lg"></i>
-              <span className="text-sm text-gray-600 dark:text-gray-300">{t('settings.about.feedback')}</span>
+              <span className="text-sm text-qc-fg-muted">{t('settings.about.feedback')}</span>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-qc-panel rounded-lg">
               <i className="ti ti-speakerphone text-blue-500 text-lg"></i>
-              <span className="text-sm text-gray-600 dark:text-gray-300">{t('settings.about.share')}</span>
+              <span className="text-sm text-qc-fg-muted">{t('settings.about.share')}</span>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-qc-panel rounded-lg">
               <i className="ti ti-coffee text-orange-500 text-lg"></i>
-              <span className="text-sm text-gray-600 dark:text-gray-300">{t('settings.about.donate')}</span>
+              <span className="text-sm text-qc-fg-muted">{t('settings.about.donate')}</span>
             </div>
           </div>
 
@@ -136,17 +136,17 @@ function AboutSection() {
               onMouseEnter={() => setShowQROverlay(true)}
               onMouseLeave={() => setShowQROverlay(false)}
             >
-              <div className="w-50 h-50 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-600">
+              <div className="w-50 h-50 bg-gradient-to-br from-qc-panel to-qc-panel-2 rounded-xl flex items-center justify-center border border-qc-border">
                 <img src={wxzsm} alt="微信赞赏码" className="w-full h-full object-contain rounded-lg" />
               </div>
               <div className="absolute -top-2 -right-2 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center">
                 <i className="ti ti-brand-wechat text-white"></i>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">微信赞赏</p>
+              <p className="text-sm text-qc-fg-muted text-center mt-2">微信赞赏</p>
               
               {showQROverlay && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 border border-gray-200 dark:border-gray-600">
-                  <div className="w-56 h-56 bg-white rounded-lg">
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 bg-qc-surface rounded-xl shadow-2xl p-4 border border-qc-border">
+                  <div className="w-56 h-56 bg-qc-surface rounded-lg">
                     <img src={wxzsm} alt="微信赞赏码" className="w-full h-full object-contain" />
                   </div>
                 </div>

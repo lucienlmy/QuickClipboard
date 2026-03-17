@@ -266,14 +266,14 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     
     const oldBtn = sidebarButtonsRef.current[activeCategoryRef.current];
     if (oldBtn) {
-      oldBtn.classList.remove('bg-blue-100', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
-      oldBtn.classList.add('text-gray-500', 'hover:bg-gray-200', 'dark:hover:bg-gray-700');
+      oldBtn.classList.remove('bg-blue-100', 'text-blue-600');
+      oldBtn.classList.add('text-qc-fg-muted', 'hover:bg-qc-hover');
     }
     
     const newBtn = sidebarButtonsRef.current[catId];
     if (newBtn) {
-      newBtn.classList.remove('text-gray-500', 'hover:bg-gray-200', 'dark:hover:bg-gray-700');
-      newBtn.classList.add('bg-blue-100', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
+      newBtn.classList.remove('text-qc-fg-muted', 'hover:bg-qc-hover');
+      newBtn.classList.add('bg-blue-100', 'text-blue-600');
     }
     
     activeCategoryRef.current = catId;
@@ -347,18 +347,18 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     
     if (section.type === 'header') {
       return (
-        <div className="sticky top-0 z-10 px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50/95 dark:bg-gray-800/95 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 px-2 py-1.5 text-xs font-medium text-qc-fg-muted bg-qc-panel/90 backdrop-blur-sm">
           {section.title}
         </div>
       );
     }
     
     if (section.type === 'empty') {
-      return <div className="text-center text-gray-400 py-8 text-sm">{t('emoji.noResults')}</div>;
+      return <div className="text-center text-qc-fg-subtle py-8 text-sm">{t('emoji.noResults')}</div>;
     }
     
     if (section.type === 'empty-recent') {
-      return <div className="px-2 py-3 text-xs text-gray-400 text-center">{t('emoji.noRecent')}</div>;
+      return <div className="px-2 py-3 text-xs text-qc-fg-subtle text-center">{t('emoji.noRecent')}</div>;
     }
     
     if (section.type === 'row') {
@@ -384,7 +384,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
               <div key={`${baseChar}-${idx}`} className="relative group">
                 <button
                   onClick={() => handlePaste(item, section.catId)}
-                  className={`aspect-square w-full flex items-center justify-center text-2xl leading-none overflow-hidden text-gray-700 dark:text-gray-200 rounded cursor-pointer ${uiAnimationEnabled ? 'active:scale-95 hover:scale-120 hover:z-50 hover:bg-white dark:hover:bg-gray-800 hover:shadow-lg hover:rounded-lg hover:border hover:border-gray-200 dark:hover:border-gray-700' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                  className={`aspect-square w-full flex items-center justify-center text-2xl leading-none overflow-hidden text-qc-fg rounded cursor-pointer ${uiAnimationEnabled ? 'active:scale-95 hover:scale-120 hover:z-50 hover:bg-qc-panel hover:shadow-lg hover:rounded-lg hover:border hover:border-qc-border' : 'hover:bg-qc-hover'}`}
                   style={uiAnimationEnabled ? {
                     opacity: 0,
                     animation: `fadeIn 0.15s ease-out ${idx * 15}ms forwards`
@@ -397,7 +397,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
                 {skinVariants && (
                   <button
                     onClick={(e) => handleSkinPickerOpen(e, baseChar, skinVariants, item, section.catId)}
-                    className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white dark:border-gray-800 opacity-0 group-hover:opacity-100 shadow-sm ${uiAnimationEnabled ? 'transition-opacity hover:scale-125' : ''}`}
+                    className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white opacity-0 group-hover:opacity-100 shadow-sm ${uiAnimationEnabled ? 'transition-opacity hover:scale-125' : ''}`}
                     title="选择肤色"
                   />
                 )}
@@ -431,9 +431,9 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const activeCategory = showImages ? imageCategory : activeCategoryRef.current;
 
   return (
-    <div className="h-full flex bg-gray-50 dark:bg-gray-900">
+    <div className="h-full flex bg-qc-surface">
       {/* 侧边分类栏 */}
-      <div className="emoji-sidebar w-10 flex-shrink-0 bg-gray-100 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700/50 flex flex-col py-1 overflow-y-auto scrollbar-hide">
+      <div className="emoji-sidebar w-10 flex-shrink-0 bg-qc-panel border-r border-qc-border flex flex-col py-1 overflow-y-auto scrollbar-hide">
         {/* 分类按钮 */}
         {currentCategories.map((cat, idx) => (
           <button
@@ -442,8 +442,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
             onClick={() => handleCategoryClick(cat.id)}
             className={`w-8 h-8 mx-auto mb-0.5 flex items-center justify-center rounded-lg transition-colors ${
               (showImages ? imageCategory === cat.id : idx === 0) 
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
-                : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+                ? 'bg-blue-100 text-blue-600' 
+                : 'text-qc-fg-muted hover:bg-qc-hover'
             }`}
             title={t(cat.labelKey)}
           >
@@ -455,19 +455,19 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       {/* 主内容区 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 搜索框 */}
-        <div className="emoji-search-bar flex-shrink-0 p-2 border-b border-gray-200 dark:border-gray-700/50">
+        <div className="emoji-search-bar flex-shrink-0 p-2 border-b border-qc-border">
           <div className="relative">
-            <i className="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+            <i className="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-qc-fg-subtle text-sm"></i>
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder={showImages ? (t('emoji.searchImagePlaceholder') || '搜索文件名...') : t('emoji.searchPlaceholder')}
-              className="w-full h-8 pl-8 pr-8 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+              className="w-full h-8 pl-8 pr-8 text-sm bg-qc-panel border border-qc-border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-qc-fg placeholder:text-qc-fg-subtle"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-qc-fg-subtle hover:text-qc-fg-muted">
                 <i className="ti ti-x text-sm"></i>
               </button>
             )}
@@ -480,7 +480,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
         ) : (
         <div className="emoji-content flex-1 overflow-hidden custom-scrollbar-container">
           {(!isReady || !isModeReady) ? (
-            <div className="flex items-center justify-center h-32 text-gray-400">
+            <div className="flex items-center justify-center h-32 text-qc-fg-subtle">
               <i className="ti ti-loader-2 animate-spin mr-2"></i>
               {t('common.loading')}
             </div>
@@ -506,7 +506,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
         <>
           <div className="fixed inset-0 z-[199]" onClick={() => setSkinPickerEmoji(null)} />
           <div 
-            className="fixed z-[200] flex gap-1 p-1.5 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700"
+            className="fixed z-[200] flex gap-1 p-1.5 bg-qc-panel rounded-xl shadow-xl border border-qc-border"
             onMouseLeave={() => setSkinPickerEmoji(null)}
             style={(() => {
               const { rect } = skinPickerEmoji;
@@ -533,8 +533,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
                   }}
                   className={`w-8 h-8 flex items-center justify-center text-xl rounded-lg transition-all hover:scale-110 ${
                     isCurrent
-                      ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-500'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? 'bg-blue-100 ring-2 ring-blue-500'
+                      : 'hover:bg-qc-hover'
                   }`}
                   title={SKIN_TONES[i]?.label || 'Default'}
                 >

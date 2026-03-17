@@ -19,10 +19,10 @@ function EditorToolbar({
     flex items-center gap-1 px-3 h-8
     rounded
     text-sm font-medium
-    bg-white dark:bg-gray-700
-    hover:bg-gray-100 dark:hover:bg-gray-600
-    text-gray-700 dark:text-gray-200
-    border border-gray-300 dark:border-gray-600
+    bg-qc-surface
+    hover:bg-qc-hover
+    text-qc-fg
+    border border-qc-border
     transition-colors
     cursor-pointer
   `.trim().replace(/\s+/g, ' ');
@@ -30,28 +30,28 @@ function EditorToolbar({
     flex items-center gap-1 px-3 h-8
     rounded
     text-sm font-medium
-    bg-blue-500 dark:bg-blue-600
-    hover:bg-blue-600 dark:hover:bg-blue-700
+    bg-blue-500
+    hover:bg-blue-600
     text-white
-    border border-blue-500 dark:border-blue-600
+    border border-blue-500
     transition-colors
     cursor-pointer
   `.trim().replace(/\s+/g, ' ');
-  return <div className="min-h-12 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+  return <div className="min-h-12 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-qc-border bg-qc-panel">
       <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
         {showTitle && <>
             <div className="flex items-center gap-2 min-w-0">
-              <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+              <label className="text-sm text-qc-fg-muted whitespace-nowrap">
                 {t('textEditor.titleLabel')}:
               </label>
-              <input type="text" value={title} onChange={e => onTitleChange(e.target.value)} placeholder={t('textEditor.titlePlaceholder')} className="min-w-32 max-w-48 h-8 px-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="text" value={title} onChange={e => onTitleChange(e.target.value)} placeholder={t('textEditor.titlePlaceholder')} className="min-w-32 max-w-48 h-8 px-2 text-sm rounded border border-qc-border bg-qc-surface text-qc-fg focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
             {showGroupSelector && <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                <label className="text-sm text-qc-fg-muted whitespace-nowrap">
                   {t('textEditor.group')}:
                 </label>
-                <select value={selectedGroup} onChange={e => onGroupChange(e.target.value)} className="h-8 px-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select value={selectedGroup} onChange={e => onGroupChange(e.target.value)} className="h-8 px-2 text-sm rounded border border-qc-border bg-qc-surface text-qc-fg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   {groups.map(group => <option key={group.name} value={group.name}>
                       {group.name}
                     </option>)}
@@ -59,7 +59,7 @@ function EditorToolbar({
               </div>}
           </>}
 
-        {!showTitle && <div className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+        {!showTitle && <div className="text-sm font-medium text-qc-fg truncate">
             {title}
           </div>}
 

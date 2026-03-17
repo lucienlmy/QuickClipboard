@@ -64,7 +64,7 @@ function ClipboardSection({
         <SettingItem label={t('settings.clipboard.imageMaxDimension')} description={t('settings.clipboard.imageMaxDimensionDesc')}>
           <div className="flex items-center gap-2">
             <Input type="number" value={settings.imageMaxWidth ?? 4096} onChange={e => onSettingChange('imageMaxWidth', parseInt(e.target.value) || 4096)} min={256} max={16384} className="w-24" />
-            <span className="text-gray-500">×</span>
+            <span className="text-qc-fg-muted">×</span>
             <Input type="number" value={settings.imageMaxHeight ?? 4096} onChange={e => onSettingChange('imageMaxHeight', parseInt(e.target.value) || 4096)} min={256} max={16384} className="w-24" suffix="px" />
           </div>
         </SettingItem>

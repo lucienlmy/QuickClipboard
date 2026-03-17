@@ -165,8 +165,8 @@ function SettingsSearch({ onNavigate, className = '' }) {
     <div className={`relative ${className}`}>
       {/* 搜索输入框 */}
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <i className="ti ti-search text-gray-400 text-sm"></i>
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+          <i className="ti ti-search text-qc-fg-subtle text-sm"></i>
         </div>
         <input
           type="text"
@@ -177,12 +177,12 @@ function SettingsSearch({ onNavigate, className = '' }) {
           onKeyDown={handleKeyDown}
           ref={inputRef}
           placeholder={t('settings.searchPlaceholder')}
-          className="w-full pl-10 pr-10 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+          className="relative z-0 w-full pl-10 pr-10 py-2 text-sm border border-qc-border rounded-lg bg-qc-panel text-qc-fg placeholder:text-qc-fg-subtle focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
         />
         {searchQuery && (
           <button
             onClick={clearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-qc-fg-subtle hover:text-qc-fg-muted z-10"
           >
             <i className="ti ti-x text-sm"></i>
           </button>
@@ -191,7 +191,7 @@ function SettingsSearch({ onNavigate, className = '' }) {
 
       {/* 搜索结果 */}
       {isOpen && (
-        <div ref={resultsRef} className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50 settings-search-results">
+        <div ref={resultsRef} className="absolute top-full left-0 right-0 mt-1 bg-qc-panel border border-qc-border rounded-lg shadow-lg max-h-96 overflow-y-auto z-50 settings-search-results">
           {searchResults.length > 0 ? (
             <div className="py-2">
               {searchResults.map((result, index) => (
@@ -201,29 +201,29 @@ function SettingsSearch({ onNavigate, className = '' }) {
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onMouseDown={() => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }}
                   onClick={() => handleNavigate(result.section, result.label)}
-                  className={`w-full px-4 py-3 text-left transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${index === highlightedIndex ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                  className={`w-full px-4 py-3 text-left transition-colors border-b border-qc-border last:border-b-0 ${index === highlightedIndex ? 'bg-qc-panel-2' : 'hover:bg-qc-hover'}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900 dark:text-white text-sm">
+                        <span className="font-medium text-qc-fg text-sm">
                           {highlightMatch(result.label, searchQuery)}
                         </span>
-                        <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full whitespace-nowrap flex-shrink-0">
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full whitespace-nowrap flex-shrink-0">
                           {result.sectionName}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                      <p className="text-xs text-qc-fg-muted line-clamp-2">
                         {highlightMatch(result.description, searchQuery)}
                       </p>
                     </div>
-                    <i className="ti ti-chevron-right text-gray-400 text-sm mt-1"></i>
+                    <i className="ti ti-chevron-right text-qc-fg-subtle text-sm mt-1"></i>
                   </div>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+            <div className="px-4 py-8 text-center text-qc-fg-muted">
               <i className="ti ti-search-off text-2xl mb-2 block"></i>
               <p className="text-sm">{t('settings.search.noResults')}</p>
               <p className="text-xs mt-1">{t('settings.search.tryAnother')}</p>
