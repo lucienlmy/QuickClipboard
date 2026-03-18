@@ -327,24 +327,38 @@ function ClipboardItem({
     transition-all
   `.trim().replace(/\s+/g, ' ');
 
-  // 按钮样式
+  // 顶部悬停操作按钮样式
   const actionButtonClasses = `
-    ${smallElementClasses}
+    flex items-center justify-center
+    w-5 h-5
+    text-xs font-medium
     text-qc-fg-subtle
-    border-qc-border
-    bg-qc-panel/60
-    backdrop-blur-md
-    hover:text-blue-600
-    hover:border-blue-300
+    transition-colors
+    rounded-none
+    border-l border-qc-border
+    first:border-l-0
     hover:bg-qc-hover
-    opacity-0 group-hover:opacity-100
-    focus:opacity-100
+    hover:text-theme-9
+  `.trim().replace(/\s+/g, ' ');
+
+  const actionGroupClasses = `
+    flex items-center
+    overflow-hidden
+    rounded-md
+    border border-qc-border
+    bg-qc-panel/80
+    backdrop-blur-md
+    shadow-sm
+    opacity-0
+    group-hover:opacity-100
+    focus-within:opacity-100
+    transition-opacity
   `.trim().replace(/\s+/g, ' ');
 
   // 序号样式
   const numberBadgeClasses = `
     ${smallElementClasses}
-    text-blue-600
+    text-theme-9
     border-qc-border
     bg-qc-panel/80
     backdrop-blur-md
@@ -409,27 +423,38 @@ function ClipboardItem({
         </div>
       )}
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
-      <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
-        {/* 收藏按钮 */}
-        <button className={actionButtonClasses} onClick={handleFavoriteClick} title={t('contextMenu.addToFavorites')}>
-          <i className="ti ti-star" style={{ fontSize: 12 }}></i>
-        </button>
-        {/* 编辑按钮 */}
-        {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-            <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
-          </button>}
-        {/* 删除按钮 */}
-        <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
-          <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
-        </button>
-        {/* 置顶按钮 */}
-        <button className={`${actionButtonClasses} ${item.is_pinned ? '!opacity-100 !text-blue-500' : ''}`} onClick={handlePinClick} title={item.is_pinned ? t('contextMenu.unpin') : t('contextMenu.pin')}>
-          <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
-        </button>
+      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
+        {/* 悬停操作按钮组 */}
+        <div className={actionGroupClasses}>
+          {/* 收藏按钮 */}
+          <button className={actionButtonClasses} onClick={handleFavoriteClick} title={t('contextMenu.addToFavorites')}>
+            <i className="ti ti-star" style={{ fontSize: 12 }}></i>
+          </button>
+          {/* 编辑按钮 */}
+          {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
+            <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
+              <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+            </button>
+          )}
+          {/* 删除按钮 */}
+          <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
+            <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
+          </button>
+          {/* 置顶按钮 */}
+          <button
+            className={`${actionButtonClasses} ${item.is_pinned ? 'text-theme-9 bg-qc-active' : ''}`}
+            onClick={handlePinClick}
+            title={item.is_pinned ? t('contextMenu.unpin') : t('contextMenu.pin')}
+          >
+            <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
+          </button>
+        </div>
         {/* 快捷键 */}
-        {showShortcut && getShortcut() && <span className={`${shortcutClasses} pointer-events-none`}>
+        {showShortcut && getShortcut() && (
+          <span className={`${shortcutClasses} pointer-events-none`}>
             {getShortcut()}
-          </span>}
+          </span>
+        )}
         {/* 来源图标 */}
         {settings.showSourceIcon !== false && !iconLoadFailed && (sourceIconUrl || isLanSyncRemote) && (
           <span className={iconBadgeClasses} title={sourceTitle}>

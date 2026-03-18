@@ -274,24 +274,38 @@ function FavoriteItem({
     transition-all
   `.trim().replace(/\s+/g, ' ');
 
-  // 按钮样式
+  // 顶部悬停操作按钮样式
   const actionButtonClasses = `
-    ${smallElementClasses}
+    flex items-center justify-center
+    w-5 h-5
+    text-xs font-medium
     text-qc-fg-subtle
-    border-qc-border
-    bg-qc-panel/60
+    transition-colors
+    rounded-none
+    border-l border-qc-border
+    first:border-l-0
+    hover:bg-qc-hover
+    hover:text-theme-9
+  `.trim().replace(/\s+/g, ' ');
+
+  const actionGroupClasses = `
+    flex items-center
+    overflow-hidden
+    rounded-md
+    border border-qc-border
+    bg-qc-panel/80
     backdrop-blur-md
-    hover:text-amber-600
-    hover:border-amber-300
-    hover:bg-amber-50/80
-    opacity-0 group-hover:opacity-100
-    focus:opacity-100
+    shadow-sm
+    opacity-0
+    group-hover:opacity-100
+    focus-within:opacity-100
+    transition-opacity
   `.trim().replace(/\s+/g, ' ');
 
   // 序号样式
   const numberBadgeClasses = `
     ${smallElementClasses}
-    text-blue-600
+    text-theme-9
     border-qc-border
     bg-qc-panel/80
     backdrop-blur-md
@@ -337,21 +351,24 @@ function FavoriteItem({
       </div>
     )}
     {/* 顶部操作区域：操作按钮、分组、序号 */}
-    <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
-      {/* 编辑按钮（文本/富文本用编辑器，文件/图片用标题编辑） */}
-      {isTextOrRichText ? (
-        <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-          <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+    <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
+      {/* 悬停操作按钮组 */}
+      <div className={actionGroupClasses}>
+        {/* 编辑按钮 */}
+        {isTextOrRichText ? (
+          <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
+            <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+          </button>
+        ) : (
+          <button className={actionButtonClasses} onClick={handleTitleEditClick} title={t('favorites.editTitle', '编辑标题')}>
+            <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
+          </button>
+        )}
+        {/* 删除按钮 */}
+        <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
+          <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
         </button>
-      ) : (
-        <button className={actionButtonClasses} onClick={handleTitleEditClick} title={t('favorites.editTitle', '编辑标题')}>
-          <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
-        </button>
-      )}
-      {/* 删除按钮 */}
-      <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
-        <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
-      </button>
+      </div>
       {/* 分组标签 */}
       {showGroupBadge && <span
         className={`${groupBadgeClasses(groupColor)} pointer-events-none`}

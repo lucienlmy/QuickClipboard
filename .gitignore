@@ -23,6 +23,7 @@ target
 *.sln
 *.sw?
 **/mosqcg*
+.cu*
 
 docs
 scap-main
