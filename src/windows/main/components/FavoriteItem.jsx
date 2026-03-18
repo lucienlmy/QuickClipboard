@@ -17,6 +17,7 @@ import { updateFavorite } from '@shared/api';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { highlightText } from '@shared/utils/highlightText';
 import { useTheme } from '@shared/hooks/useTheme';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 const closeImagePreview = (previewTimerRef) => {
   if (previewTimerRef.current) {
@@ -336,35 +337,37 @@ function FavoriteItem({
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
 
-  return <div
-    ref={setNodeRef}
-    style={{ ...style, ...animationStyle }}
-    {...attributes}
-    {...listeners}
-    className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
-    onClick={handleClick}
-    onContextMenu={handleContextMenu}
-    onMouseEnter={handleMouseEnter}
-    onMouseLeave={handleMouseLeave}
-    title={previewTitle || undefined}
-  >
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ ...style, ...animationStyle }}
+      {...attributes}
+      {...listeners}
+      className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      title={previewTitle || undefined}
+    >
     {settings.showBadges !== false && (hasFileMissing || isPasted) && (
-      <div 
-        className={`absolute top-0 left-0 z-30 pointer-events-none overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
-        style={{ width: 20, height: 20 }}
-        title={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : t('common.pasted')}
-      >
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: 0,
-          height: 0,
-          borderStyle: 'solid',
-          borderWidth: '20px 20px 0 0',
-          borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : 'rgba(255,209,79,1)') + ' transparent transparent transparent',
-        }} />
-      </div>
+      <Tooltip content={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : t('common.pasted')} placement="right" asChild>
+        <div 
+          className={`absolute top-0 left-0 z-30 overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
+          style={{ width: 20, height: 20 }}
+        >
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: 0,
+            height: 0,
+            borderStyle: 'solid',
+            borderWidth: '20px 20px 0 0',
+            borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : 'rgba(255,209,79,1)') + ' transparent transparent transparent',
+          }} />
+        </div>
+      </Tooltip>
     )}
     {/* 顶部操作区域：操作按钮、分组、序号 */}
     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
@@ -372,30 +375,39 @@ function FavoriteItem({
       <div className={actionGroupClasses}>
         {/* 编辑按钮 */}
         {isTextOrRichText ? (
-          <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-            <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
-          </button>
+          <Tooltip content={t('common.edit')} placement="bottom" asChild>
+            <button className={actionButtonClasses} onClick={handleEditClick}>
+              <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+            </button>
+          </Tooltip>
         ) : (
-          <button className={actionButtonClasses} onClick={handleTitleEditClick} title={t('favorites.editTitle', '编辑标题')}>
-            <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
-          </button>
+          <Tooltip content={t('favorites.editTitle', '编辑标题')} placement="bottom" asChild>
+            <button className={actionButtonClasses} onClick={handleTitleEditClick}>
+              <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
+            </button>
+          </Tooltip>
         )}
         {/* 删除按钮 */}
-        <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
-          <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
-        </button>
+        <Tooltip content={t('common.delete')} placement="bottom" asChild>
+          <button className={actionButtonClasses} onClick={handleDeleteClick}>
+            <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
+          </button>
+        </Tooltip>
       </div>
       {/* 分组标签 */}
-      {showGroupBadge && <span
-        className={`${groupBadgeClasses(groupColor)} pointer-events-none`}
-        style={groupColor ? {
-          backgroundColor: groupColor,
-          backgroundImage: `linear-gradient(135deg, ${groupColor}dd, ${groupColor})`
-        } : {}}
-        title={item.group_name}
-      >
-        {item.group_name.length > 6 ? item.group_name.substring(0, 6) + '...' : item.group_name}
-      </span>}
+      {showGroupBadge && (
+        <Tooltip content={item.group_name} placement="bottom" asChild>
+          <span
+            className={`${groupBadgeClasses(groupColor)}`}
+            style={groupColor ? {
+              backgroundColor: groupColor,
+              backgroundImage: `linear-gradient(135deg, ${groupColor}dd, ${groupColor})`
+            } : {}}
+          >
+            {item.group_name.length > 6 ? item.group_name.substring(0, 6) + '...' : item.group_name}
+          </span>
+        </Tooltip>
+      )}
       {/* 序号 */}
       <span className={`${numberBadgeClasses} pointer-events-none`}>
         {index + 1}
@@ -477,6 +489,7 @@ function FavoriteItem({
         })}
       </div>
     </>}
-  </div>;
+    </div>
+  );
 }
 export default FavoriteItem;

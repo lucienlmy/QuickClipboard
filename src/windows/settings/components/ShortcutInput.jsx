@@ -1,6 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 const SYMBOL_CODE_TO_KEY = {
   Backquote: 'Backquote',
@@ -114,21 +115,33 @@ function ShortcutInput({
               transition-all duration-200
               ${hasError ? 'text-red-600 border-red-500 ring-2 ring-red-500/30' : isListening ? 'text-qc-fg border-blue-500 ring-2 ring-blue-500/50' : 'text-qc-fg border-qc-border hover:border-qc-border-strong'}
             `} />
-          {value && !isListening && !hasError && <button onClick={handleClear} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-qc-hover text-qc-fg-muted transition-colors" title={t('settings.common.clear')}>
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>}
-          {hasError && <div className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 cursor-help" title={errorMessage || '快捷键冲突'}>
-              <i className="ti ti-alert-circle" style={{
-            fontSize: 16
-          }}></i>
-            </div>}
+          {value && !isListening && !hasError && (
+            <Tooltip content={t('settings.common.clear')} placement="top" asChild>
+              <button onClick={handleClear} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-qc-hover text-qc-fg-muted transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </Tooltip>
+          )}
+          {hasError && (
+            <Tooltip content={errorMessage || '快捷键冲突'} placement="top" asChild>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 cursor-help">
+                <i className="ti ti-alert-circle" style={{
+              fontSize: 16
+            }}></i>
+              </div>
+            </Tooltip>
+          )}
         </div>
         
-        {onReset && <button onClick={onReset} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors" title={t('settings.common.reset')}>
-            <i className="ti ti-refresh w-4 h-4"></i>
-          </button>}
+        {onReset && (
+          <Tooltip content={t('settings.common.reset')} placement="top" asChild>
+            <button onClick={onReset} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors">
+              <i className="ti ti-refresh w-4 h-4"></i>
+            </button>
+          </Tooltip>
+        )}
       </div>
 
       {presets && presets.length > 0 && <div className="flex flex-wrap gap-2">

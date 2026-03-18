@@ -5,6 +5,7 @@ import { useSnapshot } from 'valtio';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { settingsStore } from '@shared/store/settingsStore';
 import { formatFileSize } from '@shared/utils/format';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 function ImageContent({
   item
@@ -132,12 +133,12 @@ function ImageContent({
     const badgeIcon = !fileExists ? 'ti-x' : 'ti-alert-triangle';
     
     return (
-      <div 
-        className={`w-full h-full rounded overflow-hidden flex items-center bg-gradient-to-br ${colorClasses} border cursor-grab active:cursor-grabbing ${isAutoHeight ? 'justify-center py-4' : 'justify-start px-3 gap-3'} ${!fileExists ? 'opacity-60' : ''}`}
-        onMouseDown={imagePathRef.current && fileExists ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
-        data-drag-ignore={imagePathRef.current && fileExists ? "true" : undefined}
-        title={imagePathRef.current ? (fileExists ? t('clipboard.dragImageToExternal', '拖拽到外部') : fileName) : undefined}
-      >
+      <Tooltip content={imagePathRef.current ? (fileExists ? t('clipboard.dragImageToExternal', '拖拽到外部') : fileName) : undefined} placement="top" asChild>
+        <div 
+          className={`w-full h-full rounded overflow-hidden flex items-center bg-gradient-to-br ${colorClasses} border cursor-grab active:cursor-grabbing ${isAutoHeight ? 'justify-center py-4' : 'justify-start px-3 gap-3'} ${!fileExists ? 'opacity-60' : ''}`}
+          onMouseDown={imagePathRef.current && fileExists ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
+          data-drag-ignore={imagePathRef.current && fileExists ? "true" : undefined}
+        >
         {isAutoHeight ? (
           <div className="flex flex-col items-center justify-center gap-2">
             <div className="relative">
@@ -150,9 +151,11 @@ function ImageContent({
               <p className={`text-sm font-medium ${textColorClass}`}>
                 {statusText}
               </p>
-              <p className={`text-xs ${subTextColorClass} mt-0.5 truncate`} title={fileName}>
-                {fileName}
-              </p>
+              <Tooltip content={fileName} placement="top" asChild>
+                <p className={`text-xs ${subTextColorClass} mt-0.5 truncate`}>
+                  {fileName}
+                </p>
+              </Tooltip>
               {(sizeText || dimensionText) && (
                 <p className={`text-xs ${subTextColorClass} opacity-80 mt-0.5`}>
                   {[dimensionText, sizeText].filter(Boolean).join(' · ')}
@@ -169,26 +172,32 @@ function ImageContent({
               </div>
             </div>
             <div className="flex flex-col min-w-0">
-              <p className={`text-sm ${textColorClass} truncate ${!fileExists ? 'line-through' : ''}`} title={fileName}>
-                {fileName}
-              </p>
+              <Tooltip content={fileName} placement="top" asChild>
+                <p className={`text-sm ${textColorClass} truncate ${!fileExists ? 'line-through' : ''}`}>
+                  {fileName}
+                </p>
+              </Tooltip>
               <p className={`text-xs ${subTextColorClass} truncate`}>
                 {statusText}{dimensionText ? ` · ${dimensionText}` : ''}{sizeText ? ` · ${formatFileSize(fileSize)}` : ''}
               </p>
             </div>
           </>
         )}
-      </div>
+        </div>
+      </Tooltip>
     );
   }
-  return <div 
-    className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent cursor-grab active:cursor-grabbing ${isAutoHeight ? 'max-h-[280px]' : 'h-full'}`}
-    onMouseDown={imagePathRef.current ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
-    data-drag-ignore={imagePathRef.current ? "true" : undefined}
-    title={imagePathRef.current ? t('clipboard.dragImageToExternal', '拖拽到外部') : undefined}
-    style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
-  >
-    <img src={imageSrc} alt="剪贴板图片" className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`} loading="lazy" decoding="async" />
-  </div>;
+  return (
+    <Tooltip content={imagePathRef.current ? t('clipboard.dragImageToExternal', '拖拽到外部') : undefined} placement="top" asChild>
+      <div 
+        className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent cursor-grab active:cursor-grabbing ${isAutoHeight ? 'max-h-[280px]' : 'h-full'}`}
+        onMouseDown={imagePathRef.current ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
+        data-drag-ignore={imagePathRef.current ? "true" : undefined}
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
+      >
+        <img src={imageSrc} alt="剪贴板图片" className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`} loading="lazy" decoding="async" />
+      </div>
+    </Tooltip>
+  );
 }
 export default ImageContent;

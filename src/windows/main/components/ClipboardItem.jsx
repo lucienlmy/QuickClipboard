@@ -14,6 +14,7 @@ import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
 import { useTheme } from '@shared/hooks/useTheme';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 import logoIcon from '@/assets/icon1024.png';
 
 const closeImagePreview = (previewTimerRef) => {
@@ -396,24 +397,25 @@ function ClipboardItem({
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
   
-  return <div
-    ref={setNodeRef}
-    style={{ ...style, ...animationStyle }}
-    {...attributes}
-    {...listeners}
-    onClick={handleClick}
-    onContextMenu={handleContextMenu}
-    onMouseEnter={handleMouseEnter}
-    onMouseLeave={handleMouseLeave}
-    className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
-    title={previewTitle || undefined}
-  >
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ ...style, ...animationStyle }}
+      {...attributes}
+      {...listeners}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
+      title={previewTitle || undefined}
+    >
       {settings.showBadges !== false && (hasFileMissing || item.is_pinned || isPasted) && (
-        <div 
-          className={`absolute top-0 left-0 z-30 pointer-events-none overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
-          style={{ width: 20, height: 20 }}
-          title={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : item.is_pinned ? t('contextMenu.pinned') : t('common.pasted')}
-        >
+        <Tooltip content={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : item.is_pinned ? t('contextMenu.pinned') : t('common.pasted')} placement="right" asChild>
+          <div 
+            className={`absolute top-0 left-0 z-30 overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
+            style={{ width: 20, height: 20 }}
+          >
           <div style={{
             position: 'absolute',
             top: 0,
@@ -436,34 +438,38 @@ function ClipboardItem({
               borderColor: 'rgba(59,130,246,1) transparent transparent transparent',
             }} />
           )}
-        </div>
+          </div>
+        </Tooltip>
       )}
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
         {/* 悬停操作按钮组 */}
         <div className={actionGroupClasses}>
-          {/* 收藏按钮 */}
-          <button className={actionButtonClasses} onClick={handleFavoriteClick} title={t('contextMenu.addToFavorites')}>
-            <i className="ti ti-star" style={{ fontSize: 12 }}></i>
-          </button>
-          {/* 编辑按钮 */}
-          {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
-            <button className={actionButtonClasses} onClick={handleEditClick} title={t('common.edit')}>
-              <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+          <Tooltip content={t('contextMenu.addToFavorites')} placement="bottom">
+            <button className={actionButtonClasses} onClick={handleFavoriteClick}>
+              <i className="ti ti-star" style={{ fontSize: 12 }}></i>
             </button>
+          </Tooltip>
+          {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
+            <Tooltip content={t('common.edit')} placement="bottom">
+              <button className={actionButtonClasses} onClick={handleEditClick}>
+                <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+              </button>
+            </Tooltip>
           )}
-          {/* 删除按钮 */}
-          <button className={actionButtonClasses} onClick={handleDeleteClick} title={t('common.delete')}>
-            <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
-          </button>
-          {/* 置顶按钮 */}
-          <button
-            className={`${actionButtonClasses} ${item.is_pinned ? 'text-theme-9 bg-qc-active' : ''}`}
-            onClick={handlePinClick}
-            title={item.is_pinned ? t('contextMenu.unpin') : t('contextMenu.pin')}
-          >
-            <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
-          </button>
+          <Tooltip content={t('common.delete')} placement="bottom">
+            <button className={actionButtonClasses} onClick={handleDeleteClick}>
+              <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
+            </button>
+          </Tooltip>
+          <Tooltip content={item.is_pinned ? t('contextMenu.unpin') : t('contextMenu.pin')} placement="bottom">
+            <button
+              className={`${actionButtonClasses} ${item.is_pinned ? 'text-theme-9 bg-qc-active' : ''}`}
+              onClick={handlePinClick}
+            >
+              <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
+            </button>
+          </Tooltip>
         </div>
         {/* 快捷键 */}
         {showShortcut && getShortcut() && (
@@ -473,28 +479,30 @@ function ClipboardItem({
         )}
         {/* 来源图标 */}
         {settings.showSourceIcon !== false && !iconLoadFailed && (sourceIconUrl || isLanSyncRemote) && (
-          <span className={iconBadgeClasses} title={sourceTitle}>
-            {sourceIconUrl ? (
-              <img 
-                src={sourceIconUrl} 
-                alt="" 
-                className="w-full h-full object-cover pointer-events-none "
-                onError={() => setIconLoadFailed(true)}
-              />
-            ) : (
-              <i className="ti ti-wifi" style={{ fontSize: 12}}></i>
-            )}
-            {isLanSyncRemote && (
-              <span
-                className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                style={{
-                  background: 'transparent'
-                }}
-              >
-                <i className="ti ti-wifi" style={{ fontSize: 13, color: 'rgba(59,130,246,1)', lineHeight: 1 }}></i>
-              </span>
-            )}
-          </span>
+          <Tooltip content={sourceTitle} placement="bottom" asChild>
+            <span className={iconBadgeClasses}>
+              {sourceIconUrl ? (
+                <img 
+                  src={sourceIconUrl} 
+                  alt="" 
+                  className="w-full h-full object-cover pointer-events-none "
+                  onError={() => setIconLoadFailed(true)}
+                />
+              ) : (
+                <i className="ti ti-wifi" style={{ fontSize: 12}}></i>
+              )}
+              {isLanSyncRemote && (
+                <span
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  style={{
+                    background: 'transparent'
+                  }}
+                >
+                  <i className="ti ti-wifi" style={{ fontSize: 13, color: 'rgba(59,130,246,1)', lineHeight: 1 }}></i>
+                </span>
+              )}
+            </span>
+          </Tooltip>
         )}
         {/* 序号 */}
         <span className={`${numberBadgeClasses} pointer-events-none`}>
@@ -537,6 +545,7 @@ function ClipboardItem({
             })}
           </div>
         </>}
-    </div>;
+    </div>
+  );
 }
 export default ClipboardItem;

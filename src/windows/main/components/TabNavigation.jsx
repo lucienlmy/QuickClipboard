@@ -5,6 +5,7 @@ import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import TabButton from './TabButton';
 import FilterButton from './FilterButton';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 function TabNavigation({
   activeTab,
@@ -196,21 +197,22 @@ function TabNavigation({
           {activeTab === 'emoji'
             ? emojiModes.map(mode => (
                 <div key={mode.id} ref={el => emojiModesRef.current[mode.id] = el} className="relative flex-1 h-7">
-                  <button
-                    onClick={() => handleEmojiModeChange(mode.id)}
-                    title={mode.label}
-                    className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg focus:outline-none ${uiAnimationEnabled ? 'hover:scale-105' : ''} ${
-                      emojiMode === mode.id
-                        ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
-                        : 'text-qc-fg-muted hover:bg-qc-hover'
-                    }`}
-                    style={uiAnimationEnabled ? {
-                      transitionProperty: 'transform, box-shadow, background-color, color',
-                      transitionDuration: '200ms, 200ms, 500ms, 500ms'
-                    } : {}}
-                  >
-                    {mode.emoji ? <span style={{ fontSize: 16 }}>{mode.emoji}</span> : <i className={mode.icon} style={{ fontSize: 16 }} />}
-                  </button>
+                  <Tooltip content={mode.label} placement="bottom" asChild>
+                    <button
+                      onClick={() => handleEmojiModeChange(mode.id)}
+                      className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg focus:outline-none ${uiAnimationEnabled ? 'hover:scale-105' : ''} ${
+                        emojiMode === mode.id
+                          ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+                          : 'text-qc-fg-muted hover:bg-qc-hover'
+                      }`}
+                      style={uiAnimationEnabled ? {
+                        transitionProperty: 'transform, box-shadow, background-color, color',
+                        transitionDuration: '200ms, 200ms, 500ms, 500ms'
+                      } : {}}
+                    >
+                      {mode.emoji ? <span style={{ fontSize: 16 }}>{mode.emoji}</span> : <i className={mode.icon} style={{ fontSize: 16 }} />}
+                    </button>
+                  </Tooltip>
                 </div>
               ))
             : filters.map(filter => <FilterButton key={filter.id} id={filter.id} label={filter.label} icon={filter.icon} isActive={contentFilter === filter.id} onClick={onFilterChange} buttonRef={el => filtersRef.current[filter.id] = el} />)

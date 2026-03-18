@@ -2,6 +2,7 @@ import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import SettingsSearch from './SettingsSearch';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 function SettingsHeader({ onNavigate }) {
   const {
@@ -31,23 +32,29 @@ function SettingsHeader({ onNavigate }) {
         <SettingsSearch onNavigate={onNavigate} className="w-80" />
 
         <div className="flex items-center gap-0.5">
-          <button onClick={handleMinimize} className="p-1.5 hover:bg-qc-hover rounded transition-colors" title="最小化">
-            <i className="ti ti-minus text-qc-fg-muted" style={{
-            fontSize: 16
-          }}></i>
-          </button>
+          <Tooltip content="最小化" placement="bottom" asChild>
+            <button onClick={handleMinimize} className="p-1.5 hover:bg-qc-hover rounded transition-colors">
+              <i className="ti ti-minus text-qc-fg-muted" style={{
+              fontSize: 16
+            }}></i>
+            </button>
+          </Tooltip>
 
-          <button onClick={handleMaximize} className="p-1.5 hover:bg-qc-hover rounded transition-colors" title="最大化">
-            <i className="ti ti-square text-qc-fg-muted" style={{
-            fontSize: 16
-          }}></i>
-          </button>
+          <Tooltip content="最大化" placement="bottom" asChild>
+            <button onClick={handleMaximize} className="p-1.5 hover:bg-qc-hover rounded transition-colors">
+              <i className="ti ti-square text-qc-fg-muted" style={{
+              fontSize: 16
+            }}></i>
+            </button>
+          </Tooltip>
 
-          <button onClick={handleClose} className="p-1.5 hover:bg-red-50 rounded transition-colors" title="关闭">
-            <i className="ti ti-x text-qc-fg-muted hover:text-red-600" style={{
-            fontSize: 16
-          }}></i>
-          </button>
+          <Tooltip content="关闭" placement="bottom" asChild>
+            <button onClick={handleClose} className="p-1.5 hover:bg-red-50 rounded transition-colors">
+              <i className="ti ti-x text-qc-fg-muted hover:text-red-600" style={{
+              fontSize: 16
+            }}></i>
+            </button>
+          </Tooltip>
         </div>
       </div>
     </header>;

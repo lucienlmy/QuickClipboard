@@ -1,6 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 function TitleBar({
   title,
   hasChanges
@@ -30,21 +31,27 @@ function TitleBar({
       </div>
 
       <div className="flex items-center gap-1 flex-shrink-0 pointer-events-auto">
-        <button className="w-9 h-9 flex items-center justify-center rounded hover:bg-qc-hover text-qc-fg-muted transition-colors" onClick={handleMinimize} title={t('common.minimize')}>
-          <i className="ti ti-minus" style={{
-          fontSize: 16
-        }}></i>
-        </button>
-        <button className="w-9 h-9 flex items-center justify-center rounded hover:bg-qc-hover text-qc-fg-muted transition-colors" onClick={handleMaximize} title={t('common.maximize')}>
-          <i className="ti ti-square" style={{
-          fontSize: 14
-        }}></i>
-        </button>
-        <button className="w-9 h-9 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-qc-fg-muted transition-colors" onClick={handleClose} title={t('common.close')}>
-          <i className="ti ti-x" style={{
-          fontSize: 16
-        }}></i>
-        </button>
+        <Tooltip content={t('common.minimize')} placement="bottom" asChild>
+          <button className="w-9 h-9 flex items-center justify-center rounded hover:bg-qc-hover text-qc-fg-muted transition-colors" onClick={handleMinimize}>
+            <i className="ti ti-minus" style={{
+            fontSize: 16
+          }}></i>
+          </button>
+        </Tooltip>
+        <Tooltip content={t('common.maximize')} placement="bottom" asChild>
+          <button className="w-9 h-9 flex items-center justify-center rounded hover:bg-qc-hover text-qc-fg-muted transition-colors" onClick={handleMaximize}>
+            <i className="ti ti-square" style={{
+            fontSize: 14
+          }}></i>
+          </button>
+        </Tooltip>
+        <Tooltip content={t('common.close')} placement="bottom" asChild>
+          <button className="w-9 h-9 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-qc-fg-muted transition-colors" onClick={handleClose}>
+            <i className="ti ti-x" style={{
+            fontSize: 16
+          }}></i>
+          </button>
+        </Tooltip>
       </div>
     </div>;
 }

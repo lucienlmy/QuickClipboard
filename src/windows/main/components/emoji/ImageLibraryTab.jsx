@@ -9,6 +9,7 @@ import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar';
 import * as imageLibrary from '@shared/api/imageLibrary';
 import { IMAGE_COLS } from './emojiData';
 import RenameDialog from './RenameDialog';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 async function readFileInChunks(file, chunkSize = 1024 * 1024) {
   const chunks = [];
@@ -357,14 +358,18 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     return (
       <div className="grid grid-cols-2 gap-2 px-2 py-1" data-no-drag>
         {rowItems.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => handleImageClick(item)}
-            onMouseDown={(e) => !item.loading && item.path && handleDragMouseDown(e, [item.path], item.path)}
-            role="button"
-            title={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
-            className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
+          <Tooltip
+            content={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
+            placement="top"
+            asChild
           >
+            <div
+              key={item.id}
+              onClick={() => handleImageClick(item)}
+              onMouseDown={(e) => !item.loading && item.path && handleDragMouseDown(e, [item.path], item.path)}
+              role="button"
+              className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
+            >
             {item.loading ? (
               <i className="ti ti-loader-2 animate-spin text-2xl text-qc-fg-subtle"></i>
             ) : (
@@ -380,31 +385,35 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
                   data-drag-ignore="true"
                   onMouseDown={(e) => e.stopPropagation()}
                 >
-                  <button
-                    onClick={(e) => handleCopyImage(e, item)}
-                    className="w-5 h-5 rounded-full bg-black/50 hover:bg-green-500 text-white flex items-center justify-center"
-                    title={t('common.copy') || '复制'}
-                  >
-                    <i className="ti ti-copy text-xs"></i>
-                  </button>
-                  <button
-                    onClick={(e) => handleRenameStart(e, item)}
-                    className="w-5 h-5 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center"
-                    title={t('common.rename') || '重命名'}
-                  >
-                    <i className="ti ti-pencil text-xs"></i>
-                  </button>
-                  <button
-                    onClick={(e) => handleDeleteImage(e, item)}
-                    className="w-5 h-5 rounded-full bg-black/50 hover:bg-red-500 text-white flex items-center justify-center"
-                    title={t('common.delete') || '删除'}
-                  >
-                    <i className="ti ti-x text-xs"></i>
-                  </button>
+                  <Tooltip content={t('common.copy') || '复制'} placement="left" asChild>
+                    <button
+                      onClick={(e) => handleCopyImage(e, item)}
+                      className="w-5 h-5 rounded-full bg-black/50 hover:bg-green-500 text-white flex items-center justify-center"
+                    >
+                      <i className="ti ti-copy text-xs"></i>
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t('common.rename') || '重命名'} placement="left" asChild>
+                    <button
+                      onClick={(e) => handleRenameStart(e, item)}
+                      className="w-5 h-5 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center"
+                    >
+                      <i className="ti ti-pencil text-xs"></i>
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t('common.delete') || '删除'} placement="left" asChild>
+                    <button
+                      onClick={(e) => handleDeleteImage(e, item)}
+                      className="w-5 h-5 rounded-full bg-black/50 hover:bg-red-500 text-white flex items-center justify-center"
+                    >
+                      <i className="ti ti-x text-xs"></i>
+                    </button>
+                  </Tooltip>
                 </div>
               </>
             )}
-          </div>
+            </div>
+          </Tooltip>
         ))}
       </div>
     );

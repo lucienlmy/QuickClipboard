@@ -1,6 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
 import { useState, useRef, useEffect } from 'react';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 function FloatingToolbar({
   showScrollTop = false,
   showAddFavorite = false,
@@ -121,28 +122,34 @@ function FloatingToolbar({
   }} data-no-drag>
       {/* 返回顶部按钮 */}
       <div className={getButtonWrapperClasses(showScrollTop, false)}>
-        <button className={buttonClasses} onClick={onScrollTop} title={t('floatingToolbar.scrollToTop')} aria-label={t('floatingToolbar.scrollToTop')}>
-          <i className="ti ti-arrow-bar-to-up" style={{
-          fontSize: 14
-        }}></i>
-        </button>
+        <Tooltip content={t('floatingToolbar.scrollToTop')} placement="left" asChild>
+          <button className={buttonClasses} onClick={onScrollTop} aria-label={t('floatingToolbar.scrollToTop')}>
+            <i className="ti ti-arrow-bar-to-up" style={{
+            fontSize: 14
+          }}></i>
+          </button>
+        </Tooltip>
       </div>
       
       {/* 添加收藏按钮 */}
       <div className={getButtonWrapperClasses(showAddFavorite, showScrollTop)}>
-        <button className={buttonClasses} onClick={onAddFavorite} title={t('floatingToolbar.addFavorite')} aria-label={t('floatingToolbar.addFavorite')}>
-          <i className="ti ti-plus" style={{
-          fontSize: 14
-        }}></i>
-        </button>
+        <Tooltip content={t('floatingToolbar.addFavorite')} placement="left" asChild>
+          <button className={buttonClasses} onClick={onAddFavorite} aria-label={t('floatingToolbar.addFavorite')}>
+            <i className="ti ti-plus" style={{
+            fontSize: 14
+          }}></i>
+          </button>
+        </Tooltip>
       </div>
       
       {/* 拖拽手柄 */}
-      <div className={dragHandleClasses} onMouseDown={handleDragStart} title={t('floatingToolbar.dragToMove')}>
-        <i className="ti ti-grip-horizontal" style={{
-        fontSize: 14
-      }}></i>
-      </div>
+      <Tooltip content={t('floatingToolbar.dragToMove')} placement="left" asChild>
+        <div className={dragHandleClasses} onMouseDown={handleDragStart}>
+          <i className="ti ti-grip-horizontal" style={{
+          fontSize: 14
+        }}></i>
+        </div>
+      </Tooltip>
     </div>;
 }
 export default FloatingToolbar;

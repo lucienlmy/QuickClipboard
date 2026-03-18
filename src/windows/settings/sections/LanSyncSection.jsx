@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 import Button from '@shared/components/ui/Button';
 import Input from '@shared/components/ui/Input';
 import { showConfirm } from '../../../shared/utils/dialog';
@@ -711,7 +712,7 @@ function ServerFeatures({
 
         <div className="space-y-3">
           {localUrlsAll?.length ? (
-            <div className="space-y-2 max-h-64 overflow-auto pr-2">
+            <div className="space-y-2 max-h-65 overflow-auto pr-2">
               {localUrlsVisible.map(url => (
                 <div
                   key={url}
@@ -725,7 +726,6 @@ function ServerFeatures({
                       size="sm"
                       variant="secondary"
                       onClick={() => openQr(url)}
-                      title={t('settings.lanSync.qrShow')}
                       aria-label={t('settings.lanSync.qrShow')}
                       className="!px-3"
                       icon={<i className="ti ti-qrcode" />}
@@ -736,7 +736,6 @@ function ServerFeatures({
                       size="sm"
                       variant="secondary"
                       onClick={() => onCopy(url)}
-                      title={t('common.copy')}
                       aria-label={t('common.copy')}
                       className="!px-3"
                       icon={<i className="ti ti-copy" />}
@@ -1067,9 +1066,11 @@ function StatusBadge({ enabled, text, title, variant }) {
   };
 
   return (
-    <div className={`${base} ${styles[v]}`} title={title}>
-      {text}
-    </div>
+    <Tooltip content={title} placement="top" asChild>
+      <div className={`${base} ${styles[v]}`}>
+        {text}
+      </div>
+    </Tooltip>
   );
 }
 
@@ -1081,12 +1082,13 @@ function StatusCard({ label, desc, value, children }) {
       </div>
 
       {desc && (
-        <div
-          className="absolute top-3 right-3 w-5 h-5 rounded-full border border-qc-border flex items-center justify-center text-[10px] text-qc-fg-muted bg-qc-panel/70 cursor-help transition-colors group-hover:border-qc-border-strong group-hover:text-qc-fg"
-          title={desc}
-        >
-          ?
-        </div>
+        <Tooltip content={desc} placement="top" asChild>
+          <div
+            className="absolute top-3 right-3 w-5 h-5 rounded-full border border-qc-border flex items-center justify-center text-[10px] text-qc-fg-muted bg-qc-panel/70 cursor-help transition-colors group-hover:border-qc-border-strong group-hover:text-qc-fg"
+          >
+            ?
+          </div>
+        </Tooltip>
       )}
 
       {children != null ? (

@@ -10,6 +10,7 @@ import { groupsStore, reorderGroups } from '@shared/store/groupsStore';
 import { settingsStore } from '@shared/store/settingsStore';
 import { showConfirm, showError } from '@shared/utils/dialog';
 import GroupModal from './GroupModal';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) => {
   const {
@@ -71,28 +72,30 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
         <div className={`absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
           isActive ? 'opacity-100' : ''
         }`}>
-          <button
-            onClick={(e) => onEdit(e, group)}
-            className={`p-0.5 rounded transition-all ${
-              isActive
-                ? 'bg-qc-border hover:bg-qc-border-strong text-white'
-                : 'bg-qc-panel/80 hover:bg-qc-hover text-qc-fg'
-            }`}
-            title={t('groups.edit')}
-          >
-            <i className="ti ti-edit" style={{ fontSize: 10 }}></i>
-          </button>
-          <button
-            onClick={(e) => onDelete(e, group.name)}
-            className={`p-0.5 rounded transition-all ${
-              isActive
-                ? 'bg-qc-border hover:bg-red-400/50 text-white'
-                : 'bg-qc-panel/80 hover:bg-red-100 text-qc-fg hover:text-red-600'
-            }`}
-            title={t('groups.delete')}
-          >
-            <i className="ti ti-trash" style={{ fontSize: 10 }}></i>
-          </button>
+          <Tooltip content={t('groups.edit')} placement="left" asChild>
+            <button
+              onClick={(e) => onEdit(e, group)}
+              className={`p-0.5 rounded transition-all ${
+                isActive
+                  ? 'bg-qc-border hover:bg-qc-border-strong text-white'
+                  : 'bg-qc-panel/80 hover:bg-qc-hover text-qc-fg'
+              }`}
+            >
+              <i className="ti ti-edit" style={{ fontSize: 10 }}></i>
+            </button>
+          </Tooltip>
+          <Tooltip content={t('groups.delete')} placement="left" asChild>
+            <button
+              onClick={(e) => onDelete(e, group.name)}
+              className={`p-0.5 rounded transition-all ${
+                isActive
+                  ? 'bg-qc-border hover:bg-red-400/50 text-white'
+                  : 'bg-qc-panel/80 hover:bg-red-100 text-qc-fg hover:text-red-600'
+              }`}
+            >
+              <i className="ti ti-trash" style={{ fontSize: 10 }}></i>
+            </button>
+          </Tooltip>
         </div>
       )}
     </div>
@@ -299,28 +302,30 @@ const GroupsPopup = forwardRef(({
                 {t('groups.title')}
               </h3>
               <div className="flex items-center gap-0.5">
-                <button
-                  onClick={handleAddGroup}
-                  className="p-1 rounded hover:bg-qc-hover transition-all text-qc-fg-muted"
-                  title={t('groups.add')}
-                >
-                  <i className="ti ti-plus" style={{ fontSize: 12 }}></i>
-                </button>
-                <button
-                  onClick={togglePin}
-                  className={`p-1 rounded transition-all ${
-                    isPinned
-                      ? 'bg-blue-500 text-white'
-                      : 'hover:bg-qc-hover text-qc-fg-muted'
-                  }`}
-                  title={isPinned ? t('groups.unpin') : t('groups.pin')}
-                >
-                  {isPinned ? (
-                    <i className="ti ti-pinned" style={{ fontSize: 12 }}></i>
-                  ) : (
-                    <i className="ti ti-pin" style={{ fontSize: 12 }}></i>
-                  )}
-                </button>
+                <Tooltip content={t('groups.add')} placement="bottom" asChild>
+                  <button
+                    onClick={handleAddGroup}
+                    className="p-1 rounded hover:bg-qc-hover transition-all text-qc-fg-muted"
+                  >
+                    <i className="ti ti-plus" style={{ fontSize: 12 }}></i>
+                  </button>
+                </Tooltip>
+                <Tooltip content={isPinned ? t('groups.unpin') : t('groups.pin')} placement="bottom" asChild>
+                  <button
+                    onClick={togglePin}
+                    className={`p-1 rounded transition-all ${
+                      isPinned
+                        ? 'bg-blue-500 text-white'
+                        : 'hover:bg-qc-hover text-qc-fg-muted'
+                    }`}
+                  >
+                    {isPinned ? (
+                      <i className="ti ti-pinned" style={{ fontSize: 12 }}></i>
+                    ) : (
+                      <i className="ti ti-pin" style={{ fontSize: 12 }}></i>
+                    )}
+                  </button>
+                </Tooltip>
               </div>
             </div>
 
@@ -379,18 +384,19 @@ const GroupsPopup = forwardRef(({
         )}
 
         {/* 触发按钮 */}
-        <button
-          onClick={togglePopup}
-          className={`flex items-center justify-center gap-1.5 w-full h-full px-3 transition-all duration-300 ${
-            isOpen
-              ? 'bg-qc-panel/95 text-qc-fg shadow-lg border border-t-0 border-qc-border'
-              : 'bg-transparent text-qc-fg-muted hover:bg-qc-hover'
-          }`}
-          title={t('groups.title')}
-        >
-          <i className="ti ti-folders" style={{ fontSize: 12 }}></i>
-          <span className="text-[10px] font-medium truncate max-w-[60px]">{groups.currentGroup}</span>
-        </button>
+        <Tooltip content={t('groups.title')} placement="top" asChild>
+          <button
+            onClick={togglePopup}
+            className={`flex items-center justify-center gap-1.5 w-full h-full px-3 transition-all duration-300 ${
+              isOpen
+                ? 'bg-qc-panel/95 text-qc-fg shadow-lg border border-t-0 border-qc-border'
+                : 'bg-transparent text-qc-fg-muted hover:bg-qc-hover'
+            }`}
+          >
+            <i className="ti ti-folders" style={{ fontSize: 12 }}></i>
+            <span className="text-[10px] font-medium truncate max-w-[60px]">{groups.currentGroup}</span>
+          </button>
+        </Tooltip>
       </div>
 
       {/* 分组模态框 */}

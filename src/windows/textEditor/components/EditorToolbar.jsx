@@ -1,5 +1,6 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 function EditorToolbar({
   onReset,
   title,
@@ -67,18 +68,22 @@ function EditorToolbar({
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {/* 换行切换 */}
-        <button className={wordWrap ? activeButtonClasses : buttonClasses} onClick={onWordWrapChange} title={t('textEditor.wordWrap')}>
-          <i className="ti ti-text-wrap" style={{
-          fontSize: 16
-        }}></i>
-        </button>
+        <Tooltip content={t('textEditor.wordWrap')} placement="bottom" asChild>
+          <button className={wordWrap ? activeButtonClasses : buttonClasses} onClick={onWordWrapChange}>
+            <i className="ti ti-text-wrap" style={{
+            fontSize: 16
+          }}></i>
+          </button>
+        </Tooltip>
 
         {/* 重置按钮 */}
-        <button className={buttonClasses} onClick={onReset} title={t('textEditor.reset')}>
-          <i className="ti ti-refresh" style={{
-          fontSize: 16
-        }}></i>
-        </button>
+        <Tooltip content={t('textEditor.reset')} placement="bottom" asChild>
+          <button className={buttonClasses} onClick={onReset}>
+            <i className="ti ti-refresh" style={{
+            fontSize: 16
+          }}></i>
+          </button>
+        </Tooltip>
       </div>
     </div>;
 }

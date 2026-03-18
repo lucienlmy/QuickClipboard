@@ -11,6 +11,7 @@ import { MAX_TITLEBAR_TOOLS } from '@shared/config/tools';
 import logoIcon from '@/assets/icon1024.png';
 import ToolButton from './ToolButton';
 import TitleBarSearch from './TitleBarSearch';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 // 可拖拽的工具项
 function SortableToolItem({
@@ -191,13 +192,21 @@ const TitleBar = forwardRef(({
             </DroppableTitlebar>
 
             {/* 展开/折叠按钮 */}
-            {layout.panel.length > 0 && <button id="tools-toggle" className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isExpanded ? 'bg-blue-500 text-white' : 'hover:bg-qc-hover text-qc-fg-muted hover:text-blue-500'}`} title={t('tools.panel')} onClick={() => toolsStore.toggleExpand()}>
-                {isExpanded ? <i className="ti ti-chevron-up" style={{
-              fontSize: 16
-            }}></i> : <i className="ti ti-chevron-down" style={{
-              fontSize: 16
-            }}></i>}
-              </button>}
+            {layout.panel.length > 0 && (
+              <Tooltip content={t('tools.panel')} placement={isVertical ? (position === 'left' ? 'right' : 'left') : 'bottom'} asChild>
+                <button
+                  id="tools-toggle"
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isExpanded ? 'bg-blue-500 text-white' : 'hover:bg-qc-hover text-qc-fg-muted hover:text-blue-500'}`}
+                  onClick={() => toolsStore.toggleExpand()}
+                >
+                  {isExpanded ? (
+                    <i className="ti ti-chevron-up" style={{ fontSize: 16 }}></i>
+                  ) : (
+                    <i className="ti ti-chevron-down" style={{ fontSize: 16 }}></i>
+                  )}
+                </button>
+              </Tooltip>
+            )}
 
             {/* 展开面板 */}
             {isExpanded && layout.panel.length > 0 && <div className={`tools-panel absolute ${isVertical ? position === 'left' ? 'left-full bottom-0 ml-1' : 'right-full bottom-0 mr-1' : position === 'bottom' ? 'bottom-full right-0 mb-1' : 'top-full right-0 mt-1'} bg-qc-panel border border-qc-border rounded-lg shadow-lg py-2 px-2.5 z-40 backdrop-blur-sm`}>

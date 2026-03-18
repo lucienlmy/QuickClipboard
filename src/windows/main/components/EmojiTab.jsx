@@ -9,6 +9,7 @@ import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { restoreLastFocus } from '@shared/api/window';
 import { ImageLibraryTab } from './emoji';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 import {
   SYMBOL_CATS, EMOJI_CATS, IMAGE_CATS, SKIN_TONES,
   EMOJI_COLS, SYMBOL_COLS,
@@ -382,24 +383,26 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
               : (isChinese ? (meta?.nameCn || meta?.name) : (meta?.name || meta?.nameCn)) || baseChar;
             return (
               <div key={`${baseChar}-${idx}`} className="relative group">
-                <button
-                  onClick={() => handlePaste(item, section.catId)}
-                  className={`aspect-square w-full flex items-center justify-center text-2xl leading-none overflow-hidden text-qc-fg rounded cursor-pointer ${uiAnimationEnabled ? 'active:scale-95 hover:scale-120 hover:z-50 hover:bg-qc-panel hover:shadow-lg hover:rounded-lg hover:border hover:border-qc-border' : 'hover:bg-qc-hover'}`}
-                  style={uiAnimationEnabled ? {
-                    opacity: 0,
-                    animation: `fadeIn 0.15s ease-out ${idx * 15}ms forwards`
-                  } : {}}
-                  title={name}
-                >
-                  <span className="inline-flex items-center justify-center w-[1.2em] h-[1.2em] overflow-hidden">{displayChar}</span>
-                </button>
+                <Tooltip content={name} placement="top" asChild>
+                  <button
+                    onClick={() => handlePaste(item, section.catId)}
+                    className={`aspect-square w-full flex items-center justify-center text-2xl leading-none overflow-hidden text-qc-fg rounded cursor-pointer ${uiAnimationEnabled ? 'active:scale-95 hover:scale-120 hover:z-50 hover:bg-qc-panel hover:shadow-lg hover:rounded-lg hover:border hover:border-qc-border' : 'hover:bg-qc-hover'}`}
+                    style={uiAnimationEnabled ? {
+                      opacity: 0,
+                      animation: `fadeIn 0.15s ease-out ${idx * 15}ms forwards`
+                    } : {}}
+                  >
+                    <span className="inline-flex items-center justify-center w-[1.2em] h-[1.2em] overflow-hidden">{displayChar}</span>
+                  </button>
+                </Tooltip>
                 {/* 肤色选择按钮 */}
                 {skinVariants && (
-                  <button
-                    onClick={(e) => handleSkinPickerOpen(e, baseChar, skinVariants, item, section.catId)}
-                    className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white opacity-0 group-hover:opacity-100 shadow-sm ${uiAnimationEnabled ? 'transition-opacity hover:scale-125' : ''}`}
-                    title="选择肤色"
-                  />
+                  <Tooltip content="选择肤色" placement="left" asChild>
+                    <button
+                      onClick={(e) => handleSkinPickerOpen(e, baseChar, skinVariants, item, section.catId)}
+                      className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white opacity-0 group-hover:opacity-100 shadow-sm ${uiAnimationEnabled ? 'transition-opacity hover:scale-125' : ''}`}
+                    />
+                  </Tooltip>
                 )}
               </div>
             );
@@ -436,19 +439,20 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       <div className="emoji-sidebar w-10 flex-shrink-0 bg-qc-panel border-r border-qc-border flex flex-col py-1 overflow-y-auto scrollbar-hide">
         {/* 分类按钮 */}
         {currentCategories.map((cat, idx) => (
-          <button
-            key={cat.id}
-            ref={el => sidebarButtonsRef.current[cat.id] = el}
-            onClick={() => handleCategoryClick(cat.id)}
-            className={`w-8 h-8 mx-auto mb-0.5 flex items-center justify-center rounded-lg transition-colors ${
-              (showImages ? imageCategory === cat.id : idx === 0) 
-                ? 'bg-blue-100 text-blue-600' 
-                : 'text-qc-fg-muted hover:bg-qc-hover'
-            }`}
-            title={t(cat.labelKey)}
-          >
-            <i className={`ti ${cat.icon} text-base`}></i>
-          </button>
+          <Tooltip content={t(cat.labelKey)} placement="right" asChild>
+            <button
+              key={cat.id}
+              ref={el => sidebarButtonsRef.current[cat.id] = el}
+              onClick={() => handleCategoryClick(cat.id)}
+              className={`w-8 h-8 mx-auto mb-0.5 flex items-center justify-center rounded-lg transition-colors ${
+                (showImages ? imageCategory === cat.id : idx === 0) 
+                  ? 'bg-blue-100 text-blue-600' 
+                  : 'text-qc-fg-muted hover:bg-qc-hover'
+              }`}
+            >
+              <i className={`ti ${cat.icon} text-base`}></i>
+            </button>
+          </Tooltip>
         ))}
       </div>
 
@@ -525,21 +529,22 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
             {skinPickerEmoji.variants.map((variant, i) => {
               const isCurrent = (i === 0 && skinTone === 'default') || (i > 0 && SKIN_TONES[i]?.id === skinTone);
               return (
-                <button
-                  key={variant}
-                  onClick={() => {
-                    handlePaste(skinPickerEmoji.item, skinPickerEmoji.catId, variant, skinPickerEmoji.baseChar);
-                    setSkinPickerEmoji(null);
-                  }}
-                  className={`w-8 h-8 flex items-center justify-center text-xl rounded-lg transition-all hover:scale-110 ${
-                    isCurrent
-                      ? 'bg-blue-100 ring-2 ring-blue-500'
-                      : 'hover:bg-qc-hover'
-                  }`}
-                  title={SKIN_TONES[i]?.label || 'Default'}
-                >
-                  {variant}
-                </button>
+                <Tooltip content={SKIN_TONES[i]?.label || 'Default'} placement="top" asChild>
+                  <button
+                    key={variant}
+                    onClick={() => {
+                      handlePaste(skinPickerEmoji.item, skinPickerEmoji.catId, variant, skinPickerEmoji.baseChar);
+                      setSkinPickerEmoji(null);
+                    }}
+                    className={`w-8 h-8 flex items-center justify-center text-xl rounded-lg transition-all hover:scale-110 ${
+                      isCurrent
+                        ? 'bg-blue-100 ring-2 ring-blue-500'
+                        : 'hover:bg-qc-hover'
+                    }`}
+                  >
+                    {variant}
+                  </button>
+                </Tooltip>
               );
             })}
           </div>

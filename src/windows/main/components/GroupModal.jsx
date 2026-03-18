@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { addGroup, updateGroup } from '@shared/store/groupsStore';
 import { useInputFocus } from '@shared/hooks/useInputFocus';
 import { showMessage, showError } from '@shared/utils/dialog';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 const PRESET_COLORS = [
   '#dc2626', 
@@ -158,18 +159,19 @@ function GroupModal({
             <div className="flex gap-2">
 
               {/* custom */}
-              <label
-                title={t('groups.modal.customColor')}
-                className="w-8 h-8 rounded-md border border-qc-border-strong flex items-center justify-center cursor-pointer hover:border-blue-500 transition text-qc-fg-muted"
-              >
-                <input
-                  type="color"
-                  value={selectedColor}
-                  onChange={(e) => setSelectedColor(e.target.value)}
-                  className="absolute opacity-0 w-0 h-0"
-                />
-                <i className="ti ti-adjustments" />
-              </label>
+              <Tooltip content={t('groups.modal.customColor')} placement="top" asChild>
+                <label
+                  className="w-8 h-8 rounded-md border border-qc-border-strong flex items-center justify-center cursor-pointer hover:border-blue-500 transition text-qc-fg-muted"
+                >
+                  <input
+                    type="color"
+                    value={selectedColor}
+                    onChange={(e) => setSelectedColor(e.target.value)}
+                    className="absolute opacity-0 w-0 h-0"
+                  />
+                  <i className="ti ti-adjustments" />
+                </label>
+              </Tooltip>
 
               {/* preset */}
               {PRESET_COLORS.map(color => (

@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 're
 import { useInputFocus, focusWindowImmediately } from '@shared/hooks/useInputFocus';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 const TitleBarSearch = forwardRef(({
   value,
   onChange,
@@ -128,11 +129,13 @@ const TitleBarSearch = forwardRef(({
       } : {}} className={`absolute ${isVertical ? 'bottom-6 left-0 w-7 py-2' : 'right-6 h-7 px-2'} text-sm bg-qc-panel border border-qc-border rounded-lg outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-qc-fg placeholder:text-qc-fg-subtle shadow-sm ${uiAnimationEnabled ? 'transition-all duration-300 ease-in-out' : ''} ${isExpanded ? isVertical ? 'h-48 opacity-100 mb-1' : 'w-30 opacity-100 mr-1' : (isVertical ? 'h-0' : 'w-0') + ' opacity-0 pointer-events-none border-0'}`} />
 
                 {/* 搜索图标 - 始终保持在原位 */}
-                <button onClick={handleIconClick} className={`relative z-10 flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-qc-hover text-qc-fg-muted hover:text-blue-500 ${uiAnimationEnabled ? 'transition-all duration-200' : ''}`} title="搜索">
-                    <i className="ti ti-search" style={{
-          fontSize: 16
-        }}></i>
-                </button>
+                <Tooltip content="搜索" placement={isVertical ? (position === 'left' ? 'right' : 'left') : 'bottom'} asChild>
+                  <button onClick={handleIconClick} className={`relative z-10 flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-qc-hover text-qc-fg-muted hover:text-blue-500 ${uiAnimationEnabled ? 'transition-all duration-200' : ''}`}>
+                      <i className="ti ti-search" style={{
+            fontSize: 16
+          }}></i>
+                  </button>
+                </Tooltip>
             </div>
         </>;
 });

@@ -1,6 +1,7 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
+import Tooltip from '@shared/components/common/Tooltip.jsx';
 function FileInput({
   value,
   onChange,
@@ -30,17 +31,27 @@ function FileInput({
   return <div className="flex items-center gap-2">
       <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="flex-1 px-3 py-2 text-sm border border-qc-border rounded-lg bg-qc-panel text-qc-fg placeholder:text-qc-fg-subtle focus:outline-none focus:ring-2 focus:ring-blue-500" />
       
-      <button onClick={handleBrowse} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors" title={t('settings.common.browse')}>
-        <i className="ti ti-folder w-4 h-4"></i>
-      </button>
+      <Tooltip content={t('settings.common.browse')} placement="top" asChild>
+        <button onClick={handleBrowse} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors">
+          <i className="ti ti-folder w-4 h-4"></i>
+        </button>
+      </Tooltip>
 
-      {onTest && <button onClick={onTest} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors" title={t('settings.common.test')}>
-          <i className="ti ti-player-play w-4 h-4"></i>
-        </button>}
+      {onTest && (
+        <Tooltip content={t('settings.common.test')} placement="top" asChild>
+          <button onClick={onTest} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors">
+            <i className="ti ti-player-play w-4 h-4"></i>
+          </button>
+        </Tooltip>
+      )}
 
-      {onReset && <button onClick={onReset} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors" title={t('settings.common.reset')}>
-          <i className="ti ti-refresh w-4 h-4"></i>
-        </button>}
+      {onReset && (
+        <Tooltip content={t('settings.common.reset')} placement="top" asChild>
+          <button onClick={onReset} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors">
+            <i className="ti ti-refresh w-4 h-4"></i>
+          </button>
+        </Tooltip>
+      )}
     </div>;
 }
 export default FileInput;
