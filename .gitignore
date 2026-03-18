@@ -22,6 +22,7 @@ target
 *.njsproj
 *.sln
 *.sw?
+**/mosqcg*
 
 docs
 scap-main

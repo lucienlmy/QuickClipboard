@@ -19,19 +19,6 @@ function ClipboardSection({
     value: 'remember',
     label: t('settings.clipboard.positionRemember')
   }];
-  const titleBarPositionOptions = [{
-    value: 'top',
-    label: t('settings.clipboard.positionTop')
-  }, {
-    value: 'bottom',
-    label: t('settings.clipboard.positionBottom')
-  }, {
-    value: 'left',
-    label: t('settings.clipboard.positionLeft')
-  }, {
-    value: 'right',
-    label: t('settings.clipboard.positionRight')
-  }];
   const pasteShortcutModeOptions = [{
     value: 'ctrl_v',
     label: t('settings.clipboard.pasteShortcutCtrlV')
@@ -75,10 +62,6 @@ function ClipboardSection({
 
         <SettingItem label={t('settings.clipboard.rememberWindowSize')} description={t('settings.clipboard.rememberWindowSizeDesc')}>
           <Toggle checked={settings.rememberWindowSize} onChange={checked => onSettingChange('rememberWindowSize', checked)} />
-        </SettingItem>
-
-        <SettingItem label={t('settings.clipboard.titleBarPosition')} description={t('settings.clipboard.titleBarPositionDesc')}>
-          <Select value={settings.titleBarPosition} onChange={value => onSettingChange('titleBarPosition', value)} options={titleBarPositionOptions} className="w-48" />
         </SettingItem>
 
         <SettingItem label={t('settings.clipboard.edgeHideEnabled')} description={t('settings.clipboard.edgeHideEnabledDesc')}>

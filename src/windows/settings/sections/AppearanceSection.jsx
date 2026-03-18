@@ -161,6 +161,20 @@ function AppearanceSection({
             <Toggle checked={settings.uiAnimationEnabled} onChange={checked => onSettingChange('uiAnimationEnabled', checked)} />
           </SettingItem>
 
+          <SettingItem label={t('settings.clipboard.titleBarPosition')} description={t('settings.clipboard.titleBarPositionDesc')}>
+            <SegmentedControl
+              value={settings.titleBarPosition || 'top'}
+              onChange={value => onSettingChange('titleBarPosition', value)}
+              options={[
+                { value: 'top', label: t('settings.clipboard.positionTop') },
+                { value: 'bottom', label: t('settings.clipboard.positionBottom') },
+                { value: 'left', label: t('settings.clipboard.positionLeft') },
+                { value: 'right', label: t('settings.clipboard.positionRight') }
+              ]}
+              className="max-w-md"
+            />
+          </SettingItem>
+
           <SettingItem label={t('listSettings.listStyle.label')} description={t('listSettings.title')}>
             <SegmentedControl value={settings.listStyle || 'compact'} onChange={value => onSettingChange('listStyle', value)} options={[{
               value: 'compact',
