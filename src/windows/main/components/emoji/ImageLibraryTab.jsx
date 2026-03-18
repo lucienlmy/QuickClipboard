@@ -368,20 +368,26 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
               onClick={() => handleImageClick(item)}
               onMouseDown={(e) => !item.loading && item.path && handleDragMouseDown(e, [item.path], item.path)}
               role="button"
-              className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
+              className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-visible hover:ring-2 hover:ring-blue-400"
             >
-            {item.loading ? (
-              <i className="ti ti-loader-2 animate-spin text-2xl text-qc-fg-subtle"></i>
-            ) : (
-              <>
-                <img 
-                  src={imageLibrary.getImageUrl(item.path)} 
-                  alt={item.filename}
-                  className="w-full h-full object-cover pointer-events-none"
-                  loading="lazy"
-                />
+              <div className="absolute inset-0 rounded-lg overflow-hidden">
+                {item.loading ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <i className="ti ti-loader-2 animate-spin text-2xl text-qc-fg-subtle"></i>
+                  </div>
+                ) : (
+                  <img 
+                    src={imageLibrary.getImageUrl(item.path)} 
+                    alt={item.filename}
+                    className="w-full h-full object-cover pointer-events-none"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+
+              {!item.loading && (
                 <div
-                  className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1 right-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                   data-drag-ignore="true"
                   onMouseDown={(e) => e.stopPropagation()}
                 >
@@ -410,8 +416,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
                     </button>
                   </Tooltip>
                 </div>
-              </>
-            )}
+              )}
             </div>
           </Tooltip>
         ))}

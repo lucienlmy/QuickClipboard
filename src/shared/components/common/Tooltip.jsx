@@ -297,7 +297,11 @@ export default function Tooltip({
           }}
         >
           <div className="relative z-10" style={{ maxWidth }}>
-            <span>{content}</span>
+            {typeof content === 'string' || typeof content === 'number' ? (
+              <span>{content}</span>
+            ) : (
+              content
+            )}
             {shortcut ? (
               <span className="ml-1 font-mono text-[10px] text-qc-fg-subtle">{shortcut}</span>
             ) : null}

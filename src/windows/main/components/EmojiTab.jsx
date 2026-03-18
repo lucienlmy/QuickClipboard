@@ -383,10 +383,19 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
               : (isChinese ? (meta?.nameCn || meta?.name) : (meta?.name || meta?.nameCn)) || baseChar;
             return (
               <div key={`${baseChar}-${idx}`} className="relative group">
-                <Tooltip content={name} placement="top" asChild>
+                <Tooltip
+                  content={
+                    <div className="flex items-center gap-2">
+                      <span className="text-[22px] leading-none">{displayChar}</span>
+                      <span className="text-[11px] leading-snug">{name}</span>
+                    </div>
+                  }
+                  placement="top"
+                  asChild
+                >
                   <button
                     onClick={() => handlePaste(item, section.catId)}
-                    className={`aspect-square w-full flex items-center justify-center text-2xl leading-none overflow-hidden text-qc-fg rounded cursor-pointer ${uiAnimationEnabled ? 'active:scale-95 hover:scale-120 hover:z-50 hover:bg-qc-panel hover:shadow-lg hover:rounded-lg hover:border hover:border-qc-border' : 'hover:bg-qc-hover'}`}
+                    className={`aspect-square w-full flex items-center justify-center text-2xl leading-none text-qc-fg rounded cursor-pointer transition-[transform,box-shadow,background-color,border-color] ${uiAnimationEnabled ? 'active:scale-95 hover:bg-qc-panel hover:shadow-lg hover:border hover:border-qc-border' : 'hover:bg-qc-hover'}`}
                     style={uiAnimationEnabled ? {
                       opacity: 0,
                       animation: `fadeIn 0.15s ease-out ${idx * 15}ms forwards`
@@ -400,7 +409,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
                   <Tooltip content="选择肤色" placement="left" asChild>
                     <button
                       onClick={(e) => handleSkinPickerOpen(e, baseChar, skinVariants, item, section.catId)}
-                      className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white opacity-0 group-hover:opacity-100 shadow-sm ${uiAnimationEnabled ? 'transition-opacity hover:scale-125' : ''}`}
+                      className={`absolute top-0.5 right-0.5 z-10 w-3 h-3 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 border border-white opacity-0 group-hover:opacity-100 shadow-sm ${uiAnimationEnabled ? 'transition-opacity hover:scale-125' : ''}`}
                     />
                   </Tooltip>
                 )}
