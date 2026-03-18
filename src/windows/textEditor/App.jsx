@@ -6,6 +6,7 @@ import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { getClipboardItemById, getFavoriteItemById, updateClipboardItem, updateFavorite, addFavorite } from '@shared/api';
 import { groupsStore, loadGroups } from '@shared/store/groupsStore';
+import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
 import TitleBar from './components/TitleBar';
 import EditorToolbar from './components/EditorToolbar';
 import TextEditor from './components/TextEditor';
@@ -22,7 +23,8 @@ function App() {
   const {
     isDark,
     effectiveTheme,
-    darkThemeStyle
+    darkThemeStyle,
+    isBackground
   } = useTheme();
   const [editorData, setEditorData] = useState(null);
   const [title, setTitle] = useState('');
@@ -39,15 +41,26 @@ function App() {
   useEffect(() => {
     const init = async () => {
       await initSettings();
-      const editorTheme = settingsStore.theme === 'background' ? 'light' : settingsStore.theme;
-      applyThemeToBody(editorTheme, 'text-editor');
+      applyThemeToBody(settingsStore.theme, 'text-editor');
     };
     init();
   }, []);
   useEffect(() => {
-    const editorTheme = theme === 'background' ? 'light' : theme;
-    applyThemeToBody(editorTheme, 'text-editor');
+    applyThemeToBody(theme, 'text-editor');
   }, [theme, darkThemeStyle, effectiveTheme]);
+
+  // 应用背景图片
+  useEffect(() => {
+    if (isBackground && settingsStore.backgroundImagePath) {
+      applyBackgroundImage({
+        containerSelector: '.text-editor-container',
+        backgroundImagePath: settingsStore.backgroundImagePath,
+        windowName: 'text-editor'
+      });
+    } else {
+      clearBackgroundImage('.text-editor-container');
+    }
+  }, [isBackground, settingsStore.backgroundImagePath]);
 
   // 加载分组列表
   useEffect(() => {
@@ -159,9 +172,11 @@ function App() {
     setContent(originalContent);
   };
   const containerClasses = `
+    text-editor-container
     h-screen w-screen
     flex flex-col
     bg-qc-surface
+    ${isBackground ? 'bg-opacity-0' : ''}
     ${isDark ? 'dark' : ''}
   `.trim().replace(/\s+/g, ' ');
   return <div className={containerClasses}>

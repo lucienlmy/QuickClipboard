@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { oneDark } from '@codemirror/theme-one-dark';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
+import { useTheme } from '@shared/hooks/useTheme';
 
 function TextEditor({
   content,
@@ -24,12 +24,12 @@ function TextEditor({
     theme,
     systemIsDark
   } = useSnapshot(settingsStore);
-  const isDark = theme === 'dark' || (theme === 'auto' && systemIsDark);
+  const { isDark } = useTheme();
   const getCustomTheme = dark => EditorView.theme({
     '&': {
       height: '100%',
-      backgroundColor: dark ? '#111827' : '#ffffff',
-      color: dark ? '#e5e7eb' : '#1f2937'
+      backgroundColor: 'var(--qc-surface)',
+      color: 'var(--qc-fg)'
     },
     '.cm-scroller': {
       overflow: 'auto',
@@ -40,21 +40,41 @@ function TextEditor({
       fontSize: '14px',
       lineHeight: '1.6',
       padding: '16px',
-      color: dark ? '#e5e7eb' : '#1f2937'
+      color: 'var(--qc-fg)'
     },
     '.cm-gutters': {
-      backgroundColor: dark ? '#1f2937' : '#f9fafb',
-      color: dark ? '#9ca3af' : '#6b7280',
+      backgroundColor: 'color-mix(in srgb, var(--qc-panel) 85%, transparent)',
+      color: 'var(--qc-fg-muted)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
       border: 'none'
     },
+    '.cm-gutterElement': {
+      color: 'var(--qc-fg-muted)'
+    },
+    '.cm-activeLineGutter': {
+      color: 'var(--qc-fg)'
+    },
+    '.cm-activeLine': {
+      backgroundColor: 'color-mix(in srgb, var(--qc-accent, #3b82f6) 14%, transparent)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      borderRadius: '8px'
+    },
+    '.cm-activeLineGutter': {
+      backgroundColor: 'color-mix(in srgb, var(--qc-accent, #3b82f6) 10%, transparent)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      color: 'var(--qc-fg)'
+    },
     '.cm-line': {
-      color: dark ? '#e5e7eb' : '#1f2937'
+      color: 'var(--qc-fg)'
     },
     '.cm-cursor': {
-      borderLeftColor: dark ? '#e5e7eb' : '#1f2937'
+      borderLeftColor: 'var(--qc-fg)'
     },
     '&.cm-focused .cm-selectionBackground, ::selection': {
-      backgroundColor: dark ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'
+      backgroundColor: 'color-mix(in srgb, var(--qc-accent, #3b82f6) 28%, transparent)'
     }
   }, {
     dark
@@ -65,7 +85,7 @@ function TextEditor({
     if (!editorRef.current) return;
     const startState = EditorState.create({
       doc: content || '',
-      extensions: [lineNumbers(), highlightActiveLine(), history(), themeCompartment.current.of(isDark ? [oneDark, getCustomTheme(true)] : [getCustomTheme(false)]), wrapCompartment.current.of(wordWrap ? EditorView.lineWrapping : []), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.updateListener.of(update => {
+      extensions: [lineNumbers(), highlightActiveLine(), history(), themeCompartment.current.of([getCustomTheme(isDark)]), wrapCompartment.current.of(wordWrap ? EditorView.lineWrapping : []), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.updateListener.of(update => {
         if (update.docChanged) {
           const newContent = update.state.doc.toString();
           onContentChange(newContent);
@@ -116,7 +136,7 @@ function TextEditor({
   useEffect(() => {
     if (!viewRef.current) return;
     viewRef.current.dispatch({
-      effects: themeCompartment.current.reconfigure(isDark ? [oneDark, getCustomTheme(true)] : [getCustomTheme(false)])
+      effects: themeCompartment.current.reconfigure([getCustomTheme(isDark)])
     });
   }, [isDark]);
   return <div className="flex-1 overflow-hidden">

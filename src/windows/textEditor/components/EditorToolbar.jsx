@@ -37,7 +37,7 @@ function EditorToolbar({
     transition-colors
     cursor-pointer
   `.trim().replace(/\s+/g, ' ');
-  return <div className="min-h-12 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-qc-border bg-qc-panel">
+  return <div className="min-h-12 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-qc-border bg-qc-surface/80 backdrop-blur-sm">
       <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
         {showTitle && <>
             <div className="flex items-center gap-2 min-w-0">
