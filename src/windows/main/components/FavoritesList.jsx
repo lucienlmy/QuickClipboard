@@ -205,7 +205,7 @@ const FavoritesList = forwardRef(({
     }
   }));
   if (favSnap.totalCount === 0) {
-    return <div className="flex-1 flex items-center justify-center">
+    return <div className="flex-1 bg-qc-surface overflow-hidden flex items-center justify-center transition-colors duration-500 favorites-list" data-no-drag>
         <p className="text-qc-fg-subtle text-sm">
           暂无收藏内容
         </p>
