@@ -142,7 +142,7 @@ pub fn run() {
                 commands::add_quick_text,
                 commands::update_quick_text,
                 commands::copy_favorite_item,
-                commands::move_favorite_item_by_id,
+                commands::move_favorite_item_cmd,
                 commands::add_clipboard_to_favorites,
                 commands::move_quick_text_to_group,
                 commands::delete_quick_text,

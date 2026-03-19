@@ -85,27 +85,11 @@ pub fn query_favorites(params: FavoritesQueryParams) -> Result<PaginatedResult<F
         let total_count_sql = format!("SELECT COUNT(*) FROM favorites {}", where_sql);
         let total_count: i64 = conn.query_row(&total_count_sql, rusqlite::params_from_iter(count_params), |row| row.get(0))?;
 
-        let is_all_groups = params.group_name.is_none() || 
-                           params.group_name.as_ref().map(|g| g == "全部").unwrap_or(false);
-        
-        let query_sql = if is_all_groups {
-            // 查询全部分组时，按分组顺序排列
-            format!(
-                "SELECT f.id, f.title, f.content, f.html_content, f.content_type, f.image_id, f.group_name, f.item_order, f.paste_count, f.created_at, f.updated_at, f.char_count 
-                 FROM favorites f 
-                 LEFT JOIN groups g ON f.group_name = g.name 
-                 {} 
-                 ORDER BY CASE WHEN f.group_name = '全部' THEN 0 ELSE 1 END, COALESCE(g.order_index, 999999), f.item_order DESC, f.updated_at DESC 
-                 LIMIT ? OFFSET ?",
-                where_sql
-            )
-        } else {
-            format!(
-                "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at, char_count 
-                 FROM favorites {} ORDER BY item_order DESC, updated_at DESC LIMIT ? OFFSET ?",
-                where_sql
-            )
-        };
+        let query_sql = format!(
+            "SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, created_at, updated_at, char_count 
+             FROM favorites {} ORDER BY item_order DESC, updated_at DESC LIMIT ? OFFSET ?",
+            where_sql
+        );
 
         query_params.push(Box::new(params.limit));
         query_params.push(Box::new(params.offset));
@@ -336,23 +320,13 @@ fn reorder_favorite_items(conn: &rusqlite::Connection, from_idx: usize, to_idx: 
 }
 
 // 移动收藏项
-pub fn move_favorite_by_id(group_name: Option<String>, from_id: String, to_id: String) -> Result<(), String> {
+pub fn move_favorite_item(from_id: String, to_id: String) -> Result<(), String> {
     if from_id == to_id { return Ok(()); }
 
     with_connection(|conn| {
-        let (sql, params): (String, Vec<Box<dyn rusqlite::ToSql>>) = match &group_name {
-            Some(group) if group != "全部" => (
-                "SELECT id, item_order FROM favorites WHERE group_name = ? ORDER BY item_order DESC, updated_at DESC".to_string(),
-                vec![Box::new(group.clone()) as Box<dyn rusqlite::ToSql>]
-            ),
-            _ => (
-                "SELECT id, item_order FROM favorites ORDER BY item_order DESC, updated_at DESC".to_string(),
-                vec![]
-            ),
-        };
-
-        let items: Vec<(String, i64)> = conn.prepare(&sql)?
-            .query_map(rusqlite::params_from_iter(params), |row| Ok((row.get(0)?, row.get(1)?)))?
+        let items: Vec<(String, i64)> = conn
+            .prepare("SELECT id, item_order FROM favorites ORDER BY item_order DESC, updated_at DESC")?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<Result<Vec<_>, _>>()?;
 
         let from_idx = items.iter().position(|(id, _)| id == &from_id)
@@ -397,8 +371,8 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
         let now = chrono::Local::now().timestamp();
         
         let max_order: i64 = conn.query_row(
-            "SELECT COALESCE(MAX(item_order), 0) FROM favorites WHERE group_name = ?",
-            params![&group_name],
+            "SELECT COALESCE(MAX(item_order), 0) FROM favorites",
+            [],
             |row| row.get(0)
         ).unwrap_or(0);
         let new_order = max_order + 1;
@@ -454,33 +428,11 @@ pub fn move_favorite_to_group(id: String, group_name: String) -> Result<(), Stri
         }
         
         let now = chrono::Local::now().timestamp();
-        
-        let max_order: i64 = conn.query_row(
-            "SELECT COALESCE(MAX(item_order), 0) FROM favorites WHERE group_name = ?",
-            params![&group_name], |row| row.get(0)
-        ).unwrap_or(0);
-        let new_order = max_order + 1;
-        
+
         conn.execute(
-            "UPDATE favorites SET group_name = ?1, item_order = ?2, updated_at = ?3 WHERE id = ?4",
-            params![&group_name, new_order, now, &id],
+            "UPDATE favorites SET group_name = ?1, updated_at = ?2 WHERE id = ?3",
+            params![&group_name, now, &id],
         )?;
-        
-        let mut stmt = conn.prepare(
-            "SELECT id FROM favorites WHERE group_name = ? ORDER BY item_order DESC, updated_at DESC"
-        )?;
-        let item_ids: Vec<String> = stmt
-            .query_map(params![&old_group_name], |row| row.get(0))?
-            .collect::<Result<Vec<String>, _>>()?;
-        drop(stmt);
-        
-        for (index, item_id) in item_ids.iter().enumerate() {
-            conn.execute(
-                "UPDATE favorites SET item_order = ?1, updated_at = ?2 WHERE id = ?3",
-                params![index as i64, now, item_id],
-            )?;
-        }
-        
         Ok(())
     })
 }
@@ -524,8 +476,9 @@ pub fn add_favorite(title: String, content: String, group_name: Option<String>) 
     
     with_connection(|conn| {
         let max_order: i64 = conn.query_row(
-            "SELECT COALESCE(MAX(item_order), 0) FROM favorites WHERE group_name = ?",
-            params![&group_name], |row| row.get(0)
+            "SELECT COALESCE(MAX(item_order), 0) FROM favorites",
+            [],
+            |row| row.get(0)
         ).unwrap_or(0);
         let new_order = max_order + 1;
         
@@ -558,28 +511,10 @@ pub fn update_favorite(id: String, title: String, content: String, group_name: O
         let char_count = calculate_char_count(&content, &content_type);
         
         if old_group_name != group_name {
-            let max_order: i64 = conn.query_row(
-                "SELECT COALESCE(MAX(item_order), 0) FROM favorites WHERE group_name = ?",
-                params![&group_name], |row| row.get(0)
-            ).unwrap_or(0);
-            let new_order = max_order + 1;
-            
             conn.execute(
-                "UPDATE favorites SET title = ?1, content = ?2, group_name = ?3, item_order = ?4, char_count = ?5, updated_at = ?6 WHERE id = ?7",
-                params![&title, &content, &group_name, new_order, char_count, now, &id],
+                "UPDATE favorites SET title = ?1, content = ?2, group_name = ?3, char_count = ?4, updated_at = ?5 WHERE id = ?6",
+                params![&title, &content, &group_name, char_count, now, &id],
             )?;
-            
-            let item_ids: Vec<String> = conn.prepare(
-                "SELECT id FROM favorites WHERE group_name = ? ORDER BY item_order DESC, updated_at DESC"
-            )?.query_map(params![&old_group_name], |row| row.get(0))?
-              .collect::<Result<Vec<String>, _>>()?;
-            
-            for (index, item_id) in item_ids.iter().enumerate() {
-                conn.execute(
-                    "UPDATE favorites SET item_order = ?1, updated_at = ?2 WHERE id = ?3",
-                    params![index as i64, now, item_id],
-                )?;
-            }
         } else {
             conn.execute(
                 "UPDATE favorites SET title = ?1, content = ?2, char_count = ?3, updated_at = ?4 WHERE id = ?5",

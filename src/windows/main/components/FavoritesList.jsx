@@ -9,7 +9,7 @@ import { favoritesStore, loadFavoritesRange, pasteFavorite } from '@shared/store
 import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
-import { moveFavoriteItemById } from '@shared/api';
+import { moveFavoriteItem } from '@shared/api';
 import FavoriteItem from './FavoriteItem';
 
 const SCROLL_DEBOUNCE_DELAY = 50;
@@ -50,7 +50,7 @@ const FavoritesList = forwardRef(({
     });
   }, [itemsArray]);
 
-  const canDrag = groupsSnap.currentGroup !== '全部' && !favSnap.filter && favSnap.contentType === 'all';
+  const canDrag = !favSnap.filter && favSnap.contentType === 'all';
 
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
@@ -64,7 +64,7 @@ const FavoritesList = forwardRef(({
     }
     
     try {
-      await moveFavoriteItemById(groupsSnap.currentGroup, fromItem.id, toItem.id);
+      await moveFavoriteItem(fromItem.id, toItem.id);
     } catch (error) {
       console.error('移动收藏项失败:', error);
     } finally {

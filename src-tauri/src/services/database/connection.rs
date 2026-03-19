@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
 use parking_lot::Mutex;
 use once_cell::sync::Lazy;
 
@@ -22,6 +22,9 @@ pub fn init_database(db_path: &str) -> Result<(), String> {
          PRAGMA cache_size = 10000;
          PRAGMA temp_store = MEMORY;"
     ).map_err(|e| format!("设置数据库参数失败: {}", e))?;
+
+    // 一次性迁移收藏为全局序号（使用 user_version 控制，仅执行一次）
+    migrate_favorites_global_order_if_needed(&conn)?;
     
     let mut db_conn = DB_CONNECTION.lock();
     *db_conn = Some(conn);
@@ -296,35 +299,76 @@ pub fn migrate_clipboard_order(conn: &Connection) {
             }
         }
     }
-    
-    // 收藏迁移：按分组独立处理
-    if let Ok(groups) = conn.prepare("SELECT DISTINCT group_name FROM favorites")
-        .and_then(|mut s| s.query_map([], |r| r.get::<_, String>(0))
-            .map(|rows| rows.filter_map(|r| r.ok()).collect::<Vec<_>>()))
-    {
-        for group in groups {
-            let need: bool = conn.query_row(
-                "SELECT (SELECT MAX(item_order) FROM favorites WHERE group_name = ?1) 
-                      < (SELECT COUNT(*) FROM favorites WHERE group_name = ?1)",
-                [&group], |row| row.get(0)
-            ).unwrap_or(false);
-            
-            if need {
-                if let Ok(mut stmt) = conn.prepare(
-                    "SELECT id FROM favorites WHERE group_name = ? ORDER BY item_order ASC, updated_at DESC"
-                ) {
-                    let ids: Vec<String> = stmt.query_map([&group], |row| row.get(0))
-                        .map(|rows| rows.filter_map(|r| r.ok()).collect())
-                        .unwrap_or_default();
-                    let count = ids.len() as i64;
-                    for (i, id) in ids.iter().enumerate() {
-                        conn.execute("UPDATE favorites SET item_order = ? WHERE id = ?",
-                            rusqlite::params![count - i as i64, id]).ok();
-                    }
-                }
-            }
-        }
+}
+
+// 一次性迁移收藏为全局序号
+fn migrate_favorites_global_order_if_needed(conn: &Connection) -> Result<(), String> {
+    let current_version: i32 = conn
+        .query_row("PRAGMA user_version;", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    if current_version >= 1 {
+        return Ok(());
     }
+
+    let favorites_table_exists: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'favorites'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    if favorites_table_exists == 0 {
+        let _ = conn.execute("PRAGMA user_version = 1;", []);
+        return Ok(());
+    }
+
+    let favorites_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM favorites", [], |row| row.get(0))
+        .unwrap_or(0);
+    if favorites_count == 0 {
+        let _ = conn.execute("PRAGMA user_version = 1;", []);
+        return Ok(());
+    }
+
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("启动收藏序号迁移事务失败: {}", e))?;
+
+    let ids: Vec<String> = {
+        let mut stmt = tx
+            .prepare(
+                "SELECT id FROM favorites 
+                 ORDER BY item_order DESC, updated_at DESC, created_at DESC, id ASC",
+            )
+            .map_err(|e| format!("准备收藏序号迁移查询失败: {}", e))?;
+
+        let ids: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| format!("查询收藏序号迁移数据失败: {}", e))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        ids
+    };
+
+    let total = ids.len() as i64;
+    for (idx, id) in ids.iter().enumerate() {
+        let new_order = total - idx as i64;
+        tx.execute(
+            "UPDATE favorites SET item_order = ?1 WHERE id = ?2",
+            params![new_order, id],
+        )
+        .ok();
+    }
+
+    tx.commit()
+        .map_err(|e| format!("提交收藏序号迁移事务失败: {}", e))?;
+
+    conn.execute("PRAGMA user_version = 1;", [])
+        .map_err(|e| format!("更新 user_version 失败: {}", e))?;
+
+    Ok(())
 }
 
 // 获取数据库连接

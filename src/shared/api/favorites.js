@@ -40,9 +40,8 @@ export async function deleteFavorite(id) {
 }
 
 // 移动收藏项位置（拖拽排序）
-export async function moveFavoriteItemById(groupName, fromId, toId) {
-  return await invoke('move_favorite_item_by_id', {
-    groupName: groupName === '全部' ? null : groupName,
+export async function moveFavoriteItem(fromId, toId) {
+  return await invoke('move_favorite_item_cmd', {
     fromId,
     toId,
   })
