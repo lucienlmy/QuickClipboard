@@ -283,7 +283,7 @@ impl Default for AppSettings {
             tab_right_shortcut: "ArrowRight".to_string(),
             focus_search_shortcut: "Tab".to_string(),
             hide_window_shortcut: "Escape".to_string(),
-            execute_item_shortcut: "Ctrl+Enter".to_string(),
+            execute_item_shortcut: "Enter".to_string(),
             previous_group_shortcut: "Ctrl+ArrowUp".to_string(),
             next_group_shortcut: "Ctrl+ArrowDown".to_string(),
             toggle_pin_shortcut: "Ctrl+P".to_string(),

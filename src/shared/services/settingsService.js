@@ -48,7 +48,7 @@ export const defaultSettings = {
   tabRightShortcut: 'ArrowRight',
   focusSearchShortcut: 'Tab',
   hideWindowShortcut: 'Escape',
-  executeItemShortcut: 'Ctrl+Enter',
+  executeItemShortcut: 'Enter',
   previousGroupShortcut: 'Ctrl+ArrowUp',
   nextGroupShortcut: 'Ctrl+ArrowDown',
   togglePinShortcut: 'Ctrl+P',
