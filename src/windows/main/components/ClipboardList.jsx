@@ -286,9 +286,17 @@ const ClipboardList = forwardRef(({
       <DragOverlay dropAnimation={null}>
         {activeItem && activeIndex !== -1 && (() => {
           const overlayClass = settings.rowHeight === 'auto' ? 'h-auto max-h-[350px]' : heightClass;
-          return <div className={overlayClass}>
-            <ClipboardItem item={activeItem} index={activeIndex} sortId={activeItem._sortId} isDragActive={true} showShortcut={showShortcut} />
-          </div>;
+          return (
+            <div className={`${overlayClass} rounded-md border border-qc-border shadow-lg bg-qc-panel/70 backdrop-blur-md`}>
+              <ClipboardItem
+                item={activeItem}
+                index={activeIndex}
+                sortId={activeItem._sortId}
+                isDragActive={true}
+                showShortcut={showShortcut}
+              />
+            </div>
+          );
         })()}
       </DragOverlay>
     </DndContext>;

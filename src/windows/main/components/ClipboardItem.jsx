@@ -5,6 +5,7 @@ import { pasteClipboardItem, clipboardStore, refreshClipboardHistory } from '@sh
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useTextPreview } from '@shared/hooks/useTextPreview';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
+import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
 import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +53,9 @@ function ClipboardItem({
   const { isBackground } = useTheme();
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
+  const isImageOrFileType = isFileType || isImageType;
+  const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');
+  const [showDragSideTooltips, setShowDragSideTooltips] = useState(false);
   const previewTimerRef = useRef(null);
   
   const [sourceIconUrl, setSourceIconUrl] = useState(null);
@@ -113,6 +117,76 @@ function ClipboardItem({
     }
   })();
 
+  // 外部拖拽信息：用于“左侧外部拖拽”Tooltip + 左侧实际触发 startDrag。
+  const externalDragInfo = (() => {
+    if (!isImageOrFileType) {
+      return { paths: [], iconPath: null, tooltipContent: undefined };
+    }
+
+    if (isImageType) {
+      if (!item.content?.startsWith('files:')) {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+      try {
+        const filesData = JSON.parse(item.content.substring(6));
+        const first = filesData?.files?.[0];
+        if (!first || first.exists === false) {
+          return { paths: [], iconPath: null, tooltipContent: undefined };
+        }
+        const actualPath = first.actual_path || first.path;
+        if (!actualPath) {
+          return { paths: [], iconPath: null, tooltipContent: undefined };
+        }
+        return {
+          paths: [actualPath],
+          iconPath: actualPath,
+          tooltipContent: t('clipboard.dragImageToExternal', '拖拽到外部应用'),
+        };
+      } catch {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+    }
+
+    if (isFileType) {
+      if (!item.content?.startsWith('files:')) {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+      try {
+        const filesData = JSON.parse(item.content.substring(6));
+        const draggablePaths = filesData.files?.filter(f => f.exists !== false).map(f => f.path).filter(Boolean) || [];
+        if (!draggablePaths.length) {
+          return { paths: [], iconPath: null, tooltipContent: undefined };
+        }
+        const tooltipContent = draggablePaths.length > 1
+          ? t('clipboard.dragFilesToExternal', '拖拽到外部应用（共{{count}}个文件）', { count: draggablePaths.length })
+          : t('clipboard.dragFileToExternal', '拖拽到外部应用');
+        return {
+          paths: draggablePaths,
+          iconPath: draggablePaths[0],
+          tooltipContent,
+        };
+      } catch {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+    }
+
+    return { paths: [], iconPath: null, tooltipContent: undefined };
+  })();
+
+  const externalDragTooltipContent = externalDragInfo.tooltipContent;
+  const externalDragPaths = externalDragInfo.paths;
+  const externalDragIconPath = externalDragInfo.iconPath;
+  const canExternalDrag = externalDragPaths.length > 0;
+
+  const handleExternalDragMouseDown = useDragWithThreshold({
+    onDragStart: () => {
+      // 外部拖拽时关闭图片预览，避免拖拽过程中占用/闪烁
+      if (isImageType) {
+        closeImagePreview(previewTimerRef);
+      }
+    }
+  });
+
   // 拖拽开始时关闭预览
   useEffect(() => {
     if (isDragActive && isImageType) {
@@ -170,6 +244,9 @@ function ClipboardItem({
     if (isDragging || isDragActive) {
       return;
     }
+    if (isImageOrFileType) {
+      setShowDragSideTooltips(true);
+    }
     if (onHover) {
       onHover();
     }
@@ -203,7 +280,10 @@ function ClipboardItem({
       closeImagePreview(previewTimerRef);
     }
     clearPreview();
-  }, [isImageType, clearPreview]);
+    if (isImageOrFileType) {
+      setShowDragSideTooltips(false);
+    }
+  }, [isImageType, isImageOrFileType, clearPreview]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -401,8 +481,8 @@ function ClipboardItem({
     <div
       ref={setNodeRef}
       style={{ ...style, ...animationStyle }}
-      {...attributes}
-      {...listeners}
+      {...(isImageOrFileType ? {} : attributes)}
+      {...(isImageOrFileType ? {} : listeners)}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onMouseEnter={handleMouseEnter}
@@ -410,6 +490,61 @@ function ClipboardItem({
       className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
       title={previewTitle || undefined}
     >
+      {isImageOrFileType && (
+        <>
+          {/* 虚线区域高亮（用于调试/可视化拖拽区域） */}
+          {showDragSideTooltips && (
+            <>
+              <div
+                className="absolute top-0 left-0 h-full border-2 border-dashed border-amber-400/80 z-[22] pointer-events-none"
+                style={{
+                  right: 'max(90px, 35%)'
+                }}
+              />
+              <div
+                className="absolute top-0 right-0 h-full border-2 border-dashed border-blue-400/80 z-[23] pointer-events-none"
+                style={{
+                  width: 'max(90px, 35%)'
+                }}
+              />
+            </>
+          )}
+
+          {/* 左侧：拖拽到外部应用 */}
+          {externalDragTooltipContent && (
+            <Tooltip
+              content={externalDragTooltipContent}
+              placement="top"
+              asChild
+              forceOpen={showDragSideTooltips}
+            >
+              <div
+                className={`absolute top-0 left-0 h-full z-[15] pointer-events-auto ${canExternalDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                style={{
+                  right: 'max(90px, 35%)'
+                }}
+                onMouseDown={canExternalDrag ? (e) => handleExternalDragMouseDown(e, externalDragPaths, externalDragIconPath) : undefined}
+              />
+            </Tooltip>
+          )}
+
+          {/* 右侧：拖拽排序 */}
+          <Tooltip content={sortTooltipContent} placement="top" asChild forceOpen={showDragSideTooltips}>
+            <div
+              className="absolute top-0 right-0 h-full z-[20] cursor-grab active:cursor-grabbing bg-transparent"
+              style={{
+                width: 'max(90px, 35%)'
+              }}
+              onMouseDown={(e) => {
+                // 避免触发左侧外部拖拽
+                e.stopPropagation();
+              }}
+              {...attributes}
+              {...listeners}
+            />
+          </Tooltip>
+        </>
+      )}
       {settings.showBadges !== false && (hasFileMissing || item.is_pinned || isPasted) && (
         <Tooltip content={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : item.is_pinned ? t('contextMenu.pinned') : t('common.pasted')} placement="right" asChild>
           <div 
@@ -516,6 +651,8 @@ function ClipboardItem({
           <div className="flex-1 min-w-0 overflow-hidden h-full">
             {renderContent(true, false, {
               availableHeightPx: 50 - 16,
+              disableExternalDrag: isImageOrFileType,
+              disableExternalTooltip: isImageOrFileType,
             })}
           </div>
         </div> :
@@ -534,7 +671,9 @@ function ClipboardItem({
           </div>
 
           {/* 内容区 */}
-          <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+          <div
+            className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}
+          >
             {renderContent(false, false, {
               availableHeightPx: (() => {
                 if (settings.rowHeight === 'auto') return undefined;
@@ -542,6 +681,8 @@ function ClipboardItem({
                 const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : rowPx;
                 return base - 16 - 22;
               })(),
+              disableExternalDrag: isImageOrFileType,
+              disableExternalTooltip: isImageOrFileType,
             })}
           </div>
         </>}

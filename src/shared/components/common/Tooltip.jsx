@@ -58,6 +58,7 @@ export default function Tooltip({
   disabled = false,
   asChild = false,
   maxWidth = 320,
+  forceOpen,
   children,
 }) {
   const tooltipId = useId();
@@ -87,6 +88,7 @@ export default function Tooltip({
   }, []);
 
   const scheduleOpen = useCallback(() => {
+    if (typeof forceOpen === 'boolean') return;
     if (disabled || !content) return;
     if (open) return;
     if (closeTimerRef.current) {
@@ -103,9 +105,10 @@ export default function Tooltip({
         });
       });
     }, openDelay);
-  }, [content, disabled, open, openDelay]);
+  }, [content, disabled, open, openDelay, forceOpen]);
 
   const scheduleClose = useCallback(() => {
+    if (typeof forceOpen === 'boolean') return;
     if (openTimerRef.current) {
       clearTimeout(openTimerRef.current);
       openTimerRef.current = 0;
@@ -119,7 +122,30 @@ export default function Tooltip({
         setOpen(false);
       }, 150);
     }, closeDelay);
-  }, [closeDelay, open]);
+  }, [closeDelay, open, forceOpen]);
+
+  useEffect(() => {
+    if (typeof forceOpen !== 'boolean') return;
+    const nextOpen = Boolean(forceOpen);
+    setOpen(nextOpen);
+    if (nextOpen) {
+      if (openTimerRef.current) {
+        clearTimeout(openTimerRef.current);
+        openTimerRef.current = 0;
+      }
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = 0;
+      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true);
+        });
+      });
+    } else {
+      setIsAnimating(false);
+    }
+  }, [forceOpen]);
 
   useEffect(() => {
     return () => {

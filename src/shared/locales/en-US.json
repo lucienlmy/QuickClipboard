@@ -53,6 +53,8 @@
     "dragImageToExternal": "Drag to external apps",
     "dragFileToExternal": "Drag to external apps",
     "dragFilesToExternal": "Drag to external apps ({{count}} files)",
+    "dragSortOnlyTop": "Drag to reorder",
+    "dragSortOnlyRight": "Drag to reorder",
     "imageTooLarge": "Image too large",
     "maxLimit": "limit",
     "imageLoadFailed": "Failed to load image",

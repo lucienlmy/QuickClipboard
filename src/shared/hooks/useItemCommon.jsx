@@ -89,6 +89,8 @@ export function useItemCommon(item, options = {}) {
 
   // 渲染内容组件
   const renderContent = (compact = false, hasTitle = false, layout = {}) => {
+    const disableExternalDrag = Boolean(layout?.disableExternalDrag);
+    const disableExternalTooltip = Boolean(layout?.disableExternalTooltip);
     const lineClampClass = getLineClampClass(hasTitle);
     const primaryType = getPrimaryType(contentType);
     const rowHeight = settings.rowHeight;
@@ -103,12 +105,12 @@ export function useItemCommon(item, options = {}) {
 
     // 图片类型
     if (primaryType === 'image') {
-      return <ImageContent item={item} />;
+      return <ImageContent item={item} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
     }
 
     // 文件类型
     if (primaryType === 'file') {
-      return <FileContent item={item} compact={compact} searchKeyword={searchKeyword} />;
+      return <FileContent item={item} compact={compact} searchKeyword={searchKeyword} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
     }
 
     // HTML 富文本类型

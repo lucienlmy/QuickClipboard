@@ -5,6 +5,7 @@ import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useTextPreview } from '@shared/hooks/useTextPreview';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
+import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { focusWindowImmediately, restoreFocus } from '@shared/hooks/useInputFocus';
 import { useSnapshot } from 'valtio';
 import { groupsStore } from '@shared/store/groupsStore';
@@ -53,6 +54,9 @@ function FavoriteItem({
   const { isBackground } = useTheme();
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
+  const isImageOrFileType = isFileType || isImageType;
+  const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');
+  const [showDragSideTooltips, setShowDragSideTooltips] = useState(false);
   const previewTimerRef = useRef(null);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -76,6 +80,75 @@ function FavoriteItem({
       return false;
     }
   })();
+
+  // 外部拖拽信息：用于“左侧外部拖拽”Tooltip + 左侧实际触发 startDrag。
+  const externalDragInfo = (() => {
+    if (!isImageOrFileType) {
+      return { paths: [], iconPath: null, tooltipContent: undefined };
+    }
+
+    if (isImageType) {
+      if (!item.content?.startsWith('files:')) {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+      try {
+        const filesData = JSON.parse(item.content.substring(6));
+        const first = filesData?.files?.[0];
+        if (!first || first.exists === false) {
+          return { paths: [], iconPath: null, tooltipContent: undefined };
+        }
+        const actualPath = first.actual_path || first.path;
+        if (!actualPath) {
+          return { paths: [], iconPath: null, tooltipContent: undefined };
+        }
+        return {
+          paths: [actualPath],
+          iconPath: actualPath,
+          tooltipContent: t('clipboard.dragImageToExternal', '拖拽到外部应用'),
+        };
+      } catch {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+    }
+
+    if (isFileType) {
+      if (!item.content?.startsWith('files:')) {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+      try {
+        const filesData = JSON.parse(item.content.substring(6));
+        const draggablePaths = filesData.files?.filter(f => f.exists !== false).map(f => f.path).filter(Boolean) || [];
+        if (!draggablePaths.length) {
+          return { paths: [], iconPath: null, tooltipContent: undefined };
+        }
+        const tooltipContent = draggablePaths.length > 1
+          ? t('clipboard.dragFilesToExternal', '拖拽到外部应用（共{{count}}个文件）', { count: draggablePaths.length })
+          : t('clipboard.dragFileToExternal', '拖拽到外部应用');
+        return {
+          paths: draggablePaths,
+          iconPath: draggablePaths[0],
+          tooltipContent,
+        };
+      } catch {
+        return { paths: [], iconPath: null, tooltipContent: undefined };
+      }
+    }
+
+    return { paths: [], iconPath: null, tooltipContent: undefined };
+  })();
+
+  const externalDragTooltipContent = externalDragInfo.tooltipContent;
+  const externalDragPaths = externalDragInfo.paths;
+  const externalDragIconPath = externalDragInfo.iconPath;
+  const canExternalDrag = externalDragPaths.length > 0;
+
+  const handleExternalDragMouseDown = useDragWithThreshold({
+    onDragStart: () => {
+      if (isImageType) {
+        closeImagePreview(previewTimerRef);
+      }
+    }
+  });
 
   const isPasted = item.paste_count > 0;
 
@@ -134,6 +207,9 @@ function FavoriteItem({
     if (isDragActive || isDragging) {
       return;
     }
+    if (isImageOrFileType) {
+      setShowDragSideTooltips(true);
+    }
     if (onHover) {
       onHover();
     }
@@ -167,7 +243,10 @@ function FavoriteItem({
       closeImagePreview(previewTimerRef);
     }
     clearPreview();
-  }, [isImageType, clearPreview]);
+    if (isImageOrFileType) {
+      setShowDragSideTooltips(false);
+    }
+  }, [isImageType, isImageOrFileType, clearPreview]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -341,8 +420,8 @@ function FavoriteItem({
     <div
       ref={setNodeRef}
       style={{ ...style, ...animationStyle }}
-      {...attributes}
-      {...listeners}
+      {...(isImageOrFileType ? {} : attributes)}
+      {...(isImageOrFileType ? {} : listeners)}
       className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
@@ -350,6 +429,60 @@ function FavoriteItem({
       onMouseLeave={handleMouseLeave}
       title={previewTitle || undefined}
     >
+      {isImageOrFileType && (
+        <>
+          {/* 虚线区域高亮（用于调试/可视化拖拽区域） */}
+          {showDragSideTooltips && (
+            <>
+              <div
+                className="absolute top-0 left-0 h-full border-2 border-dashed border-amber-400/80 z-[22] pointer-events-none"
+                style={{
+                  right: 'max(90px, 35%)'
+                }}
+              />
+              <div
+                className="absolute top-0 right-0 h-full border-2 border-dashed border-blue-400/80 z-[23] pointer-events-none"
+                style={{
+                  width: 'max(90px, 35%)'
+                }}
+              />
+            </>
+          )}
+
+          {/* 左侧：拖拽到外部应用 */}
+          {externalDragTooltipContent && (
+            <Tooltip
+              content={externalDragTooltipContent}
+              placement="top"
+              asChild
+              forceOpen={showDragSideTooltips}
+            >
+              <div
+                className={`absolute top-0 left-0 h-full z-[15] pointer-events-auto ${canExternalDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                style={{
+                  right: 'max(90px, 35%)'
+                }}
+                onMouseDown={canExternalDrag ? (e) => handleExternalDragMouseDown(e, externalDragPaths, externalDragIconPath) : undefined}
+              />
+            </Tooltip>
+          )}
+
+          {/* 右侧：拖拽排序 */}
+          <Tooltip content={sortTooltipContent} placement="top" asChild forceOpen={showDragSideTooltips}>
+            <div
+              className="absolute top-0 right-0 h-full z-[20] cursor-grab active:cursor-grabbing bg-transparent"
+              style={{
+                width: 'max(90px, 35%)'
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+              }}
+              {...attributes}
+              {...listeners}
+            />
+          </Tooltip>
+        </>
+      )}
     {settings.showBadges !== false && (hasFileMissing || isPasted) && (
       <Tooltip content={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : t('common.pasted')} placement="right" asChild>
         <div 
@@ -433,7 +566,10 @@ function FavoriteItem({
         />
       ) : (
         <div className="flex-1 min-w-0 overflow-hidden h-full">
-          {renderContent(true)}
+          {renderContent(true, false, {
+            disableExternalDrag: isImageOrFileType,
+            disableExternalTooltip: isImageOrFileType,
+          })}
         </div>
       )}
     </div> : <>
@@ -485,7 +621,9 @@ function FavoriteItem({
             const timeCost = 22;
             const titleCost = shouldShowTitle() ? 20 : 0;
             return base - 16 - timeCost - titleCost;
-          })()
+          })(),
+          disableExternalDrag: isImageOrFileType,
+          disableExternalTooltip: isImageOrFileType,
         })}
       </div>
     </>}

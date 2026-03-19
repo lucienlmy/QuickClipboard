@@ -53,6 +53,8 @@
     "dragImageToExternal": "拖拽到外部应用",
     "dragFileToExternal": "拖拽到外部应用",
     "dragFilesToExternal": "拖拽到外部应用（共{{count}}个文件）",
+    "dragSortOnlyTop": "拖拽排序",
+    "dragSortOnlyRight": "拖拽排序",
     "imageTooLarge": "图片过大",
     "maxLimit": "上限",
     "imageLoadFailed": "图片加载失败",

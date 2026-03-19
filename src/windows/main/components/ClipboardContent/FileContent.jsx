@@ -2,7 +2,6 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { useTranslation } from 'react-i18next';
-import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { highlightText } from '@shared/utils/highlightText';
 import { formatFileSize } from '@shared/utils/format';
 
@@ -48,7 +47,6 @@ function FileContent({
 }) {
   const { t } = useTranslation();
   const settings = useSnapshot(settingsStore);
-  const handleDragMouseDown = useDragWithThreshold();
   
   const renderFileName = (name) => {
     return searchKeyword ? highlightText(name, searchKeyword) : name;
@@ -77,15 +75,8 @@ function FileContent({
     </div>;
   }
 
-  const draggablePaths = filesData.files.filter(f => f.exists !== false).map(f => f.path).filter(Boolean);
-  const canDrag = draggablePaths.length > 0;
-  const dragSuffix = canDrag && draggablePaths.length > 1
-    ? t('clipboard.dragFilesToExternal', '拖拽到外部（共{{count}}个文件）', { count: draggablePaths.length })
-    : t('clipboard.dragFileToExternal', '拖拽到外部');
-
   const buildTitle = (file) => {
-    const base = `${file.name}\n${file.path || ''}\n${formatFileSize(file.size || 0)}`;
-    return canDrag && file.exists !== false ? `${base}\n${dragSuffix}` : base;
+    return `${file.name}\n${file.path || ''}\n${formatFileSize(file.size || 0)}`;
   };
 
   // 仅图标模式：网格布局
@@ -99,19 +90,13 @@ function FileContent({
       }}>
         {filesData.files.map((file, index) => {
           const exists = file.exists !== false;
-          const fileDragProps = canDrag && exists ? {
-            onMouseDown: (e) => handleDragMouseDown(e, draggablePaths, file.path),
-            'data-drag-ignore': 'true',
-            title: buildTitle(file)
-          } : {
-            title: exists ? buildTitle(file) : `${file.name}\n${t('clipboard.fileNotFound', '文件不存在')}`
-          };
+          const title = exists ? buildTitle(file) : `${file.name}\n${t('clipboard.fileNotFound', '文件不存在')}`;
           return (
             <div
               key={index}
               className={`flex items-center justify-center rounded border transition-colors flex-shrink-0 ${
                 exists 
-                  ? `bg-qc-panel border-qc-border hover:border-qc-border-strong${canDrag ? ' cursor-grab active:cursor-grabbing' : ''}`
+                  ? `bg-qc-panel border-qc-border hover:border-qc-border-strong`
                   : 'bg-red-50 border-red-300/60 opacity-60'
               }`}
               style={{
@@ -119,7 +104,7 @@ function FileContent({
                 height: `${itemSize}px`,
                 padding: '2px'
               }}
-              {...fileDragProps}
+              title={title}
             >
               <FileIcon file={file} size={iconSize} />
             </div>
@@ -134,22 +119,16 @@ function FileContent({
     return <div className="w-full h-full overflow-hidden">
       {filesData.files.map((file, index) => {
         const exists = file.exists !== false;
-        const fileDragProps = canDrag && exists ? {
-          onMouseDown: (e) => handleDragMouseDown(e, draggablePaths, file.path),
-          'data-drag-ignore': 'true',
-          title: buildTitle(file)
-        } : {
-          title: exists ? buildTitle(file) : `${file.name}\n${t('clipboard.fileNotFound', '文件不存在')}`
-        };
+        const title = exists ? buildTitle(file) : `${file.name}\n${t('clipboard.fileNotFound', '文件不存在')}`;
         return (
           <div
             key={index}
             className={`flex items-center gap-1 px-1 rounded border transition-colors h-full ${
               exists
-                ? `bg-qc-panel border-qc-border hover:border-qc-border-strong${exists ? ' cursor-grab active:cursor-grabbing' : ''}`
+                ? `bg-qc-panel border-qc-border hover:border-qc-border-strong`
                 : 'bg-red-50 border-red-300/60 opacity-60'
             }`}
-            {...fileDragProps}
+            title={title}
           >
             <FileIcon file={file} size={24} />
             <div className="flex-1 min-w-0">
@@ -177,22 +156,16 @@ function FileContent({
     {/* 文件列表 */}
     {filesData.files.map((file, index) => {
       const exists = file.exists !== false;
-      const fileDragProps = canDrag && exists ? {
-        onMouseDown: (e) => handleDragMouseDown(e, draggablePaths, file.path),
-        'data-drag-ignore': 'true',
-        title: buildTitle(file)
-      } : {
-        title: exists ? buildTitle(file) : `${file.name}\n${t('clipboard.fileNotFound', '文件不存在')}`
-      };
+      const title = exists ? buildTitle(file) : `${file.name}\n${t('clipboard.fileNotFound', '文件不存在')}`;
       return (
         <div
           key={index}
           className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors h-full ${
             exists
-              ? `bg-qc-panel border-qc-border hover:border-qc-border-strong${exists ? ' cursor-grab active:cursor-grabbing' : ''}`
+              ? `bg-qc-panel border-qc-border hover:border-qc-border-strong`
               : 'bg-red-50 border-red-300/60 opacity-60'
           }`}
-          {...fileDragProps}
+          title={title}
         >
           {/* 文件图标 */}
           <FileIcon file={file} size={normalIconSize} />

@@ -2,14 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
-import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { settingsStore } from '@shared/store/settingsStore';
 import { formatFileSize } from '@shared/utils/format';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
-function ImageContent({
-  item
-}) {
+function ImageContent({ item }) {
   const settings = useSnapshot(settingsStore);
   const isAutoHeight = settings.rowHeight === 'auto';
   const maxSizeMb = settings.imageMaxSizeMb || 15;
@@ -18,11 +15,6 @@ function ImageContent({
   const maxSizeBytes = maxSizeMb * 1024 * 1024;
   
   const { t } = useTranslation();
-  
-  const handleDragStart = useCallback(() => {
-    invoke('close_native_image_preview').catch(() => {});
-    invoke('close_image_preview').catch(() => {});
-  }, []);
 
   const [imageSrc, setImageSrc] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -99,8 +91,6 @@ function ImageContent({
     }
   };
 
-  const handleDragMouseDown = useDragWithThreshold({ onDragStart: handleDragStart });
-
   if (loading) {
     return <div className="w-full min-h-[80px] bg-qc-panel-2 rounded flex items-center justify-center">
       <span className="text-sm text-qc-fg-muted">加载中...</span>
@@ -133,12 +123,9 @@ function ImageContent({
     const badgeIcon = !fileExists ? 'ti-x' : 'ti-alert-triangle';
     
     return (
-      <Tooltip content={imagePathRef.current ? (fileExists ? t('clipboard.dragImageToExternal', '拖拽到外部') : fileName) : undefined} placement="top" asChild>
-        <div 
-          className={`w-full h-full rounded overflow-hidden flex items-center bg-gradient-to-br ${colorClasses} border cursor-grab active:cursor-grabbing ${isAutoHeight ? 'justify-center py-4' : 'justify-start px-3 gap-3'} ${!fileExists ? 'opacity-60' : ''}`}
-          onMouseDown={imagePathRef.current && fileExists ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
-          data-drag-ignore={imagePathRef.current && fileExists ? "true" : undefined}
-        >
+      <div
+        className={`w-full h-full rounded overflow-hidden flex items-center bg-gradient-to-br ${colorClasses} border ${isAutoHeight ? 'justify-center py-4' : 'justify-start px-3 gap-3'} ${!fileExists ? 'opacity-60' : ''}`}
+      >
         {isAutoHeight ? (
           <div className="flex flex-col items-center justify-center gap-2">
             <div className="relative">
@@ -183,21 +170,16 @@ function ImageContent({
             </div>
           </>
         )}
-        </div>
-      </Tooltip>
+      </div>
     );
   }
   return (
-    <Tooltip content={imagePathRef.current ? t('clipboard.dragImageToExternal', '拖拽到外部') : undefined} placement="top" asChild>
-      <div 
-        className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent cursor-grab active:cursor-grabbing ${isAutoHeight ? 'max-h-[280px]' : 'h-full'}`}
-        onMouseDown={imagePathRef.current ? (e) => handleDragMouseDown(e, [imagePathRef.current], imagePathRef.current) : undefined}
-        data-drag-ignore={imagePathRef.current ? "true" : undefined}
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
-      >
-        <img src={imageSrc} alt="剪贴板图片" className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`} loading="lazy" decoding="async" />
-      </div>
-    </Tooltip>
+    <div
+      className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent ${isAutoHeight ? 'max-h-[280px]' : 'h-full'}`}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
+    >
+      <img src={imageSrc} alt="剪贴板图片" className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`} loading="lazy" decoding="async" />
+    </div>
   );
 }
 export default ImageContent;
