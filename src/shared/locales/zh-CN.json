@@ -816,7 +816,9 @@
   },
   "footer": {
     "openClipboard": "显示/隐藏",
-    "pasteShortcut": "快速粘贴"
+    "pasteShortcut": "快速粘贴",
+    "resizeHeight": "拖拽调整底部栏高度",
+    "adjustLayout": "拖拽调整左右区域比例"
   },
   "multiSelect": {
     "enterMode": "进入多选模式",

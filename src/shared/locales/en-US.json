@@ -823,7 +823,9 @@
   },
   "footer": {
     "openClipboard": "Show/Hide",
-    "pasteShortcut": "Paste History"
+    "pasteShortcut": "Paste History",
+    "resizeHeight": "Drag to resize footer height",
+    "adjustLayout": "Drag to adjust the left and right split"
   },
   "multiSelect": {
     "enterMode": "Enter multi-select mode",
