@@ -98,6 +98,7 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     let _ = crate::windows::pin_image_window::close_image_preview(window.app_handle().clone());
     #[cfg(feature = "gpu-image-viewer")]
     let _ = crate::windows::native_pin_window::close_native_image_preview();
+    let _ = crate::windows::preview_window::close_preview_window(window.app_handle().clone());
 
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;

@@ -33,6 +33,7 @@ pub async fn show_context_menu(
     dark_theme_style: Option<String>,
 ) -> Result<Option<String>, String> {
     let _ = crate::windows::pin_image_window::close_image_preview(app.clone());
+    let _ = crate::windows::preview_window::close_preview_window(app.clone());
     
     show_menu(app, ContextMenuOptions {
         items, x, y, cursor_x: 0, cursor_y: 0, width, theme, dark_theme_style, session_id: 0,
@@ -44,6 +45,7 @@ pub async fn show_context_menu(
 #[tauri::command]
 pub fn close_all_context_menus(app: AppHandle) {
     let _ = crate::windows::pin_image_window::close_image_preview(app.clone());
+    let _ = crate::windows::preview_window::close_preview_window(app.clone());
     
     if let Some(w) = app.get_webview_window("context-menu") {
         let _ = w.hide();

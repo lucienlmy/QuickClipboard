@@ -7,4 +7,5 @@ export * from './settings'
 export * from './system'
 export * from './sound'
 export * from './dataManagement'
+export * from './previewWindow'
 

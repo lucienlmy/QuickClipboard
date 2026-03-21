@@ -1,15 +1,15 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteClipboardItem, clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
-import { useTextPreview } from '@shared/hooks/useTextPreview';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
 import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
-import { addClipboardToFavorites, togglePinClipboardItem } from '@shared/api';
+import { addClipboardToFavorites, togglePinClipboardItem, showPreviewWindow, closePreviewWindow } from '@shared/api';
 import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
@@ -18,13 +18,15 @@ import { useTheme } from '@shared/hooks/useTheme';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 import logoIcon from '@/assets/icon1024.png';
 
-const closeImagePreview = (previewTimerRef) => {
-  if (previewTimerRef.current) {
-    clearTimeout(previewTimerRef.current);
-    previewTimerRef.current = null;
-  }
-  invoke('close_native_image_preview').catch(() => {});
-  invoke('close_image_preview').catch(() => {});
+const PREVIEW_MODE_TEXT = 'text';
+const PREVIEW_MODE_IMAGE = 'image';
+const PREVIEW_HOVER_DELAY_MS = 120;
+
+const getItemPreviewMode = (type) => {
+  const primaryType = getPrimaryType(type);
+  if (primaryType === 'image') return PREVIEW_MODE_IMAGE;
+  if (primaryType === 'text' || primaryType === 'rich_text' || primaryType === 'link') return PREVIEW_MODE_TEXT;
+  return null;
 };
 
 function ClipboardItem({
@@ -54,10 +56,16 @@ function ClipboardItem({
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const isImageOrFileType = isFileType || isImageType;
+  const previewMode = getItemPreviewMode(contentType);
+  const previewEnabled = previewMode === PREVIEW_MODE_IMAGE
+    ? settings.imagePreview !== false
+    : previewMode === PREVIEW_MODE_TEXT
+      ? settings.textPreview !== false
+      : false;
   const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');
   const [showDragSideTooltips, setShowDragSideTooltips] = useState(false);
   const previewTimerRef = useRef(null);
-  
+
   const [sourceIconUrl, setSourceIconUrl] = useState(null);
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
 
@@ -76,15 +84,6 @@ function ClipboardItem({
     return parts.join('\n');
   })();
 
-  const { previewTitle, loadPreview, clearPreview } = useTextPreview(
-    item, 
-    contentType, 
-    formatTime, 
-    t, 
-    false,
-    settings.textPreview !== false
-  );
-  
   useEffect(() => {
     if (isLanSyncRemote) {
       setSourceIconUrl(logoIcon);
@@ -180,19 +179,36 @@ function ClipboardItem({
 
   const handleExternalDragMouseDown = useDragWithThreshold({
     onDragStart: () => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
       // 外部拖拽时关闭图片预览，避免拖拽过程中占用/闪烁
-      if (isImageType) {
-        closeImagePreview(previewTimerRef);
+      if (previewEnabled) {
+        closePreviewWindow().catch(() => { });
       }
     }
   });
 
   // 拖拽开始时关闭预览
   useEffect(() => {
-    if (isDragActive && isImageType) {
-      closeImagePreview(previewTimerRef);
+    if (isDragActive && previewEnabled) {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      closePreviewWindow().catch(() => { });
     }
-  }, [isDragActive, isImageType]);
+  }, [isDragActive, previewEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 拖拽功能
   const {
@@ -240,7 +256,7 @@ function ClipboardItem({
   };
 
   // 处理鼠标悬停
-  const handleMouseEnter = async (e) => {
+  const handleMouseEnter = () => {
     if (isDragging || isDragActive) {
       return;
     }
@@ -251,39 +267,49 @@ function ClipboardItem({
       onHover();
     }
 
-    // 图片类型：延迟显示预览
-    if (isImageType && settings.imagePreview !== false) {
-      previewTimerRef.current = setTimeout(async () => {
-        try {
-          const filesData = JSON.parse(item.content.substring(6))
-          const filePath = filesData?.files?.[0]?.actual_path || filesData?.files?.[0]?.path || null
-          try {
-            await invoke('show_native_image_preview', { filePath });
-          } catch (nativeError) {
-            if (nativeError?.toString?.()?.includes('not found') || nativeError?.toString?.()?.includes('Command')) {
-              await invoke('pin_image_from_file', { filePath, previewMode: true });
-            } else {
-              throw nativeError;
-            }
-          }
-        } catch (error) {
-          console.error('显示图片预览失败:', error);
-        }
-      }, 300);
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
     }
-    await loadPreview();
+
+    // 预览窗口：延迟触发，避免鼠标快速掠过时频繁创建窗口
+    if (previewMode && previewEnabled) {
+      previewTimerRef.current = setTimeout(() => {
+        showPreviewWindow(previewMode, 'clipboard', item.id).catch((error) => {
+          console.error('显示图片预览失败:', error);
+        });
+      }, PREVIEW_HOVER_DELAY_MS);
+    } else {
+      closePreviewWindow().catch(() => { });
+    }
   };
-  
+
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
-    if (isImageType) {
-      closeImagePreview(previewTimerRef);
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
     }
-    clearPreview();
+    closePreviewWindow().catch(() => { });
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageType, isImageOrFileType, clearPreview]);
+  }, [isImageOrFileType]);
+
+  const handlePreviewWheel = useCallback((e) => {
+    if (!e.ctrlKey || !previewMode || !previewEnabled) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    emit('preview-window-scroll', {
+      direction: e.deltaY < 0 ? 'up' : 'down',
+      mode: previewMode,
+      source: 'clipboard',
+      itemId: String(item.id),
+    }).catch(() => { });
+  }, [previewMode, previewEnabled, item.id]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -342,11 +368,11 @@ function ClipboardItem({
   // 处理删除按钮点击
   const handleDeleteClick = async e => {
     e.stopPropagation();
-    
-    if (isImageType) {
-      closeImagePreview(previewTimerRef);
+
+    if (previewEnabled) {
+      closePreviewWindow().catch(() => { });
     }
-    
+
     try {
       const {
         deleteClipboardItem
@@ -391,7 +417,7 @@ function ClipboardItem({
 
 
   const isCardStyle = settings.listStyle === 'card';
-  
+
   // 键盘选中样式
   const selectedClasses = isCardStyle
     ? (
@@ -472,11 +498,11 @@ function ClipboardItem({
     bg-qc-panel/80
     backdrop-blur-md
   `.trim().replace(/\s+/g, ' ');
-  
+
   const animationStyle = animationDelay > 0 ? {
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
-  
+
   return (
     <div
       ref={setNodeRef}
@@ -487,8 +513,8 @@ function ClipboardItem({
       onContextMenu={handleContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onWheel={handlePreviewWheel}
       className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
-      title={previewTitle || undefined}
     >
       {isImageOrFileType && (
         <>
@@ -547,21 +573,10 @@ function ClipboardItem({
       )}
       {settings.showBadges !== false && (hasFileMissing || item.is_pinned || isPasted) && (
         <Tooltip content={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : item.is_pinned ? t('contextMenu.pinned') : t('common.pasted')} placement="right" asChild>
-          <div 
+          <div
             className={`absolute top-0 left-0 z-30 overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
             style={{ width: 20, height: 20 }}
           >
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: 0,
-            height: 0,
-            borderStyle: 'solid',
-            borderWidth: '20px 20px 0 0',
-            borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : isPasted ? 'rgba(255,209,79,1)' : 'rgba(59,130,246,1)') + ' transparent transparent transparent',
-          }} />
-          {!hasFileMissing && item.is_pinned && isPasted && (
             <div style={{
               position: 'absolute',
               top: 0,
@@ -569,10 +584,21 @@ function ClipboardItem({
               width: 0,
               height: 0,
               borderStyle: 'solid',
-              borderWidth: '16px 16px 0 0',
-              borderColor: 'rgba(59,130,246,1) transparent transparent transparent',
+              borderWidth: '20px 20px 0 0',
+              borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : isPasted ? 'rgba(255,209,79,1)' : 'rgba(59,130,246,1)') + ' transparent transparent transparent',
             }} />
-          )}
+            {!hasFileMissing && item.is_pinned && isPasted && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: 0,
+                height: 0,
+                borderStyle: 'solid',
+                borderWidth: '16px 16px 0 0',
+                borderColor: 'rgba(59,130,246,1) transparent transparent transparent',
+              }} />
+            )}
           </div>
         </Tooltip>
       )}
@@ -617,14 +643,14 @@ function ClipboardItem({
           <Tooltip content={sourceTitle} placement="bottom" asChild>
             <span className={iconBadgeClasses}>
               {sourceIconUrl ? (
-                <img 
-                  src={sourceIconUrl} 
-                  alt="" 
+                <img
+                  src={sourceIconUrl}
+                  alt=""
                   className="w-full h-full object-cover pointer-events-none "
                   onError={() => setIconLoadFailed(true)}
                 />
               ) : (
-                <i className="ti ti-wifi" style={{ fontSize: 12}}></i>
+                <i className="ti ti-wifi" style={{ fontSize: 12 }}></i>
               )}
               {isLanSyncRemote && (
                 <span
@@ -646,8 +672,8 @@ function ClipboardItem({
       </div>
 
       {isSmallHeight ?
-    // 小行高模式：显示内容（隐藏时间）
-    <div className="flex items-center gap-2 h-full overflow-hidden">
+        // 小行高模式：显示内容（隐藏时间）
+        <div className="flex items-center gap-2 h-full overflow-hidden">
           <div className="flex-1 min-w-0 overflow-hidden h-full">
             {renderContent(true, false, {
               availableHeightPx: 50 - 16,
@@ -656,8 +682,8 @@ function ClipboardItem({
             })}
           </div>
         </div> :
-    // 中/大/自适应行高模式
-    <>
+        // 中/大/自适应行高模式
+        <>
           {/* 时间戳 */}
           <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
             <span className="text-xs text-qc-fg-subtle leading-5">

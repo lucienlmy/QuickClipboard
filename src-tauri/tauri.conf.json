@@ -46,6 +46,7 @@
         "pin-image",
         "input-dialog",
         "context-menu",
+        "preview-window",
         "updater"
       ],
       "assetProtocol": {

@@ -1,9 +1,8 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
 import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
-import { useTextPreview } from '@shared/hooks/useTextPreview';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { focusWindowImmediately, restoreFocus } from '@shared/hooks/useInputFocus';
@@ -14,19 +13,21 @@ import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
 import { deleteFavorite } from '@shared/store/favoritesStore';
 import { openEditorForFavorite } from '@shared/api/textEditor';
-import { updateFavorite } from '@shared/api';
+import { updateFavorite, showPreviewWindow, closePreviewWindow } from '@shared/api';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { highlightText } from '@shared/utils/highlightText';
 import { useTheme } from '@shared/hooks/useTheme';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
-const closeImagePreview = (previewTimerRef) => {
-  if (previewTimerRef.current) {
-    clearTimeout(previewTimerRef.current);
-    previewTimerRef.current = null;
-  }
-  invoke('close_native_image_preview').catch(() => {});
-  invoke('close_image_preview').catch(() => {});
+const PREVIEW_MODE_TEXT = 'text';
+const PREVIEW_MODE_IMAGE = 'image';
+const PREVIEW_HOVER_DELAY_MS = 120;
+
+const getItemPreviewMode = (type) => {
+  const primaryType = getPrimaryType(type);
+  if (primaryType === 'image') return PREVIEW_MODE_IMAGE;
+  if (primaryType === 'text' || primaryType === 'rich_text' || primaryType === 'link') return PREVIEW_MODE_TEXT;
+  return null;
 };
 
 function FavoriteItem({
@@ -55,21 +56,18 @@ function FavoriteItem({
   const isFileType = getPrimaryType(contentType) === 'file';
   const isImageType = getPrimaryType(contentType) === 'image';
   const isImageOrFileType = isFileType || isImageType;
+  const previewMode = getItemPreviewMode(contentType);
+  const previewEnabled = previewMode === PREVIEW_MODE_IMAGE
+    ? settings.imagePreview !== false
+    : previewMode === PREVIEW_MODE_TEXT
+      ? settings.textPreview !== false
+      : false;
   const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');
   const [showDragSideTooltips, setShowDragSideTooltips] = useState(false);
   const previewTimerRef = useRef(null);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState('');
-  const { previewTitle, loadPreview, clearPreview } = useTextPreview(
-    item, 
-    contentType, 
-    formatTime, 
-    t, 
-    true,
-    settings.textPreview !== false
-  );
-
   const hasFileMissing = (() => {
     if (!isFileType && !isImageType) return false;
     if (!item.content?.startsWith('files:')) return false;
@@ -144,8 +142,12 @@ function FavoriteItem({
 
   const handleExternalDragMouseDown = useDragWithThreshold({
     onDragStart: () => {
-      if (isImageType) {
-        closeImagePreview(previewTimerRef);
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      if (previewEnabled) {
+        closePreviewWindow().catch(() => { });
       }
     }
   });
@@ -154,10 +156,23 @@ function FavoriteItem({
 
   // 拖拽开始时关闭预览
   useEffect(() => {
-    if (isDragActive && isImageType) {
-      closeImagePreview(previewTimerRef);
+    if (isDragActive && previewEnabled) {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      closePreviewWindow().catch(() => { });
     }
-  }, [isDragActive, isImageType]);
+  }, [isDragActive, previewEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const groups = useSnapshot(groupsStore);
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部';
@@ -203,7 +218,7 @@ function FavoriteItem({
   };
 
   // 处理鼠标悬停
-  const handleMouseEnter = async () => {
+  const handleMouseEnter = () => {
     if (isDragActive || isDragging) {
       return;
     }
@@ -213,40 +228,50 @@ function FavoriteItem({
     if (onHover) {
       onHover();
     }
-    
-    // 图片类型：延迟显示预览
-    if (isImageType && settings.imagePreview !== false) {
-      previewTimerRef.current = setTimeout(async () => {
-        try {
-          const filesData = JSON.parse(item.content.substring(6));
-          const filePath = filesData?.files?.[0]?.actual_path || filesData?.files?.[0]?.path || null;
-          try {
-            await invoke('show_native_image_preview', { filePath });
-          } catch (nativeError) {
-            if (nativeError?.toString?.()?.includes('not found') || nativeError?.toString?.()?.includes('Command')) {
-              await invoke('pin_image_from_file', { filePath, previewMode: true });
-            } else {
-              throw nativeError;
-            }
-          }
-        } catch (error) {
-          console.error('显示图片预览失败:', error);
-        }
-      }, 300);
+
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
     }
-    await loadPreview();
+
+    // 预览窗口：延迟触发，避免鼠标快速掠过时频繁创建窗口
+    if (previewMode && previewEnabled) {
+      previewTimerRef.current = setTimeout(() => {
+        showPreviewWindow(previewMode, 'favorite', item.id).catch((error) => {
+          console.error('显示图片预览失败:', error);
+        });
+      }, PREVIEW_HOVER_DELAY_MS);
+    } else {
+      closePreviewWindow().catch(() => { });
+    }
   };
-  
+
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
-    if (isImageType) {
-      closeImagePreview(previewTimerRef);
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
     }
-    clearPreview();
+    closePreviewWindow().catch(() => { });
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageType, isImageOrFileType, clearPreview]);
+  }, [isImageOrFileType]);
+
+  const handlePreviewWheel = useCallback((e) => {
+    if (!e.ctrlKey || !previewMode || !previewEnabled) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    emit('preview-window-scroll', {
+      direction: e.deltaY < 0 ? 'up' : 'down',
+      mode: previewMode,
+      source: 'favorite',
+      itemId: String(item.id),
+    }).catch(() => { });
+  }, [previewMode, previewEnabled, item.id]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
@@ -272,11 +297,11 @@ function FavoriteItem({
   // 处理删除按钮点击
   const handleDeleteClick = async e => {
     e.stopPropagation();
-    
-    if (isImageType) {
-      closeImagePreview(previewTimerRef);
+
+    if (previewEnabled) {
+      closePreviewWindow().catch(() => { });
     }
-    
+
     try {
       const confirmedAndDeleted = await deleteFavorite(item.id);
       if (confirmedAndDeleted) {
@@ -298,14 +323,14 @@ function FavoriteItem({
   const shouldShowTitle = () => {
     return item.title && item.title.trim();
   };
-  
+
   // 处理标题编辑（文件和图片类型）
   const handleTitleEditClick = (e) => {
     e.stopPropagation();
     setEditingTitle(item.title || '');
     setIsEditingTitle(true);
   };
-  
+
   const handleTitleSave = async () => {
     const newTitle = editingTitle.trim();
     if (newTitle !== (item.title || '').trim()) {
@@ -326,7 +351,7 @@ function FavoriteItem({
     }
     setIsEditingTitle(false);
   };
-  
+
   const handleTitleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -337,7 +362,7 @@ function FavoriteItem({
   };
 
   const isCardStyle = settings.listStyle === 'card';
-  
+
   // 键盘选中样式
   const selectedClasses = isCardStyle
     ? (
@@ -427,7 +452,7 @@ function FavoriteItem({
       onContextMenu={handleContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      title={previewTitle || undefined}
+      onWheel={handlePreviewWheel}
     >
       {isImageOrFileType && (
         <>
@@ -483,111 +508,72 @@ function FavoriteItem({
           </Tooltip>
         </>
       )}
-    {settings.showBadges !== false && (hasFileMissing || isPasted) && (
-      <Tooltip content={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : t('common.pasted')} placement="right" asChild>
-        <div 
-          className={`absolute top-0 left-0 z-30 overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
-          style={{ width: 20, height: 20 }}
-        >
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: 0,
-            height: 0,
-            borderStyle: 'solid',
-            borderWidth: '20px 20px 0 0',
-            borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : 'rgba(255,209,79,1)') + ' transparent transparent transparent',
-          }} />
-        </div>
-      </Tooltip>
-    )}
-    {/* 顶部操作区域：操作按钮、分组、序号 */}
-    <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
-      {/* 悬停操作按钮组 */}
-      <div className={actionGroupClasses}>
-        {/* 编辑按钮 */}
-        {isTextOrRichText ? (
-          <Tooltip content={t('common.edit')} placement="bottom" asChild>
-            <button className={actionButtonClasses} onClick={handleEditClick}>
-              <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+      {settings.showBadges !== false && (hasFileMissing || isPasted) && (
+        <Tooltip content={hasFileMissing ? t('clipboard.fileNotFound', '文件不存在') : t('common.pasted')} placement="right" asChild>
+          <div
+            className={`absolute top-0 left-0 z-30 overflow-hidden ${isCardStyle ? 'rounded-tl-md' : ''}`}
+            style={{ width: 20, height: 20 }}
+          >
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 0,
+              height: 0,
+              borderStyle: 'solid',
+              borderWidth: '20px 20px 0 0',
+              borderColor: (hasFileMissing ? 'rgba(239,68,68,1)' : 'rgba(255,209,79,1)') + ' transparent transparent transparent',
+            }} />
+          </div>
+        </Tooltip>
+      )}
+      {/* 顶部操作区域：操作按钮、分组、序号 */}
+      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
+        {/* 悬停操作按钮组 */}
+        <div className={actionGroupClasses}>
+          {/* 编辑按钮 */}
+          {isTextOrRichText ? (
+            <Tooltip content={t('common.edit')} placement="bottom" asChild>
+              <button className={actionButtonClasses} onClick={handleEditClick}>
+                <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
+              </button>
+            </Tooltip>
+          ) : (
+            <Tooltip content={t('favorites.editTitle', '编辑标题')} placement="bottom" asChild>
+              <button className={actionButtonClasses} onClick={handleTitleEditClick}>
+                <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
+              </button>
+            </Tooltip>
+          )}
+          {/* 删除按钮 */}
+          <Tooltip content={t('common.delete')} placement="bottom" asChild>
+            <button className={actionButtonClasses} onClick={handleDeleteClick}>
+              <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
             </button>
           </Tooltip>
-        ) : (
-          <Tooltip content={t('favorites.editTitle', '编辑标题')} placement="bottom" asChild>
-            <button className={actionButtonClasses} onClick={handleTitleEditClick}>
-              <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
-            </button>
+        </div>
+        {/* 分组标签 */}
+        {showGroupBadge && (
+          <Tooltip content={item.group_name} placement="bottom" asChild>
+            <span
+              className={`${groupBadgeClasses(groupColor)}`}
+              style={groupColor ? {
+                backgroundColor: groupColor,
+                backgroundImage: `linear-gradient(135deg, ${groupColor}dd, ${groupColor})`
+              } : {}}
+            >
+              {item.group_name.length > 6 ? item.group_name.substring(0, 6) + '...' : item.group_name}
+            </span>
           </Tooltip>
         )}
-        {/* 删除按钮 */}
-        <Tooltip content={t('common.delete')} placement="bottom" asChild>
-          <button className={actionButtonClasses} onClick={handleDeleteClick}>
-            <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
-          </button>
-        </Tooltip>
-      </div>
-      {/* 分组标签 */}
-      {showGroupBadge && (
-        <Tooltip content={item.group_name} placement="bottom" asChild>
-          <span
-            className={`${groupBadgeClasses(groupColor)}`}
-            style={groupColor ? {
-              backgroundColor: groupColor,
-              backgroundImage: `linear-gradient(135deg, ${groupColor}dd, ${groupColor})`
-            } : {}}
-          >
-            {item.group_name.length > 6 ? item.group_name.substring(0, 6) + '...' : item.group_name}
-          </span>
-        </Tooltip>
-      )}
-      {/* 序号 */}
-      <span className={`${numberBadgeClasses} pointer-events-none`}>
-        {index + 1}
-      </span>
-    </div>
-
-    {isSmallHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
-      {isEditingTitle ? (
-        <input
-          type="text"
-          value={editingTitle}
-          onChange={(e) => setEditingTitle(e.target.value)}
-          onFocus={focusWindowImmediately}
-          onBlur={(e) => {
-            restoreFocus();
-            handleTitleSave();
-          }}
-          onKeyDown={handleTitleKeyDown}
-          onClick={(e) => e.stopPropagation()}
-          autoFocus
-          className="flex-1 min-w-0 text-sm text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 outline-none focus:ring-1 focus:ring-blue-400"
-          placeholder={t('favorites.titlePlaceholder', '输入标题...')}
-        />
-      ) : (
-        <div className="flex-1 min-w-0 overflow-hidden h-full">
-          {renderContent(true, false, {
-            disableExternalDrag: isImageOrFileType,
-            disableExternalTooltip: isImageOrFileType,
-          })}
-        </div>
-      )}
-    </div> : <>
-      {/* 时间戳 */}
-      <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
-        <span className="text-xs text-qc-fg-subtle leading-5">
-          {formatTime()}
-          {item.char_count != null && (
-            <span className="ml-1.5">
-              {item.char_count.toLocaleString()} {t('common.chars', '字符')}
-            </span>
-          )}
+        {/* 序号 */}
+        <span className={`${numberBadgeClasses} pointer-events-none`}>
+          {index + 1}
         </span>
       </div>
 
-      {/* 标题 */}
-      {isEditingTitle ? (
-        <div className="flex-shrink-0 mb-0.5 pr-16">
+      {isSmallHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
+        {isEditingTitle ? (
           <input
             type="text"
             value={editingTitle}
@@ -600,33 +586,72 @@ function FavoriteItem({
             onKeyDown={handleTitleKeyDown}
             onClick={(e) => e.stopPropagation()}
             autoFocus
-            className="w-full text-sm font-semibold text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-400"
+            className="flex-1 min-w-0 text-sm text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 outline-none focus:ring-1 focus:ring-blue-400"
             placeholder={t('favorites.titlePlaceholder', '输入标题...')}
           />
+        ) : (
+          <div className="flex-1 min-w-0 overflow-hidden h-full">
+            {renderContent(true, false, {
+              disableExternalDrag: isImageOrFileType,
+              disableExternalTooltip: isImageOrFileType,
+            })}
+          </div>
+        )}
+      </div> : <>
+        {/* 时间戳 */}
+        <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
+          <span className="text-xs text-qc-fg-subtle leading-5">
+            {formatTime()}
+            {item.char_count != null && (
+              <span className="ml-1.5">
+                {item.char_count.toLocaleString()} {t('common.chars', '字符')}
+              </span>
+            )}
+          </span>
         </div>
-      ) : shouldShowTitle() && (
-        <div className="flex-shrink-0 mb-0">
-          <p className="text-sm font-semibold text-qc-fg truncate pr-16 leading-tight">
-            {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
-          </p>
-        </div>
-      )}
 
-      {/* 内容区域 */}
-      <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
-        {renderContent(false, shouldShowTitle(), {
-          availableHeightPx: (() => {
-            if (settings.rowHeight === 'auto') return undefined;
-            const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : 90;
-            const timeCost = 22;
-            const titleCost = shouldShowTitle() ? 20 : 0;
-            return base - 16 - timeCost - titleCost;
-          })(),
-          disableExternalDrag: isImageOrFileType,
-          disableExternalTooltip: isImageOrFileType,
-        })}
-      </div>
-    </>}
+        {/* 标题 */}
+        {isEditingTitle ? (
+          <div className="flex-shrink-0 mb-0.5 pr-16">
+            <input
+              type="text"
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              onFocus={focusWindowImmediately}
+              onBlur={(e) => {
+                restoreFocus();
+                handleTitleSave();
+              }}
+              onKeyDown={handleTitleKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+              className="w-full text-sm font-semibold text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-400"
+              placeholder={t('favorites.titlePlaceholder', '输入标题...')}
+            />
+          </div>
+        ) : shouldShowTitle() && (
+          <div className="flex-shrink-0 mb-0">
+            <p className="text-sm font-semibold text-qc-fg truncate pr-16 leading-tight">
+              {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
+            </p>
+          </div>
+        )}
+
+        {/* 内容区域 */}
+        <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
+          {renderContent(false, shouldShowTitle(), {
+            availableHeightPx: (() => {
+              if (settings.rowHeight === 'auto') return undefined;
+              const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : 90;
+              const timeCost = 22;
+              const titleCost = shouldShowTitle() ? 20 : 0;
+              return base - 16 - timeCost - titleCost;
+            })(),
+            disableExternalDrag: isImageOrFileType,
+            disableExternalTooltip: isImageOrFileType,
+          })}
+        </div>
+      </>}
     </div>
   );
 }
