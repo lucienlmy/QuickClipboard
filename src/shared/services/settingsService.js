@@ -76,6 +76,8 @@ export const defaultSettings = {
   pasteToTop: false,
   showBadges: true,
   showSourceIcon: true,
+  updateCheckInterval: 'daily',
+  includeBetaUpdates: null,
   
   // 音效设置
   soundEnabled: true,

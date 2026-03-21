@@ -125,6 +125,8 @@ pub struct AppSettings {
     pub paste_to_top: bool,
     pub show_badges: bool,
     pub show_source_icon: bool,
+    pub update_check_interval: String,
+    pub include_beta_updates: Option<bool>,
 
     // 快捷键设置
     pub hotkeys_enabled: bool,
@@ -275,6 +277,8 @@ impl Default for AppSettings {
             paste_to_top: false,
             show_badges: true,
             show_source_icon: true,
+            update_check_interval: "daily".to_string(),
+            include_beta_updates: None,
 
             hotkeys_enabled: true,
             navigate_up_shortcut: "ArrowUp".to_string(),

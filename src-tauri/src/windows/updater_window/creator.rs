@@ -5,6 +5,8 @@ use std::time::Duration;
 use tokio::time::interval;
 
 static FORCE_UPDATE_MODE: AtomicBool = AtomicBool::new(false);
+const AUTO_UPDATE_CHECK_INTERVAL_SECS: u64 = 60 * 60;
+const LAST_AUTO_CHECK_AT_KEY: &str = "updater.last_auto_check_at";
 
 pub fn is_force_update_mode() -> bool {
     FORCE_UPDATE_MODE.load(Ordering::Relaxed)
@@ -23,6 +25,55 @@ fn parse_env_bool(key: &str) -> Option<bool> {
 fn is_prerelease(version: &str) -> bool {
     let v = version.to_lowercase();
     v.contains("alpha") || v.contains("beta") || v.contains("rc") || v.contains("dev")
+}
+
+fn normalize_update_check_interval(value: &str) -> &'static str {
+    match value {
+        "every3days" => "every3days",
+        "weekly" => "weekly",
+        _ => "daily",
+    }
+}
+
+fn update_check_interval_seconds(value: &str) -> u64 {
+    match normalize_update_check_interval(value) {
+        "every3days" => 3 * 24 * 60 * 60,
+        "weekly" => 7 * 24 * 60 * 60,
+        _ => 24 * 60 * 60,
+    }
+}
+
+fn current_unix_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+fn resolve_use_beta_channel(settings: &crate::services::AppSettings, is_current_prerelease: bool) -> bool {
+    if let Some(include_beta_updates) = settings.include_beta_updates {
+        return include_beta_updates;
+    }
+
+    match std::env::var("QC_UPDATE_CHANNEL") {
+        Ok(v) if v.trim().eq_ignore_ascii_case("beta") => true,
+        Ok(v) if v.trim().eq_ignore_ascii_case("stable") => false,
+        _ => is_current_prerelease,
+    }
+}
+
+async fn check_updates_if_due(app: &AppHandle) -> Result<bool, String> {
+    let settings = crate::services::get_settings();
+    let now = current_unix_timestamp();
+    let interval_secs = update_check_interval_seconds(&settings.update_check_interval);
+    let last_check_at = crate::services::store::get::<u64>(LAST_AUTO_CHECK_AT_KEY).unwrap_or(0);
+
+    if last_check_at > 0 && now.saturating_sub(last_check_at) < interval_secs {
+        return Ok(false);
+    }
+
+    crate::services::store::set(LAST_AUTO_CHECK_AT_KEY, &now)?;
+    check_updates_and_open_window(app).await
 }
 
 // 检测当前运行的程序是否为安装版
@@ -79,14 +130,14 @@ fn is_installed_version() -> bool {
 
 pub fn start_update_checker(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        let _ = check_updates_and_open_window(&app).await;
+        let _ = check_updates_if_due(&app).await;
         
-        let mut ticker = interval(Duration::from_secs(24 * 60 * 60));
+        let mut ticker = interval(Duration::from_secs(AUTO_UPDATE_CHECK_INTERVAL_SECS));
         ticker.tick().await;
         
         loop {
             ticker.tick().await;
-            let _ = check_updates_and_open_window(&app).await;
+            let _ = check_updates_if_due(&app).await;
         }
     });
 }
@@ -146,6 +197,7 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
     use tauri_plugin_updater::UpdaterExt;
     use std::time::Duration;
     
+    let settings = crate::services::get_settings();
     let current_version = app.package_info().version.to_string();
     let is_current_prerelease = is_prerelease(&current_version);
 
@@ -172,11 +224,7 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
     let stable_url = stable_json_url.unwrap_or_else(|| "https://api.quickclipboard.cn/update/stable_latest.json".to_string());
     let beta_url = beta_json_url.unwrap_or_else(|| "https://api.quickclipboard.cn/update/beta_latest.json".to_string());
 
-    let use_beta_channel = match std::env::var("QC_UPDATE_CHANNEL") {
-        Ok(v) if v.trim().eq_ignore_ascii_case("beta") => true,
-        Ok(v) if v.trim().eq_ignore_ascii_case("stable") => false,
-        _ => is_current_prerelease,
-    };
+    let use_beta_channel = resolve_use_beta_channel(&settings, is_current_prerelease);
 
     let chosen_manifest_url = if use_beta_channel { beta_url } else { stable_url };
     let chosen_manifest_url_str = chosen_manifest_url.clone();
@@ -206,7 +254,7 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
         Some(update) => {
             let new_version = update.version.clone();
             
-            if !is_current_prerelease && is_prerelease(&new_version) {
+            if !use_beta_channel && is_prerelease(&new_version) {
                 return Ok(false);
             }
             

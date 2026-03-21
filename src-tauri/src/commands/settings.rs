@@ -17,6 +17,14 @@ fn handle_disable_edge_hide(app: &tauri::AppHandle) {
     }
 }
 
+fn normalize_update_check_interval(value: &str) -> String {
+    match value {
+        "every3days" => "every3days".to_string(),
+        "weekly" => "weekly".to_string(),
+        _ => "daily".to_string(),
+    }
+}
+
 // 重新加载设置
 #[tauri::command]
 pub fn reload_settings() -> Result<AppSettings, String> {
@@ -41,6 +49,8 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
         settings.edge_snap_position = None;
         handle_disable_edge_hide(&app);
     }
+
+    settings.update_check_interval = normalize_update_check_interval(&settings.update_check_interval);
     
     update_settings(settings.clone())?;
     

@@ -155,7 +155,7 @@ function App() {
         content = <DataManagementSection />;
         break;
       case 'about':
-        content = <AboutSection />;
+        content = <AboutSection settings={snap} onSettingChange={handleSettingChange} />;
         break;
       default:
         content = <GeneralSection settings={snap} onSettingChange={handleSettingChange} />;
