@@ -391,16 +391,22 @@ function FavoriteItem({
 
   // 键盘选中样式
   const isActiveSelected = isMultiSelectMode ? isMultiSelected : isSelected;
+  const baseSurfaceClasses = isBackground ? 'bg-qc-panel' : 'bg-transparent';
+  const shouldShowDragOutlineOnly = isImageOrFileType && showDragSideTooltips;
   const selectedClasses = isCardStyle
     ? (
-      isActiveSelected
-        ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10'
-        : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} ring-1 ring-qc-border ring-inset shadow-sm shadow-black/5`
+      shouldShowDragOutlineOnly
+        ? baseSurfaceClasses
+        : isActiveSelected
+          ? `${baseSurfaceClasses} ring-2 ring-blue-500 ring-inset`
+          : `${baseSurfaceClasses} ring-1 ring-qc-border ring-inset shadow-sm shadow-black/5`
     )
     : (
-      isActiveSelected
-        ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10'
-        : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} border-b border-qc-border`
+      shouldShowDragOutlineOnly
+        ? baseSurfaceClasses
+        : isActiveSelected
+          ? `${baseSurfaceClasses} ring-2 ring-blue-500 ring-inset`
+          : `${baseSurfaceClasses} border-b border-qc-border`
     );
   const smallElementClasses = `
     flex items-center justify-center
@@ -495,17 +501,17 @@ function FavoriteItem({
       )}
       {isImageOrFileType && !isMultiSelectMode && isDraggable && (
         <>
-          {/* 虚线区域高亮（用于调试/可视化拖拽区域） */}
+          {/* 拖拽分区提示：悬停时仅显示左右虚线分区 */}
           {showDragSideTooltips && (
             <>
               <div
-                className="absolute top-0 left-0 h-full border-2 border-dashed border-amber-400/80 z-[22] pointer-events-none"
+                className={`absolute top-0 left-0 h-full border-2 border-dashed border-amber-400/80 z-[22] pointer-events-none ${isCardStyle ? 'rounded-l-md rounded-r-none' : ''}`}
                 style={{
                   right: 'max(90px, 35%)'
                 }}
               />
               <div
-                className="absolute top-0 right-0 h-full border-2 border-dashed border-blue-400/80 z-[23] pointer-events-none"
+                className={`absolute top-0 right-0 h-full border-2 border-dashed border-blue-400/80 z-[23] pointer-events-none ${isCardStyle ? 'rounded-r-md rounded-l-none' : ''}`}
                 style={{
                   width: 'max(90px, 35%)'
                 }}
