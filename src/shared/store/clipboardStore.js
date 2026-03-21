@@ -29,6 +29,9 @@ export const clipboardStore = proxy({
   filter: '',
   contentType: 'all',
   selectedIds: new Set(),
+  selectedEntries: [],
+  isMultiSelectMode: false,
+  selectionAnchorIndex: null,
   loading: false,
   error: null,
   loadingRanges: new Set(),
@@ -89,6 +92,7 @@ export const clipboardStore = proxy({
       this.filter = value
       this.items = {}
       this.loadingRanges = new Set()
+      this.exitMultiSelectMode()
     }
   },
   
@@ -97,26 +101,96 @@ export const clipboardStore = proxy({
       this.contentType = value
       this.items = {}
       this.loadingRanges = new Set()
+      this.exitMultiSelectMode()
     }
   },
   
-  toggleSelect(id) {
-    if (this.selectedIds.has(id)) {
-      this.selectedIds.delete(id)
-    } else {
-      this.selectedIds.add(id)
+  enterMultiSelectMode() {
+    this.isMultiSelectMode = true
+    this.selectedEntries = []
+    this.selectedIds = new Set()
+    this.selectionAnchorIndex = null
+  },
+
+  exitMultiSelectMode() {
+    this.isMultiSelectMode = false
+    this.selectedEntries = []
+    this.selectedIds = new Set()
+    this.selectionAnchorIndex = null
+  },
+
+  setSelectionAnchorIndex(index) {
+    this.selectionAnchorIndex = typeof index === 'number' ? index : null
+  },
+
+  normalizeSelectedEntry(entry) {
+    return {
+      id: entry.id,
+      index: entry.index,
+      contentType: entry.contentType,
     }
+  },
+
+  hasSelectedId(id) {
+    return this.selectedEntries.some(entry => entry.id === id)
+  },
+
+  replaceSelection(entries) {
+    const uniqueEntries = []
+    const seenIds = new Set()
+
+    for (const entry of entries) {
+      if (!entry?.id || seenIds.has(entry.id)) continue
+      seenIds.add(entry.id)
+      uniqueEntries.push(this.normalizeSelectedEntry(entry))
+    }
+
+    uniqueEntries.sort((a, b) => a.index - b.index)
+    this.selectedEntries = uniqueEntries
+    this.selectedIds = new Set(uniqueEntries.map(entry => entry.id))
+  },
+
+  toggleSelectedEntry(entry) {
+    const normalizedEntry = this.normalizeSelectedEntry(entry)
+    const exists = this.selectedEntries.some(selected => selected.id === normalizedEntry.id)
+    if (exists) {
+      this.replaceSelection(this.selectedEntries.filter(selected => selected.id !== normalizedEntry.id))
+      return
+    }
+
+    this.replaceSelection([...this.selectedEntries, normalizedEntry])
+  },
+
+  selectRange(entries) {
+    this.replaceSelection([...this.selectedEntries, ...entries])
+  },
+
+  getSelectedIds() {
+    return [...this.selectedEntries]
+      .sort((a, b) => a.index - b.index)
+      .map(entry => entry.id)
+  },
+
+  toggleSelect(id) {
+    if (!id) return
+    this.toggleSelectedEntry({
+      id,
+      index: Number.MAX_SAFE_INTEGER,
+      contentType: 'text',
+    })
   },
   
   clearSelection() {
-    this.selectedIds.clear()
+    this.selectedEntries = []
+    this.selectedIds = new Set()
+    this.selectionAnchorIndex = null
   },
   
   clearAll() {
     this.items = {}
-    this.selectedIds = new Set()
     this.totalCount = 0
     this.currentViewRange = { start: 0, end: 50 }
+    this.exitMultiSelectMode()
   },
   
   // 记录正在加载的范围

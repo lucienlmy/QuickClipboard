@@ -1,9 +1,11 @@
 use crate::services::database::{
     clear_clipboard_history as db_clear_clipboard_history,
-    delete_clipboard_item as db_delete_clipboard_item, get_clipboard_count,
+    delete_clipboard_item as db_delete_clipboard_item, delete_clipboard_items as db_delete_clipboard_items,
+    get_clipboard_count,
     get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_to_top,
     move_clipboard_item_by_id as db_move_clipboard_item_by_id,
     query_clipboard_items, update_clipboard_item as db_update_clipboard_item,
+    increment_paste_counts as db_increment_paste_counts,
     toggle_pin_clipboard_item as db_toggle_pin,
     ClipboardItem, PaginatedResult, QueryParams,
 };
@@ -208,6 +210,15 @@ pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
     result
 }
 
+#[tauri::command]
+pub fn delete_clipboard_items(ids: Vec<i64>) -> Result<(), String> {
+    let result = db_delete_clipboard_items(&ids);
+    if result.is_ok() {
+        crate::services::clipboard::clear_last_content_cache();
+    }
+    result
+}
+
 // 清空剪贴板历史
 #[tauri::command]
 pub fn clear_clipboard_history() -> Result<(), String> {
@@ -289,6 +300,101 @@ pub fn copy_clipboard_item(id: i64) -> Result<(), String> {
         .ok_or_else(|| format!("剪贴板项不存在: {}", id))?;
     
     set_clipboard_from_item(&item.content_type, &item.content, &item.html_content, true)
+}
+
+#[tauri::command]
+pub async fn merge_copy_clipboard_items(ids: Vec<i64>) -> Result<(), String> {
+    return tokio::task::spawn_blocking(move || {
+        if ids.is_empty() {
+            return Err("至少需要选择一项内容".to_string());
+        }
+
+        let items = ids
+            .iter()
+            .map(|id| {
+                get_clipboard_item_by_id(*id)?
+                    .ok_or_else(|| format!("剪贴板项不存在: {}", id))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        crate::services::paste::copy_merged_items(&items)
+    })
+    .await
+    .map_err(|e| format!("批量合并复制任务执行失败: {}", e))?;
+
+    use crate::services::paste::copy_merged_items;
+
+    if ids.is_empty() {
+        return Err("至少需要选择一项内容".to_string());
+    }
+
+    let items = ids
+        .iter()
+        .map(|id| {
+            get_clipboard_item_by_id(*id)?
+                .ok_or_else(|| format!("剪贴板项不存在: {}", id))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    copy_merged_items(&items)
+}
+
+#[tauri::command]
+pub async fn merge_paste_clipboard_items(ids: Vec<i64>, app: tauri::AppHandle) -> Result<(), String> {
+    let ids_for_emit = ids.clone();
+    tokio::task::spawn_blocking(move || {
+        if ids.is_empty() {
+            return Err("至少需要选择一项内容".to_string());
+        }
+
+        let items = ids
+            .iter()
+            .map(|id| {
+                get_clipboard_item_by_id(*id)?
+                    .ok_or_else(|| format!("剪贴板项不存在: {}", id))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        crate::services::paste::paste_merged_items(&items, &app)?;
+        db_increment_paste_counts(&ids)?;
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| format!("批量合并粘贴任务执行失败: {}", e))??;
+
+    if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
+        for id in ids_for_emit {
+            let _ = app_handle.emit("paste-count-updated", id);
+        }
+    }
+
+    return Ok(());
+
+    use tauri::Emitter;
+    use crate::services::paste::paste_merged_items;
+
+    if ids.is_empty() {
+        return Err("至少需要选择一项内容".to_string());
+    }
+
+    let items = ids
+        .iter()
+        .map(|id| {
+            get_clipboard_item_by_id(*id)?
+                .ok_or_else(|| format!("剪贴板项不存在: {}", id))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    paste_merged_items(&items, &app)?;
+    db_increment_paste_counts(&ids)?;
+
+    if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
+        for id in ids {
+            let _ = app_handle.emit("paste-count-updated", id);
+        }
+    }
+
+    Ok(())
 }
 
 // 直接粘贴文本

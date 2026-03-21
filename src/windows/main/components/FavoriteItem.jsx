@@ -36,6 +36,8 @@ function FavoriteItem({
   sortId,
   isDraggable = true,
   isSelected = false,
+  isMultiSelected = false,
+  isMultiSelectMode = false,
   onHover,
   onClick,
   isDragActive = false,
@@ -166,6 +168,20 @@ function FavoriteItem({
   }, [isDragActive, previewEnabled]);
 
   useEffect(() => {
+    if (!isMultiSelectMode) {
+      return;
+    }
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    closePreviewWindow().catch(() => { });
+    if (isImageOrFileType) {
+      setShowDragSideTooltips(false);
+    }
+  }, [isImageOrFileType, isMultiSelectMode]);
+
+  useEffect(() => {
     return () => {
       if (previewTimerRef.current) {
         clearTimeout(previewTimerRef.current);
@@ -205,7 +221,11 @@ function FavoriteItem({
   };
 
   // 点击粘贴
-  const handleClick = async () => {
+  const handleClick = async (event) => {
+    if (onClick) {
+      onClick(item, index, event);
+      return;
+    }
     try {
       await pasteFavorite(item.id);
     } catch (err) {
@@ -219,7 +239,7 @@ function FavoriteItem({
 
   // 处理鼠标悬停
   const handleMouseEnter = () => {
-    if (isDragActive || isDragging) {
+    if (isDragActive || isDragging || isMultiSelectMode) {
       return;
     }
     if (isImageOrFileType) {
@@ -248,6 +268,9 @@ function FavoriteItem({
 
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
+    if (isMultiSelectMode) {
+      return;
+    }
     if (previewTimerRef.current) {
       clearTimeout(previewTimerRef.current);
       previewTimerRef.current = null;
@@ -256,10 +279,10 @@ function FavoriteItem({
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageOrFileType]);
+  }, [isImageOrFileType, isMultiSelectMode]);
 
   const handlePreviewWheel = useCallback((e) => {
-    if (!e.ctrlKey || !previewMode || !previewEnabled) {
+    if (isMultiSelectMode || !e.ctrlKey || !previewMode || !previewEnabled) {
       return;
     }
 
@@ -271,10 +294,13 @@ function FavoriteItem({
       source: 'favorite',
       itemId: String(item.id),
     }).catch(() => { });
-  }, [previewMode, previewEnabled, item.id]);
+  }, [isMultiSelectMode, previewMode, previewEnabled, item.id]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
+    if (isMultiSelectMode) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     await showFavoriteItemContextMenu(e, item, index);
@@ -364,14 +390,15 @@ function FavoriteItem({
   const isCardStyle = settings.listStyle === 'card';
 
   // 键盘选中样式
+  const isActiveSelected = isMultiSelectMode ? isMultiSelected : isSelected;
   const selectedClasses = isCardStyle
     ? (
-      isSelected
+      isActiveSelected
         ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10'
         : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} ring-1 ring-qc-border ring-inset shadow-sm shadow-black/5`
     )
     : (
-      isSelected
+      isActiveSelected
         ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10'
         : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} border-b border-qc-border`
     );
@@ -445,16 +472,28 @@ function FavoriteItem({
     <div
       ref={setNodeRef}
       style={{ ...style, ...animationStyle }}
-      {...(isImageOrFileType ? {} : attributes)}
-      {...(isImageOrFileType ? {} : listeners)}
-      className={`favorite-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
+      {...(isImageOrFileType || !isDraggable ? {} : attributes)}
+      {...(isImageOrFileType || !isDraggable ? {} : listeners)}
+      data-index={index}
+      className={`favorite-item group relative flex flex-col ${isMultiSelectMode ? 'pl-9 pr-2.5' : 'px-2.5'} py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} ${isDraggable ? 'cursor-move' : 'cursor-pointer'} transition-all ${getHeightClass()}`}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onWheel={handlePreviewWheel}
     >
-      {isImageOrFileType && (
+      {isMultiSelectMode && (
+        <div className="absolute left-2 top-1/2 -translate-y-1/2 z-20 pointer-events-none">
+          <span className={`flex items-center justify-center w-5 h-5 rounded-md border text-[12px] transition-colors ${
+            isMultiSelected
+              ? 'border-blue-500 bg-blue-500 text-white'
+              : 'border-qc-border bg-qc-panel text-transparent'
+          }`}>
+            <i className="ti ti-check" style={{ fontSize: 12 }}></i>
+          </span>
+        </div>
+      )}
+      {isImageOrFileType && !isMultiSelectMode && isDraggable && (
         <>
           {/* 虚线区域高亮（用于调试/可视化拖拽区域） */}
           {showDragSideTooltips && (
@@ -530,7 +569,7 @@ function FavoriteItem({
       {/* 顶部操作区域：操作按钮、分组、序号 */}
       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
         {/* 悬停操作按钮组 */}
-        <div className={actionGroupClasses}>
+        {!isMultiSelectMode && <div className={actionGroupClasses}>
           {/* 编辑按钮 */}
           {isTextOrRichText ? (
             <Tooltip content={t('common.edit')} placement="bottom" asChild>
@@ -551,7 +590,7 @@ function FavoriteItem({
               <i className="ti ti-trash" style={{ fontSize: 12 }}></i>
             </button>
           </Tooltip>
-        </div>
+        </div>}
         {/* 分组标签 */}
         {showGroupBadge && (
           <Tooltip content={item.group_name} placement="bottom" asChild>
@@ -592,8 +631,8 @@ function FavoriteItem({
         ) : (
           <div className="flex-1 min-w-0 overflow-hidden h-full">
             {renderContent(true, false, {
-              disableExternalDrag: isImageOrFileType,
-              disableExternalTooltip: isImageOrFileType,
+              disableExternalDrag: isImageOrFileType || isMultiSelectMode,
+              disableExternalTooltip: isImageOrFileType || isMultiSelectMode,
             })}
           </div>
         )}
@@ -647,8 +686,8 @@ function FavoriteItem({
               const titleCost = shouldShowTitle() ? 20 : 0;
               return base - 16 - timeCost - titleCost;
             })(),
-            disableExternalDrag: isImageOrFileType,
-            disableExternalTooltip: isImageOrFileType,
+            disableExternalDrag: isImageOrFileType || isMultiSelectMode,
+            disableExternalTooltip: isImageOrFileType || isMultiSelectMode,
           })}
         </div>
       </>}

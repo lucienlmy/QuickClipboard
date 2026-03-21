@@ -825,6 +825,21 @@
     "openClipboard": "Show/Hide",
     "pasteShortcut": "Paste History"
   },
+  "multiSelect": {
+    "enterMode": "Enter multi-select mode",
+    "exitMode": "Exit multi-select mode",
+    "selectedCount": "{{count}} selected",
+    "mergeCopy": "Merge copy",
+    "mergePaste": "Merge paste",
+    "deleteSelected": "Delete selected",
+    "selectFirst": "Please select content first",
+    "fileMixedUnsupported": "Files cannot be merged with other content types",
+    "unsupportedType": "The selection contains unsupported content types",
+    "confirmDelete": "Delete the selected {{count}} items?",
+    "confirmDeleteTitle": "Confirm bulk delete",
+    "mergeCopied": "Merged content copied",
+    "mergePasted": "Merged content pasted"
+  },
   "contextMenu": {
     "openInBrowser": "Open in Browser",
     "openLinks": "Open Links ({{count}})",

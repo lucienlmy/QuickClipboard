@@ -26,6 +26,7 @@ const ClipboardList = forwardRef(({
   const loadTimeoutRef = useRef(null);
   const snap = useSnapshot(navigationStore);
   const clipSnap = useSnapshot(clipboardStore);
+  const isMultiSelectMode = clipSnap.isMultiSelectMode;
   const showShortcut = !clipSnap.filter && clipSnap.contentType === 'all';
   const settings = useSnapshot(settingsStore);
   const itemsArray = useMemo(() => {
@@ -137,8 +138,60 @@ const ClipboardList = forwardRef(({
         console.error('粘贴失败:', error);
       }
     },
-    enabled: snap.activeTab === 'clipboard'
+    enabled: snap.activeTab === 'clipboard' && !isMultiSelectMode
   });
+
+  const ensureRangeLoaded = useCallback(async (startIndex, endIndex) => {
+    const missingIndexes = [];
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      if (!clipboardStore.hasItem(index)) {
+        missingIndexes.push(index);
+      }
+    }
+
+    if (!missingIndexes.length) {
+      return;
+    }
+
+    const loadStart = Math.max(0, startIndex - 10);
+    const loadEnd = Math.min(clipSnap.totalCount - 1, endIndex + 10);
+    await loadClipboardRange(loadStart, loadEnd);
+  }, [clipSnap.totalCount]);
+
+  const buildSelectionEntries = useCallback((startIndex, endIndex) => {
+    const entries = [];
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      const item = clipboardStore.getItem(index);
+      if (!item?.id) continue;
+      entries.push({
+        id: item.id,
+        index,
+        contentType: item.content_type,
+      });
+    }
+    return entries;
+  }, []);
+
+  const handleItemClick = useCallback(async (item, index, event) => {
+    if (!isMultiSelectMode) {
+      return;
+    }
+
+    if (event?.shiftKey && typeof clipSnap.selectionAnchorIndex === 'number') {
+      const startIndex = Math.min(clipSnap.selectionAnchorIndex, index);
+      const endIndex = Math.max(clipSnap.selectionAnchorIndex, index);
+      await ensureRangeLoaded(startIndex, endIndex);
+      clipboardStore.selectRange(buildSelectionEntries(startIndex, endIndex));
+      return;
+    }
+
+    clipboardStore.toggleSelectedEntry({
+      id: item.id,
+      index,
+      contentType: item.content_type,
+    });
+    clipboardStore.setSelectionAnchorIndex(index);
+  }, [buildSelectionEntries, clipSnap.selectionAnchorIndex, ensureRangeLoaded, isMultiSelectMode]);
 
   const handleRangeChanged = useCallback(({
     startIndex,
@@ -173,7 +226,7 @@ const ClipboardList = forwardRef(({
   }, [clipSnap.totalCount, clipSnap.items]);
 
   const itemsCount = Object.keys(clipSnap.items).length;
-  
+
   useEffect(() => {
     if (clipSnap.totalCount > 0 && itemsCount === 0) {
       const {
@@ -192,6 +245,9 @@ const ClipboardList = forwardRef(({
     navigateDown,
     executeCurrentItem,
     executePlainTextPaste: async () => {
+      if (isMultiSelectMode) {
+        return;
+      }
       const item = itemsWithId[currentSelectedIndex];
       if (item && !item._isPlaceholder) {
         try {
@@ -217,13 +273,13 @@ const ClipboardList = forwardRef(({
         behavior: 'auto'
       });
     }
-  }));
+  }), [currentSelectedIndex, executeCurrentItem, isMultiSelectMode, itemsWithId, navigateDown, navigateUp, settings.pasteToTop]);
   if (clipSnap.totalCount === 0) {
     return <div className="flex-1 bg-qc-surface overflow-hidden flex items-center justify-center transition-colors duration-500 clipboard-list" data-no-drag>
-        <p className="text-qc-fg-subtle text-sm">
-          暂无剪贴板记录
-        </p>
-      </div>;
+      <p className="text-qc-fg-subtle text-sm">
+        暂无剪贴板记录
+      </p>
+    </div>;
   }
   const rowConfig = ROW_HEIGHT_CONFIG[settings.rowHeight] || ROW_HEIGHT_CONFIG.medium;
   const isCardStyle = settings.listStyle === 'card';
@@ -236,11 +292,11 @@ const ClipboardList = forwardRef(({
     marginTop: index === 0 ? `${cardSpacingPx}px` : undefined,
     marginBottom: `${cardSpacingPx}px`
   } : undefined;
-  
+
   return <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={onDragEnd} onDragCancel={handleDragCancel} modifiers={modifiers}>
-      <div className="flex-1 bg-qc-surface overflow-hidden custom-scrollbar-container transition-colors duration-500 clipboard-list" data-no-drag>
-        <SortableContext items={itemsWithId.map(item => item._sortId)} strategy={strategy}>
-          <Virtuoso ref={virtuosoRef} totalCount={clipSnap.totalCount || 0} scrollerRef={scrollerRefCallback} atTopStateChange={atTop => {
+    <div className="flex-1 bg-qc-surface overflow-hidden custom-scrollbar-container transition-colors duration-500 clipboard-list" data-no-drag>
+      <SortableContext items={itemsWithId.map(item => item._sortId)} strategy={strategy}>
+        <Virtuoso ref={virtuosoRef} totalCount={clipSnap.totalCount || 0} scrollerRef={scrollerRefCallback} atTopStateChange={atTop => {
           onScrollStateChange?.({
             atTop
           });
@@ -254,52 +310,79 @@ const ClipboardList = forwardRef(({
           const item = itemsWithId[index];
           if (!item || item._isPlaceholder) {
             return isCardStyle ? <div style={getCardOuterStyle(index)}>
-                <div className={heightClass}>
-                  <div className="h-full rounded-lg border border-qc-border bg-qc-panel p-3 animate-pulse">
-                    <div className="h-4 bg-qc-panel-2 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-qc-panel-2 rounded w-1/2"></div>
-                  </div>
-                </div>
-              </div> : <div className={heightClass}>
-                <div className="h-full border-b border-qc-border bg-qc-panel p-3 animate-pulse">
+              <div className={heightClass}>
+                <div className="h-full rounded-lg border border-qc-border bg-qc-panel p-3 animate-pulse">
                   <div className="h-4 bg-qc-panel-2 rounded w-3/4 mb-2"></div>
                   <div className="h-3 bg-qc-panel-2 rounded w-1/2"></div>
                 </div>
-              </div>;
+              </div>
+            </div> : <div className={heightClass}>
+              <div className="h-full border-b border-qc-border bg-qc-panel p-3 animate-pulse">
+                <div className="h-4 bg-qc-panel-2 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-qc-panel-2 rounded w-1/2"></div>
+              </div>
+            </div>;
           }
-          
+
           const dragActive = Boolean(activeId);
           const animationDelay = settings.uiAnimationEnabled !== false ? Math.min(index * 20, 100) : 0;
           return isCardStyle ? <div style={getCardOuterStyle(index)}>
-                <div className={heightClass}>
-                  <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDragActive={dragActive} showShortcut={showShortcut} animationDelay={animationDelay} />
-                </div>
-              </div> : <div className={heightClass}>
-                <ClipboardItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDragActive={dragActive} showShortcut={showShortcut} animationDelay={animationDelay} />
-              </div>;
+            <div className={heightClass}>
+              <ClipboardItem
+                item={item}
+                index={index}
+                sortId={item._sortId}
+                isSelected={!isMultiSelectMode && currentSelectedIndex === index}
+                isMultiSelected={clipSnap.hasSelectedId(item.id)}
+                isMultiSelectMode={isMultiSelectMode}
+                onHover={() => handleItemHover(index)}
+                onClick={isMultiSelectMode ? handleItemClick : undefined}
+                isDragActive={!isMultiSelectMode && dragActive}
+                isDraggable={!isMultiSelectMode}
+                showShortcut={showShortcut}
+                animationDelay={animationDelay}
+              />
+            </div>
+          </div> : <div className={heightClass}>
+            <ClipboardItem
+              item={item}
+              index={index}
+              sortId={item._sortId}
+              isSelected={!isMultiSelectMode && currentSelectedIndex === index}
+              isMultiSelected={clipSnap.hasSelectedId(item.id)}
+              isMultiSelectMode={isMultiSelectMode}
+              onHover={() => handleItemHover(index)}
+              onClick={isMultiSelectMode ? handleItemClick : undefined}
+              isDragActive={!isMultiSelectMode && dragActive}
+              isDraggable={!isMultiSelectMode}
+              showShortcut={showShortcut}
+              animationDelay={animationDelay}
+            />
+          </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
           height: '100%'
         }} />
-        </SortableContext>
-      </div>
+      </SortableContext>
+    </div>
 
-      <DragOverlay dropAnimation={null}>
-        {activeItem && activeIndex !== -1 && (() => {
-          const overlayClass = settings.rowHeight === 'auto' ? 'h-auto max-h-[350px]' : heightClass;
-          return (
-            <div className={`${overlayClass} rounded-md border border-qc-border shadow-lg bg-qc-panel/70 backdrop-blur-md`}>
-              <ClipboardItem
-                item={activeItem}
-                index={activeIndex}
-                sortId={activeItem._sortId}
-                isDragActive={true}
-                showShortcut={showShortcut}
-              />
-            </div>
-          );
-        })()}
-      </DragOverlay>
-    </DndContext>;
+    <DragOverlay dropAnimation={null}>
+      {activeItem && activeIndex !== -1 && (() => {
+        const overlayClass = settings.rowHeight === 'auto' ? 'h-auto max-h-[350px]' : heightClass;
+        return (
+          <div className={`${overlayClass} rounded-md border border-qc-border shadow-lg bg-qc-panel/70 backdrop-blur-md`}>
+            <ClipboardItem
+              item={activeItem}
+              index={activeIndex}
+              sortId={activeItem._sortId}
+              isDragActive={!isMultiSelectMode}
+              isDraggable={!isMultiSelectMode}
+              showShortcut={showShortcut}
+            />
+          </div>
+        );
+      })()}
+    </DragOverlay>
+  </DndContext>;
 });
 ClipboardList.displayName = 'ClipboardList';
 export default ClipboardList;

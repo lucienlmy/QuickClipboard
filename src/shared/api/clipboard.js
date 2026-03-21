@@ -77,6 +77,16 @@ export async function deleteClipboardItem(id) {
   }
 }
 
+export async function deleteClipboardItems(ids) {
+  try {
+    await invoke('delete_clipboard_items', { ids })
+    return true
+  } catch (error) {
+    console.error('批量删除剪贴板项失败:', error)
+    throw error
+  }
+}
+
 // 清空剪贴板历史
 export async function clearClipboardHistory() {
   try {
@@ -215,6 +225,14 @@ export async function saveImageFromPath(filePath) {
 // 复制剪贴板项内容（不记录到历史）
 export async function copyClipboardItem(id) {
   return await invoke('copy_clipboard_item', { id })
+}
+
+export async function mergeCopyClipboardItems(ids) {
+  return await invoke('merge_copy_clipboard_items', { ids })
+}
+
+export async function mergePasteClipboardItems(ids) {
+  return await invoke('merge_paste_clipboard_items', { ids })
 }
 
 // 手动同步单条剪贴板记录到局域网（LAN Sync）

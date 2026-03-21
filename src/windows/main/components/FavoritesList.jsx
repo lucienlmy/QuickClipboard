@@ -26,6 +26,7 @@ const FavoritesList = forwardRef(({
   const loadTimeoutRef = useRef(null);
   const snap = useSnapshot(navigationStore);
   const favSnap = useSnapshot(favoritesStore);
+  const isMultiSelectMode = favSnap.isMultiSelectMode;
   const groupsSnap = useSnapshot(groupsStore);
   const settings = useSnapshot(settingsStore);
   const itemsArray = useMemo(() => {
@@ -131,8 +132,60 @@ const FavoritesList = forwardRef(({
         console.error('粘贴收藏失败:', error);
       }
     },
-    enabled: snap.activeTab === 'favorites'
+    enabled: snap.activeTab === 'favorites' && !isMultiSelectMode
   });
+
+  const ensureRangeLoaded = useCallback(async (startIndex, endIndex) => {
+    const missingIndexes = [];
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      if (!favoritesStore.hasItem(index)) {
+        missingIndexes.push(index);
+      }
+    }
+
+    if (!missingIndexes.length) {
+      return;
+    }
+
+    const loadStart = Math.max(0, startIndex - 10);
+    const loadEnd = Math.min(favSnap.totalCount - 1, endIndex + 10);
+    await loadFavoritesRange(loadStart, loadEnd, groupsSnap.currentGroup);
+  }, [favSnap.totalCount, groupsSnap.currentGroup]);
+
+  const buildSelectionEntries = useCallback((startIndex, endIndex) => {
+    const entries = [];
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      const item = favoritesStore.getItem(index);
+      if (!item?.id) continue;
+      entries.push({
+        id: item.id,
+        index,
+        contentType: item.content_type,
+      });
+    }
+    return entries;
+  }, []);
+
+  const handleItemClick = useCallback(async (item, index, event) => {
+    if (!isMultiSelectMode) {
+      return;
+    }
+
+    if (event?.shiftKey && typeof favSnap.selectionAnchorIndex === 'number') {
+      const startIndex = Math.min(favSnap.selectionAnchorIndex, index);
+      const endIndex = Math.max(favSnap.selectionAnchorIndex, index);
+      await ensureRangeLoaded(startIndex, endIndex);
+      favoritesStore.selectRange(buildSelectionEntries(startIndex, endIndex));
+      return;
+    }
+
+    favoritesStore.toggleSelectedEntry({
+      id: item.id,
+      index,
+      contentType: item.content_type,
+    });
+    favoritesStore.setSelectionAnchorIndex(index);
+  }, [buildSelectionEntries, ensureRangeLoaded, favSnap.selectionAnchorIndex, isMultiSelectMode]);
 
   const handleRangeChanged = useCallback(({
     startIndex,
@@ -186,6 +239,9 @@ const FavoritesList = forwardRef(({
     navigateDown,
     executeCurrentItem,
     executePlainTextPaste: async () => {
+      if (isMultiSelectMode) {
+        return;
+      }
       const item = itemsWithId[currentSelectedIndex];
       if (item && !item._isPlaceholder) {
         try {
@@ -203,7 +259,7 @@ const FavoritesList = forwardRef(({
         behavior: 'auto'
       });
     }
-  }));
+  }), [currentSelectedIndex, executeCurrentItem, groupsSnap.currentGroup, isMultiSelectMode, itemsWithId, navigateDown, navigateUp]);
   if (favSnap.totalCount === 0) {
     return <div className="flex-1 bg-qc-surface overflow-hidden flex items-center justify-center transition-colors duration-500 favorites-list" data-no-drag>
         <p className="text-qc-fg-subtle text-sm">
@@ -256,10 +312,34 @@ const FavoritesList = forwardRef(({
           const animationDelay = settings.uiAnimationEnabled !== false ? Math.min(index * 20, 100) : 0;
           return isCardStyle ? <div style={getCardOuterStyle(index)}>
                 <div className={heightClass}>
-                  <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} isDragActive={dragActive} animationDelay={animationDelay} />
+                  <FavoriteItem
+                    item={item}
+                    index={index}
+                    sortId={item._sortId}
+                    isSelected={!isMultiSelectMode && currentSelectedIndex === index}
+                    isMultiSelected={favSnap.hasSelectedId(item.id)}
+                    isMultiSelectMode={isMultiSelectMode}
+                    onHover={() => handleItemHover(index)}
+                    onClick={isMultiSelectMode ? handleItemClick : undefined}
+                    isDraggable={canDrag && !isMultiSelectMode}
+                    isDragActive={!isMultiSelectMode && dragActive}
+                    animationDelay={animationDelay}
+                  />
                 </div>
               </div> : <div className={heightClass}>
-                <FavoriteItem item={item} index={index} sortId={item._sortId} isSelected={currentSelectedIndex === index} onHover={() => handleItemHover(index)} isDraggable={canDrag} isDragActive={dragActive} animationDelay={animationDelay} />
+                <FavoriteItem
+                  item={item}
+                  index={index}
+                  sortId={item._sortId}
+                  isSelected={!isMultiSelectMode && currentSelectedIndex === index}
+                  isMultiSelected={favSnap.hasSelectedId(item.id)}
+                  isMultiSelectMode={isMultiSelectMode}
+                  onHover={() => handleItemHover(index)}
+                  onClick={isMultiSelectMode ? handleItemClick : undefined}
+                  isDraggable={canDrag && !isMultiSelectMode}
+                  isDragActive={!isMultiSelectMode && dragActive}
+                  animationDelay={animationDelay}
+                />
               </div>;
         }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
           height: '100%'
@@ -276,7 +356,8 @@ const FavoritesList = forwardRef(({
                 item={activeItem}
                 index={activeIndex}
                 sortId={activeItem._sortId}
-                isDragActive={true}
+                isDragActive={!isMultiSelectMode}
+                isDraggable={!isMultiSelectMode}
               />
             </div>
           );

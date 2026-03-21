@@ -111,7 +111,7 @@ const FavoritesTab = forwardRef(({
   };
 
   // 判断是否显示添加收藏按钮
-  const shouldShowAddFavorite = true;
+  const shouldShowAddFavorite = !snap.isMultiSelectMode;
   return <div className="h-full flex flex-col relative">
       <FavoritesList ref={listRef} onScrollStateChange={handleScrollStateChange} />
       

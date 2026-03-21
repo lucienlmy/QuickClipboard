@@ -39,6 +39,10 @@ export async function deleteFavorite(id) {
   return await invoke('delete_quick_text', { id })
 }
 
+export async function deleteFavoriteItems(ids) {
+  return await invoke('delete_favorite_items', { ids })
+}
+
 // 移动收藏项位置（拖拽排序）
 export async function moveFavoriteItem(fromId, toId) {
   return await invoke('move_favorite_item_cmd', {
@@ -86,7 +90,14 @@ export async function copyFavoriteItem(id) {
   return await invoke('copy_favorite_item', { id })
 }
 
+export async function mergeCopyFavoriteItems(ids) {
+  return await invoke('merge_copy_favorite_items', { ids })
+}
+
+export async function mergePasteFavoriteItems(ids) {
+  return await invoke('merge_paste_favorite_items', { ids })
+}
+
 export async function syncFavoriteItemToLanSync(favoriteId) {
   return await invoke('lan_sync_sync_favorite_item', { favoriteId })
 }
-

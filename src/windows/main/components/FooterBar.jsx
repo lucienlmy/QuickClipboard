@@ -1,16 +1,13 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
 import { useRef, useState, useEffect } from 'react';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
 import { settingsStore } from '@shared/store/settingsStore';
 
 function FooterBar({
+  leftContent,
   children
 }) {
-  const {
-    t
-  } = useTranslation();
   const settings = useSnapshot(settingsStore);
   const containerRef = useRef(null);
   const [leftRatio, setLeftRatio] = useState(() => {
@@ -68,6 +65,7 @@ function FooterBar({
   return <div ref={(el) => { dragRef.current = el; containerRef.current = el; }} className="flex-shrink-0 h-5 flex bg-qc-panel border-t border-qc-border relative footer-bar">
     {/* 左侧：空白 */}
     <div className="h-full flex items-center justify-center text-[10px] font-medium text-qc-fg-muted select-none" style={{ width: `${leftRatio * 100}%` }} data-no-drag>
+      {leftContent}
     </div>
 
     {/* 分隔条 */}

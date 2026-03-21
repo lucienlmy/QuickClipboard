@@ -35,8 +35,11 @@ function ClipboardItem({
   onClick,
   sortId,
   isSelected = false,
+  isMultiSelected = false,
+  isMultiSelectMode = false,
   onHover,
   isDragActive = false,
+  isDraggable = true,
   showShortcut = true,
   animationDelay = 0
 }) {
@@ -202,6 +205,20 @@ function ClipboardItem({
   }, [isDragActive, previewEnabled]);
 
   useEffect(() => {
+    if (!isMultiSelectMode) {
+      return;
+    }
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    closePreviewWindow().catch(() => { });
+    if (isImageOrFileType) {
+      setShowDragSideTooltips(false);
+    }
+  }, [isImageOrFileType, isMultiSelectMode]);
+
+  useEffect(() => {
     return () => {
       if (previewTimerRef.current) {
         clearTimeout(previewTimerRef.current);
@@ -219,7 +236,8 @@ function ClipboardItem({
     transition,
     isDragging
   } = useSortable({
-    id: sortId || `clipboard-${index}`
+    id: sortId || `clipboard-${index}`,
+    disabled: !isDraggable
   });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -230,9 +248,9 @@ function ClipboardItem({
   };
 
   // 处理点击粘贴
-  const handleClick = async () => {
+  const handleClick = async (event) => {
     if (onClick) {
-      onClick(item, index);
+      onClick(item, index, event);
     } else {
       try {
         await pasteClipboardItem(item.id);
@@ -257,7 +275,7 @@ function ClipboardItem({
 
   // 处理鼠标悬停
   const handleMouseEnter = () => {
-    if (isDragging || isDragActive) {
+    if (isDragging || isDragActive || isMultiSelectMode) {
       return;
     }
     if (isImageOrFileType) {
@@ -286,6 +304,9 @@ function ClipboardItem({
 
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
+    if (isMultiSelectMode) {
+      return;
+    }
     if (previewTimerRef.current) {
       clearTimeout(previewTimerRef.current);
       previewTimerRef.current = null;
@@ -294,10 +315,10 @@ function ClipboardItem({
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageOrFileType]);
+  }, [isImageOrFileType, isMultiSelectMode]);
 
   const handlePreviewWheel = useCallback((e) => {
-    if (!e.ctrlKey || !previewMode || !previewEnabled) {
+    if (isMultiSelectMode || !e.ctrlKey || !previewMode || !previewEnabled) {
       return;
     }
 
@@ -309,10 +330,13 @@ function ClipboardItem({
       source: 'clipboard',
       itemId: String(item.id),
     }).catch(() => { });
-  }, [previewMode, previewEnabled, item.id]);
+  }, [isMultiSelectMode, previewMode, previewEnabled, item.id]);
 
   // 处理右键菜单
   const handleContextMenu = async e => {
+    if (isMultiSelectMode) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     await showClipboardItemContextMenu(e, item, index);
@@ -419,14 +443,15 @@ function ClipboardItem({
   const isCardStyle = settings.listStyle === 'card';
 
   // 键盘选中样式
+  const isActiveSelected = isMultiSelectMode ? isMultiSelected : isSelected;
   const selectedClasses = isCardStyle
     ? (
-      isSelected
+      isActiveSelected
         ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10'
         : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} ring-1 ring-qc-border ring-inset shadow-sm shadow-black/5`
     )
     : (
-      isSelected
+      isActiveSelected
         ? 'bg-qc-active ring-2 ring-blue-500 ring-inset shadow-md shadow-blue-500/10'
         : `${isBackground ? 'bg-qc-panel' : 'bg-transparent'} border-b border-qc-border`
     );
@@ -507,16 +532,28 @@ function ClipboardItem({
     <div
       ref={setNodeRef}
       style={{ ...style, ...animationStyle }}
-      {...(isImageOrFileType ? {} : attributes)}
-      {...(isImageOrFileType ? {} : listeners)}
+      {...(isImageOrFileType || !isDraggable ? {} : attributes)}
+      {...(isImageOrFileType || !isDraggable ? {} : listeners)}
+      data-index={index}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onWheel={handlePreviewWheel}
-      className={`clipboard-item group relative flex flex-col px-2.5 py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} cursor-move transition-all ${getHeightClass()}`}
+      className={`clipboard-item group relative flex flex-col ${isMultiSelectMode ? 'pl-9 pr-2.5' : 'px-2.5'} py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} ${isDraggable ? 'cursor-move' : 'cursor-pointer'} transition-all ${getHeightClass()}`}
     >
-      {isImageOrFileType && (
+      {isMultiSelectMode && (
+        <div className="absolute left-2 top-1/2 -translate-y-1/2 z-20 pointer-events-none">
+          <span className={`flex items-center justify-center w-5 h-5 rounded-md border text-[12px] transition-colors ${
+            isMultiSelected
+              ? 'border-blue-500 bg-blue-500 text-white'
+              : 'border-qc-border bg-qc-panel text-transparent'
+          }`}>
+            <i className="ti ti-check" style={{ fontSize: 12 }}></i>
+          </span>
+        </div>
+      )}
+      {isImageOrFileType && !isMultiSelectMode && isDraggable && (
         <>
           {/* 虚线区域高亮（用于调试/可视化拖拽区域） */}
           {showDragSideTooltips && (
@@ -605,7 +642,7 @@ function ClipboardItem({
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
         {/* 悬停操作按钮组 */}
-        <div className={actionGroupClasses}>
+        {!isMultiSelectMode && <div className={actionGroupClasses}>
           <Tooltip content={t('contextMenu.addToFavorites')} placement="bottom">
             <button className={actionButtonClasses} onClick={handleFavoriteClick}>
               <i className="ti ti-star" style={{ fontSize: 12 }}></i>
@@ -631,7 +668,7 @@ function ClipboardItem({
               <i className={item.is_pinned ? 'ti ti-pinned-filled' : 'ti ti-pin'} style={{ fontSize: 12 }}></i>
             </button>
           </Tooltip>
-        </div>
+        </div>}
         {/* 快捷键 */}
         {showShortcut && getShortcut() && (
           <span className={`${shortcutClasses} pointer-events-none`}>
@@ -677,8 +714,8 @@ function ClipboardItem({
           <div className="flex-1 min-w-0 overflow-hidden h-full">
             {renderContent(true, false, {
               availableHeightPx: 50 - 16,
-              disableExternalDrag: isImageOrFileType,
-              disableExternalTooltip: isImageOrFileType,
+              disableExternalDrag: isImageOrFileType || isMultiSelectMode,
+              disableExternalTooltip: isImageOrFileType || isMultiSelectMode,
             })}
           </div>
         </div> :
@@ -707,8 +744,8 @@ function ClipboardItem({
                 const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : rowPx;
                 return base - 16 - 22;
               })(),
-              disableExternalDrag: isImageOrFileType,
-              disableExternalTooltip: isImageOrFileType,
+              disableExternalDrag: isImageOrFileType || isMultiSelectMode,
+              disableExternalTooltip: isImageOrFileType || isMultiSelectMode,
             })}
           </div>
         </>}

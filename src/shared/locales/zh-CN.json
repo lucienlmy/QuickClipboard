@@ -818,6 +818,21 @@
     "openClipboard": "显示/隐藏",
     "pasteShortcut": "快速粘贴"
   },
+  "multiSelect": {
+    "enterMode": "进入多选模式",
+    "exitMode": "退出多选模式",
+    "selectedCount": "已选{{count}}项",
+    "mergeCopy": "合并复制",
+    "mergePaste": "合并粘贴",
+    "deleteSelected": "删除所选",
+    "selectFirst": "请先选择内容",
+    "fileMixedUnsupported": "文件不能与其他类型混合合并",
+    "unsupportedType": "选中内容包含不支持的类型",
+    "confirmDelete": "确定要删除选中的 {{count}} 项吗？",
+    "confirmDeleteTitle": "确认批量删除",
+    "mergeCopied": "已合并复制",
+    "mergePasted": "已合并粘贴"
+  },
   "contextMenu": {
     "openInBrowser": "在浏览器中打开",
     "openLinks": "打开链接 ({{count}}个)",

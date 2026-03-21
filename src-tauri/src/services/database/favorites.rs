@@ -297,6 +297,24 @@ pub fn increment_favorite_paste_count(id: &str) -> Result<(), String> {
     })
 }
 
+pub fn increment_favorite_paste_counts(ids: &[String]) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        for id in ids {
+            tx.execute(
+                "UPDATE favorites SET paste_count = paste_count + 1 WHERE id = ?",
+                params![id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    })
+}
+
 // 排序逻辑
 fn reorder_favorite_items(conn: &rusqlite::Connection, from_idx: usize, to_idx: usize, items: &[(String, i64)]) -> Result<(), rusqlite::Error> {
     if from_idx == to_idx { return Ok(()); }
@@ -465,6 +483,55 @@ pub fn delete_favorite(id: String) -> Result<(), String> {
     delete_image_files(images_to_delete)
 }
 
+pub fn delete_favorites(ids: &[String]) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    let unique_ids: Vec<String> = ids
+        .iter()
+        .cloned()
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    let images_to_delete: Vec<String> = with_connection(|conn| {
+        let mut image_id_set = std::collections::HashSet::new();
+        for id in &unique_ids {
+            let image_ids_opt: Option<Option<String>> = conn
+                .query_row(
+                    "SELECT image_id FROM favorites WHERE id = ?",
+                    params![id],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()?;
+
+            if let Some(image_ids) = image_ids_opt.flatten() {
+                for image_id in split_image_ids(&image_ids) {
+                    image_id_set.insert(image_id);
+                }
+            }
+        }
+
+        let tx = conn.unchecked_transaction()?;
+        for id in &unique_ids {
+            tx.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
+        }
+        tx.commit()?;
+
+        let mut to_delete = Vec::new();
+        for image_id in image_id_set {
+            if !is_image_id_referenced(conn, &image_id)? {
+                to_delete.push(image_id);
+            }
+        }
+
+        Ok(to_delete)
+    })?;
+
+    delete_image_files(images_to_delete)
+}
+
 // 添加收藏项
 pub fn add_favorite(title: String, content: String, group_name: Option<String>) -> Result<FavoriteItem, String> {
     use uuid::Uuid;
@@ -526,4 +593,3 @@ pub fn update_favorite(id: String, title: String, content: String, group_name: O
     
     get_favorite_by_id(&id)?.ok_or_else(|| format!("更新后无法获取收藏项: {}", id))
 }
-

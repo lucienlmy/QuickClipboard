@@ -3,9 +3,11 @@ use crate::services::database::{
     add_clipboard_to_favorites as db_add_clipboard_to_favorites,
     move_favorite_to_group as db_move_favorite_to_group,
     delete_favorite as db_delete_favorite,
+    delete_favorites as db_delete_favorites,
     get_favorite_by_id,
     add_favorite as db_add_favorite,
     update_favorite as db_update_favorite,
+    increment_favorite_paste_counts as db_increment_favorite_paste_counts,
     FavoritesQueryParams, PaginatedResult, FavoriteItem
 };
 use crate::services::paste::FilesData;
@@ -93,6 +95,11 @@ pub fn delete_quick_text(id: String) -> Result<(), String> {
     db_delete_favorite(id)
 }
 
+#[tauri::command]
+pub fn delete_favorite_items(ids: Vec<String>) -> Result<(), String> {
+    db_delete_favorites(&ids)
+}
+
 // 根据 ID 获取单个收藏项
 #[tauri::command]
 pub fn get_favorite_item_by_id_cmd(id: String, max_length: Option<usize>) -> Result<FavoriteItem, String> {
@@ -124,3 +131,109 @@ pub fn copy_favorite_item(id: String) -> Result<(), String> {
     set_clipboard_from_item(&item.content_type, &item.content, &item.html_content, true)
 }
 
+#[tauri::command]
+pub async fn merge_copy_favorite_items(ids: Vec<String>) -> Result<(), String> {
+    return tokio::task::spawn_blocking(move || {
+        if ids.is_empty() {
+            return Err("至少需要选择一项内容".to_string());
+        }
+
+        let items = ids
+            .iter()
+            .map(|id| favorite_to_clipboard_item(id))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        crate::services::paste::copy_merged_items(&items)
+    })
+    .await
+    .map_err(|e| format!("批量合并复制任务执行失败: {}", e))?;
+
+    use crate::services::paste::copy_merged_items;
+
+    if ids.is_empty() {
+        return Err("至少需要选择一项内容".to_string());
+    }
+
+    let items = ids
+        .iter()
+        .map(|id| favorite_to_clipboard_item(id))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    copy_merged_items(&items)
+}
+
+#[tauri::command]
+pub async fn merge_paste_favorite_items(ids: Vec<String>, app: tauri::AppHandle) -> Result<(), String> {
+    let ids_for_emit = ids.clone();
+    tokio::task::spawn_blocking(move || {
+        if ids.is_empty() {
+            return Err("至少需要选择一项内容".to_string());
+        }
+
+        let items = ids
+            .iter()
+            .map(|id| favorite_to_clipboard_item(id))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        crate::services::paste::paste_merged_items(&items, &app)?;
+        db_increment_favorite_paste_counts(&ids)?;
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| format!("批量合并粘贴任务执行失败: {}", e))??;
+
+    if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
+        for id in ids_for_emit {
+            let _ = app_handle.emit("favorite-paste-count-updated", id);
+        }
+    }
+
+    return Ok(());
+
+    use tauri::Emitter;
+    use crate::services::paste::paste_merged_items;
+
+    if ids.is_empty() {
+        return Err("至少需要选择一项内容".to_string());
+    }
+
+    let items = ids
+        .iter()
+        .map(|id| favorite_to_clipboard_item(id))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    paste_merged_items(&items, &app)?;
+    db_increment_favorite_paste_counts(&ids)?;
+
+    if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
+        for id in ids {
+            let _ = app_handle.emit("favorite-paste-count-updated", id);
+        }
+    }
+
+    Ok(())
+}
+
+fn favorite_to_clipboard_item(id: &str) -> Result<crate::services::database::ClipboardItem, String> {
+    let favorite = get_favorite_by_id(id)?
+        .ok_or_else(|| format!("收藏项不存在: {}", id))?;
+
+    Ok(crate::services::database::ClipboardItem {
+        id: 0,
+        uuid: None,
+        source_device_id: None,
+        is_remote: false,
+        content: favorite.content,
+        html_content: favorite.html_content,
+        content_type: favorite.content_type,
+        image_id: favorite.image_id,
+        item_order: favorite.item_order,
+        is_pinned: false,
+        paste_count: favorite.paste_count,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: favorite.char_count,
+        created_at: favorite.created_at,
+        updated_at: favorite.updated_at,
+    })
+}

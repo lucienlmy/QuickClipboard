@@ -7,6 +7,8 @@ import { settingsStore } from '@shared/store/settingsStore';
 import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { toolsStore } from '@shared/store/toolsStore';
+import { clipboardStore } from '@shared/store/clipboardStore';
+import { favoritesStore } from '@shared/store/favoritesStore';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
@@ -20,6 +22,8 @@ import ClipboardTab from './components/ClipboardTab';
 import FavoritesTab from './components/FavoritesTab';
 const EmojiTab = lazy(() => import('./components/EmojiTab'));
 import FooterBar from './components/FooterBar';
+import MultiSelectToggleButton from './components/MultiSelectToggleButton';
+import MultiSelectActionBar from './components/MultiSelectActionBar';
 import GroupsPopup from './components/GroupsPopup';
 import ToastContainer from '@shared/components/common/ToastContainer';
 
@@ -71,6 +75,8 @@ function App() {
   // 同步当前标签页到导航store
   useEffect(() => {
     navigationStore.setActiveTab(activeTab);
+    clipboardStore.exitMultiSelectMode();
+    favoritesStore.exitMultiSelectMode();
   }, [activeTab]);
   useEffect(() => {
     const setupListeners = async () => {
@@ -348,9 +354,12 @@ function App() {
       {activeTab === 'favorites' && <FavoritesTab ref={favoritesTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'emoji' && <Suspense fallback={null}><EmojiTab emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} /></Suspense>}
     </div>;
-  const FooterComponent = <FooterBar>
-      <GroupsPopup ref={groupsPopupRef} activeTab={activeTab} onTabChange={setActiveTab} onGroupChange={handleGroupChange} />
-    </FooterBar>;
+  const FooterComponent = <>
+      <MultiSelectActionBar activeTab={activeTab} />
+      <FooterBar leftContent={<MultiSelectToggleButton activeTab={activeTab} />}>
+        <GroupsPopup ref={groupsPopupRef} activeTab={activeTab} onTabChange={setActiveTab} onGroupChange={handleGroupChange} />
+      </FooterBar>
+    </>;
   const renderLayout = () => {
     switch (settings.titleBarPosition) {
       case 'top':

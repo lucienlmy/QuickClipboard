@@ -472,6 +472,24 @@ pub fn increment_paste_count(id: i64) -> Result<(), String> {
     })
 }
 
+pub fn increment_paste_counts(ids: &[i64]) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        for id in ids {
+            tx.execute(
+                "UPDATE clipboard SET paste_count = paste_count + 1 WHERE id = ?",
+                params![id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    })
+}
+
 // 限制剪贴板历史数量（删除超出限制的旧记录）
 pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
     if max_count >= 999999 {
@@ -533,6 +551,55 @@ pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
                 }
             }
         }
+        Ok(to_delete)
+    })?;
+
+    delete_image_files(images_to_delete)
+}
+
+pub fn delete_clipboard_items(ids: &[i64]) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    let unique_ids: Vec<i64> = ids
+        .iter()
+        .copied()
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    let images_to_delete: Vec<String> = with_connection(|conn| {
+        let mut image_id_set: HashSet<String> = HashSet::new();
+        for id in &unique_ids {
+            let image_ids_opt: Option<Option<String>> = conn
+                .query_row(
+                    "SELECT image_id FROM clipboard WHERE id = ?",
+                    params![id],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()?;
+
+            if let Some(image_ids) = image_ids_opt.flatten() {
+                for image_id in split_image_ids(&image_ids) {
+                    image_id_set.insert(image_id);
+                }
+            }
+        }
+
+        let tx = conn.unchecked_transaction()?;
+        for id in &unique_ids {
+            tx.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
+        }
+        tx.commit()?;
+
+        let mut to_delete = Vec::new();
+        for image_id in image_id_set {
+            if !is_image_id_referenced(conn, &image_id)? {
+                to_delete.push(image_id);
+            }
+        }
+
         Ok(to_delete)
     })?;
 
