@@ -2,6 +2,16 @@
 .html-content {
   font-size: 0.875rem;
   line-height: 1.5;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.html-content * {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .html-content p {
@@ -60,6 +70,8 @@
   border-radius: 0.25rem;
   font-family: monospace;
   font-size: 0.85em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .dark .html-content code {
@@ -72,6 +84,8 @@
   border-radius: 0.25rem;
   overflow-x: auto;
   margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .dark .html-content pre {
@@ -85,8 +99,19 @@
   color: #6b7280;
 }
 
+.html-content table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.html-content th,
+.html-content td {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .dark .html-content blockquote {
   border-left-color: #4b5563;
   color: #9ca3af;
 }
-
