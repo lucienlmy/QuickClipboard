@@ -1,4 +1,4 @@
-use std::{fs, path::{Path, PathBuf}, time::SystemTime};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}, time::SystemTime};
 use chrono::Local;
 use serde::Serialize;
 
@@ -497,30 +497,420 @@ fn merge_dir_no_overwrite(src: &Path, dst: &Path) -> Result<(), String> {
 
 fn merge_database(src_db: &Path) -> Result<(), String> {
     with_connection(|conn| {
-        let import_path = src_db.to_str().ok_or(rusqlite::Error::InvalidPath("bad path".into()))?;
+        let import_path = src_db
+            .to_str()
+            .ok_or(rusqlite::Error::InvalidPath("bad path".into()))?;
         conn.execute("ATTACH DATABASE ?1 AS importdb", [import_path])?;
-        let _ = conn.execute(
-            "INSERT OR IGNORE INTO groups (name, icon, color, order_index, created_at, updated_at)
-             SELECT name, icon, color, order_index, created_at, updated_at FROM importdb.groups",
-            [],
-        );
 
-        let _ = conn.execute(
-            "INSERT OR IGNORE INTO favorites (id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at)
-             SELECT id, title, content, html_content, content_type, image_id, group_name, item_order, created_at, updated_at FROM importdb.favorites",
-            [],
-        );
-        let _ = conn.execute(
-            "INSERT INTO clipboard (content, html_content, content_type, image_id, created_at, updated_at)
-             SELECT content, html_content, content_type, image_id, created_at, updated_at FROM importdb.clipboard",
-            [],
-        );
+        let merge_result = (|| -> rusqlite::Result<()> {
+            merge_groups_from_importdb(conn)?;
+            merge_favorites_from_importdb(conn)?;
+
+            // 记录导入库 clipboard.id 到当前库新 id 的映射，用于迁移 clipboard_data。
+            let id_mapping = merge_clipboard_from_importdb(conn)?;
+            merge_clipboard_data_from_importdb(conn, &id_mapping)?;
+
+            reorder_clipboard_by_time(conn);
+            Ok(())
+        })();
 
         let _ = conn.execute("DETACH DATABASE importdb", []);
-        reorder_clipboard_by_time(conn);
-        
-        Ok(())
+        merge_result
     })?;
+    Ok(())
+}
+
+fn importdb_has_table(conn: &rusqlite::Connection, table: &str) -> rusqlite::Result<bool> {
+    let sql = "SELECT COUNT(*) FROM importdb.sqlite_master WHERE type = 'table' AND name = ?1";
+    let count: i64 = conn.query_row(sql, [table], |row| row.get(0))?;
+    Ok(count > 0)
+}
+
+fn importdb_table_columns(
+    conn: &rusqlite::Connection,
+    table: &str,
+) -> rusqlite::Result<std::collections::HashSet<String>> {
+    let pragma_sql = format!("PRAGMA importdb.table_info({})", table);
+    let mut stmt = conn.prepare(&pragma_sql)?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+    let mut columns = std::collections::HashSet::new();
+    for col in rows {
+        columns.insert(col?);
+    }
+    Ok(columns)
+}
+
+fn has_col(columns: &std::collections::HashSet<String>, name: &str) -> bool {
+    columns.contains(name)
+}
+
+fn merge_groups_from_importdb(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+    if !importdb_has_table(conn, "groups")? {
+        return Ok(());
+    }
+
+    let cols = importdb_table_columns(conn, "groups")?;
+    let icon_expr = if has_col(&cols, "icon") {
+        "icon"
+    } else {
+        "'ti ti-folder'"
+    };
+    let color_expr = if has_col(&cols, "color") {
+        "color"
+    } else {
+        "'#dc2626'"
+    };
+    let order_expr = if has_col(&cols, "order_index") {
+        "order_index"
+    } else {
+        "0"
+    };
+    let created_expr = if has_col(&cols, "created_at") {
+        "created_at"
+    } else {
+        "CAST(strftime('%s','now') AS INTEGER)"
+    };
+    let updated_expr = if has_col(&cols, "updated_at") {
+        "updated_at"
+    } else {
+        "CAST(strftime('%s','now') AS INTEGER)"
+    };
+
+    let sql = format!(
+        "INSERT OR IGNORE INTO groups (name, icon, color, order_index, created_at, updated_at)
+         SELECT name, {icon}, {color}, {order_index}, {created_at}, {updated_at}
+         FROM importdb.groups",
+        icon = icon_expr,
+        color = color_expr,
+        order_index = order_expr,
+        created_at = created_expr,
+        updated_at = updated_expr
+    );
+    let _ = conn.execute(&sql, []);
+    Ok(())
+}
+
+fn merge_favorites_from_importdb(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+    if !importdb_has_table(conn, "favorites")? {
+        return Ok(());
+    }
+
+    let cols = importdb_table_columns(conn, "favorites")?;
+    let html_expr = if has_col(&cols, "html_content") {
+        "html_content"
+    } else {
+        "NULL"
+    };
+    let content_type_expr = if has_col(&cols, "content_type") {
+        "content_type"
+    } else {
+        "'text'"
+    };
+    let image_id_expr = if has_col(&cols, "image_id") {
+        "image_id"
+    } else {
+        "NULL"
+    };
+    let group_expr = if has_col(&cols, "group_name") {
+        "group_name"
+    } else {
+        "'全部'"
+    };
+    let item_order_expr = if has_col(&cols, "item_order") {
+        "item_order"
+    } else {
+        "0"
+    };
+    let created_expr = if has_col(&cols, "created_at") {
+        "created_at"
+    } else {
+        "CAST(strftime('%s','now') AS INTEGER)"
+    };
+    let updated_expr = if has_col(&cols, "updated_at") {
+        "updated_at"
+    } else {
+        "CAST(strftime('%s','now') AS INTEGER)"
+    };
+    let paste_count_expr = if has_col(&cols, "paste_count") {
+        "paste_count"
+    } else {
+        "0"
+    };
+    let char_count_expr = if has_col(&cols, "char_count") {
+        "char_count"
+    } else {
+        "NULL"
+    };
+
+    let sql = format!(
+        "INSERT OR IGNORE INTO favorites
+         (id, title, content, html_content, content_type, image_id, group_name, item_order, paste_count, char_count, created_at, updated_at)
+         SELECT
+            id,
+            title,
+            content,
+            {html},
+            {content_type},
+            {image_id},
+            {group_name},
+            {item_order},
+            {paste_count},
+            {char_count},
+            {created_at},
+            {updated_at}
+         FROM importdb.favorites",
+        html = html_expr,
+        content_type = content_type_expr,
+        image_id = image_id_expr,
+        group_name = group_expr,
+        item_order = item_order_expr,
+        paste_count = paste_count_expr,
+        char_count = char_count_expr,
+        created_at = created_expr,
+        updated_at = updated_expr
+    );
+    let _ = conn.execute(&sql, []);
+    Ok(())
+}
+
+fn merge_clipboard_from_importdb(
+    conn: &rusqlite::Connection,
+) -> rusqlite::Result<std::collections::HashMap<i64, i64>> {
+    let mut id_map = HashMap::new();
+    if !importdb_has_table(conn, "clipboard")? {
+        return Ok(id_map);
+    }
+
+    let cols = importdb_table_columns(conn, "clipboard")?;
+    let id_expr = if has_col(&cols, "id") { "id" } else { "NULL" };
+    let html_expr = if has_col(&cols, "html_content") {
+        "html_content"
+    } else {
+        "NULL"
+    };
+    let content_type_expr = if has_col(&cols, "content_type") {
+        "content_type"
+    } else {
+        "'text'"
+    };
+    let image_id_expr = if has_col(&cols, "image_id") {
+        "image_id"
+    } else {
+        "NULL"
+    };
+    let is_pinned_expr = if has_col(&cols, "is_pinned") {
+        "is_pinned"
+    } else {
+        "0"
+    };
+    let paste_count_expr = if has_col(&cols, "paste_count") {
+        "paste_count"
+    } else {
+        "0"
+    };
+    let source_app_expr = if has_col(&cols, "source_app") {
+        "source_app"
+    } else {
+        "NULL"
+    };
+    let source_icon_hash_expr = if has_col(&cols, "source_icon_hash") {
+        "source_icon_hash"
+    } else {
+        "NULL"
+    };
+    let char_count_expr = if has_col(&cols, "char_count") {
+        "char_count"
+    } else {
+        "NULL"
+    };
+    let uuid_expr = if has_col(&cols, "uuid") { "uuid" } else { "NULL" };
+    let source_device_id_expr = if has_col(&cols, "source_device_id") {
+        "source_device_id"
+    } else {
+        "NULL"
+    };
+    let is_remote_expr = if has_col(&cols, "is_remote") {
+        "is_remote"
+    } else {
+        "0"
+    };
+    let created_expr = if has_col(&cols, "created_at") {
+        "created_at"
+    } else {
+        "CAST(strftime('%s','now') AS INTEGER)"
+    };
+    let updated_expr = if has_col(&cols, "updated_at") {
+        "updated_at"
+    } else {
+        "CAST(strftime('%s','now') AS INTEGER)"
+    };
+
+    let select_sql = format!(
+        "SELECT
+            {id},
+            content,
+            {html},
+            {content_type},
+            {image_id},
+            {is_pinned},
+            {paste_count},
+            {source_app},
+            {source_icon_hash},
+            {char_count},
+            {uuid},
+            {source_device_id},
+            {is_remote},
+            {created_at},
+            {updated_at}
+         FROM importdb.clipboard",
+        id = id_expr,
+        html = html_expr,
+        content_type = content_type_expr,
+        image_id = image_id_expr,
+        is_pinned = is_pinned_expr,
+        paste_count = paste_count_expr,
+        source_app = source_app_expr,
+        source_icon_hash = source_icon_hash_expr,
+        char_count = char_count_expr,
+        uuid = uuid_expr,
+        source_device_id = source_device_id_expr,
+        is_remote = is_remote_expr,
+        created_at = created_expr,
+        updated_at = updated_expr
+    );
+
+    let mut query_stmt = conn.prepare(&select_sql)?;
+    let mut insert_stmt = conn.prepare(
+        "INSERT INTO clipboard
+         (content, html_content, content_type, image_id, is_pinned, paste_count, source_app, source_icon_hash, char_count, uuid, source_device_id, is_remote, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+    )?;
+
+    let rows = query_stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, Option<i64>>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, i64>(5)?,
+            row.get::<_, i64>(6)?,
+            row.get::<_, Option<String>>(7)?,
+            row.get::<_, Option<String>>(8)?,
+            row.get::<_, Option<i64>>(9)?,
+            row.get::<_, Option<String>>(10)?,
+            row.get::<_, Option<String>>(11)?,
+            row.get::<_, i64>(12)?,
+            row.get::<_, i64>(13)?,
+            row.get::<_, i64>(14)?,
+        ))
+    })?;
+
+    for row in rows {
+        let (
+            old_id,
+            content,
+            html_content,
+            content_type,
+            image_id,
+            is_pinned,
+            paste_count,
+            source_app,
+            source_icon_hash,
+            char_count,
+            uuid,
+            source_device_id,
+            is_remote,
+            created_at,
+            updated_at,
+        ) = row?;
+
+        insert_stmt.execute(rusqlite::params![
+            content,
+            html_content,
+            content_type,
+            image_id,
+            is_pinned,
+            paste_count,
+            source_app,
+            source_icon_hash,
+            char_count,
+            uuid,
+            source_device_id,
+            is_remote,
+            created_at,
+            updated_at
+        ])?;
+
+        if let Some(old_id) = old_id {
+            id_map.insert(old_id, conn.last_insert_rowid());
+        }
+    }
+
+    Ok(id_map)
+}
+
+fn merge_clipboard_data_from_importdb(
+    conn: &rusqlite::Connection,
+    clipboard_id_map: &std::collections::HashMap<i64, i64>,
+) -> rusqlite::Result<()> {
+    if !importdb_has_table(conn, "clipboard_data")? {
+        return Ok(());
+    }
+
+    // 收藏原始格式：目标 id 不变，合并时不覆盖现有格式。
+    let _ = conn.execute(
+        "INSERT OR IGNORE INTO clipboard_data
+         (target_kind, target_id, format_name, raw_data, is_primary, format_order, created_at, updated_at)
+         SELECT d.target_kind, d.target_id, d.format_name, d.raw_data, d.is_primary, d.format_order, d.created_at, d.updated_at
+         FROM importdb.clipboard_data d
+         WHERE d.target_kind = 'favorite' AND EXISTS (SELECT 1 FROM favorites f WHERE f.id = d.target_id)",
+        [],
+    );
+
+    if clipboard_id_map.is_empty() {
+        return Ok(());
+    }
+
+    let mut source_stmt = conn.prepare(
+        "SELECT format_name, raw_data, is_primary, format_order, created_at, updated_at
+         FROM importdb.clipboard_data
+         WHERE target_kind = 'clipboard' AND target_id = ?1
+         ORDER BY format_order, id",
+    )?;
+    let mut insert_stmt = conn.prepare(
+        "INSERT OR IGNORE INTO clipboard_data
+         (target_kind, target_id, format_name, raw_data, is_primary, format_order, created_at, updated_at)
+         VALUES ('clipboard', ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+    )?;
+
+    for (old_id, new_id) in clipboard_id_map {
+        let old_target = old_id.to_string();
+        let rows = source_stmt.query_map([old_target], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+            ))
+        })?;
+
+        for row in rows {
+            let (format_name, raw_data, is_primary, format_order, created_at, updated_at) = row?;
+            insert_stmt.execute(rusqlite::params![
+                new_id.to_string(),
+                format_name,
+                raw_data,
+                is_primary,
+                format_order,
+                created_at,
+                updated_at
+            ])?;
+        }
+    }
+
     Ok(())
 }
 
