@@ -28,6 +28,40 @@ pub struct ClipboardItem {
     pub updated_at: i64, 
 }
 
+// 剪贴板原始格式数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClipboardDataItem {
+    pub id: i64,
+    pub target_kind: String,
+    pub target_id: String,
+    pub format_name: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub raw_data: Vec<u8>,
+    pub is_primary: bool,
+    pub format_order: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+// 剪贴板原始格式写入项
+#[derive(Debug, Clone)]
+pub struct ClipboardDataSeed {
+    pub format_name: String,
+    pub raw_data: Vec<u8>,
+    pub is_primary: bool,
+    pub format_order: i64,
+}
+
+// 可粘贴选项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PasteOption {
+    pub id: String,
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_format_name: Option<String>,
+    pub is_primary: bool,
+}
+
 // 收藏项
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FavoriteItem {

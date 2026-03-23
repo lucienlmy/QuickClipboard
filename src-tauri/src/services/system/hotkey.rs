@@ -431,7 +431,7 @@ pub fn register_paste_plain_text_hotkey(shortcut_str: &str) -> Result<(), String
 fn handle_paste_plain_text_press(app: &AppHandle) -> Result<(), String> {
     use crate::services::database::{query_clipboard_items, get_clipboard_item_by_id, QueryParams};
     use crate::services::paste::paste_handler::paste_clipboard_item_with_format;
-    use crate::services::paste::PasteFormat;
+    use crate::services::paste::PasteAction;
 
     let state = crate::get_window_state();
     let is_window_visible = state.state == crate::WindowState::Visible && !state.is_hidden;
@@ -452,7 +452,7 @@ fn handle_paste_plain_text_press(app: &AppHandle) -> Result<(), String> {
         if let Some(item) = items.first() {
             let full_item = get_clipboard_item_by_id(item.id)?
                 .ok_or_else(|| format!("剪贴板项 {} 不存在", item.id))?;
-            paste_clipboard_item_with_format(&full_item, Some(PasteFormat::PlainText))?;
+            paste_clipboard_item_with_format(&full_item, Some(PasteAction::PlainText))?;
         }
     }
 

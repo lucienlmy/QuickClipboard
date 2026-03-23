@@ -2,7 +2,7 @@ use crate::services::database::{
     clear_clipboard_history as db_clear_clipboard_history,
     delete_clipboard_item as db_delete_clipboard_item, delete_clipboard_items as db_delete_clipboard_items,
     get_clipboard_count,
-    get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_to_top,
+    get_clipboard_data_items, get_clipboard_item_by_id, limit_clipboard_history, move_clipboard_item_to_top,
     move_clipboard_item_by_id as db_move_clipboard_item_by_id,
     query_clipboard_items, update_clipboard_item as db_update_clipboard_item,
     increment_paste_counts as db_increment_paste_counts,
@@ -11,6 +11,7 @@ use crate::services::database::{
 };
 use crate::services::paste::FilesData;
 use std::path::Path;
+use tauri::Emitter;
 
 fn fill_file_exists(items: &mut [ClipboardItem]) {
     for item in items.iter_mut() {
@@ -130,67 +131,76 @@ pub struct PasteParams {
     #[serde(default)]
     pub favorite_id: Option<String>,
     #[serde(default)]
-    pub format: Option<String>,
+    pub action: Option<String>,
 }
 
 // 粘贴剪贴板项或收藏项
 #[tauri::command]
-pub fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result<(), String> {
     use crate::services::database::get_favorite_by_id;
     use crate::services::paste::paste_handler::{
         paste_clipboard_item_with_format, paste_clipboard_item_with_update,
         paste_favorite_item_with_format, paste_favorite_item_with_update,
     };
-    use crate::services::paste::PasteFormat;
+    use crate::services::paste::PasteAction;
 
-    let paste_format = params.format.as_ref().and_then(|f| match f.as_str() {
-        "plain" => Some(PasteFormat::PlainText),
-        "formatted" => Some(PasteFormat::WithFormat),
-        _ => None,
-    });
-
-    // 根据参数类型处理粘贴
-    if let Some(clipboard_id) = params.clipboard_id {
-        let item = get_clipboard_item_by_id(clipboard_id)?
-            .ok_or_else(|| format!("剪贴板项不存在: {}", clipboard_id))?;
-
-        if paste_format.is_some() {
-            paste_clipboard_item_with_format(&item, paste_format)?;
-        } else {
-            paste_clipboard_item_with_update(&item)?;
+    let paste_action = match params.action.as_deref() {
+        Some(action) if !action.trim().is_empty() => {
+            Some(PasteAction::from_id(action).ok_or_else(|| format!("不支持的粘贴动作: {}", action))?)
         }
-    } else if let Some(favorite_id) = params.favorite_id {
-        let favorite = get_favorite_by_id(&favorite_id)?
-            .ok_or_else(|| format!("收藏项不存在: {}", favorite_id))?;
+        _ => None,
+    };
 
-        // 将收藏项转换为剪贴板项格式
-        let item = ClipboardItem {
-            id: 0,
-            uuid: None,
-            source_device_id: None,
-            is_remote: false,
-            content: favorite.content,
-            html_content: favorite.html_content,
-            content_type: favorite.content_type,
-            image_id: favorite.image_id,
-            item_order: favorite.item_order,
-            is_pinned: false,
-            paste_count: 0,
-            source_app: None,
-            source_icon_hash: None,
-            char_count: favorite.char_count,
-            created_at: favorite.created_at,
-            updated_at: favorite.updated_at,
+    let params_for_task = params;
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        // 根据参数类型处理粘贴
+        if let Some(clipboard_id) = params_for_task.clipboard_id {
+            let item = get_clipboard_item_by_id(clipboard_id)?
+                .ok_or_else(|| format!("剪贴板项不存在: {}", clipboard_id))?;
+
+            if paste_action.is_some() {
+                paste_clipboard_item_with_format(&item, paste_action)?;
+            } else {
+                paste_clipboard_item_with_update(&item)?;
+            }
+        } else if let Some(favorite_id) = params_for_task.favorite_id {
+            let favorite = get_favorite_by_id(&favorite_id)?
+                .ok_or_else(|| format!("收藏项不存在: {}", favorite_id))?;
+
+            // 将收藏项转换为剪贴板项格式
+            let item = ClipboardItem {
+                id: 0,
+                uuid: None,
+                source_device_id: None,
+                is_remote: false,
+                content: favorite.content,
+                html_content: favorite.html_content,
+                content_type: favorite.content_type,
+                image_id: favorite.image_id,
+                item_order: favorite.item_order,
+                is_pinned: false,
+                paste_count: 0,
+                source_app: None,
+                source_icon_hash: None,
+                char_count: favorite.char_count,
+                created_at: favorite.created_at,
+                updated_at: favorite.updated_at,
+            };
+
+            if paste_action.is_some() {
+                paste_favorite_item_with_format(&item, &favorite_id, paste_action)?;
+            } else {
+                paste_favorite_item_with_update(&item, &favorite_id)?;
+            }
+        } else {
+            return Err("必须 clipboard_id 或 favorite_id".to_string());
         };
 
-        if paste_format.is_some() {
-            paste_favorite_item_with_format(&item, &favorite_id, paste_format)?;
-        } else {
-            paste_favorite_item_with_update(&item, &favorite_id)?;
-        }
-    } else {
-        return Err("必须 clipboard_id 或 favorite_id".to_string());
-    };
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("粘贴任务执行失败: {}", e))??;
+
     if !crate::get_window_state().is_pinned {
         if let Some(window) = crate::get_main_window(&app) {
             crate::hide_main_window(&window);
@@ -294,17 +304,25 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
 // 复制剪贴板项内容（不记录到历史）
 #[tauri::command]
 pub fn copy_clipboard_item(id: i64) -> Result<(), String> {
-    use crate::services::paste::set_clipboard_from_item;
+    use crate::services::paste::paste_handler::copy_clipboard_item as do_copy;
     
     let item = get_clipboard_item_by_id(id)?
         .ok_or_else(|| format!("剪贴板项不存在: {}", id))?;
     
-    set_clipboard_from_item(&item.content_type, &item.content, &item.html_content, true)
+    do_copy(&item)
+}
+
+#[tauri::command]
+pub fn get_clipboard_item_paste_options_cmd(id: i64) -> Result<Vec<crate::services::database::PasteOption>, String> {
+    let item = get_clipboard_item_by_id(id)?
+        .ok_or_else(|| format!("剪贴板项不存在: {}", id))?;
+    let raw_formats = get_clipboard_data_items("clipboard", &id.to_string())?;
+    Ok(crate::services::paste::options::build_paste_options(&item, &raw_formats))
 }
 
 #[tauri::command]
 pub async fn merge_copy_clipboard_items(ids: Vec<i64>) -> Result<(), String> {
-    return tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || {
         if ids.is_empty() {
             return Err("至少需要选择一项内容".to_string());
         }
@@ -320,23 +338,7 @@ pub async fn merge_copy_clipboard_items(ids: Vec<i64>) -> Result<(), String> {
         crate::services::paste::copy_merged_items(&items)
     })
     .await
-    .map_err(|e| format!("批量合并复制任务执行失败: {}", e))?;
-
-    use crate::services::paste::copy_merged_items;
-
-    if ids.is_empty() {
-        return Err("至少需要选择一项内容".to_string());
-    }
-
-    let items = ids
-        .iter()
-        .map(|id| {
-            get_clipboard_item_by_id(*id)?
-                .ok_or_else(|| format!("剪贴板项不存在: {}", id))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    copy_merged_items(&items)
+    .map_err(|e| format!("批量合并复制任务执行失败: {}", e))?
 }
 
 #[tauri::command]
@@ -364,32 +366,6 @@ pub async fn merge_paste_clipboard_items(ids: Vec<i64>, app: tauri::AppHandle) -
 
     if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
         for id in ids_for_emit {
-            let _ = app_handle.emit("paste-count-updated", id);
-        }
-    }
-
-    return Ok(());
-
-    use tauri::Emitter;
-    use crate::services::paste::paste_merged_items;
-
-    if ids.is_empty() {
-        return Err("至少需要选择一项内容".to_string());
-    }
-
-    let items = ids
-        .iter()
-        .map(|id| {
-            get_clipboard_item_by_id(*id)?
-                .ok_or_else(|| format!("剪贴板项不存在: {}", id))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    paste_merged_items(&items, &app)?;
-    db_increment_paste_counts(&ids)?;
-
-    if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
-        for id in ids {
             let _ = app_handle.emit("paste-count-updated", id);
         }
     }

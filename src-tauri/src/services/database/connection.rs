@@ -17,7 +17,8 @@ pub fn init_database(db_path: &str) -> Result<(), String> {
     create_tables(&conn)?;
 
     conn.execute_batch(
-        "PRAGMA journal_mode = WAL;
+        "PRAGMA foreign_keys = ON;
+         PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
          PRAGMA cache_size = 10000;
          PRAGMA temp_store = MEMORY;"
@@ -59,6 +60,21 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         )",
         [],
     ).map_err(|e| format!("创建剪贴板表失败: {}", e))?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS clipboard_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_kind TEXT NOT NULL,
+            target_id TEXT NOT NULL,
+            format_name TEXT NOT NULL,
+            raw_data BLOB NOT NULL,
+            is_primary INTEGER NOT NULL DEFAULT 0,
+            format_order INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+        [],
+    ).map_err(|e| format!("创建剪贴板原始数据表失败: {}", e))?;
 
     let pinned_exists = conn
         .prepare("PRAGMA table_info(clipboard)")
@@ -262,6 +278,18 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         "CREATE INDEX IF NOT EXISTS idx_clipboard_content_type ON clipboard(content_type)",
         [],
     ).map_err(|e| format!("创建内容类型索引失败: {}", e))?;
+
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_clipboard_data_unique
+         ON clipboard_data(target_kind, target_id, format_name)",
+        [],
+    ).map_err(|e| format!("创建剪贴板原始数据唯一索引失败: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_clipboard_data_target_order
+         ON clipboard_data(target_kind, target_id, format_order, id)",
+        [],
+    ).map_err(|e| format!("创建剪贴板原始数据索引失败: {}", e))?;
 
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_clipboard_uuid_unique ON clipboard(uuid) WHERE uuid IS NOT NULL AND uuid <> ''",

@@ -27,12 +27,14 @@ enum MergeSource {
 
 pub fn copy_merged_items(items: &[ClipboardItem]) -> Result<(), String> {
     let payload = build_merge_payload(items)?;
+    let _monitor_guard = crate::services::clipboard::pause_clipboard_monitor_for(500);
     apply_merge_payload(&payload, true)?;
     Ok(())
 }
 
 pub fn paste_merged_items(items: &[ClipboardItem], app: &tauri::AppHandle) -> Result<(), String> {
     let payload = build_merge_payload(items)?;
+    let _monitor_guard = crate::services::clipboard::pause_clipboard_monitor_for(1000);
     apply_merge_payload(&payload, true)?;
 
     crate::services::mark_paste_operation();

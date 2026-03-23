@@ -52,12 +52,12 @@ export async function moveFavoriteItem(fromId, toId) {
 }
 
 // 粘贴收藏内容
-export async function pasteFavorite(id, format = null) {
+export async function pasteFavorite(id, action = null) {
   try {
     await restoreLastFocus()
     const params = { favorite_id: id }
-    if (format) {
-      params.format = format
+    if (action) {
+      params.action = action
     }
 
     await invoke('paste_content', { params })
@@ -88,6 +88,10 @@ export async function pasteFavorite(id, format = null) {
 // 复制收藏项内容（不记录到历史）
 export async function copyFavoriteItem(id) {
   return await invoke('copy_favorite_item', { id })
+}
+
+export async function getFavoriteItemPasteOptions(id) {
+  return await invoke('get_favorite_item_paste_options_cmd', { id })
 }
 
 export async function mergeCopyFavoriteItems(ids) {
