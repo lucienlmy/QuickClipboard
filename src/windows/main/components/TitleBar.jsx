@@ -70,15 +70,12 @@ const TitleBar = forwardRef(({
   return (
     <div
       ref={dragRef}
-      className={`title-bar flex-shrink-0 flex ${
-        isVertical
-          ? `w-10 h-full flex-col items-center justify-between py-2 bg-qc-panel ${
-              position === 'left' ? 'border-r border-qc-border' : 'border-l border-qc-border'
-            }`
-          : `h-9 flex-row items-center justify-between px-2 bg-qc-panel ${
-              position === 'top' ? 'border-b border-qc-border' : 'border-t border-qc-border'
-            }`
-      } shadow-sm transition-colors duration-500`}
+      className={`title-bar flex-shrink-0 flex ${isVertical
+        ? `w-10 h-full flex-col items-center justify-between py-2 bg-qc-panel ${position === 'left' ? 'border-r border-qc-border' : 'border-l border-qc-border'
+        }`
+        : `h-9 flex-row items-center justify-between px-2 bg-qc-panel ${position === 'top' ? 'border-b border-qc-border' : 'border-t border-qc-border'
+        }`
+        } shadow-sm transition-colors duration-500`}
     >
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
         <div className="w-6 h-6 flex items-center justify-center">
@@ -98,11 +95,20 @@ const TitleBar = forwardRef(({
         />
 
         <div className={`flex ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1`}>
+          <Tooltip content="多选" placement={tooltipPlacement} asChild>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
+              aria-label="多选"
+              type="button"
+            >
+              <i className="ti ti-list-check" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
           <Tooltip content={t('tools.pin')} placement={tooltipPlacement} asChild>
             <button
-              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
-                isPinned ? 'bg-blue-500 text-white hover:bg-blue-600' : 'hover:bg-qc-hover text-qc-fg-muted'
-              }`}
+              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isPinned ? 'bg-blue-500 text-white hover:bg-blue-600' : 'hover:bg-qc-hover text-qc-fg-muted'
+                }`}
               onClick={handleTogglePin}
               aria-label={t('tools.pin')}
             >
@@ -119,6 +125,17 @@ const TitleBar = forwardRef(({
               <i className="ti ti-settings" style={{ fontSize: 16 }} data-stroke="1.5"></i>
             </button>
           </Tooltip>
+
+          <Tooltip content="更多" placement={tooltipPlacement} asChild>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
+              aria-label="更多"
+              type="button"
+            >
+              <i className="ti ti-dots" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
         </div>
       </div>
     </div>
