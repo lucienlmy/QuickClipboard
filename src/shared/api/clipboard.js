@@ -33,12 +33,12 @@ export async function getClipboardTotalCount() {
 }
 
 // 粘贴剪贴板项
-export async function pasteClipboardItem(clipboardId, format = null) {
+export async function pasteClipboardItem(clipboardId, action = null) {
   try {
     await restoreLastFocus()
     const params = { clipboard_id: clipboardId }
-    if (format) {
-      params.format = format
+    if (action) {
+      params.action = action
     }
 
     await invoke('paste_content', { params })
@@ -193,6 +193,10 @@ export async function getClipboardItemById(id, maxLength = null) {
     params.max_length = maxLength;
   }
   return await invoke('get_clipboard_item_by_id_cmd', params);
+}
+
+export async function getClipboardItemPasteOptions(id) {
+  return await invoke('get_clipboard_item_paste_options_cmd', { id })
 }
 
 // 更新剪贴板项

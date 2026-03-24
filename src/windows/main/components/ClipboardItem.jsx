@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
@@ -16,11 +16,14 @@ import { moveClipboardItemToTop } from '@shared/api';
 import { getToolState } from '@shared/services/toolActions';
 import { useTheme } from '@shared/hooks/useTheme';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
+import { getClipboardItemPasteOptions } from '@shared/api/clipboard';
+import { extractFormatKinds, formatKindsToLabels } from '@shared/utils/pasteFormatHints';
 import logoIcon from '@/assets/icon1024.png';
 
 const PREVIEW_MODE_TEXT = 'text';
 const PREVIEW_MODE_IMAGE = 'image';
 const PREVIEW_HOVER_DELAY_MS = 120;
+const clipboardFormatKindsCache = new Map();
 
 const getItemPreviewMode = (type) => {
   const primaryType = getPrimaryType(type);
@@ -67,6 +70,8 @@ function ClipboardItem({
       : false;
   const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');
   const [showDragSideTooltips, setShowDragSideTooltips] = useState(false);
+  const [formatKinds, setFormatKinds] = useState(() => extractFormatKinds([], item));
+  const formatKindsLoadedRef = useRef(false);
   const previewTimerRef = useRef(null);
 
   const [sourceIconUrl, setSourceIconUrl] = useState(null);
@@ -219,6 +224,11 @@ function ClipboardItem({
   }, [isImageOrFileType, isMultiSelectMode]);
 
   useEffect(() => {
+    setFormatKinds(extractFormatKinds([], item));
+    formatKindsLoadedRef.current = false;
+  }, [item.id, item.content_type, item.content, item.html_content]);
+
+  useEffect(() => {
     return () => {
       if (previewTimerRef.current) {
         clearTimeout(previewTimerRef.current);
@@ -226,6 +236,30 @@ function ClipboardItem({
       }
     };
   }, []);
+
+  const ensureFormatKindsLoaded = useCallback(() => {
+    if (settings.textPreview !== false || formatKindsLoadedRef.current) {
+      return;
+    }
+
+    const cacheKey = String(item.id);
+    if (clipboardFormatKindsCache.has(cacheKey)) {
+      setFormatKinds(clipboardFormatKindsCache.get(cacheKey) || []);
+      formatKindsLoadedRef.current = true;
+      return;
+    }
+
+    formatKindsLoadedRef.current = true;
+    getClipboardItemPasteOptions(item.id)
+      .then((options) => {
+        const kinds = extractFormatKinds(options, item);
+        clipboardFormatKindsCache.set(cacheKey, kinds);
+        setFormatKinds(kinds);
+      })
+      .catch(() => {
+        clipboardFormatKindsCache.set(cacheKey, extractFormatKinds([], item));
+      });
+  }, [settings.textPreview, item]);
 
   // 拖拽功能
   const {
@@ -278,6 +312,7 @@ function ClipboardItem({
     if (isDragging || isDragActive || isMultiSelectMode) {
       return;
     }
+    ensureFormatKindsLoaded();
     if (isImageOrFileType) {
       setShowDragSideTooltips(true);
     }
@@ -322,8 +357,21 @@ function ClipboardItem({
       return;
     }
 
-    e.preventDefault();
+    const canPreventDefault = Boolean(e?.cancelable ?? e?.nativeEvent?.cancelable);
+    if (canPreventDefault) {
+      e.preventDefault();
+    }
     e.stopPropagation();
+
+    if (e.altKey) {
+      emit('preview-window-cycle-format', {
+        source: 'clipboard',
+        itemId: String(item.id),
+        direction: e.deltaY < 0 ? 'prev' : 'next',
+      }).catch(() => { });
+      return;
+    }
+
     emit('preview-window-scroll', {
       direction: e.deltaY < 0 ? 'up' : 'down',
       mode: previewMode,
@@ -437,8 +485,11 @@ function ClipboardItem({
     return `${modifier}+${index + 1}`;
   };
   const isSmallHeight = settings.rowHeight === 'small';
-
-
+  const formatHintLabels = useMemo(() => formatKindsToLabels(formatKinds, t), [formatKinds, t]);
+  const shouldShowFormatHintTooltip = settings.textPreview === false && formatHintLabels.length > 1;
+  const formatHintTooltipContent = shouldShowFormatHintTooltip
+    ? t('previewWindow.formatsHint', { formats: formatHintLabels.join(' / ') })
+    : '';
 
   const isCardStyle = settings.listStyle === 'card';
 
@@ -534,7 +585,7 @@ function ClipboardItem({
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
 
-  return (
+  const itemNode = (
     <div
       ref={setNodeRef}
       style={{ ...style, ...animationStyle }}
@@ -757,5 +808,15 @@ function ClipboardItem({
         </>}
     </div>
   );
+
+  if (shouldShowFormatHintTooltip) {
+    return (
+      <Tooltip content={formatHintTooltipContent} placement="top" asChild>
+        {itemNode}
+      </Tooltip>
+    );
+  }
+
+  return itemNode;
 }
 export default ClipboardItem;

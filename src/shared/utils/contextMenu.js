@@ -3,7 +3,6 @@ import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plu
 import { openUrl, openPath } from '@tauri-apps/plugin-opener'
 import i18n from '@shared/i18n'
 import { extractAllLinks, normalizeUrl } from './linkUtils'
-import { getPrimaryType } from './contentType'
 import { settingsStore } from '@shared/store/settingsStore'
 import { toast, toastStore, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore'
 import {
@@ -17,8 +16,10 @@ import {
   recognizeImageOcr,
   moveClipboardItemToTop,
   copyClipboardItem,
-  syncClipboardItemToLanSync
+  syncClipboardItemToLanSync,
+  getClipboardItemPasteOptions
 } from '@shared/api'
+import { getFavoriteItemPasteOptions } from '@shared/api/favorites'
 import { getToolState } from '@shared/services/toolActions'
 import { clipboardStore } from '@shared/store/clipboardStore'
 
@@ -145,22 +146,76 @@ function createSearchMenuItems(plainText, contentType) {
 }
 
 // 创建粘贴菜单项
-function createPasteMenuItem(contentType, hasHtmlContent) {
-  const isRichText = contentType.includes('rich_text')
-
-  if (isRichText && hasHtmlContent) {
-    const pasteMenuItem = createMenuItem('paste', i18n.t('contextMenu.paste'), { icon: 'ti ti-clipboard' })
-    pasteMenuItem.children = [
-      createMenuItem('paste-formatted', i18n.t('contextMenu.pasteWithFormat'), { icon: 'ti ti-typography' }),
-      createMenuItem('paste-plain', i18n.t('contextMenu.pastePlainText'), { icon: 'ti ti-text-size' })
-    ]
+function createPasteMenuItem(pasteOptions = []) {
+  const pasteMenuItem = createMenuItem('paste', i18n.t('contextMenu.paste'), { icon: 'ti ti-clipboard' })
+  if (!Array.isArray(pasteOptions) || pasteOptions.length <= 1) {
     return pasteMenuItem
   }
 
-  return createMenuItem('paste', i18n.t('contextMenu.paste'), { icon: 'ti ti-clipboard' })
+  pasteMenuItem.children = pasteOptions.map((option, index) =>
+    createMenuItem(`paste-option-${index}`, getPasteOptionLabel(option), {
+      icon: getPasteOptionIcon(option)
+    })
+  )
+
+  return pasteMenuItem
 }
 
-// 创建内容类型特定菜单项
+function resolvePasteAction(result, pasteOptions = []) {
+  if (result === 'paste') {
+    return null
+  }
+
+  if (result.startsWith('paste-option-')) {
+    const index = Number.parseInt(result.substring('paste-option-'.length), 10)
+    if (Number.isInteger(index) && index >= 0 && index < pasteOptions.length) {
+      return pasteOptions[index].id
+    }
+    return null
+  }
+
+  return undefined
+}
+
+function getPasteOptionIcon(option) {
+  switch (option?.kind) {
+    case 'image_bundle':
+      return 'ti ti-photo'
+    case 'file':
+      return 'ti ti-files'
+    case 'plain_text':
+      return 'ti ti-text-size'
+    case 'html':
+    case 'rtf':
+      return 'ti ti-typography'
+    case 'all_formats':
+      return 'ti ti-stack'
+    default:
+      return 'ti ti-clipboard'
+  }
+}
+
+function getPasteOptionLabel(option) {
+  const sourceFormatName = option?.source_format_name
+  switch (option?.kind) {
+    case 'all_formats':
+      return i18n.t('contextMenu.pasteAllFormats')
+    case 'plain_text':
+      return i18n.t('contextMenu.pastePlainText')
+    case 'html':
+    case 'rtf':
+      return sourceFormatName
+        ? `${i18n.t('contextMenu.formatRichText')} (${sourceFormatName})`
+        : i18n.t('contextMenu.formatRichText')
+    case 'image_bundle':
+      return i18n.t('contextMenu.formatImage')
+    case 'file':
+      return i18n.t('contextMenu.formatFile')
+    default:
+      return i18n.t('contextMenu.paste')
+  }
+}
+
 function createContentTypeMenuItems(contentType) {
   if (contentType.includes('image')) {
     return [
@@ -227,21 +282,17 @@ async function handleSearchActions(result, plainText) {
 }
 
 // 处理粘贴操作
-async function handlePasteActions(result, item, isClipboard = true, index = undefined) {
-  const pasteActions = {
-    'paste': null,
-    'paste-formatted': 'formatted',
-    'paste-plain': 'plain'
+async function handlePasteActions(result, item, pasteOptions = [], isClipboard = true) {
+  const action = resolvePasteAction(result, pasteOptions)
+  if (action === undefined) return false
+
+  if (isClipboard) {
+    const { pasteClipboardItem } = await import('@shared/api/clipboard')
+    await pasteClipboardItem(item.id, action)
+  } else {
+    const { pasteFavorite } = await import('@shared/api/favorites')
+    await pasteFavorite(item.id, action)
   }
-  
-  if (!(result in pasteActions)) return false
-  
-  const { pasteClipboardItem } = isClipboard 
-    ? await import('@shared/api/clipboard')
-    : await import('@shared/api/favorites')
-  
-  const pasteFunc = isClipboard ? pasteClipboardItem : (await import('@shared/api/favorites')).pasteFavorite
-  await pasteFunc(item.id, pasteActions[result])
 
   // 粘贴后置顶
   if (isClipboard) {
@@ -304,7 +355,7 @@ async function handleContentTypeActions(result, item, index) {
       try {
         const result = await recognizeImageOcr(filePath)
         toastStore.removeToast(loadingToastId)
-        
+
         if (result.text && result.text.trim()) {
           await copyTextToClipboard(result.text)
           toast.success(i18n.t('contextMenu.textExtracted'), TOAST_CONFIG)
@@ -345,7 +396,7 @@ async function handleContentTypeActions(result, item, index) {
       }
     }
   }
-  
+
   if (actions[result]) {
     await actions[result]()
     return true
@@ -364,8 +415,9 @@ export async function showClipboardItemContextMenu(event, item, index) {
   const isImageType = ct === 'image' || ct.startsWith('image/')
   const hasImageId = typeof item.image_id === 'string' && item.image_id.trim().length > 0
   const lanSyncEnabled = Boolean(settingsStore.lanSyncEnabled)
+  const pasteOptions = await getClipboardItemPasteOptions(item.id).catch(() => [])
 
-  const pasteMenuItem = createPasteMenuItem(contentType, !!item.html_content)
+  const pasteMenuItem = createPasteMenuItem(pasteOptions)
   menuItems.push(pasteMenuItem)
   menuItems.push(createMenuItem('copy-item', i18n.t('contextMenu.copy'), { icon: 'ti ti-copy' }))
 
@@ -445,7 +497,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
     }
 
     // 处理粘贴操作
-    if (await handlePasteActions(result, item, true, index)) return
+    if (await handlePasteActions(result, item, pasteOptions, true)) return
 
     // 处理链接操作
     if (await handleLinkActions(result, links)) {
@@ -514,8 +566,9 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   const isImageType = ct === 'image' || ct.startsWith('image/')
   const hasImageId = typeof item.image_id === 'string' && item.image_id.trim().length > 0
   const lanSyncEnabled = Boolean(settingsStore.lanSyncEnabled)
+  const pasteOptions = await getFavoriteItemPasteOptions(item.id).catch(() => [])
 
-  const pasteMenuItem = createPasteMenuItem(contentType, !!item.html_content)
+  const pasteMenuItem = createPasteMenuItem(pasteOptions)
   menuItems.push(pasteMenuItem)
   menuItems.push(createMenuItem('copy-item', i18n.t('contextMenu.copy'), { icon: 'ti ti-copy' }))
 
@@ -590,7 +643,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     }
 
     // 处理粘贴操作
-    if (await handlePasteActions(result, item, false, index)) return
+    if (await handlePasteActions(result, item, pasteOptions, false)) return
 
     if (await handleLinkActions(result, links)) {
       toast.success(i18n.t('contextMenu.linkOpened'), TOAST_CONFIG)
@@ -635,3 +688,4 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     toast.error(i18n.t('common.operationFailed'), TOAST_CONFIG)
   }
 }
+

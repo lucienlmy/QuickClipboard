@@ -1,4 +1,4 @@
-use super::models::{FavoriteItem, PaginatedResult, FavoritesQueryParams};
+use super::models::{ClipboardDataSeed, FavoriteItem, PaginatedResult, FavoritesQueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
@@ -361,8 +361,9 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
     use uuid::Uuid;
     
     let group_name = group_name.unwrap_or_else(|| "全部".to_string());
+    let raw_formats = super::clipboard::get_clipboard_data_items("clipboard", &clipboard_id.to_string())?;
     
-    with_connection(|conn| {
+    let favorite = with_connection(|conn| {
         let (content, html_content, content_type, image_id, char_count) = conn.query_row(
             "SELECT content, html_content, content_type, image_id, char_count FROM clipboard WHERE id = ?",
             params![clipboard_id],
@@ -427,7 +428,25 @@ pub fn add_clipboard_to_favorites(clipboard_id: i64, group_name: Option<String>)
             created_at: now,
             updated_at: now,
         })
-    })
+    })?;
+
+    if !raw_formats.is_empty() {
+        let raw_seeds = raw_formats
+            .into_iter()
+            .map(|item| ClipboardDataSeed {
+                format_name: item.format_name,
+                raw_data: item.raw_data,
+                is_primary: item.is_primary,
+                format_order: item.format_order,
+            })
+            .collect::<Vec<_>>();
+
+        if let Err(e) = super::clipboard::save_clipboard_data_items("favorite", &favorite.id, &raw_seeds) {
+            eprintln!("保存收藏原始数据失败: {}", e);
+        }
+    }
+
+    Ok(favorite)
 }
 
 // 移动收藏项到指定分组
@@ -480,6 +499,7 @@ pub fn delete_favorite(id: String) -> Result<(), String> {
         Ok(to_delete)
     })?;
 
+    let _ = super::clipboard::delete_clipboard_data_items("favorite", &id);
     delete_image_files(images_to_delete)
 }
 
@@ -529,6 +549,9 @@ pub fn delete_favorites(ids: &[String]) -> Result<(), String> {
         Ok(to_delete)
     })?;
 
+    for id in &unique_ids {
+        let _ = super::clipboard::delete_clipboard_data_items("favorite", id);
+    }
     delete_image_files(images_to_delete)
 }
 

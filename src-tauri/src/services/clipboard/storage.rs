@@ -1,6 +1,7 @@
 use super::processor::ProcessedContent;
 use crate::services::database::connection::with_connection;
 use crate::services::database::clipboard::limit_clipboard_history;
+use crate::services::database::ClipboardDataSeed;
 use crate::services::settings::get_settings;
 use rusqlite::params;
 use chrono;
@@ -31,7 +32,7 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
     let result = with_connection(|conn| {
         let now = chrono::Local::now().timestamp();
         
-        match check_and_handle_duplicate(&content, conn, now) {
+        match check_and_handle_duplicate(&content, conn) {
             Ok(Some(existing_id)) => {
                 return Ok(existing_id);
             }
@@ -67,8 +68,15 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
                 now
             ],
         )?;
+
+        let clipboard_id = conn.last_insert_rowid();
+
+        if !content.raw_formats.is_empty() {
+            let target_id = clipboard_id.to_string();
+            save_clipboard_data_items_with_conn(conn, "clipboard", &target_id, &content.raw_formats)?;
+        }
         
-        Ok(conn.last_insert_rowid())
+        Ok(clipboard_id)
     });
     
     match result {
@@ -84,7 +92,6 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
 fn check_and_handle_duplicate(
     content: &ProcessedContent,
     conn: &rusqlite::Connection,
-    now: i64,
 ) -> Result<Option<i64>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, content, content_type 
@@ -121,6 +128,45 @@ fn check_and_handle_duplicate(
     }
     
     Ok(None)
+}
+
+fn save_clipboard_data_items_with_conn(
+    conn: &rusqlite::Connection,
+    target_kind: &str,
+    target_id: &str,
+    items: &[ClipboardDataSeed],
+) -> Result<(), rusqlite::Error> {
+    if items.is_empty() {
+        return Ok(());
+    }
+
+    let now = chrono::Local::now().timestamp();
+    for item in items {
+        conn.execute(
+            "INSERT INTO clipboard_data (
+                target_kind, target_id, format_name, raw_data,
+                is_primary, format_order, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(target_kind, target_id, format_name)
+             DO UPDATE SET
+                raw_data = excluded.raw_data,
+                is_primary = excluded.is_primary,
+                format_order = excluded.format_order,
+                updated_at = excluded.updated_at",
+            params![
+                target_kind,
+                target_id,
+                item.format_name,
+                item.raw_data,
+                if item.is_primary { 1 } else { 0 },
+                item.format_order,
+                now,
+                now,
+            ],
+        )?;
+    }
+
+    Ok(())
 }
 
 

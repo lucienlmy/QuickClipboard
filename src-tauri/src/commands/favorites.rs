@@ -4,6 +4,7 @@ use crate::services::database::{
     move_favorite_to_group as db_move_favorite_to_group,
     delete_favorite as db_delete_favorite,
     delete_favorites as db_delete_favorites,
+    get_clipboard_data_items,
     get_favorite_by_id,
     add_favorite as db_add_favorite,
     update_favorite as db_update_favorite,
@@ -12,6 +13,7 @@ use crate::services::database::{
 };
 use crate::services::paste::FilesData;
 use std::path::Path;
+use tauri::Emitter;
 
 fn fill_file_exists_for_favorites(items: &mut [FavoriteItem]) {
     for item in items.iter_mut() {
@@ -123,17 +125,23 @@ pub fn update_quick_text(id: String, title: String, content: String, group_name:
 // 复制收藏项内容（不记录到历史）
 #[tauri::command]
 pub fn copy_favorite_item(id: String) -> Result<(), String> {
-    use crate::services::paste::set_clipboard_from_item;
+    use crate::services::paste::paste_handler::copy_favorite_item as do_copy;
     
-    let item = get_favorite_by_id(&id)?
-        .ok_or_else(|| format!("收藏项不存在: {}", id))?;
+    let item = favorite_to_clipboard_item(&id)?;
     
-    set_clipboard_from_item(&item.content_type, &item.content, &item.html_content, true)
+    do_copy(&item, &id)
+}
+
+#[tauri::command]
+pub fn get_favorite_item_paste_options_cmd(id: String) -> Result<Vec<crate::services::database::PasteOption>, String> {
+    let item = favorite_to_clipboard_item(&id)?;
+    let raw_formats = get_clipboard_data_items("favorite", &id)?;
+    Ok(crate::services::paste::options::build_paste_options(&item, &raw_formats))
 }
 
 #[tauri::command]
 pub async fn merge_copy_favorite_items(ids: Vec<String>) -> Result<(), String> {
-    return tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || {
         if ids.is_empty() {
             return Err("至少需要选择一项内容".to_string());
         }
@@ -146,20 +154,7 @@ pub async fn merge_copy_favorite_items(ids: Vec<String>) -> Result<(), String> {
         crate::services::paste::copy_merged_items(&items)
     })
     .await
-    .map_err(|e| format!("批量合并复制任务执行失败: {}", e))?;
-
-    use crate::services::paste::copy_merged_items;
-
-    if ids.is_empty() {
-        return Err("至少需要选择一项内容".to_string());
-    }
-
-    let items = ids
-        .iter()
-        .map(|id| favorite_to_clipboard_item(id))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    copy_merged_items(&items)
+    .map_err(|e| format!("批量合并复制任务执行失败: {}", e))?
 }
 
 #[tauri::command]
@@ -184,29 +179,6 @@ pub async fn merge_paste_favorite_items(ids: Vec<String>, app: tauri::AppHandle)
 
     if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
         for id in ids_for_emit {
-            let _ = app_handle.emit("favorite-paste-count-updated", id);
-        }
-    }
-
-    return Ok(());
-
-    use tauri::Emitter;
-    use crate::services::paste::paste_merged_items;
-
-    if ids.is_empty() {
-        return Err("至少需要选择一项内容".to_string());
-    }
-
-    let items = ids
-        .iter()
-        .map(|id| favorite_to_clipboard_item(id))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    paste_merged_items(&items, &app)?;
-    db_increment_favorite_paste_counts(&ids)?;
-
-    if let Some(app_handle) = crate::services::clipboard::get_app_handle() {
-        for id in ids {
             let _ = app_handle.emit("favorite-paste-count-updated", id);
         }
     }

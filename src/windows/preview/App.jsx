@@ -7,7 +7,17 @@ import { defaultSettings } from '@shared/services/settingsService';
 import { settingsStore, initSettings } from '@shared/store/settingsStore';
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
-import { getClipboardItemById, getFavoriteItemById } from '@shared/api';
+import {
+  getClipboardItemById,
+  getFavoriteItemById,
+  getClipboardItemPasteOptions,
+} from '@shared/api';
+import { getFavoriteItemPasteOptions } from '@shared/api/favorites';
+import {
+  extractFormatKinds,
+  formatKindsToLabels,
+  resolvePreviewModes as resolveFormatPreviewModes,
+} from '@shared/utils/pasteFormatHints';
 import {
   ImagePreview,
   HtmlPreview,
@@ -55,6 +65,22 @@ async function loadItemData(source, itemId) {
   throw new Error('未知预览来源');
 }
 
+async function loadPasteOptions(source, itemId) {
+  if (source === 'clipboard') {
+    const numericId = Number(itemId);
+    if (!Number.isFinite(numericId)) {
+      return [];
+    }
+    return await getClipboardItemPasteOptions(numericId);
+  }
+
+  if (source === 'favorite') {
+    return await getFavoriteItemPasteOptions(String(itemId));
+  }
+
+  return [];
+}
+
 async function resolveImageUrlFromItem(item) {
   const content = typeof item?.content === 'string' ? item.content.trim() : '';
   if (content.startsWith('data:image/')) {
@@ -95,6 +121,8 @@ function App() {
   const { t } = useTranslation();
   const [previewData, setPreviewData] = useState(null);
   const [previewMode, setPreviewMode] = useState(MODE_TEXT);
+  const [previewItem, setPreviewItem] = useState(null);
+  const [formatKinds, setFormatKinds] = useState([]);
   const [textContent, setTextContent] = useState('');
   const [htmlContent, setHtmlContent] = useState('');
   const [htmlPreferredSize, setHtmlPreferredSize] = useState(null);
@@ -133,7 +161,7 @@ function App() {
 
   useEffect(() => {
     let mounted = true;
-    initSettings().catch(() => {});
+    initSettings().catch(() => { });
     invoke('get_preview_window_data')
       .then((data) => {
         if (!mounted) return;
@@ -161,6 +189,8 @@ function App() {
     if (!previewData) return;
     let cancelled = false;
 
+    setPreviewItem(null);
+    setFormatKinds([]);
     setPreviewMode(
       previewData.mode === MODE_IMAGE
         ? MODE_IMAGE
@@ -180,49 +210,26 @@ function App() {
 
     const run = async () => {
       try {
-        const item = await loadItemData(previewData.source, previewData.item_id);
+        const [item, pasteOptions] = await Promise.all([
+          loadItemData(previewData.source, previewData.item_id),
+          loadPasteOptions(previewData.source, previewData.item_id).catch(() => []),
+        ]);
         if (cancelled) return;
 
-        const nextMode = resolvePreviewMode(previewData.mode, item);
-        setPreviewMode(nextMode);
+        const nextFormatKinds = extractFormatKinds(pasteOptions, item);
+        const supportedPreviewModes = resolveFormatPreviewModes(item, nextFormatKinds);
+        const requestedMode = resolvePreviewMode(previewData.mode, item);
+        const initialMode = supportedPreviewModes.includes(requestedMode)
+          ? requestedMode
+          : (supportedPreviewModes[0] || MODE_TEXT);
+
+        setPreviewItem(item);
+        setFormatKinds(nextFormatKinds);
+        setPreviewMode(initialMode);
         setTextContent(item?.content || '');
         setTextPreferredHeight(estimateTextHeight(item?.content || ''));
-
-        if (nextMode === MODE_IMAGE) {
-          setImageLoadState(IMAGE_STATUS_LOADING);
-          setImageUrl('');
-          setImageDimensions(parseImageDimensionsFromItem(item));
-          const url = await resolveImageUrlFromItem(item);
-          if (cancelled) return;
-          if (!url) {
-            console.warn('图片预览未解析到可用地址:', {
-              source: previewData.source,
-              itemId: previewData.item_id,
-              contentType: item?.content_type,
-              imageId: item?.image_id,
-            });
-            setImageLoadState(IMAGE_STATUS_ERROR);
-            setImageDimensions(null);
-            setTextContent('');
-            setHtmlContent('');
-            setTextPreferredHeight(null);
-            return;
-          }
-          setImageUrl(url);
-          setImageLoadState(IMAGE_STATUS_LOADING);
-          setImageScale(1);
-          setTextContent('');
-          setHtmlContent('');
-          setTextPreferredHeight(null);
-          return;
-        }
-
-        setImageUrl('');
-        setImageLoadState(IMAGE_STATUS_IDLE);
-        setImageDimensions(null);
-        setImageScale(1);
         setHtmlPreferredSize(null);
-        setHtmlContent(nextMode === MODE_HTML ? (item?.html_content || '') : '');
+        setHtmlContent(item?.html_content || '');
       } catch (error) {
         console.error('加载预览内容失败:', error);
       }
@@ -233,6 +240,49 @@ function App() {
       cancelled = true;
     };
   }, [previewData]);
+
+  useEffect(() => {
+    if (!previewItem || previewMode !== MODE_IMAGE) {
+      setImageUrl('');
+      setImageLoadState(IMAGE_STATUS_IDLE);
+      setImageDimensions(null);
+      setImageScale(1);
+      return;
+    }
+
+    let cancelled = false;
+    setImageLoadState(IMAGE_STATUS_LOADING);
+    setImageUrl('');
+    setImageDimensions(parseImageDimensionsFromItem(previewItem));
+    setImageScale(1);
+
+    resolveImageUrlFromItem(previewItem)
+      .then((url) => {
+        if (cancelled) return;
+        if (!url) {
+          console.warn('图片预览未解析到可用地址:', {
+            source: previewData?.source,
+            itemId: previewData?.item_id,
+            contentType: previewItem?.content_type,
+            imageId: previewItem?.image_id,
+          });
+          setImageLoadState(IMAGE_STATUS_ERROR);
+          setImageDimensions(null);
+          return;
+        }
+        setImageUrl(url);
+        setImageLoadState(IMAGE_STATUS_LOADING);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('加载图片预览失败:', error);
+        setImageLoadState(IMAGE_STATUS_ERROR);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewItem, previewMode, previewData]);
 
   useEffect(() => {
     return () => {
@@ -289,7 +339,7 @@ function App() {
             return { x, y };
           });
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => {
           inFlight = false;
         });
@@ -361,9 +411,58 @@ function App() {
     });
 
     return () => {
-      unlistenPromise.then((unlisten) => unlisten()).catch(() => {});
+      unlistenPromise.then((unlisten) => unlisten()).catch(() => { });
     };
   }, [previewData, previewMode]);
+
+  const supportedPreviewModes = useMemo(
+    () => resolveFormatPreviewModes(previewItem, formatKinds),
+    [previewItem, formatKinds],
+  );
+
+  useEffect(() => {
+    if (!supportedPreviewModes.length) {
+      return;
+    }
+    if (!supportedPreviewModes.includes(previewMode)) {
+      setPreviewMode(supportedPreviewModes[0]);
+    }
+  }, [supportedPreviewModes, previewMode]);
+
+  useEffect(() => {
+    if (!previewData) {
+      return;
+    }
+
+    const unlistenPromise = listen('preview-window-cycle-format', (event) => {
+      const payload = event.payload || {};
+      if (
+        payload.itemId !== previewData.item_id ||
+        payload.source !== previewData.source
+      ) {
+        return;
+      }
+
+      if (supportedPreviewModes.length <= 1) {
+        return;
+      }
+
+      const direction = payload.direction === 'prev' ? 'prev' : 'next';
+      setPreviewMode((currentMode) => {
+        const currentIndex = supportedPreviewModes.indexOf(currentMode);
+        const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+        const nextIndex = direction === 'prev'
+          ? (safeIndex - 1 + supportedPreviewModes.length) % supportedPreviewModes.length
+          : (safeIndex + 1) % supportedPreviewModes.length;
+        const nextMode = supportedPreviewModes[nextIndex];
+        return nextMode;
+      });
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten()).catch(() => { });
+    };
+  }, [previewData, supportedPreviewModes]);
 
   const scaleFactor = useMemo(() => {
     const value = Number(previewData?.scale_factor);
@@ -442,6 +541,17 @@ function App() {
   }, [previewData, mousePositionLogical, displaySize, workAreaLogical]);
 
   const imageScalePercent = useMemo(() => `${Math.round(imageScale * 100)}%`, [imageScale]);
+  const previewModeLabel = useMemo(() => {
+    if (previewMode === MODE_IMAGE) {
+      return t('previewWindow.formatImage', '图片');
+    }
+    if (previewMode === MODE_HTML) {
+      return t('previewWindow.formatHtml', 'HTML');
+    }
+    return t('previewWindow.formatText', '纯文本');
+  }, [previewMode, t]);
+  const formatHintLabels = useMemo(() => formatKindsToLabels(formatKinds, t), [formatKinds, t]);
+  const formatHintText = useMemo(() => formatHintLabels.join(' / '), [formatHintLabels]);
   const textContainerBackgroundColor = useMemo(() => {
     if (isBackground) {
       return 'color-mix(in srgb, var(--qc-panel) 58%, transparent)';
@@ -466,9 +576,9 @@ function App() {
     }
   }, [isBackground, backgroundImagePath]);
   const previewHintStyle = {
-    backgroundColor: 'color-mix(in srgb, var(--qc-surface) 72%, transparent)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
+    backgroundColor: 'var(--qc-surface)',
+    border: '2px solid color-mix(in srgb, var(--qc-fg) 30%, transparent)',
+    boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
   };
 
   if (!previewData || !hasMousePosition) {
@@ -488,9 +598,24 @@ function App() {
   const previewHintTop = Math.max(0, relativeTop - 28);
 
   const renderPreviewHint = () => {
+    const showSwitchHint = supportedPreviewModes.length > 1;
+
     if (previewMode === MODE_IMAGE) {
       return (
         <div className="flex items-center gap-2">
+          <PreviewHint style={previewHintStyle}>
+            {t('previewWindow.currentFormatHint', { format: previewModeLabel })}
+          </PreviewHint>
+          {formatHintText && (
+            <PreviewHint style={previewHintStyle}>
+              {t('previewWindow.formatsHint', { formats: formatHintText })}
+            </PreviewHint>
+          )}
+          {showSwitchHint && (
+            <PreviewHint style={previewHintStyle}>
+              {t('previewWindow.switchFormatHint')}
+            </PreviewHint>
+          )}
           <PreviewHint style={previewHintStyle}>
             {t('previewWindow.imageHint')}
           </PreviewHint>
@@ -505,9 +630,17 @@ function App() {
 
     return (
       <div className="flex items-center gap-2">
-        {previewMode === MODE_HTML && (
+        <PreviewHint style={previewHintStyle}>
+          {t('previewWindow.currentFormatHint', { format: previewModeLabel })}
+        </PreviewHint>
+        {formatHintText && (
           <PreviewHint style={previewHintStyle}>
-            HTML
+            {t('previewWindow.formatsHint', { formats: formatHintText })}
+          </PreviewHint>
+        )}
+        {showSwitchHint && (
+          <PreviewHint style={previewHintStyle}>
+            {t('previewWindow.switchFormatHint')}
           </PreviewHint>
         )}
         <PreviewHint style={previewHintStyle}>

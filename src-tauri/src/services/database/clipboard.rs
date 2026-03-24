@@ -1,4 +1,4 @@
-use super::models::{ClipboardItem, PaginatedResult, QueryParams};
+use super::models::{ClipboardDataItem, ClipboardDataSeed, ClipboardItem, PaginatedResult, QueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
@@ -18,6 +18,108 @@ fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
     } else {
         None
     }
+}
+
+pub fn save_clipboard_data_items(
+    target_kind: &str,
+    target_id: &str,
+    items: &[ClipboardDataSeed],
+) -> Result<(), String> {
+    if items.is_empty() {
+        return Ok(());
+    }
+
+    with_connection(|conn| {
+        let now = chrono::Local::now().timestamp();
+        let tx = conn.unchecked_transaction()?;
+
+        for item in items {
+            tx.execute(
+                "INSERT INTO clipboard_data (
+                    target_kind, target_id, format_name, raw_data,
+                    is_primary, format_order, created_at, updated_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                 ON CONFLICT(target_kind, target_id, format_name)
+                 DO UPDATE SET
+                    raw_data = excluded.raw_data,
+                    is_primary = excluded.is_primary,
+                    format_order = excluded.format_order,
+                    updated_at = excluded.updated_at",
+                params![
+                    target_kind,
+                    target_id,
+                    item.format_name,
+                    item.raw_data,
+                    if item.is_primary { 1 } else { 0 },
+                    item.format_order,
+                    now,
+                    now,
+                ],
+            )?;
+        }
+
+        tx.commit()?;
+        Ok(())
+    })
+}
+
+fn get_clipboard_data_items_by_target(
+    target_kind: &str,
+    target_id: &str,
+) -> Result<Vec<ClipboardDataItem>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, target_kind, target_id, format_name, raw_data, is_primary, format_order, created_at, updated_at
+             FROM clipboard_data
+             WHERE target_kind = ?1 AND target_id = ?2
+             ORDER BY format_order ASC, id ASC",
+        )?;
+
+        let items = stmt
+            .query_map(params![target_kind, target_id], |row| {
+                Ok(ClipboardDataItem {
+                    id: row.get(0)?,
+                    target_kind: row.get(1)?,
+                    target_id: row.get(2)?,
+                    format_name: row.get(3)?,
+                    raw_data: row.get(4)?,
+                    is_primary: row.get::<_, i64>(5)? != 0,
+                    format_order: row.get(6)?,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(items)
+    })
+}
+
+pub fn get_clipboard_data_items(
+    target_kind: &str,
+    target_id: &str,
+) -> Result<Vec<ClipboardDataItem>, String> {
+    get_clipboard_data_items_by_target(target_kind, target_id)
+}
+
+pub fn delete_clipboard_data_items(target_kind: &str, target_id: &str) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "DELETE FROM clipboard_data WHERE target_kind = ?1 AND target_id = ?2",
+            params![target_kind, target_id],
+        )?;
+        Ok(())
+    })
+}
+
+pub fn delete_clipboard_data_items_by_kind(target_kind: &str) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "DELETE FROM clipboard_data WHERE target_kind = ?1",
+            params![target_kind],
+        )?;
+        Ok(())
+    })
 }
 
 // 异步更新缺失的字符数
@@ -496,7 +598,7 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
         return Ok(());
     }
     
-    let images_to_delete: Vec<String> = with_connection(|conn| {
+    let (images_to_delete, deleted_ids): (Vec<String>, Vec<i64>) = with_connection(|conn| {
         let sql_ids = "SELECT image_id FROM clipboard WHERE id NOT IN (SELECT id FROM clipboard ORDER BY is_pinned DESC, item_order DESC, updated_at DESC LIMIT ?1) AND image_id IS NOT NULL AND image_id <> ''";
         let mut stmt = conn.prepare(sql_ids)?;
         let ids_iter = stmt.query_map(params![max_count], |row| row.get::<_, String>(0))?;
@@ -509,6 +611,16 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
             }
         }
         drop(stmt);
+
+        let mut delete_ids_stmt = conn.prepare(
+            "SELECT id FROM clipboard WHERE id NOT IN (
+                SELECT id FROM clipboard ORDER BY is_pinned DESC, item_order DESC, updated_at DESC LIMIT ?1
+            )",
+        )?;
+        let deleted_ids = delete_ids_stmt
+            .query_map(params![max_count], |row| row.get::<_, i64>(0))?
+            .filter_map(|r| r.ok())
+            .collect::<Vec<_>>();
 
         conn.execute(
             "DELETE FROM clipboard WHERE id NOT IN (
@@ -523,8 +635,12 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
                 to_delete.push(iid);
             }
         }
-        Ok(to_delete)
+        Ok((to_delete, deleted_ids))
     })?;
+
+    for id in deleted_ids {
+        let _ = delete_clipboard_data_items("clipboard", &id.to_string());
+    }
 
     delete_image_files(images_to_delete)
 }
@@ -554,6 +670,7 @@ pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
         Ok(to_delete)
     })?;
 
+    let _ = delete_clipboard_data_items("clipboard", &id.to_string());
     delete_image_files(images_to_delete)
 }
 
@@ -603,6 +720,9 @@ pub fn delete_clipboard_items(ids: &[i64]) -> Result<(), String> {
         Ok(to_delete)
     })?;
 
+    for id in &unique_ids {
+        let _ = delete_clipboard_data_items("clipboard", &id.to_string());
+    }
     delete_image_files(images_to_delete)
 }
 
@@ -634,6 +754,7 @@ pub fn clear_clipboard_history() -> Result<(), String> {
         Ok(to_delete)
     })?;
 
+    let _ = delete_clipboard_data_items_by_kind("clipboard");
     delete_image_files(images_to_delete)
 }
 

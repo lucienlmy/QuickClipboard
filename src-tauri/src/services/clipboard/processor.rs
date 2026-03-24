@@ -1,5 +1,6 @@
 use super::capture::{ClipboardContent, ContentType as CaptureType};
 use super::content_type::ContentType;
+use crate::services::database::ClipboardDataSeed;
 use image::ImageFormat;
 use std::io::Cursor;
 use std::fs;
@@ -40,6 +41,7 @@ pub struct ProcessedContent {
     pub image_id: Option<String>,
     pub source_app: Option<String>,      
     pub source_icon_hash: Option<String>,
+    pub raw_formats: Vec<ClipboardDataSeed>,
 }
 
 // 处理剪贴板内容，将原始数据转换为可存储的格式
@@ -58,14 +60,23 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
             } else if contains_links(&text) {
                 ct.add_type("link");
             }
-            
+
+            let image_id = content
+                .image_path
+                .as_deref()
+                .and_then(extract_image_id_from_path);
+            if image_id.is_some() {
+                ct.add_type("image");
+            }
+
             Ok(ProcessedContent {
                 content: text,
                 html_content: None,
                 content_type: ct.to_db_string(),
-                image_id: None,
+                image_id,
                 source_app,
                 source_icon_hash,
+                raw_formats: content.raw_formats,
             })
         }
         
@@ -76,7 +87,7 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 let text = content.text.unwrap_or_else(|| strip_html(&html));
                 
                 let mut ct = ContentType::new("rich_text");
-            
+                
                 if is_url(&text) {
                     ct.add_type("link");
                 } else if contains_links(&text) {
@@ -84,17 +95,33 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 }
                 
                 let (processed_html, image_ids) = process_html_images(&html)?;
-                let image_id = if image_ids.is_empty() { None } else { Some(image_ids.join(",")) };
+                let mut merged_image_ids = image_ids;
+                if let Some(extra_image_id) = content
+                    .image_path
+                    .as_deref()
+                    .and_then(extract_image_id_from_path)
+                {
+                    if !merged_image_ids.contains(&extra_image_id) {
+                        merged_image_ids.push(extra_image_id);
+                    }
+                    ct.add_type("image");
+                }
+                let image_id = if merged_image_ids.is_empty() {
+                    None
+                } else {
+                    Some(merged_image_ids.join(","))
+                };
                 
-                Ok(ProcessedContent {
-                    content: text,
-                    html_content: Some(processed_html),
-                    content_type: ct.to_db_string(),
-                    image_id,
-                    source_app,
-                    source_icon_hash,
-                })
-            }
+            Ok(ProcessedContent {
+                content: text,
+                html_content: Some(processed_html),
+                content_type: ct.to_db_string(),
+                image_id,
+                source_app,
+                source_icon_hash,
+                raw_formats: content.raw_formats,
+            })
+        }
         
         // 文件路径处理
         CaptureType::Files => {
@@ -128,6 +155,7 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 image_id,
                 source_app,
                 source_icon_hash,
+                raw_formats: content.raw_formats,
             })
         }
     }

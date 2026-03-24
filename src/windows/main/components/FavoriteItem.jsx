@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
@@ -18,10 +18,13 @@ import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { highlightText } from '@shared/utils/highlightText';
 import { useTheme } from '@shared/hooks/useTheme';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
+import { getFavoriteItemPasteOptions } from '@shared/api/favorites';
+import { extractFormatKinds, formatKindsToLabels } from '@shared/utils/pasteFormatHints';
 
 const PREVIEW_MODE_TEXT = 'text';
 const PREVIEW_MODE_IMAGE = 'image';
 const PREVIEW_HOVER_DELAY_MS = 120;
+const favoriteFormatKindsCache = new Map();
 
 const getItemPreviewMode = (type) => {
   const primaryType = getPrimaryType(type);
@@ -66,6 +69,8 @@ function FavoriteItem({
       : false;
   const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');
   const [showDragSideTooltips, setShowDragSideTooltips] = useState(false);
+  const [formatKinds, setFormatKinds] = useState(() => extractFormatKinds([], item));
+  const formatKindsLoadedRef = useRef(false);
   const previewTimerRef = useRef(null);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -182,6 +187,11 @@ function FavoriteItem({
   }, [isImageOrFileType, isMultiSelectMode]);
 
   useEffect(() => {
+    setFormatKinds(extractFormatKinds([], item));
+    formatKindsLoadedRef.current = false;
+  }, [item.id, item.content_type, item.content, item.html_content]);
+
+  useEffect(() => {
     return () => {
       if (previewTimerRef.current) {
         clearTimeout(previewTimerRef.current);
@@ -189,6 +199,30 @@ function FavoriteItem({
       }
     };
   }, []);
+
+  const ensureFormatKindsLoaded = useCallback(() => {
+    if (settings.textPreview !== false || formatKindsLoadedRef.current) {
+      return;
+    }
+
+    const cacheKey = String(item.id);
+    if (favoriteFormatKindsCache.has(cacheKey)) {
+      setFormatKinds(favoriteFormatKindsCache.get(cacheKey) || []);
+      formatKindsLoadedRef.current = true;
+      return;
+    }
+
+    formatKindsLoadedRef.current = true;
+    getFavoriteItemPasteOptions(item.id)
+      .then((options) => {
+        const kinds = extractFormatKinds(options, item);
+        favoriteFormatKindsCache.set(cacheKey, kinds);
+        setFormatKinds(kinds);
+      })
+      .catch(() => {
+        favoriteFormatKindsCache.set(cacheKey, extractFormatKinds([], item));
+      });
+  }, [settings.textPreview, item]);
 
   const groups = useSnapshot(groupsStore);
   const showGroupBadge = groups.currentGroup === '全部' && item.group_name && item.group_name !== '全部';
@@ -242,6 +276,7 @@ function FavoriteItem({
     if (isDragActive || isDragging || isMultiSelectMode) {
       return;
     }
+    ensureFormatKindsLoaded();
     if (isImageOrFileType) {
       setShowDragSideTooltips(true);
     }
@@ -286,8 +321,21 @@ function FavoriteItem({
       return;
     }
 
-    e.preventDefault();
+    const canPreventDefault = Boolean(e?.cancelable ?? e?.nativeEvent?.cancelable);
+    if (canPreventDefault) {
+      e.preventDefault();
+    }
     e.stopPropagation();
+
+    if (e.altKey) {
+      emit('preview-window-cycle-format', {
+        source: 'favorite',
+        itemId: String(item.id),
+        direction: e.deltaY < 0 ? 'prev' : 'next',
+      }).catch(() => { });
+      return;
+    }
+
     emit('preview-window-scroll', {
       direction: e.deltaY < 0 ? 'up' : 'down',
       mode: previewMode,
@@ -466,6 +514,11 @@ function FavoriteItem({
     ${color ? 'text-white border-white/20 shadow-sm' : 'text-qc-fg-muted border-qc-border bg-qc-panel/80'}
   `.trim().replace(/\s+/g, ' ');
   const isSmallHeight = settings.rowHeight === 'small';
+  const formatHintLabels = useMemo(() => formatKindsToLabels(formatKinds, t), [formatKinds, t]);
+  const shouldShowFormatHintTooltip = settings.textPreview === false && formatHintLabels.length > 1;
+  const formatHintTooltipContent = shouldShowFormatHintTooltip
+    ? t('previewWindow.formatsHint', { formats: formatHintLabels.join(' / ') })
+    : '';
 
 
   const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
@@ -474,7 +527,7 @@ function FavoriteItem({
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`
   } : {};
 
-  return (
+  const itemNode = (
     <div
       ref={setNodeRef}
       style={{ ...style, ...animationStyle }}
@@ -699,5 +752,15 @@ function FavoriteItem({
       </>}
     </div>
   );
+
+  if (shouldShowFormatHintTooltip) {
+    return (
+      <Tooltip content={formatHintTooltipContent} placement="top" asChild>
+        {itemNode}
+      </Tooltip>
+    );
+  }
+
+  return itemNode;
 }
 export default FavoriteItem;
