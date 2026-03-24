@@ -177,7 +177,7 @@
     },
     "sections": {
       "general": "常规设置",
-      "appearance": "外观主题",
+      "appearance": "个性化",
       "shortcuts": "快捷键",
       "clipboard": "剪贴板",
       "lanSync": "局域网同步",
@@ -290,7 +290,7 @@
       "unlimited": "不限"
     },
     "appearance": {
-      "title": "外观主题",
+      "title": "个性化",
       "description": "自定义应用的外观和主题",
       "themeSelect": "主题选择",
       "themeSelectDesc": "选择您喜欢的界面主题",

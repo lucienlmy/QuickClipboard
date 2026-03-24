@@ -177,7 +177,7 @@
     },
     "sections": {
       "general": "General",
-      "appearance": "Appearance",
+      "appearance": "Personalization",
       "shortcuts": "Shortcuts",
       "clipboard": "Clipboard",
       "lanSync": "LAN Sync",
@@ -298,7 +298,7 @@
       "unlimited": "Unlimited"
     },
     "appearance": {
-      "title": "Appearance",
+      "title": "Personalization",
       "description": "Customize the appearance and theme of the application",
       "themeSelect": "Theme Selection",
       "themeSelectDesc": "Choose your preferred interface theme",
