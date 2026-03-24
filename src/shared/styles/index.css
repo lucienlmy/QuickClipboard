@@ -155,29 +155,6 @@ body.dragging-cursor * {
   background-color: rgb(59, 130, 246);
 }
 
-.settings-section-header {
-  display: inline-flex;
-  padding: 12px;
-  background-color: var(--qc-panel);
-  border: 1px solid var(--qc-border);
-  border-bottom: none;
-  border-radius: 12px 12px 0 0;
-  margin-bottom: -1px;
-}
-
-.settings-section-content {
-  border-top-left-radius: 0;
-  border-top-right-radius: 12px;
-}
-
-.settings-section-content > [data-setting-anchor]:first-child {
-  padding-top: 0;
-}
-
-.settings-section-content > [data-setting-anchor]:last-child {
-  padding-bottom: 0;
-}
-
 input, select {
   margin: 0;
   padding: 0;
