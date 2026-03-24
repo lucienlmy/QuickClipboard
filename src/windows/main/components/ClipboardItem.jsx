@@ -13,7 +13,6 @@ import { addClipboardToFavorites, togglePinClipboardItem, showPreviewWindow, clo
 import { openEditorForClipboard } from '@shared/api/textEditor';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import { moveClipboardItemToTop } from '@shared/api';
-import { getToolState } from '@shared/services/toolActions';
 import { useTheme } from '@shared/hooks/useTheme';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 import { getClipboardItemPasteOptions } from '@shared/api/clipboard';
@@ -289,8 +288,7 @@ function ClipboardItem({
       try {
         await pasteClipboardItem(item.id);
         // 粘贴后置顶
-        const oneTimeEnabled = getToolState('one-time-paste-button');
-        if (settings.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {
+        if (settings.pasteToTop && item.id && !item.is_pinned) {
           try {
             await moveClipboardItemToTop(item.id);
           } finally {

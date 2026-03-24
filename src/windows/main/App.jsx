@@ -6,7 +6,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { settingsStore } from '@shared/store/settingsStore';
 import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
-import { toolsStore } from '@shared/store/toolsStore';
 import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore } from '@shared/store/favoritesStore';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
@@ -16,6 +15,7 @@ import { useNavigationKeyboard } from '@shared/hooks/useNavigationKeyboard';
 import { useWindowAnimation } from '@shared/hooks/useWindowAnimation';
 import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
 import { promptDisableWinVHotkeyIfNeeded } from '@shared/api/system';
+import { toggleWindowPin } from '@shared/services/titleBarActions';
 import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
@@ -282,7 +282,7 @@ function App() {
   // 固定/取消固定窗口
   const handleTogglePin = async () => {
     try {
-      await toolsStore.handleToolClick('pin-button');
+      await toggleWindowPin();
     } catch (error) {
       console.error('切换窗口固定状态失败:', error);
     }

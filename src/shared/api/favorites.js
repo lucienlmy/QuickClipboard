@@ -62,22 +62,6 @@ export async function pasteFavorite(id, action = null) {
 
     await invoke('paste_content', { params })
 
-    // 检查是否启用一次性粘贴
-    const { getToolState } = await import('@shared/services/toolActions')
-    const isOneTimePasteEnabled = getToolState('one-time-paste-button')
-
-    if (isOneTimePasteEnabled) {
-      try {
-        await deleteFavorite(id)
-        const { refreshFavorites } = await import('@shared/store/favoritesStore')
-        setTimeout(async () => {
-          await refreshFavorites()
-        }, 200)
-      } catch (deleteError) {
-        console.error('一次性粘贴：删除收藏项失败', deleteError)
-      }
-    }
-
     return true
   } catch (error) {
     console.error('粘贴收藏内容失败:', error)

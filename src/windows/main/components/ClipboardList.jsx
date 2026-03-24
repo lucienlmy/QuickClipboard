@@ -9,7 +9,6 @@ import { clipboardStore, loadClipboardRange, pasteClipboardItem } from '@shared/
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
 import { moveClipboardItemToTop, moveClipboardItemById } from '@shared/api';
-import { getToolState } from '@shared/services/toolActions';
 import ClipboardItem from './ClipboardItem';
 
 const SCROLL_DEBOUNCE_DELAY = 50;
@@ -126,8 +125,7 @@ const ClipboardList = forwardRef(({
       try {
         await pasteClipboardItem(item.id);
         // 粘贴后置顶
-        const oneTimeEnabled = getToolState('one-time-paste-button');
-        if (settings.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {
+        if (settings.pasteToTop && item.id && !item.is_pinned) {
           try {
             await moveClipboardItemToTop(item.id);
           } finally {
@@ -253,8 +251,7 @@ const ClipboardList = forwardRef(({
         try {
           const { pasteClipboardItem } = await import('@shared/api/clipboard');
           await pasteClipboardItem(item.id, 'plain');
-          const oneTimeEnabled = getToolState('one-time-paste-button');
-          if (settings.pasteToTop && !oneTimeEnabled && item.id && !item.is_pinned) {
+          if (settings.pasteToTop && item.id && !item.is_pinned) {
             try {
               await moveClipboardItemToTop(item.id);
             } finally {
