@@ -52,16 +52,16 @@ function FavoriteItem({
   const {
     settings,
     getHeightClass,
-    contentType,
+    renderType,
     formatTime,
     renderContent,
     searchKeyword
   } = useItemCommon(item, { isFavorite: true });
   const { isBackground } = useTheme();
-  const isFileType = getPrimaryType(contentType) === 'file';
-  const isImageType = getPrimaryType(contentType) === 'image';
+  const isFileType = renderType === 'file';
+  const isImageType = renderType === 'image';
   const isImageOrFileType = isFileType || isImageType;
-  const previewMode = getItemPreviewMode(contentType);
+  const previewMode = getItemPreviewMode(renderType);
   const previewEnabled = previewMode === PREVIEW_MODE_IMAGE
     ? settings.imagePreview !== false
     : previewMode === PREVIEW_MODE_TEXT
@@ -521,7 +521,7 @@ function FavoriteItem({
     : '';
 
 
-  const isTextOrRichText = getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text';
+  const isTextOrRichText = renderType === 'text' || renderType === 'rich_text';
 
   const animationStyle = animationDelay > 0 ? {
     animation: `slideInLeft 0.2s ease-out ${animationDelay}ms backwards`

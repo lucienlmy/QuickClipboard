@@ -54,15 +54,15 @@ function ClipboardItem({
     settings,
     getHeightClass,
     getLineClampClass,
-    contentType,
+    renderType,
     formatTime,
     renderContent
   } = useItemCommon(item);
   const { isBackground } = useTheme();
-  const isFileType = getPrimaryType(contentType) === 'file';
-  const isImageType = getPrimaryType(contentType) === 'image';
+  const isFileType = renderType === 'file';
+  const isImageType = renderType === 'image';
   const isImageOrFileType = isFileType || isImageType;
-  const previewMode = getItemPreviewMode(contentType);
+  const previewMode = getItemPreviewMode(renderType);
   const previewEnabled = previewMode === PREVIEW_MODE_IMAGE
     ? settings.imagePreview !== false
     : previewMode === PREVIEW_MODE_TEXT
@@ -705,7 +705,7 @@ function ClipboardItem({
               <i className="ti ti-star" style={{ fontSize: 12 }}></i>
             </button>
           </Tooltip>
-          {(getPrimaryType(contentType) === 'text' || getPrimaryType(contentType) === 'rich_text') && (
+          {(renderType === 'text' || renderType === 'rich_text') && (
             <Tooltip content={t('common.edit')} placement="bottom">
               <button className={actionButtonClasses} onClick={handleEditClick}>
                 <i className="ti ti-edit" style={{ fontSize: 12 }}></i>

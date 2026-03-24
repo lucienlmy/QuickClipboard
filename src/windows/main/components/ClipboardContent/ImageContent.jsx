@@ -1,10 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { formatFileSize } from '@shared/utils/format';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
+
+function parseFirstImageId(imageId) {
+  if (typeof imageId !== 'string' || !imageId.trim()) {
+    return '';
+  }
+
+  return imageId
+    .split(',')
+    .map((part) => part.trim())
+    .find((part) => part.length > 0) || '';
+}
 
 function ImageContent({ item }) {
   const settings = useSnapshot(settingsStore);
@@ -13,7 +24,7 @@ function ImageContent({ item }) {
   const maxWidth = settings.imageMaxWidth || 4096;
   const maxHeight = settings.imageMaxHeight || 4096;
   const maxSizeBytes = maxSizeMb * 1024 * 1024;
-  
+
   const { t } = useTranslation();
 
   const [imageSrc, setImageSrc] = useState(null);
@@ -25,15 +36,16 @@ function ImageContent({ item }) {
   const [fileName, setFileName] = useState(null);
   const [imageDimensions, setImageDimensions] = useState(null);
   const imagePathRef = useRef(null);
-  
+
   useEffect(() => {
     loadImage();
-  }, [item.id, item.content]);
-  
-  const loadImage = () => {
+  }, [item.id, item.content, item.image_id]);
+
+  const loadImage = async () => {
     try {
       setLoading(true);
       setError(false);
+      setImageSrc(null);
       setFileExists(true);
       setIsOversized(false);
       setFileSize(null);
@@ -42,10 +54,9 @@ function ImageContent({ item }) {
 
       if (item.content?.startsWith('data:image/')) {
         setImageSrc(item.content);
-        setLoading(false);
         return;
       }
-      
+
       if (item.content?.startsWith('files:')) {
         const filesData = JSON.parse(item.content.substring(6));
         if (filesData.files && filesData.files.length > 0) {
@@ -54,22 +65,22 @@ function ImageContent({ item }) {
           const actualPath = file.actual_path || file.path;
           const size = file.size || 0;
           const name = file.name || actualPath.split(/[/\\]/).pop();
-          
+
           imagePathRef.current = actualPath;
           setFileExists(exists);
           setFileSize(size);
           setFileName(name);
-          
+
           if (exists) {
             const imgWidth = file.width || 0;
             const imgHeight = file.height || 0;
             const isSizeOversized = size > maxSizeBytes;
             const isDimensionOversized = (imgWidth > maxWidth || imgHeight > maxHeight) && imgWidth > 0 && imgHeight > 0;
-            
+
             if (imgWidth > 0 && imgHeight > 0) {
               setImageDimensions({ width: imgWidth, height: imgHeight });
             }
-            
+
             if (isSizeOversized || isDimensionOversized) {
               setIsOversized(true);
             } else {
@@ -77,11 +88,20 @@ function ImageContent({ item }) {
               setImageSrc(assetUrl);
             }
           }
-          setLoading(false);
           return;
         }
       }
-      
+      const imageId = parseFirstImageId(item.image_id);
+      if (imageId) {
+        const dataDir = await invoke('get_data_directory');
+        const normalizedDataDir = String(dataDir).replace(/\\/g, '/');
+        const filePath = `${normalizedDataDir}/clipboard_images/${imageId}.png`;
+        imagePathRef.current = filePath;
+        setFileName(`${imageId}.png`);
+        setImageSrc(convertFileSrc(filePath, 'asset'));
+        return;
+      }
+
       setError(true);
     } catch (err) {
       console.error('加载图片失败:', err);
@@ -102,11 +122,11 @@ function ImageContent({ item }) {
     </div>;
   }
   if (isOversized || !fileExists) {
-    const statusText = !fileExists 
+    const statusText = !fileExists
       ? t('clipboard.fileNotFound', '文件不存在')
       : t('clipboard.imageTooLarge', '图片过大');
-    const sizeText = !fileExists 
-      ? null 
+    const sizeText = !fileExists
+      ? null
       : `${formatFileSize(fileSize)} / ${maxSizeMb} MB ${t('clipboard.maxLimit', '上限')}`;
     const dimensionText = !fileExists || !imageDimensions
       ? null
@@ -121,7 +141,7 @@ function ImageContent({ item }) {
     const badgeColorClass = !fileExists ? 'bg-red-500' : 'bg-amber-500';
     const iconName = !fileExists ? 'ti-photo-off' : 'ti-photo';
     const badgeIcon = !fileExists ? 'ti-x' : 'ti-alert-triangle';
-    
+
     return (
       <div
         className={`w-full h-full rounded overflow-hidden flex items-center bg-gradient-to-br ${colorClasses} border ${isAutoHeight ? 'justify-center py-4' : 'justify-start px-3 gap-3'} ${!fileExists ? 'opacity-60' : ''}`}
@@ -173,13 +193,22 @@ function ImageContent({ item }) {
       </div>
     );
   }
+
   return (
     <div
       className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent ${isAutoHeight ? 'max-h-[280px]' : 'h-full'}`}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
     >
-      <img src={imageSrc} alt="剪贴板图片" className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`} loading="lazy" decoding="async" />
+      <img
+        src={imageSrc}
+        alt="剪贴板图片"
+        className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`}
+        loading="lazy"
+        decoding="async"
+        onError={() => setError(true)}
+      />
     </div>
   );
 }
+
 export default ImageContent;

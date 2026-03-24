@@ -3,7 +3,7 @@ import { settingsStore } from '@shared/store';
 import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore } from '@shared/store/favoritesStore';
 import { TextContent, ImageContent, FileContent, HtmlContent } from '@windows/main/components/ClipboardContent';
-import { getPrimaryType } from '@shared/utils/contentType';
+import { getPrimaryType, hasType } from '@shared/utils/contentType';
 
 // 行高配置常量
 export const ROW_HEIGHT_CONFIG = {
@@ -12,6 +12,34 @@ export const ROW_HEIGHT_CONFIG = {
   medium: { px: 90, cardPx: 90, class: 'h-[90px]', cardClass: 'h-[90px]', itemClass: 'h-full', lineClamp: 'line-clamp-3', lineClampWithTitle: 'line-clamp-2' },
   small: { px: 50, cardPx: 50, class: 'h-[50px]', cardClass: 'h-[50px]', itemClass: 'h-full', lineClamp: 'line-clamp-2', lineClampWithTitle: 'line-clamp-2' }
 };
+
+function matchesFilterType(contentType, filterType) {
+  if (!contentType || !filterType || filterType === 'all') {
+    return false;
+  }
+
+  if (filterType === 'text') {
+    return hasType(contentType, 'text') || hasType(contentType, 'rich_text') || hasType(contentType, 'link');
+  }
+
+  return hasType(contentType, filterType) || getPrimaryType(contentType) === filterType;
+}
+
+function resolveRenderType(contentType, activeFilterType) {
+  const primaryType = getPrimaryType(contentType);
+  const normalizedFilterType = String(activeFilterType || '').trim();
+
+  if (!normalizedFilterType || normalizedFilterType === 'all') {
+    return primaryType;
+  }
+
+  if ((normalizedFilterType === 'image' || normalizedFilterType === 'file')
+    && matchesFilterType(contentType, normalizedFilterType)) {
+    return normalizedFilterType;
+  }
+
+  return primaryType;
+}
 
 // 剪贴板和收藏项的共同逻辑
 export function useItemCommon(item, options = {}) {
@@ -35,6 +63,8 @@ export function useItemCommon(item, options = {}) {
 
   // 获取内容类型
   const contentType = item.content_type || item.type || 'text';
+  const activeFilterType = options.activeFilterType ?? ((options.isFavorite ? favSnap.contentType : clipSnap.contentType) || 'all');
+  const renderType = resolveRenderType(contentType, activeFilterType);
 
   // 格式化时间
   const formatTime = () => {
@@ -42,15 +72,15 @@ export function useItemCommon(item, options = {}) {
     if (!timestamp) return '';
     const date = new Date(timestamp * 1000);
     const now = new Date();
-    
+
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const oneWeekAgo = new Date(today);
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    
+
     const recordDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+
     const timeFormat = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
     let timeStr = '';
 
@@ -92,7 +122,7 @@ export function useItemCommon(item, options = {}) {
     const disableExternalDrag = Boolean(layout?.disableExternalDrag);
     const disableExternalTooltip = Boolean(layout?.disableExternalTooltip);
     const lineClampClass = getLineClampClass(hasTitle);
-    const primaryType = getPrimaryType(contentType);
+    const primaryType = renderType;
     const rowHeight = settings.rowHeight;
     const clampLines = (() => {
       const m = String(lineClampClass).match(/line-clamp-(\d+)/);
@@ -131,6 +161,7 @@ export function useItemCommon(item, options = {}) {
     getHeightClass,
     getLineClampClass,
     contentType,
+    renderType,
     formatTime,
     renderContent,
     searchKeyword
