@@ -1005,6 +1005,14 @@
   },
   "previewWindow": {
     "textHint": "Ctrl+Wheel, scroll to view",
-    "imageHint": "Ctrl+Wheel, zoom image"
+    "imageHint": "Ctrl+Wheel, zoom image",
+    "currentFormatHint": "Current preview: {{format}}",
+    "formatsHint": "Included formats: {{formats}}",
+    "switchFormatHint": "Ctrl+Alt+Wheel to switch preview format",
+    "formatText": "Plain Text",
+    "formatHtml": "HTML",
+    "formatRtf": "RTF",
+    "formatImage": "Image",
+    "formatFile": "File"
   }
 }
