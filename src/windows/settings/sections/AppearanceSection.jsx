@@ -176,7 +176,7 @@ function AppearanceSection({
           </SettingItem>
 
           <SettingItem label={t('listSettings.listStyle.label')} description={t('listSettings.title')}>
-            <SegmentedControl value={settings.listStyle || 'compact'} onChange={value => onSettingChange('listStyle', value)} options={[{
+            <SegmentedControl value={settings.listStyle || 'card'} onChange={value => onSettingChange('listStyle', value)} options={[{
               value: 'compact',
               label: t('listSettings.listStyle.compact')
             }, {
@@ -202,7 +202,7 @@ function AppearanceSection({
           </SettingItem>
 
           {settings.listStyle === 'card' && <SettingItem label={t('settings.appearance.cardSpacing')} description={t('settings.appearance.cardSpacingDesc')}>
-              <SegmentedControl value={String(settings.cardSpacing ?? 12)} onChange={value => onSettingChange('cardSpacing', parseInt(value, 10))} options={[0, 4, 8, 12, 16, 20].map(v => ({
+              <SegmentedControl value={String(settings.cardSpacing ?? 8)} onChange={value => onSettingChange('cardSpacing', parseInt(value, 10))} options={[0, 4, 8, 12, 16, 20].map(v => ({
               value: String(v),
               label: `${v}px`
             }))} wrap columns={3} className="max-w-sm" />

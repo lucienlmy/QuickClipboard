@@ -93,7 +93,7 @@ const TitleBarSearch = forwardRef(({
       setTimeout(() => {
         if (onNavigate) onNavigate('down');
       }, 10);
-    } else if (matchesShortcut(e, settings.executeItemShortcut)) {
+    } else if (matchesShortcut(e, settings.pasteItemShortcut)) {
       e.preventDefault();
       inputRef.current?.blur();
       setTimeout(() => {

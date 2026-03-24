@@ -49,7 +49,7 @@ function SoundSection({
         </SettingItem>
 
         <SettingItem label={t('settings.sound.copySoundTiming')} description={t('settings.sound.copySoundTimingDesc')}>
-          <Select value={settings.copySoundTiming || 'immediate'} onChange={value => onSettingChange('copySoundTiming', value)} options={timingOptions} className="w-40" />
+          <Select value={settings.copySoundTiming || 'success'} onChange={value => onSettingChange('copySoundTiming', value)} options={timingOptions} className="w-40" />
         </SettingItem>
 
         <SettingItem label={t('settings.sound.pasteSound')} description={t('settings.sound.pasteSoundDesc')}>
@@ -57,7 +57,7 @@ function SoundSection({
         </SettingItem>
 
         <SettingItem label={t('settings.sound.pasteSoundTiming')} description={t('settings.sound.pasteSoundTimingDesc')}>
-          <Select value={settings.pasteSoundTiming || 'immediate'} onChange={value => onSettingChange('pasteSoundTiming', value)} options={timingOptions} className="w-40" />
+          <Select value={settings.pasteSoundTiming || 'success'} onChange={value => onSettingChange('pasteSoundTiming', value)} options={timingOptions} className="w-40" />
         </SettingItem>
       </SettingsSection>
     </>;

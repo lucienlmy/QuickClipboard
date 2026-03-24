@@ -29,7 +29,7 @@ pub struct AppSettings {
     pub sound_volume: f64,
     pub copy_sound_path: String,
     pub paste_sound_path: String,
-    pub copy_sound_timing: String, 
+    pub copy_sound_timing: String,
     pub paste_sound_timing: String,
 
     // 图片显示限制
@@ -136,7 +136,7 @@ pub struct AppSettings {
     pub tab_right_shortcut: String,
     pub focus_search_shortcut: String,
     pub hide_window_shortcut: String,
-    pub execute_item_shortcut: String,
+    pub paste_item_shortcut: String,
     pub previous_group_shortcut: String,
     pub next_group_shortcut: String,
     pub toggle_pin_shortcut: String,
@@ -196,8 +196,8 @@ impl Default for AppSettings {
             sound_volume: 50.0,
             copy_sound_path: String::new(),
             paste_sound_path: String::new(),
-            copy_sound_timing: "immediate".to_string(),
-            paste_sound_timing: "immediate".to_string(),
+            copy_sound_timing: "success".to_string(),
+            paste_sound_timing: "success".to_string(),
 
             image_max_size_mb: 15,
             image_max_width: 4096,
@@ -220,7 +220,7 @@ impl Default for AppSettings {
 
             quickpaste_enabled: true,
             quickpaste_shortcut: "Ctrl+`".to_string(),
-            quickpaste_paste_on_modifier_release: false,
+            quickpaste_paste_on_modifier_release: true,
             quickpaste_scroll_sound: true,
             quickpaste_scroll_sound_path: "sounds/roll.mp3".to_string(),
             quickpaste_window_width: 300,
@@ -248,8 +248,8 @@ impl Default for AppSettings {
 
             row_height: "medium".to_string(),
             file_display_mode: "detailed".to_string(),
-            list_style: "compact".to_string(),
-            card_spacing: 12,
+            list_style: "card".to_string(),
+            card_spacing: 8,
 
             auto_scroll_to_top_on_show: false,
             auto_clear_search: false,
@@ -287,7 +287,7 @@ impl Default for AppSettings {
             tab_right_shortcut: "ArrowRight".to_string(),
             focus_search_shortcut: "Tab".to_string(),
             hide_window_shortcut: "Escape".to_string(),
-            execute_item_shortcut: "Enter".to_string(),
+            paste_item_shortcut: "Enter".to_string(),
             previous_group_shortcut: "Ctrl+ArrowUp".to_string(),
             next_group_shortcut: "Ctrl+ArrowDown".to_string(),
             toggle_pin_shortcut: "Ctrl+P".to_string(),

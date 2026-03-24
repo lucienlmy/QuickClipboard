@@ -29,10 +29,10 @@ export const defaultSettings = {
   uiAnimationEnabled: true,
 
   // 列表外观
-  listStyle: 'compact', 
+  listStyle: 'card', 
   rowHeight: 'medium',
   fileDisplayMode: 'detailed', 
-  cardSpacing: 12, 
+  cardSpacing: 8, 
   
   // 快捷键设置
   toggleShortcut: 'Shift+Space',
@@ -48,7 +48,7 @@ export const defaultSettings = {
   tabRightShortcut: 'ArrowRight',
   focusSearchShortcut: 'Tab',
   hideWindowShortcut: 'Escape',
-  executeItemShortcut: 'Enter',
+  pasteItemShortcut: 'Enter',
   previousGroupShortcut: 'Ctrl+ArrowUp',
   nextGroupShortcut: 'Ctrl+ArrowDown',
   togglePinShortcut: 'Ctrl+P',
@@ -84,8 +84,8 @@ export const defaultSettings = {
   soundVolume: 50,
   copySoundPath: '',
   pasteSoundPath: '',
-  copySoundTiming: 'immediate',  
-  pasteSoundTiming: 'immediate', 
+  copySoundTiming: 'success',  
+  pasteSoundTiming: 'success', 
 
   // 图片显示限制
   imageMaxSizeMb: 15,
@@ -94,7 +94,7 @@ export const defaultSettings = {
   
   // 便捷粘贴设置
   quickpasteEnabled: true,
-  quickpastePasteOnModifierRelease: false,
+  quickpastePasteOnModifierRelease: true,
   quickpasteScrollSound: true,
   quickpasteScrollSoundPath: 'sounds/roll.mp3',
   

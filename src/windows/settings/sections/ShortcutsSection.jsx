@@ -220,7 +220,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
               <ShortcutInput value={settings.hideWindowShortcut} onChange={value => onSettingChange('hideWindowShortcut', value)} onReset={() => onSettingChange('hideWindowShortcut', 'Escape')} hasError={hasErrorStatus('hideWindowShortcut')} errorMessage={getErrorMessage('hideWindowShortcut')} />
             </SettingItem>
             <SettingItem label={t('settings.shortcuts.executeItem')} description={t('settings.shortcuts.executeItemDesc')}>
-              <ShortcutInput value={settings.executeItemShortcut} onChange={value => onSettingChange('executeItemShortcut', value)} onReset={() => onSettingChange('executeItemShortcut', 'Enter')} hasError={hasErrorStatus('executeItemShortcut')} errorMessage={getErrorMessage('executeItemShortcut')} />
+              <ShortcutInput value={settings.pasteItemShortcut} onChange={value => onSettingChange('pasteItemShortcut', value)} onReset={() => onSettingChange('pasteItemShortcut', 'Enter')} hasError={hasErrorStatus('pasteItemShortcut')} errorMessage={getErrorMessage('pasteItemShortcut')} />
             </SettingItem>
             <SettingItem label={t('settings.shortcuts.previousGroup')} description={t('settings.shortcuts.previousGroupDesc')}>
               <ShortcutInput value={settings.previousGroupShortcut} onChange={value => onSettingChange('previousGroupShortcut', value)} onReset={() => onSettingChange('previousGroupShortcut', 'Ctrl+ArrowUp')} hasError={hasErrorStatus('previousGroupShortcut')} errorMessage={getErrorMessage('previousGroupShortcut')} />

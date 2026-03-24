@@ -241,7 +241,7 @@ fn handle_navigation_key(vk: u32) -> bool {
     let shortcuts = [
         (&settings.navigate_up_shortcut, "navigate-up"),
         (&settings.navigate_down_shortcut, "navigate-down"),
-        (&settings.execute_item_shortcut, "execute-item"),
+        (&settings.paste_item_shortcut, "execute-item"),
         (&settings.tab_left_shortcut, "tab-left"),
         (&settings.tab_right_shortcut, "tab-right"),
         (&settings.previous_group_shortcut, "previous-group"),

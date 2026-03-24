@@ -269,7 +269,7 @@ const FavoritesList = forwardRef(({
   }
   const rowConfig = ROW_HEIGHT_CONFIG[settings.rowHeight] || ROW_HEIGHT_CONFIG.medium;
   const isCardStyle = settings.listStyle === 'card';
-  const cardSpacingPx = typeof settings.cardSpacing === 'number' ? settings.cardSpacing : 12;
+  const cardSpacingPx = typeof settings.cardSpacing === 'number' ? settings.cardSpacing : 8;
   const defaultHeight = isCardStyle ? rowConfig.cardPx + cardSpacingPx : rowConfig.px;
   const heightClass = isCardStyle ? rowConfig.cardClass : rowConfig.class;
   const getCardOuterStyle = (index) => isCardStyle ? {
