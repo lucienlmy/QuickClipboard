@@ -51,7 +51,7 @@ const FavoritesList = forwardRef(({
     });
   }, [itemsArray]);
 
-  const canDrag = !favSnap.filter && favSnap.contentType === 'all';
+  const canDrag = !isMultiSelectMode;
 
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
