@@ -4,6 +4,11 @@ import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore } from '@shared/store/favoritesStore';
 import { TextContent, ImageContent, FileContent, HtmlContent } from '@windows/main/components/ClipboardContent';
 import { getPrimaryType, hasType } from '@shared/utils/contentType';
+import {
+  DISPLAY_FORMAT_HTML,
+  DISPLAY_FORMAT_IMAGE,
+  resolveDisplayFormatByPriority,
+} from '@shared/utils/displayFormatPriority';
 
 // 行高配置常量
 export const ROW_HEIGHT_CONFIG = {
@@ -143,17 +148,16 @@ export function useItemCommon(item, options = {}) {
       return <FileContent item={item} compact={compact} searchKeyword={searchKeyword} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
     }
 
-    // HTML 富文本类型
-    if (primaryType === 'rich_text') {
-      // 根据格式设置决定显示 HTML 还是纯文本
-      if (settings.pasteWithFormat && item.html_content) {
-        return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
-      } else {
-        return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} {...textLayout} />;
-      }
+    const displayFormat = resolveDisplayFormatByPriority(item, settings.displayPriorityOrder);
+
+    if (displayFormat === DISPLAY_FORMAT_IMAGE) {
+      return <ImageContent item={item} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
     }
 
-    // 默认文本类型
+    if (displayFormat === DISPLAY_FORMAT_HTML && item.html_content) {
+      return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
+    }
+
     return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} {...textLayout} />;
   };
   return {

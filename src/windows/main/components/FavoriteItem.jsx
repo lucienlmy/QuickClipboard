@@ -20,16 +20,30 @@ import { useTheme } from '@shared/hooks/useTheme';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 import { getFavoriteItemPasteOptions } from '@shared/api/favorites';
 import { extractFormatKinds, formatKindsToLabels } from '@shared/utils/pasteFormatHints';
+import {
+  DISPLAY_FORMAT_HTML,
+  DISPLAY_FORMAT_IMAGE,
+  resolveDisplayFormatByPriority,
+} from '@shared/utils/displayFormatPriority';
 
 const PREVIEW_MODE_TEXT = 'text';
+const PREVIEW_MODE_HTML = 'html';
 const PREVIEW_MODE_IMAGE = 'image';
 const PREVIEW_HOVER_DELAY_MS = 120;
 const favoriteFormatKindsCache = new Map();
 
-const getItemPreviewMode = (type) => {
-  const primaryType = getPrimaryType(type);
+const getItemPreviewMode = (item, type, displayPriorityOrder) => {
+  const primaryType = getPrimaryType(type || item?.content_type);
   if (primaryType === 'image') return PREVIEW_MODE_IMAGE;
-  if (primaryType === 'text' || primaryType === 'rich_text' || primaryType === 'link') return PREVIEW_MODE_TEXT;
+  if (primaryType === 'file') return null;
+
+  if (primaryType === 'text' || primaryType === 'rich_text' || primaryType === 'link') {
+    const displayFormat = resolveDisplayFormatByPriority(item, displayPriorityOrder);
+    if (displayFormat === DISPLAY_FORMAT_IMAGE) return PREVIEW_MODE_IMAGE;
+    if (displayFormat === DISPLAY_FORMAT_HTML) return PREVIEW_MODE_HTML;
+    return PREVIEW_MODE_TEXT;
+  }
+
   return null;
 };
 
@@ -61,10 +75,10 @@ function FavoriteItem({
   const isFileType = renderType === 'file';
   const isImageType = renderType === 'image';
   const isImageOrFileType = isFileType || isImageType;
-  const previewMode = getItemPreviewMode(renderType);
+  const previewMode = getItemPreviewMode(item, renderType, settings.displayPriorityOrder);
   const previewEnabled = previewMode === PREVIEW_MODE_IMAGE
     ? settings.imagePreview !== false
-    : previewMode === PREVIEW_MODE_TEXT
+    : (previewMode === PREVIEW_MODE_TEXT || previewMode === PREVIEW_MODE_HTML)
       ? settings.textPreview !== false
       : false;
   const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');

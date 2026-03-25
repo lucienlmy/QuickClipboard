@@ -23,6 +23,7 @@ import {
   getOneTimePasteEventName,
   getOneTimePasteStorageKey
 } from '@shared/services/oneTimePaste';
+import { normalizeDisplayPriorityValue } from '@shared/utils/displayFormatPriority';
 import logoIcon from '@/assets/icon1024.png';
 import TitleBarSearch from './TitleBarSearch';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
@@ -158,6 +159,35 @@ const TitleBar = forwardRef(({
     event.stopPropagation();
 
     const checkIcon = enabled => (enabled ? 'ti ti-check' : undefined);
+    const normalizedDisplayPriority = normalizeDisplayPriorityValue(settingsSnap.displayPriorityOrder);
+    const displayPriorityOptions = [{
+      id: 'text-html-image',
+      value: 'text,html,image',
+      label: t('settings.clipboard.displayPriorityTextHtmlImage')
+    }, {
+      id: 'text-image-html',
+      value: 'text,image,html',
+      label: t('settings.clipboard.displayPriorityTextImageHtml')
+    }, {
+      id: 'html-text-image',
+      value: 'html,text,image',
+      label: t('settings.clipboard.displayPriorityHtmlTextImage')
+    }, {
+      id: 'html-image-text',
+      value: 'html,image,text',
+      label: t('settings.clipboard.displayPriorityHtmlImageText')
+    }, {
+      id: 'image-text-html',
+      value: 'image,text,html',
+      label: t('settings.clipboard.displayPriorityImageTextHtml')
+    }, {
+      id: 'image-html-text',
+      value: 'image,html,text',
+      label: t('settings.clipboard.displayPriorityImageHtmlText')
+    }];
+    const displayPriorityValueByMenuId = Object.fromEntries(
+      displayPriorityOptions.map((option) => [`menu-display-priority-${option.id}`, option.value])
+    );
 
     const screenshotItem = createMenuItem('menu-screenshot-group', t('tools.moreMenu.screenshot'), {
       icon: 'ti ti-screenshot',
@@ -176,6 +206,11 @@ const TitleBar = forwardRef(({
       createMenuItem('menu-preview-image', t('settings.clipboard.imagePreview'), { icon: checkIcon(settingsSnap.imagePreview !== false) })
     ];
 
+    const displayPriorityItem = createMenuItem('menu-display-priority-group', t('settings.clipboard.displayPriority'), { icon: 'ti ti-sort-descending-2' });
+    displayPriorityItem.children = displayPriorityOptions.map((option) =>
+      createMenuItem(`menu-display-priority-${option.id}`, option.label, { icon: checkIcon(normalizedDisplayPriority === option.value) })
+    );
+
     const pasteItem = createMenuItem('menu-paste-group', t('tools.moreMenu.globalPaste'), { icon: 'ti ti-clipboard' });
     pasteItem.children = [
       createMenuItem('menu-paste-format', t('tools.formatToggle'), { icon: checkIcon(settingsSnap.pasteWithFormat !== false) }),
@@ -186,6 +221,7 @@ const TitleBar = forwardRef(({
     const menuItems = [
       screenshotItem,
       previewItem,
+      displayPriorityItem,
       pasteItem,
       createSeparator(),
       createMenuItem('menu-clear-clipboard-history', t('contextMenu.clearAll'), { icon: 'ti ti-trash-x' }),
@@ -197,6 +233,16 @@ const TitleBar = forwardRef(({
       darkThemeStyle: settingsStore.darkThemeStyle
     });
     if (!result) {
+      return;
+    }
+
+    const displayPriorityValue = displayPriorityValueByMenuId[result];
+    if (displayPriorityValue) {
+      try {
+        await settingsStore.saveSetting('displayPriorityOrder', displayPriorityValue);
+      } catch (error) {
+        console.error('切换展示优先级失败:', error);
+      }
       return;
     }
 

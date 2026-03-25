@@ -18,6 +18,7 @@ import {
   formatKindsToLabels,
   resolvePreviewModes as resolveFormatPreviewModes,
 } from '@shared/utils/pasteFormatHints';
+import { normalizeDisplayPriorityOrder } from '@shared/utils/displayFormatPriority';
 import {
   ImagePreview,
   HtmlPreview,
@@ -115,6 +116,30 @@ async function resolveImageUrlFromItem(item) {
   }
 
   return '';
+}
+
+function orderPreviewModesByDisplayPriority(modes, displayPriorityOrder) {
+  if (!Array.isArray(modes) || modes.length <= 1) {
+    return Array.isArray(modes) ? modes : [];
+  }
+
+  const orderedFormats = normalizeDisplayPriorityOrder(displayPriorityOrder);
+  const modeOrderMap = {
+    text: MODE_TEXT,
+    html: MODE_HTML,
+    image: MODE_IMAGE,
+  };
+  const orderedModes = orderedFormats
+    .map((format) => modeOrderMap[format])
+    .filter((mode) => typeof mode === 'string' && mode.length > 0);
+
+  const weight = new Map(orderedModes.map((mode, index) => [mode, index]));
+  const fallbackWeight = orderedModes.length + 10;
+  return [...modes].sort((a, b) => {
+    const wa = weight.has(a) ? weight.get(a) : fallbackWeight;
+    const wb = weight.has(b) ? weight.get(b) : fallbackWeight;
+    return wa - wb;
+  });
 }
 
 function App() {
@@ -217,7 +242,10 @@ function App() {
         if (cancelled) return;
 
         const nextFormatKinds = extractFormatKinds(pasteOptions, item);
-        const supportedPreviewModes = resolveFormatPreviewModes(item, nextFormatKinds);
+        const supportedPreviewModes = orderPreviewModesByDisplayPriority(
+          resolveFormatPreviewModes(item, nextFormatKinds),
+          settings.displayPriorityOrder,
+        );
         const requestedMode = resolvePreviewMode(previewData.mode, item);
         const initialMode = supportedPreviewModes.includes(requestedMode)
           ? requestedMode
@@ -239,7 +267,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [previewData]);
+  }, [previewData, settings.displayPriorityOrder]);
 
   useEffect(() => {
     if (!previewItem || previewMode !== MODE_IMAGE) {
@@ -416,8 +444,11 @@ function App() {
   }, [previewData, previewMode]);
 
   const supportedPreviewModes = useMemo(
-    () => resolveFormatPreviewModes(previewItem, formatKinds),
-    [previewItem, formatKinds],
+    () => orderPreviewModesByDisplayPriority(
+      resolveFormatPreviewModes(previewItem, formatKinds),
+      settings.displayPriorityOrder,
+    ),
+    [previewItem, formatKinds, settings.displayPriorityOrder],
   );
 
   useEffect(() => {

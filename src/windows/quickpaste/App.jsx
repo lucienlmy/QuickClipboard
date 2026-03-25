@@ -13,6 +13,11 @@ import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import { ImageContent, FileContent, HtmlContent, TextContent } from '@windows/main/components/ClipboardContent';
 import { getPrimaryType } from '@shared/utils/contentType';
+import {
+  DISPLAY_FORMAT_HTML,
+  DISPLAY_FORMAT_IMAGE,
+  resolveDisplayFormatByPriority,
+} from '@shared/utils/displayFormatPriority';
 import { playScrollSound } from '@shared/api';
 
 const ITEM_HEIGHT = 52;
@@ -271,17 +276,19 @@ function QuickPasteWindow() {
       );
     }
 
-    if (primaryType === 'rich_text') {
-      if (settings.pasteWithFormat && item.html_content) {
-        return (
-          <div className="w-full h-7 overflow-hidden">
-            <HtmlContent htmlContent={item.html_content} lineClampClass="line-clamp-1" />
-          </div>
-        );
-      }
+    const displayFormat = resolveDisplayFormatByPriority(item, settings.displayPriorityOrder);
+    if (displayFormat === DISPLAY_FORMAT_IMAGE) {
+      return (
+        <div className="w-full h-7 overflow-hidden rounded flex items-center">
+          <ImageContent item={item} />
+        </div>
+      );
+    }
+
+    if (displayFormat === DISPLAY_FORMAT_HTML && item.html_content) {
       return (
         <div className="w-full h-7 overflow-hidden">
-          <TextContent content={item.content || ''} lineClampClass="line-clamp-1" />
+          <HtmlContent htmlContent={item.html_content} lineClampClass="line-clamp-1" />
         </div>
       );
     }

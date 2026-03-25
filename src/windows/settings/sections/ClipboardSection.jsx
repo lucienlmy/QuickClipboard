@@ -26,6 +26,25 @@ function ClipboardSection({
     value: 'shift_insert',
     label: t('settings.clipboard.pasteShortcutShiftInsert')
   }];
+  const displayPriorityOptions = [{
+    value: 'text,html,image',
+    label: t('settings.clipboard.displayPriorityTextHtmlImage')
+  }, {
+    value: 'text,image,html',
+    label: t('settings.clipboard.displayPriorityTextImageHtml')
+  }, {
+    value: 'html,text,image',
+    label: t('settings.clipboard.displayPriorityHtmlTextImage')
+  }, {
+    value: 'html,image,text',
+    label: t('settings.clipboard.displayPriorityHtmlImageText')
+  }, {
+    value: 'image,text,html',
+    label: t('settings.clipboard.displayPriorityImageTextHtml')
+  }, {
+    value: 'image,html,text',
+    label: t('settings.clipboard.displayPriorityImageHtmlText')
+  }];
   return <>
       <SettingsSection title={t('settings.clipboard.title')} description={t('settings.clipboard.description')}>
         <SettingItem label={t('settings.clipboard.monitor')} description={t('settings.clipboard.monitorDesc')}>
@@ -42,6 +61,10 @@ function ClipboardSection({
 
         <SettingItem label={t('settings.clipboard.textPreview')} description={t('settings.clipboard.textPreviewDesc')}>
           <Toggle checked={settings.textPreview} onChange={checked => onSettingChange('textPreview', checked)} />
+        </SettingItem>
+
+        <SettingItem label={t('settings.clipboard.displayPriority')} description={t('settings.clipboard.displayPriorityDesc')}>
+          <Select value={settings.displayPriorityOrder || 'text,html,image'} onChange={value => onSettingChange('displayPriorityOrder', value)} options={displayPriorityOptions} className="w-56" />
         </SettingItem>
 
         <SettingItem label={t('settings.clipboard.imageMaxSize')} description={t('settings.clipboard.imageMaxSizeDesc')}>

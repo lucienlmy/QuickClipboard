@@ -28,10 +28,7 @@ export function resolvePreviewMode(requestedMode, item) {
     return MODE_IMAGE;
   }
 
-  if (
-    requestedMode === MODE_HTML ||
-    (primaryType === 'rich_text' && typeof item?.html_content === 'string' && item.html_content.trim().length > 0)
-  ) {
+  if (requestedMode === MODE_HTML) {
     return MODE_HTML;
   }
 
