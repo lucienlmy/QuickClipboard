@@ -6,7 +6,9 @@ import { showConfirm } from '@shared/utils/dialog';
 import { clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
 import { favoritesStore, refreshFavorites } from '@shared/store/favoritesStore';
 import { groupsStore } from '@shared/store/groupsStore';
+import { settingsStore } from '@shared/store/settingsStore';
 import {
+  addClipboardToFavorites,
   deleteClipboardItems,
   mergeCopyClipboardItems,
   mergePasteClipboardItems,
@@ -16,6 +18,8 @@ import {
   mergeCopyFavoriteItems,
   mergePasteFavoriteItems,
 } from '@shared/api/favorites';
+import { moveFavoriteToGroup } from '@shared/api/groups';
+import { createMenuItem, showContextMenuFromEvent } from '@/plugins/context_menu/index.js';
 import { toast, TOAST_POSITIONS, TOAST_SIZES } from '@shared/store/toastStore';
 import { getSelectionMergeState } from '../utils/multiSelect';
 
@@ -24,6 +28,7 @@ function MultiSelectActionBar({ activeTab }) {
   const clipboardSnap = useSnapshot(clipboardStore);
   const favoritesSnap = useSnapshot(favoritesStore);
   const groupsSnap = useSnapshot(groupsStore);
+  const settingsSnap = useSnapshot(settingsStore);
 
   const currentSnap = activeTab === 'clipboard'
     ? clipboardSnap
@@ -122,6 +127,60 @@ function MultiSelectActionBar({ activeTab }) {
     }
   };
 
+  const handleGroupAction = async (event) => {
+    if (!selectedCount) return;
+
+    const groups = groupsSnap.groups || [];
+    const availableGroups = activeTab === 'favorites' && groupsSnap.currentGroup !== '全部'
+      ? groups.filter(group => group.name !== groupsSnap.currentGroup)
+      : groups;
+    if (!availableGroups.length) {
+      return;
+    }
+
+    const actionPrefix = activeTab === 'clipboard' ? 'multi-select-add-group-' : 'multi-select-move-group-';
+    const menuItems = availableGroups.map(group => createMenuItem(
+      `${actionPrefix}${group.name}`,
+      group.name,
+      {
+        icon: group.icon || 'ti ti-folder',
+        iconColor: group.name === '全部' ? null : (group.color || '#dc2626'),
+      }
+    ));
+
+    const result = await showContextMenuFromEvent(event, menuItems, {
+      theme: settingsSnap.theme,
+      darkThemeStyle: settingsSnap.darkThemeStyle,
+    });
+
+    if (!result || !result.startsWith(actionPrefix)) {
+      return;
+    }
+
+    const groupName = result.substring(actionPrefix.length);
+
+    try {
+      if (activeTab === 'clipboard') {
+        await Promise.all(selectedIds.map(id => addClipboardToFavorites(id, groupName)));
+      } else {
+        await Promise.all(selectedIds.map(id => moveFavoriteToGroup(id, groupName)));
+        await refreshFavorites(groupsSnap.currentGroup);
+      }
+
+      currentStore.exitMultiSelectMode();
+      toast.success(
+        activeTab === 'clipboard' ? t('contextMenu.addedToFavorites') : t('contextMenu.movedToGroup'),
+        withToastConfig
+      );
+    } catch (error) {
+      console.error(
+        activeTab === 'clipboard' ? '批量添加到分组失败:' : '批量移动到分组失败:',
+        error
+      );
+      toast.error(error?.message || t('common.operationFailed'), withToastConfig);
+    }
+  };
+
   return (
     <div className="multi-select-action-bar flex-shrink-0 h-11 px-3 border-t border-qc-border bg-qc-panel backdrop-blur-sm rounded-bl-[8px] rounded-br-[8px]">
       <div className="h-full flex items-center justify-between gap-3">
@@ -163,6 +222,25 @@ function MultiSelectActionBar({ activeTab }) {
               aria-disabled={!selectedCount || !mergeState.canMerge}
             >
               <i className="ti ti-clipboard-list" style={{ fontSize: 15 }}></i>
+            </button>
+          </Tooltip>
+
+          <Tooltip
+            content={selectedCount
+              ? (activeTab === 'clipboard' ? t('contextMenu.addToFavorites') : t('contextMenu.moveToGroup'))
+              : getDisabledTooltip('selectFirst')}
+            placement="top"
+            asChild
+          >
+            <button
+              className={makeActionButtonClasses(!selectedCount)}
+              onClick={handleGroupAction}
+              aria-disabled={!selectedCount}
+            >
+              <i
+                className={activeTab === 'clipboard' ? 'ti ti-folder-plus' : 'ti ti-folder-share'}
+                style={{ fontSize: 15 }}
+              ></i>
             </button>
           </Tooltip>
 
