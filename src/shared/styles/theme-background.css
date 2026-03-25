@@ -289,6 +289,11 @@ body.theme-background {
   color: var(--bg-titlebar-text, #333333) !important;
 }
 
+.theme-background.has-dynamic-titlebar .multi-select-action-bar {
+  background-color: var(--bg-titlebar-bg, rgb(240, 240, 240)) !important;
+  border-top-color: var(--bg-titlebar-border, rgba(232, 233, 234, 0.8)) !important;
+}
+
 
 .theme-background.has-dynamic-titlebar .footer-bar button {
   color: var(--bg-titlebar-text, #333333) !important;

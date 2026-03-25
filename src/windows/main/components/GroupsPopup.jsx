@@ -12,6 +12,8 @@ import { showConfirm, showError } from '@shared/utils/dialog';
 import GroupModal from './GroupModal';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
+const ACTIVE_ICON_BUTTON_CLASS = 'bg-blue-500 bg-dynamic-primary text-white hover:bg-blue-600';
+
 const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) => {
   const {
     attributes,
@@ -75,10 +77,10 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
           <Tooltip content={t('groups.edit')} placement="left" asChild>
             <button
               onClick={(e) => onEdit(e, group)}
-              className={`p-0.5 rounded transition-all ${
+              className={`w-5 h-5 flex items-center justify-center rounded-md transition-all ${
                 isActive
                   ? 'bg-qc-border hover:bg-qc-border-strong text-white'
-                  : 'bg-qc-panel/80 hover:bg-qc-hover text-qc-fg'
+                  : 'bg-qc-panel/90 hover:bg-blue-100 text-qc-fg hover:text-blue-600'
               }`}
             >
               <i className="ti ti-edit" style={{ fontSize: 10 }}></i>
@@ -87,7 +89,7 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
           <Tooltip content={t('groups.delete')} placement="left" asChild>
             <button
               onClick={(e) => onDelete(e, group.name)}
-              className={`p-0.5 rounded transition-all ${
+              className={`w-5 h-5 flex items-center justify-center rounded-md transition-all ${
                 isActive
                   ? 'bg-qc-border hover:bg-red-400/50 text-white'
                   : 'bg-qc-panel/80 hover:bg-red-100 text-qc-fg hover:text-red-600'
@@ -105,7 +107,8 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t }) =
 const GroupsPopup = forwardRef(({
   activeTab,
   onTabChange,
-  onGroupChange
+  onGroupChange,
+  mode = 'footer'
 }, ref) => {
   const { t } = useTranslation();
   const groups = useSnapshot(groupsStore);
@@ -116,8 +119,13 @@ const GroupsPopup = forwardRef(({
   const [editingGroup, setEditingGroup] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const [tabPanelWidth, setTabPanelWidth] = useState(360);
+  const [tabPanelRightOffset, setTabPanelRightOffset] = useState(0);
+  const [tabPanelTopOffset, setTabPanelTopOffset] = useState(35);
+  const rootRef = useRef(null);
   const closeTimerRef = useRef(null);
   const animationTimerRef = useRef(null);
+  const isTabMode = mode === 'tab';
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -138,6 +146,72 @@ const GroupsPopup = forwardRef(({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isTabMode) {
+      return undefined;
+    }
+
+    const rootElement = rootRef.current;
+    if (!rootElement) {
+      return undefined;
+    }
+    const tabNavigationElement = rootElement.closest('.tab-navigation');
+    const tabRightAreaElement = tabNavigationElement?.querySelector('.tab-navigation-right');
+    const mainContainerElement = rootElement.closest('.main-container');
+
+    const updateTabPanelWidth = () => {
+      const baseWidth = tabRightAreaElement?.clientWidth
+        || (tabNavigationElement?.clientWidth ? tabNavigationElement.clientWidth * 0.5 : 0)
+        || mainContainerElement?.clientWidth
+        || window.innerWidth;
+      const nextWidth = Math.floor(baseWidth);
+      setTabPanelWidth(nextWidth);
+
+      const alignElement = tabRightAreaElement || tabNavigationElement;
+      if (alignElement) {
+        const alignRect = alignElement.getBoundingClientRect();
+        const rootRect = rootElement.getBoundingClientRect();
+        const nextRightOffset = alignRect.right - rootRect.right;
+        setTabPanelRightOffset(nextRightOffset);
+      } else {
+        setTabPanelRightOffset(0);
+      }
+
+      if (tabNavigationElement) {
+        const tabNavigationRect = tabNavigationElement.getBoundingClientRect();
+        const rootRect = rootElement.getBoundingClientRect();
+        const nextTopOffset = Math.round(tabNavigationRect.bottom - rootRect.top - 1);
+        setTabPanelTopOffset(nextTopOffset);
+      } else {
+        setTabPanelTopOffset(rootElement.clientHeight - 1);
+      }
+    };
+
+    updateTabPanelWidth();
+    if (typeof ResizeObserver !== 'undefined' && (mainContainerElement || tabNavigationElement || tabRightAreaElement)) {
+      const observer = new ResizeObserver(() => {
+        updateTabPanelWidth();
+      });
+      if (mainContainerElement) {
+        observer.observe(mainContainerElement);
+      }
+      if (tabNavigationElement && tabNavigationElement !== mainContainerElement) {
+        observer.observe(tabNavigationElement);
+      }
+      if (tabRightAreaElement && tabRightAreaElement !== tabNavigationElement && tabRightAreaElement !== mainContainerElement) {
+        observer.observe(tabRightAreaElement);
+      }
+      return () => {
+        observer.disconnect();
+      };
+    }
+
+    window.addEventListener('resize', updateTabPanelWidth);
+    return () => {
+      window.removeEventListener('resize', updateTabPanelWidth);
+    };
+  }, [isTabMode, isOpen]);
 
   // 关闭面板（带动画）
   const handleClose = () => {
@@ -225,6 +299,16 @@ const GroupsPopup = forwardRef(({
   // 显示新增分组模态框
   const handleAddGroup = e => {
     e.stopPropagation();
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    if (animationTimerRef.current) {
+      clearTimeout(animationTimerRef.current);
+      animationTimerRef.current = null;
+    }
+    setIsOpen(false);
+    setIsClosing(false);
     setEditingGroup(null);
     setShowModal(true);
   };
@@ -284,18 +368,34 @@ const GroupsPopup = forwardRef(({
     }
   };
 
+  const panelClassName = isTabMode
+    ? 'groups-panel absolute top-0 right-0 max-h-[350px] bg-qc-panel border border-qc-border border-t-0 rounded-b-xl rounded-t-none shadow-lg z-[70] overflow-hidden flex flex-col'
+    : 'groups-panel absolute bottom-full left-0 right-0 max-h-[350px] backdrop-blur-xl bg-qc-panel border border-b-0 border-qc-border rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col';
+
+  const panelStyle = isTabMode
+    ? { width: `${tabPanelWidth}px`, right: `${-tabPanelRightOffset}px`, top: `${tabPanelTopOffset}px` }
+    : {};
+
+  const panelAnimationClass = uiAnimationEnabled
+    ? (isClosing
+      ? (isTabMode ? 'animate-dropdown-up' : 'animate-slide-down')
+      : (isTabMode ? 'animate-dropdown-down' : 'animate-slide-up'))
+    : '';
+  const triggerTooltipContent = isTabMode
+    ? (groups.currentGroup || t('groups.title'))
+    : t('groups.title');
+
   return (
     <>
       <div
-        className="relative flex flex-col h-full w-full"
+        ref={rootRef}
+        className={isTabMode ? 'relative h-full w-[60px] flex items-center justify-center' : 'relative flex flex-col h-full w-full'}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         {/* 弹出面板 */}
         {isOpen && (
-          <div className={`groups-panel absolute bottom-full left-0 right-0 max-h-[350px] backdrop-blur-xl bg-qc-panel border border-b-0 border-qc-border rounded-t-xl shadow-2xl z-40 overflow-hidden flex flex-col ${
-            uiAnimationEnabled ? (isClosing ? 'animate-slide-down' : 'animate-slide-up') : ''
-          }`}>
+          <div className={`${panelClassName} ${panelAnimationClass}`} style={panelStyle}>
             {/* 头部 */}
             <div className="flex items-center justify-between px-2.5 py-2 border-b border-qc-border">
               <h3 className="text-xs font-semibold text-qc-fg">
@@ -305,7 +405,7 @@ const GroupsPopup = forwardRef(({
                 <Tooltip content={t('groups.add')} placement="bottom" asChild>
                   <button
                     onClick={handleAddGroup}
-                    className="p-1 rounded hover:bg-qc-hover transition-all text-qc-fg-muted"
+                    className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-qc-hover transition-all text-qc-fg-muted"
                   >
                     <i className="ti ti-plus" style={{ fontSize: 12 }}></i>
                   </button>
@@ -313,9 +413,9 @@ const GroupsPopup = forwardRef(({
                 <Tooltip content={isPinned ? t('groups.unpin') : t('groups.pin')} placement="bottom" asChild>
                   <button
                     onClick={togglePin}
-                    className={`p-1 rounded transition-all ${
+                    className={`w-6 h-6 flex items-center justify-center rounded-md transition-all ${
                       isPinned
-                        ? 'bg-blue-500 text-white'
+                        ? ACTIVE_ICON_BUTTON_CLASS
                         : 'hover:bg-qc-hover text-qc-fg-muted'
                     }`}
                   >
@@ -384,17 +484,31 @@ const GroupsPopup = forwardRef(({
         )}
 
         {/* 触发按钮 */}
-        <Tooltip content={t('groups.title')} placement="top" asChild>
+        <Tooltip content={triggerTooltipContent} placement={isTabMode ? 'bottom' : 'top'} asChild>
           <button
-            onClick={togglePopup}
-            className={`flex items-center justify-center gap-1.5 w-full h-full px-3 transition-all duration-300 ${
-              isOpen
-                ? 'bg-qc-panel/95 text-qc-fg shadow-lg border border-t-0 border-qc-border'
-                : 'bg-transparent text-qc-fg-muted hover:bg-qc-hover'
-            }`}
+                onClick={togglePopup}
+                className={isTabMode
+                  ? `relative z-10 flex items-center justify-center gap-1 w-[60px] h-7 rounded-lg focus:outline-none transition-all duration-200 ${
+                  isOpen
+                    ? ACTIVE_ICON_BUTTON_CLASS
+                    : 'text-qc-fg-muted hover:bg-qc-hover'
+                }`
+              : `flex items-center justify-center gap-1.5 w-full h-full px-3 transition-all duration-300 ${
+                  isOpen
+                    ? 'bg-qc-panel/95 text-qc-fg shadow-lg border border-t-0 border-qc-border'
+                    : 'bg-transparent text-qc-fg-muted hover:bg-qc-hover'
+                }`}
+            type="button"
           >
-            <i className="ti ti-folders" style={{ fontSize: 12 }}></i>
-            <span className="text-[10px] font-medium truncate max-w-[60px]">{groups.currentGroup}</span>
+            <i className="ti ti-folders" style={{ fontSize: isTabMode ? 16 : 12 }}></i>
+            {isTabMode && (
+              <span className="text-[11px] font-medium leading-none whitespace-nowrap">
+                {t('groups.title') || '分组'}
+              </span>
+            )}
+            {!isTabMode && (
+              <span className="text-[10px] font-medium truncate max-w-[60px]">{groups.currentGroup}</span>
+            )}
           </button>
         </Tooltip>
       </div>

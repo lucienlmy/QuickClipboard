@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { settingsStore } from '@shared/store/settingsStore'
-import { toolsStore } from '@shared/store/toolsStore'
 import i18n from '@shared/i18n'
 
 // 监听设置变更事件并同步到当前窗口（跨窗口设置同步）
@@ -21,17 +20,6 @@ export function useSettingsSync() {
             
             if (event.payload.language !== undefined && event.payload.language !== i18n.language) {
               i18n.changeLanguage(event.payload.language)
-            }
-            
-            if (event.payload.aiTranslationEnabled !== undefined) {
-              const value = event.payload.aiTranslationEnabled
-              localStorage.setItem('tool-state-ai-translation-button', JSON.stringify(value))
-              toolsStore.states['ai-translation-button'] = value
-            }
-            if (event.payload.pasteWithFormat !== undefined) {
-              const value = event.payload.pasteWithFormat
-              localStorage.setItem('tool-state-format-toggle-button', JSON.stringify(value))
-              toolsStore.states['format-toggle-button'] = value
             }
           }
         })

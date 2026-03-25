@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { restoreLastFocus } from '@shared/api/window'
+import { getOneTimePasteEnabled } from '@shared/services/oneTimePaste'
 
 // 分页查询收藏列表
 export async function getFavoritesHistory(params = {}) {
@@ -62,19 +63,14 @@ export async function pasteFavorite(id, action = null) {
 
     await invoke('paste_content', { params })
 
-    // 检查是否启用一次性粘贴
-    const { getToolState } = await import('@shared/services/toolActions')
-    const isOneTimePasteEnabled = getToolState('one-time-paste-button')
-
-    if (isOneTimePasteEnabled) {
+    // 一次性粘贴：粘贴后删除当前收藏
+    if (getOneTimePasteEnabled()) {
       try {
         await deleteFavorite(id)
         const { refreshFavorites } = await import('@shared/store/favoritesStore')
-        setTimeout(async () => {
-          await refreshFavorites()
-        }, 200)
+        await refreshFavorites()
       } catch (deleteError) {
-        console.error('一次性粘贴：删除收藏项失败', deleteError)
+        console.error('一次性粘贴删除收藏失败:', deleteError)
       }
     }
 

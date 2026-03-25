@@ -1,6 +1,35 @@
 use serde_json::Value;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
+fn start_screenshot_by_mode(app: &tauri::AppHandle, mode: u8) -> Result<(), String> {
+    #[cfg(feature = "screenshot-suite")]
+    {
+        let app_handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            let result = match mode {
+                0 => screenshot_suite::start_screenshot(&app_handle),
+                1 => screenshot_suite::start_screenshot_quick_save(&app_handle),
+                2 => screenshot_suite::start_screenshot_quick_pin(&app_handle),
+                3 => screenshot_suite::start_screenshot_quick_ocr(&app_handle),
+                _ => Err(format!("不支持的截屏模式: {}", mode)),
+            };
+
+            if let Err(error) = result {
+                eprintln!("启动截屏模式失败: {}", error);
+            }
+        });
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "screenshot-suite"))]
+    {
+        let _ = app;
+        let _ = mode;
+        Err("当前构建未启用截屏功能".to_string())
+    }
+}
 
 #[tauri::command]
 pub fn set_mouse_position(x: i32, y: i32) -> Result<(), String> {
@@ -10,6 +39,30 @@ pub fn set_mouse_position(x: i32, y: i32) -> Result<(), String> {
 #[tauri::command]
 pub fn get_mouse_position() -> (i32, i32) {
     crate::utils::mouse::get_cursor_position()
+}
+
+// 普通截屏
+#[tauri::command]
+pub fn start_screenshot(app: tauri::AppHandle) -> Result<(), String> {
+    start_screenshot_by_mode(&app, 0)
+}
+
+// 快速截图（复制）
+#[tauri::command]
+pub fn start_screenshot_quick_save(app: tauri::AppHandle) -> Result<(), String> {
+    start_screenshot_by_mode(&app, 1)
+}
+
+// 快速贴图
+#[tauri::command]
+pub fn start_screenshot_quick_pin(app: tauri::AppHandle) -> Result<(), String> {
+    start_screenshot_by_mode(&app, 2)
+}
+
+// 快速 OCR
+#[tauri::command]
+pub fn start_screenshot_quick_ocr(app: tauri::AppHandle) -> Result<(), String> {
+    start_screenshot_by_mode(&app, 3)
 }
 
 // 检查 AI 翻译配置

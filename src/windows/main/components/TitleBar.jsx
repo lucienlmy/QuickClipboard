@@ -1,170 +1,281 @@
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { useTranslation } from 'react-i18next';
-import { useSnapshot } from 'valtio';
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import { useSnapshot } from 'valtio';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
-import { toolsStore } from '@shared/store/toolsStore';
+import { toggleWindowPin, getWindowPinState, openAppSettings } from '@shared/services/titleBarActions';
+import { clipboardStore } from '@shared/store/clipboardStore';
+import { favoritesStore } from '@shared/store/favoritesStore';
 import { settingsStore } from '@shared/store/settingsStore';
-import { useSortableList, useSortable, CSS } from '@shared/hooks/useSortable';
-import { DragOverlay, useDroppable } from '@dnd-kit/core';
-import { MAX_TITLEBAR_TOOLS } from '@shared/config/tools';
+import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plugins/context_menu/index.js';
+import { hideMainWindow } from '@shared/api/window';
+import { clearClipboardHistory } from '@shared/api';
+import {
+  startScreenshot,
+  startScreenshotQuickSave,
+  startScreenshotQuickPin,
+  startScreenshotQuickOcr
+} from '@shared/api/system';
+import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
+import {
+  getOneTimePasteEnabled,
+  toggleOneTimePasteEnabled,
+  getOneTimePasteEventName,
+  getOneTimePasteStorageKey
+} from '@shared/services/oneTimePaste';
 import logoIcon from '@/assets/icon1024.png';
-import ToolButton from './ToolButton';
 import TitleBarSearch from './TitleBarSearch';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
-// 可拖拽的工具项
-function SortableToolItem({
-  toolId,
-  location
-}) {
-  const {
-    screenshotEnabled
-  } = useSnapshot(settingsStore);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({
-    id: toolId
-  });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition || 'transform 200ms ease',
-    opacity: isDragging ? 0.3 : 1
-  };
-  const isDisabled = toolId === 'screenshot-button' && !screenshotEnabled;
-  return <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <ToolButton toolId={toolId} location={location} disabled={isDisabled} />
-    </div>;
-}
+const ACTIVE_ICON_BUTTON_CLASS = 'bg-blue-500 bg-dynamic-primary text-white hover:bg-blue-600';
+const TOAST_CONFIG = {
+  size: TOAST_SIZES.EXTRA_SMALL,
+  position: TOAST_POSITIONS.BOTTOM_RIGHT
+};
 
-// 可放置区域（标题栏）
-function DroppableTitlebar({
-  children,
-  isEmpty,
-  isVertical
-}) {
-  const {
-    setNodeRef,
-    isOver
-  } = useDroppable({
-    id: 'titlebar-drop-zone'
-  });
-  return <div ref={setNodeRef} className={`flex ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1 ${isEmpty ? (isVertical ? 'h-1 w-7' : 'w-1 h-7') + ' overflow-visible' : ''} ${isOver && isEmpty ? (isVertical ? '!h-auto py-8' : '!w-auto px-8') + ' bg-blue-50 rounded-lg' : ''}`}>
-      {children}
-    </div>;
-}
 const TitleBar = forwardRef(({
   searchQuery,
   onSearchChange,
   searchPlaceholder,
   onNavigate,
-  position = 'top'
+  position = 'top',
+  activeTab = 'clipboard'
 }, ref) => {
-  const {
-    t
-  } = useTranslation();
-  const {
-    layout,
-    isExpanded
-  } = useSnapshot(toolsStore);
-  const {
-    screenshotEnabled
-  } = useSnapshot(settingsStore);
-  const [activeId, setActiveId] = useState(null);
-  const containerRef = useRef(null);
+  const { t } = useTranslation();
+  const clipboardSnap = useSnapshot(clipboardStore);
+  const favoritesSnap = useSnapshot(favoritesStore);
+  const settingsSnap = useSnapshot(settingsStore);
   const searchRef = useRef(null);
+  const [isPinned, setIsPinned] = useState(() => Boolean(getWindowPinState()));
+  const [oneTimePasteEnabled, setOneTimePasteEnabledState] = useState(() => getOneTimePasteEnabled());
   const isVertical = position === 'left' || position === 'right';
+  const tooltipPlacement = isVertical ? (position === 'left' ? 'right' : 'left') : 'bottom';
+
+  const currentStore = activeTab === 'clipboard'
+    ? clipboardStore
+    : activeTab === 'favorites'
+      ? favoritesStore
+      : null;
+
+  const isMultiSelectMode = activeTab === 'clipboard'
+    ? clipboardSnap.isMultiSelectMode
+    : activeTab === 'favorites'
+      ? favoritesSnap.isMultiSelectMode
+      : false;
+
   const dragRef = useWindowDrag({
-    excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', '[data-tool-id]', 'input', 'textarea'],
+    excludeSelectors: ['[data-no-drag]', 'button', '[role="button"]', 'input', 'textarea'],
     allowChildren: true
   });
 
-  // 点击外部折叠面板
   useEffect(() => {
-    if (!isExpanded) return;
-    const handleClickOutside = e => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        const toggleButton = e.target.closest('#tools-toggle');
-        if (!toggleButton) {
-          toolsStore.collapse();
-        }
+    const handlePinStateChanged = (event) => {
+      const pinned = Boolean(event?.detail?.pinned);
+      setIsPinned(pinned);
+    };
+
+    window.addEventListener('window-pin-state-changed', handlePinStateChanged);
+    return () => {
+      window.removeEventListener('window-pin-state-changed', handlePinStateChanged);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncState = () => {
+      setOneTimePasteEnabledState(getOneTimePasteEnabled());
+    };
+    const handleStorage = (event) => {
+      if (event.key === getOneTimePasteStorageKey()) {
+        syncState();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isExpanded]);
-  const allTools = [...layout.titlebar, ...layout.panel];
 
-  // 拖拽处理
-  const handleDragStart = event => {
-    setActiveId(event.active.id);
-  };
-  const handleDragCancel = () => {
-    setActiveId(null);
-  };
-  const handleDragEnd = event => {
-    const {
-      active,
-      over
-    } = event;
-    setActiveId(null);
-    if (!over || active.id === over.id) return;
-    const activeId = active.id;
-    const overId = over.id;
+    const eventName = getOneTimePasteEventName();
+    window.addEventListener(eventName, syncState);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener(eventName, syncState);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
-    // 确定源位置
-    const fromLocation = layout.titlebar.includes(activeId) ? 'titlebar' : 'panel';
-
-    // 确定目标位置
-    let toLocation = fromLocation;
-    let toIndex = -1;
-
-    // 拖到标题栏放置区域
-    if (overId === 'titlebar-drop-zone') {
-      toLocation = 'titlebar';
-      // 检查标题栏是否已满
-      if (fromLocation !== 'titlebar' && layout.titlebar.length >= MAX_TITLEBAR_TOOLS) {
-        console.warn(`标题栏最多只能放置${MAX_TITLEBAR_TOOLS}个工具`);
-        return;
-      }
-      toIndex = layout.titlebar.length; // 添加到末尾
-    } else {
-      // 拖到具体的工具上
-      toLocation = layout.titlebar.includes(overId) ? 'titlebar' : 'panel';
-
-      // 跨区域拖拽检查
-      if (fromLocation !== toLocation && toLocation === 'titlebar') {
-        if (layout.titlebar.length >= MAX_TITLEBAR_TOOLS) {
-          console.warn(`标题栏最多只能放置${MAX_TITLEBAR_TOOLS}个工具`);
-          return;
-        }
-      }
-
-      // 计算目标索引
-      const toArray = toLocation === 'titlebar' ? layout.titlebar : layout.panel;
-      toIndex = toArray.findIndex(id => id === overId);
+  const handleTogglePin = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      const result = await toggleWindowPin();
+      setIsPinned(Boolean(result));
+    } catch (error) {
+      console.error('标题栏固定窗口失败:', error);
     }
-    toolsStore.moveTool(activeId, fromLocation, toLocation, toIndex >= 0 ? toIndex : toLocation === 'titlebar' ? layout.titlebar.length : layout.panel.length);
   };
-  const {
-    DndContext,
-    SortableContext,
-    sensors,
-    collisionDetection
-  } = useSortableList({
-    items: allTools,
-    onDragEnd: handleDragEnd
-  });
 
-  // 获取当前拖拽项的位置
-  const activeLocation = activeId ? layout.titlebar.includes(activeId) ? 'titlebar' : 'panel' : null;
+  const handleOpenSettings = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await openAppSettings();
+    } catch (error) {
+      console.error('标题栏打开设置失败:', error);
+    }
+  };
 
-  // 暴露搜索框的 focus 方法
+  const handleToggleMultiSelect = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!currentStore) {
+      return;
+    }
+    if (isMultiSelectMode) {
+      currentStore.exitMultiSelectMode();
+    } else {
+      currentStore.enterMultiSelectMode();
+    }
+  };
+
+  const startScreenshotFromMenu = async (mode) => {
+    try {
+      await hideMainWindow();
+      const waitTime = settingsStore.clipboardAnimationEnabled !== false ? 170 : 50;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+
+      if (mode === 'normal') {
+        await startScreenshot();
+      } else if (mode === 'quick-save') {
+        await startScreenshotQuickSave();
+      } else if (mode === 'quick-pin') {
+        await startScreenshotQuickPin();
+      } else if (mode === 'quick-ocr') {
+        await startScreenshotQuickOcr();
+      }
+    } catch (error) {
+      console.error('标题栏启动截屏失败:', error);
+    }
+  };
+
+  const handleMoreMenu = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const checkIcon = enabled => (enabled ? 'ti ti-check' : undefined);
+
+    const screenshotItem = createMenuItem('menu-screenshot-group', t('tools.moreMenu.screenshot'), {
+      icon: 'ti ti-screenshot',
+      disabled: settingsSnap.screenshotEnabled === false
+    });
+    screenshotItem.children = [
+      createMenuItem('menu-screenshot-normal', t('tools.screenshot'), { icon: 'ti ti-screenshot' }),
+      createMenuItem('menu-screenshot-quick-save', t('settings.shortcuts.screenshotQuickSave'), { icon: 'ti ti-copy' }),
+      createMenuItem('menu-screenshot-quick-pin', t('settings.shortcuts.screenshotQuickPin'), { icon: 'ti ti-pinned' }),
+      createMenuItem('menu-screenshot-quick-ocr', t('settings.shortcuts.screenshotQuickOcr'), { icon: 'ti ti-text-scan-2' })
+    ];
+
+    const previewItem = createMenuItem('menu-preview-group', t('tools.moreMenu.contentPreview'), { icon: 'ti ti-eye' });
+    previewItem.children = [
+      createMenuItem('menu-preview-text', t('settings.clipboard.textPreview'), { icon: checkIcon(settingsSnap.textPreview !== false) }),
+      createMenuItem('menu-preview-image', t('settings.clipboard.imagePreview'), { icon: checkIcon(settingsSnap.imagePreview !== false) })
+    ];
+
+    const pasteItem = createMenuItem('menu-paste-group', t('tools.moreMenu.globalPaste'), { icon: 'ti ti-clipboard' });
+    pasteItem.children = [
+      createMenuItem('menu-paste-format', t('tools.formatToggle'), { icon: checkIcon(settingsSnap.pasteWithFormat !== false) }),
+      createMenuItem('menu-paste-to-top', t('settings.clipboard.pasteToTop'), { icon: checkIcon(settingsSnap.pasteToTop === true) }),
+      createMenuItem('menu-paste-one-time', t('tools.oneTimePaste'), { icon: checkIcon(oneTimePasteEnabled) })
+    ];
+
+    const menuItems = [
+      screenshotItem,
+      previewItem,
+      pasteItem,
+      createSeparator(),
+      createMenuItem('menu-clear-clipboard-history', t('contextMenu.clearAll'), { icon: 'ti ti-trash-x' }),
+      createMenuItem('menu-open-settings', t('tools.moreMenu.settings'), { icon: 'ti ti-settings' })
+    ];
+
+    const result = await showContextMenuFromEvent(event, menuItems, {
+      theme: settingsStore.theme,
+      darkThemeStyle: settingsStore.darkThemeStyle
+    });
+    if (!result) {
+      return;
+    }
+
+    switch (result) {
+      case 'menu-screenshot-normal':
+        await startScreenshotFromMenu('normal');
+        break;
+      case 'menu-screenshot-quick-save':
+        await startScreenshotFromMenu('quick-save');
+        break;
+      case 'menu-screenshot-quick-pin':
+        await startScreenshotFromMenu('quick-pin');
+        break;
+      case 'menu-screenshot-quick-ocr':
+        await startScreenshotFromMenu('quick-ocr');
+        break;
+      case 'menu-preview-text':
+        try {
+          await settingsStore.saveSetting('textPreview', settingsSnap.textPreview === false);
+        } catch (error) {
+          console.error('切换文本预览失败:', error);
+        }
+        break;
+      case 'menu-preview-image':
+        try {
+          await settingsStore.saveSetting('imagePreview', settingsSnap.imagePreview === false);
+        } catch (error) {
+          console.error('切换图片预览失败:', error);
+        }
+        break;
+      case 'menu-paste-format':
+        try {
+          await settingsStore.saveSetting('pasteWithFormat', settingsSnap.pasteWithFormat === false);
+        } catch (error) {
+          console.error('切换格式粘贴失败:', error);
+        }
+        break;
+      case 'menu-paste-to-top':
+        try {
+          await settingsStore.saveSetting('pasteToTop', !Boolean(settingsStore.pasteToTop));
+        } catch (error) {
+          console.error('切换粘贴后置顶失败:', error);
+        }
+        break;
+      case 'menu-paste-one-time':
+        setOneTimePasteEnabledState(toggleOneTimePasteEnabled());
+        break;
+      case 'menu-clear-clipboard-history':
+        try {
+          const { showConfirm } = await import('@shared/utils/dialog');
+          const confirmed = await showConfirm(
+            t('contextMenu.clearAllConfirm'),
+            t('contextMenu.clearAllConfirmTitle')
+          );
+          if (!confirmed) {
+            break;
+          }
+
+          await clearClipboardHistory();
+          const { loadClipboardItems } = await import('@shared/store/clipboardStore');
+          await loadClipboardItems();
+          toast.success(t('contextMenu.allCleared'), TOAST_CONFIG);
+        } catch (error) {
+          console.error('标题栏清空剪贴板失败:', error);
+          toast.error(t('common.operationFailed'), TOAST_CONFIG);
+        }
+        break;
+      case 'menu-open-settings':
+        try {
+          await openAppSettings();
+        } catch (error) {
+          console.error('标题栏打开设置失败:', error);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     focus: () => {
       if (searchRef.current?.focus) {
@@ -172,68 +283,84 @@ const TitleBar = forwardRef(({
       }
     }
   }));
-  return <div ref={dragRef} className={`title-bar flex-shrink-0 flex ${isVertical ? 'w-10 h-full flex-col items-center justify-between py-2 bg-qc-panel ' + (position === 'left' ? 'border-r border-qc-border' : 'border-l border-qc-border') : 'h-9 flex-row items-center justify-between px-2 bg-qc-panel ' + (position === 'top' ? 'border-b border-qc-border' : 'border-t border-qc-border')} shadow-sm transition-colors duration-500`}>
-      {/* Logo */}
+
+  return (
+    <div
+      ref={dragRef}
+      className={`title-bar flex-shrink-0 flex ${
+        isVertical
+          ? `w-10 h-full flex-col items-center justify-between py-2 bg-qc-panel ${
+              position === 'left' ? 'border-r border-qc-border' : 'border-l border-qc-border'
+            }`
+          : `h-9 flex-row items-center justify-between px-2 bg-qc-panel ${
+              position === 'top' ? 'border-b border-qc-border' : 'border-t border-qc-border'
+            }`
+      } shadow-sm transition-colors duration-500`}
+    >
       <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
         <div className="w-6 h-6 flex items-center justify-center">
           <img src={logoIcon} alt="QuickClipboard" className="w-5 h-5" />
         </div>
       </div>
 
-      {/* 搜索 + 工具按钮容器 */}
-      <div className={`flex ${isVertical ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1'} relative ${isVertical ? '' : 'flex-shrink-0'}`} ref={containerRef}>
-        {/* 搜索框 */}
-        <TitleBarSearch ref={searchRef} value={searchQuery} onChange={onSearchChange} placeholder={searchPlaceholder} onNavigate={onNavigate} isVertical={isVertical} position={position} />
-        <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-          <SortableContext items={allTools}>
-            {/* 标题栏工具 */}
-            <DroppableTitlebar isEmpty={layout.titlebar.length === 0} isVertical={isVertical}>
-              {layout.titlebar.map(toolId => <SortableToolItem key={toolId} toolId={toolId} location="titlebar" />)}
-            </DroppableTitlebar>
+      <div className={`flex ${isVertical ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1'} ${isVertical ? '' : 'flex-shrink-0'}`}>
+        <TitleBarSearch
+          ref={searchRef}
+          value={searchQuery}
+          onChange={onSearchChange}
+          placeholder={searchPlaceholder}
+          onNavigate={onNavigate}
+          isVertical={isVertical}
+          position={position}
+        />
 
-            {/* 展开/折叠按钮 */}
-            {layout.panel.length > 0 && (
-              <Tooltip content={t('tools.panel')} placement={isVertical ? (position === 'left' ? 'right' : 'left') : 'bottom'} asChild>
-                <button
-                  id="tools-toggle"
-                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${isExpanded ? 'bg-blue-500 text-white' : 'hover:bg-qc-hover text-qc-fg-muted hover:text-blue-500'}`}
-                  onClick={() => toolsStore.toggleExpand()}
-                >
-                  {isExpanded ? (
-                    <i className="ti ti-chevron-up" style={{ fontSize: 16 }}></i>
-                  ) : (
-                    <i className="ti ti-chevron-down" style={{ fontSize: 16 }}></i>
-                  )}
-                </button>
-              </Tooltip>
-            )}
+        <div className={`flex ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1`}>
+          <Tooltip content={isMultiSelectMode ? t('multiSelect.exitMode') : t('multiSelect.enterMode')} placement={tooltipPlacement} asChild>
+            <button
+              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
+                !currentStore
+                  ? 'text-qc-fg-subtle opacity-60 cursor-not-allowed'
+                  : isMultiSelectMode
+                    ? ACTIVE_ICON_BUTTON_CLASS
+                    : 'hover:bg-qc-hover text-qc-fg-muted'
+              }`}
+              aria-label={isMultiSelectMode ? t('multiSelect.exitMode') : t('multiSelect.enterMode')}
+              type="button"
+              onClick={handleToggleMultiSelect}
+              disabled={!currentStore}
+            >
+              <i className={isMultiSelectMode ? 'ti ti-list' : 'ti ti-list-check'} style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
 
-            {/* 展开面板 */}
-            {isExpanded && layout.panel.length > 0 && <div className={`tools-panel absolute ${isVertical ? position === 'left' ? 'left-full bottom-0 ml-1' : 'right-full bottom-0 mr-1' : position === 'bottom' ? 'bottom-full right-0 mb-1' : 'top-full right-0 mt-1'} bg-qc-panel border border-qc-border rounded-lg shadow-lg py-2 px-2.5 z-40 backdrop-blur-sm`}>
-                <div className="flex flex-wrap gap-1.5 max-w-[200px]">
-                  {layout.panel.map(toolId => <SortableToolItem key={toolId} toolId={toolId} location="panel" />)}
-                </div>
+          <Tooltip content={t('tools.pin')} placement={tooltipPlacement} asChild>
+            <button
+              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
+                isPinned ? ACTIVE_ICON_BUTTON_CLASS : 'hover:bg-qc-hover text-qc-fg-muted'
+              }`}
+              onClick={handleTogglePin}
+              aria-label={t('tools.pin')}
+            >
+              <i className="ti ti-pin" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
 
-                {/* 底部操作 */}
-                <div className="mt-2 pt-2 border-t border-qc-border">
-                  <button className="w-full text-xs text-qc-fg-muted hover:text-blue-500 transition-colors text-center py-1" onClick={() => toolsStore.resetLayout()}>
-                    {t('tools.reset')}
-                  </button>
-                </div>
-              </div>}
-          </SortableContext>
-
-          {/* 拖拽覆盖层 */}
-          <DragOverlay dropAnimation={null} style={{
-          zIndex: 9999
-        }}>
-            {activeId ? <div className="opacity-90 cursor-grabbing shadow-lg">
-                <ToolButton toolId={activeId} location={activeLocation} disabled={activeId === 'screenshot-button' && !screenshotEnabled} />
-              </div> : null}
-          </DragOverlay>
-        </DndContext>
+          <Tooltip content={t('tools.more')} placement={tooltipPlacement} asChild>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
+              aria-label={t('tools.more')}
+              type="button"
+              onClick={handleMoreMenu}
+            >
+              <i className="ti ti-dots" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+        </div>
       </div>
-    </div>;
+    </div>
+  );
 });
+
 TitleBar.displayName = 'TitleBar';
+
 export default TitleBar;

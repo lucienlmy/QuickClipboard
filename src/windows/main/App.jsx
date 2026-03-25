@@ -6,7 +6,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { settingsStore } from '@shared/store/settingsStore';
 import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
-import { toolsStore } from '@shared/store/toolsStore';
 import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore } from '@shared/store/favoritesStore';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
@@ -16,15 +15,13 @@ import { useNavigationKeyboard } from '@shared/hooks/useNavigationKeyboard';
 import { useWindowAnimation } from '@shared/hooks/useWindowAnimation';
 import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
 import { promptDisableWinVHotkeyIfNeeded } from '@shared/api/system';
+import { toggleWindowPin } from '@shared/services/titleBarActions';
 import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
 import FavoritesTab from './components/FavoritesTab';
 const EmojiTab = lazy(() => import('./components/EmojiTab'));
-import FooterBar from './components/FooterBar';
-import MultiSelectToggleButton from './components/MultiSelectToggleButton';
 import MultiSelectActionBar from './components/MultiSelectActionBar';
-import GroupsPopup from './components/GroupsPopup';
 import ToastContainer from '@shared/components/common/ToastContainer';
 
 function App() {
@@ -282,7 +279,7 @@ function App() {
   // 固定/取消固定窗口
   const handleTogglePin = async () => {
     try {
-      await toolsStore.handleToolClick('pin-button');
+      await toggleWindowPin();
     } catch (error) {
       console.error('切换窗口固定状态失败:', error);
     }
@@ -347,19 +344,14 @@ function App() {
     transition-colors duration-500 ease-in-out
     bg-qc-surface
   `.trim().replace(/\s+/g, ' ');
-  const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} onNavigate={handleSearchNavigate} position={settings.titleBarPosition} />;
-  const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} />;
-  const ContentComponent = <div ref={contentDragRef} className="flex-1 overflow-hidden relative">
+  const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} onNavigate={handleSearchNavigate} position={settings.titleBarPosition} activeTab={activeTab} />;
+  const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} onGroupChange={handleGroupChange} groupsPopupRef={groupsPopupRef} />;
+  const ContentComponent = <div ref={contentDragRef} className="flex-1 overflow-hidden relative pb-[8px] bg-qc-surface transition-colors duration-500">
       {activeTab === 'clipboard' && <ClipboardTab ref={clipboardTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'favorites' && <FavoritesTab ref={favoritesTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'emoji' && <Suspense fallback={null}><EmojiTab emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} /></Suspense>}
     </div>;
-  const FooterComponent = <>
-      <MultiSelectActionBar activeTab={activeTab} />
-      <FooterBar leftContent={<MultiSelectToggleButton activeTab={activeTab} />}>
-        <GroupsPopup ref={groupsPopupRef} activeTab={activeTab} onTabChange={setActiveTab} onGroupChange={handleGroupChange} />
-      </FooterBar>
-    </>;
+  const ActionBarComponent = <MultiSelectActionBar activeTab={activeTab} />;
   const renderLayout = () => {
     switch (settings.titleBarPosition) {
       case 'top':
@@ -367,13 +359,13 @@ function App() {
             {TitleBarComponent}
             {TabNavigationComponent}
             {ContentComponent}
-            {FooterComponent}
+            {ActionBarComponent}
           </>;
       case 'bottom':
         return <>
             {TabNavigationComponent}
             {ContentComponent}
-            {FooterComponent}
+            {ActionBarComponent}
             {TitleBarComponent}
           </>;
       case 'left':
@@ -384,7 +376,7 @@ function App() {
             <div className="flex-1 flex flex-col overflow-hidden">
               {TabNavigationComponent}
               {ContentComponent}
-              {FooterComponent}
+              {ActionBarComponent}
             </div>
           </>;
       case 'right':
@@ -392,7 +384,7 @@ function App() {
             <div className="flex-1 flex flex-col overflow-hidden">
               {TabNavigationComponent}
               {ContentComponent}
-              {FooterComponent}
+              {ActionBarComponent}
             </div>
             <div className="flex flex-col h-full">
               {TitleBarComponent}
@@ -403,7 +395,7 @@ function App() {
             {TitleBarComponent}
             {TabNavigationComponent}
             {ContentComponent}
-            {FooterComponent}
+            {ActionBarComponent}
           </>;
     }
   };
