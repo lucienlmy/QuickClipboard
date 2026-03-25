@@ -172,16 +172,43 @@ const ClipboardList = forwardRef(({
   }, []);
 
   const handleItemClick = useCallback(async (item, index, event) => {
+    const isCtrlLikePressed = Boolean(event?.ctrlKey || event?.metaKey);
+    const isShiftPressed = Boolean(event?.shiftKey);
+
     if (!isMultiSelectMode) {
-      return;
+      if (!isCtrlLikePressed && !isShiftPressed) {
+        return false;
+      }
+
+      clipboardStore.enterMultiSelectMode();
+
+      if (isShiftPressed) {
+        const anchorIndex = typeof currentSelectedIndex === 'number' && currentSelectedIndex >= 0
+          ? currentSelectedIndex
+          : index;
+        const startIndex = Math.min(anchorIndex, index);
+        const endIndex = Math.max(anchorIndex, index);
+        await ensureRangeLoaded(startIndex, endIndex);
+        clipboardStore.selectRange(buildSelectionEntries(startIndex, endIndex));
+        clipboardStore.setSelectionAnchorIndex(anchorIndex);
+        return true;
+      }
+
+      clipboardStore.toggleSelectedEntry({
+        id: item.id,
+        index,
+        contentType: item.content_type,
+      });
+      clipboardStore.setSelectionAnchorIndex(index);
+      return true;
     }
 
-    if (event?.shiftKey && typeof clipSnap.selectionAnchorIndex === 'number') {
+    if (isShiftPressed && typeof clipSnap.selectionAnchorIndex === 'number') {
       const startIndex = Math.min(clipSnap.selectionAnchorIndex, index);
       const endIndex = Math.max(clipSnap.selectionAnchorIndex, index);
       await ensureRangeLoaded(startIndex, endIndex);
       clipboardStore.selectRange(buildSelectionEntries(startIndex, endIndex));
-      return;
+      return true;
     }
 
     clipboardStore.toggleSelectedEntry({
@@ -190,7 +217,8 @@ const ClipboardList = forwardRef(({
       contentType: item.content_type,
     });
     clipboardStore.setSelectionAnchorIndex(index);
-  }, [buildSelectionEntries, clipSnap.selectionAnchorIndex, ensureRangeLoaded, isMultiSelectMode]);
+    return true;
+  }, [buildSelectionEntries, clipSnap.selectionAnchorIndex, currentSelectedIndex, ensureRangeLoaded, isMultiSelectMode]);
 
   const handleRangeChanged = useCallback(({
     startIndex,
@@ -334,7 +362,7 @@ const ClipboardList = forwardRef(({
                 isMultiSelected={clipSnap.hasSelectedId(item.id)}
                 isMultiSelectMode={isMultiSelectMode}
                 onHover={() => handleItemHover(index)}
-                onClick={isMultiSelectMode ? handleItemClick : undefined}
+                onClick={handleItemClick}
                 isDragActive={!isMultiSelectMode && dragActive}
                 isDraggable={!isMultiSelectMode}
                 showShortcut={showShortcut}
@@ -350,7 +378,7 @@ const ClipboardList = forwardRef(({
               isMultiSelected={clipSnap.hasSelectedId(item.id)}
               isMultiSelectMode={isMultiSelectMode}
               onHover={() => handleItemHover(index)}
-              onClick={isMultiSelectMode ? handleItemClick : undefined}
+              onClick={handleItemClick}
               isDragActive={!isMultiSelectMode && dragActive}
               isDraggable={!isMultiSelectMode}
               showShortcut={showShortcut}

@@ -167,16 +167,43 @@ const FavoritesList = forwardRef(({
   }, []);
 
   const handleItemClick = useCallback(async (item, index, event) => {
+    const isCtrlLikePressed = Boolean(event?.ctrlKey || event?.metaKey);
+    const isShiftPressed = Boolean(event?.shiftKey);
+
     if (!isMultiSelectMode) {
-      return;
+      if (!isCtrlLikePressed && !isShiftPressed) {
+        return false;
+      }
+
+      favoritesStore.enterMultiSelectMode();
+
+      if (isShiftPressed) {
+        const anchorIndex = typeof currentSelectedIndex === 'number' && currentSelectedIndex >= 0
+          ? currentSelectedIndex
+          : index;
+        const startIndex = Math.min(anchorIndex, index);
+        const endIndex = Math.max(anchorIndex, index);
+        await ensureRangeLoaded(startIndex, endIndex);
+        favoritesStore.selectRange(buildSelectionEntries(startIndex, endIndex));
+        favoritesStore.setSelectionAnchorIndex(anchorIndex);
+        return true;
+      }
+
+      favoritesStore.toggleSelectedEntry({
+        id: item.id,
+        index,
+        contentType: item.content_type,
+      });
+      favoritesStore.setSelectionAnchorIndex(index);
+      return true;
     }
 
-    if (event?.shiftKey && typeof favSnap.selectionAnchorIndex === 'number') {
+    if (isShiftPressed && typeof favSnap.selectionAnchorIndex === 'number') {
       const startIndex = Math.min(favSnap.selectionAnchorIndex, index);
       const endIndex = Math.max(favSnap.selectionAnchorIndex, index);
       await ensureRangeLoaded(startIndex, endIndex);
       favoritesStore.selectRange(buildSelectionEntries(startIndex, endIndex));
-      return;
+      return true;
     }
 
     favoritesStore.toggleSelectedEntry({
@@ -185,7 +212,8 @@ const FavoritesList = forwardRef(({
       contentType: item.content_type,
     });
     favoritesStore.setSelectionAnchorIndex(index);
-  }, [buildSelectionEntries, ensureRangeLoaded, favSnap.selectionAnchorIndex, isMultiSelectMode]);
+    return true;
+  }, [buildSelectionEntries, currentSelectedIndex, ensureRangeLoaded, favSnap.selectionAnchorIndex, isMultiSelectMode]);
 
   const handleRangeChanged = useCallback(({
     startIndex,
@@ -320,7 +348,7 @@ const FavoritesList = forwardRef(({
                     isMultiSelected={favSnap.hasSelectedId(item.id)}
                     isMultiSelectMode={isMultiSelectMode}
                     onHover={() => handleItemHover(index)}
-                    onClick={isMultiSelectMode ? handleItemClick : undefined}
+                    onClick={handleItemClick}
                     isDraggable={canDrag && !isMultiSelectMode}
                     isDragActive={!isMultiSelectMode && dragActive}
                     animationDelay={animationDelay}
@@ -335,7 +363,7 @@ const FavoritesList = forwardRef(({
                   isMultiSelected={favSnap.hasSelectedId(item.id)}
                   isMultiSelectMode={isMultiSelectMode}
                   onHover={() => handleItemHover(index)}
-                  onClick={isMultiSelectMode ? handleItemClick : undefined}
+                  onClick={handleItemClick}
                   isDraggable={canDrag && !isMultiSelectMode}
                   isDragActive={!isMultiSelectMode && dragActive}
                   animationDelay={animationDelay}

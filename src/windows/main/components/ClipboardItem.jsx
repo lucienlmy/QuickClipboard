@@ -284,10 +284,11 @@ function ClipboardItem({
 
   // 处理点击粘贴
   const handleClick = async (event) => {
-    if (onClick) {
-      onClick(item, index, event);
-    } else {
-      try {
+    const handledByParent = onClick ? await onClick(item, index, event) : false;
+    if (handledByParent) {
+      return;
+    }
+    try {
         await pasteClipboardItem(item.id);
         // 粘贴后置顶
         if (!getOneTimePasteEnabled() && settingsStore.pasteToTop && item.id && !item.is_pinned) {
@@ -304,7 +305,6 @@ function ClipboardItem({
           position: TOAST_POSITIONS.BOTTOM_RIGHT
         });
       }
-    }
   };
 
   // 处理鼠标悬停

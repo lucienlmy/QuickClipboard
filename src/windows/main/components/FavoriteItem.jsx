@@ -256,8 +256,8 @@ function FavoriteItem({
 
   // 点击粘贴
   const handleClick = async (event) => {
-    if (onClick) {
-      onClick(item, index, event);
+    const handledByParent = onClick ? await onClick(item, index, event) : false;
+    if (handledByParent) {
       return;
     }
     try {
