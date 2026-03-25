@@ -587,23 +587,53 @@ pub fn add_favorite(title: String, content: String, group_name: Option<String>) 
 }
 
 // 更新收藏项
-pub fn update_favorite(id: String, title: String, content: String, group_name: Option<String>) -> Result<FavoriteItem, String> {
+pub fn update_favorite(
+    id: String,
+    title: String,
+    content: String,
+    group_name: Option<String>,
+    html_content: Option<String>,
+) -> Result<FavoriteItem, String> {
     let group_name = group_name.unwrap_or_else(|| "全部".to_string());
     
-    with_connection(|conn| {
-        let (old_group_name, content_type) = conn.query_row(
-            "SELECT group_name, content_type FROM favorites WHERE id = ?", params![&id],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    let should_clear_raw_formats = with_connection(|conn| {
+        let (old_group_name, content_type, old_content, old_html_content) = conn.query_row(
+            "SELECT group_name, content_type, content, html_content FROM favorites WHERE id = ?",
+            params![&id],
+            |row| Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
         ).optional()?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         
+        let content_changed = old_content != content;
+        let html_changed = html_content
+            .as_ref()
+            .map(|new_html| old_html_content.as_deref() != Some(new_html.as_str()))
+            .unwrap_or(false);
+
         let now = chrono::Local::now().timestamp();
 
         let char_count = calculate_char_count(&content, &content_type);
         
         if old_group_name != group_name {
+            if let Some(ref html_content) = html_content {
+                conn.execute(
+                    "UPDATE favorites SET title = ?1, content = ?2, html_content = ?3, group_name = ?4, char_count = ?5, updated_at = ?6 WHERE id = ?7",
+                    params![&title, &content, html_content, &group_name, char_count, now, &id],
+                )?;
+            } else {
+                conn.execute(
+                    "UPDATE favorites SET title = ?1, content = ?2, group_name = ?3, char_count = ?4, updated_at = ?5 WHERE id = ?6",
+                    params![&title, &content, &group_name, char_count, now, &id],
+                )?;
+            }
+        } else if let Some(ref html_content) = html_content {
             conn.execute(
-                "UPDATE favorites SET title = ?1, content = ?2, group_name = ?3, char_count = ?4, updated_at = ?5 WHERE id = ?6",
-                params![&title, &content, &group_name, char_count, now, &id],
+                "UPDATE favorites SET title = ?1, content = ?2, html_content = ?3, char_count = ?4, updated_at = ?5 WHERE id = ?6",
+                params![&title, &content, html_content, char_count, now, &id],
             )?;
         } else {
             conn.execute(
@@ -611,8 +641,12 @@ pub fn update_favorite(id: String, title: String, content: String, group_name: O
                 params![&title, &content, char_count, now, &id],
             )?;
         }
-        Ok(())
+        Ok(content_changed || html_changed)
     })?;
+
+    if should_clear_raw_formats {
+        super::clipboard::delete_clipboard_data_items("favorite", &id)?;
+    }
     
     get_favorite_by_id(&id)?.ok_or_else(|| format!("更新后无法获取收藏项: {}", id))
 }

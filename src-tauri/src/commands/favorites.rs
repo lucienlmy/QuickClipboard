@@ -118,8 +118,14 @@ pub fn add_quick_text(title: String, content: String, group_name: Option<String>
 
 // 更新收藏项
 #[tauri::command]
-pub fn update_quick_text(id: String, title: String, content: String, group_name: Option<String>) -> Result<FavoriteItem, String> {
-    db_update_favorite(id, title, content, group_name)
+pub fn update_quick_text(
+    id: String,
+    title: String,
+    content: String,
+    group_name: Option<String>,
+    html_content: Option<String>,
+) -> Result<FavoriteItem, String> {
+    db_update_favorite(id, title, content, group_name, html_content)
 }
 
 // 复制收藏项内容（不记录到历史）

@@ -247,8 +247,12 @@ pub fn get_clipboard_item_by_id_cmd(id: i64, max_length: Option<usize>) -> Resul
 
 // 更新剪贴板项内容
 #[tauri::command]
-pub fn update_clipboard_item_cmd(id: i64, content: String) -> Result<(), String> {
-    db_update_clipboard_item(id, content)
+pub fn update_clipboard_item_cmd(
+    id: i64,
+    content: String,
+    html_content: Option<String>,
+) -> Result<(), String> {
+    db_update_clipboard_item(id, content, html_content)
 }
 
 // 切换剪贴板项置顶状态

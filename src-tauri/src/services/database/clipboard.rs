@@ -830,16 +830,50 @@ pub fn move_clipboard_item_by_id(from_id: i64, to_id: i64) -> Result<(), String>
 }
 
 // 更新剪贴板项的内容
-pub fn update_clipboard_item(id: i64, content: String) -> Result<(), String> {
-    with_connection(|conn| {
-        let rows = conn.execute(
-            "UPDATE clipboard SET content = ?1, updated_at = ?2 WHERE id = ?3",
-            params![content, chrono::Local::now().timestamp(), id],
+pub fn update_clipboard_item(
+    id: i64,
+    content: String,
+    html_content: Option<String>,
+) -> Result<(), String> {
+    let should_clear_raw_formats = with_connection(|conn| {
+        let (old_content, old_html_content): (String, Option<String>) = conn.query_row(
+            "SELECT content, html_content FROM clipboard WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
-        if rows == 0 { Err(rusqlite::Error::QueryReturnedNoRows) } else { Ok(()) }
+
+        let content_changed = old_content != content;
+        let html_changed = html_content
+            .as_ref()
+            .map(|new_html| old_html_content.as_deref() != Some(new_html.as_str()))
+            .unwrap_or(false);
+
+        let now = chrono::Local::now().timestamp();
+        let rows = if let Some(ref html_content) = html_content {
+            conn.execute(
+                "UPDATE clipboard SET content = ?1, html_content = ?2, updated_at = ?3 WHERE id = ?4",
+                params![&content, html_content, now, id],
+            )?
+        } else {
+            conn.execute(
+                "UPDATE clipboard SET content = ?1, updated_at = ?2 WHERE id = ?3",
+                params![&content, now, id],
+            )?
+        };
+        if rows == 0 {
+            Err(rusqlite::Error::QueryReturnedNoRows)
+        } else {
+            Ok(content_changed || html_changed)
+        }
     }).map_err(|e| if e.contains("QueryReturnedNoRows") {
         format!("剪贴板项不存在: {}", id)
-    } else { e })
+    } else { e })?;
+
+    if should_clear_raw_formats {
+        delete_clipboard_data_items("clipboard", &id.to_string())?;
+    }
+
+    Ok(())
 }
 
 // 切换剪贴板项的置顶状态（置顶时放到置顶区第一位，取消置顶时移到非置顶区第一位）

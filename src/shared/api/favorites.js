@@ -29,8 +29,12 @@ export async function addFavorite(title, content, groupName = '全部') {
 }
 
 // 更新收藏
-export async function updateFavorite(id, title, content, groupName) {
-  const result = await invoke('update_quick_text', { id, title, content, groupName })
+export async function updateFavorite(id, title, content, groupName, htmlContent = undefined) {
+  const params = { id, title, content, groupName }
+  if (htmlContent !== undefined) {
+    params.htmlContent = htmlContent
+  }
+  const result = await invoke('update_quick_text', params)
   await invoke('emit_quick_texts_updated')
   return result
 }

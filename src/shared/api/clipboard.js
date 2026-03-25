@@ -196,8 +196,12 @@ export async function getClipboardItemPasteOptions(id) {
 }
 
 // 更新剪贴板项
-export async function updateClipboardItem(id, content) {
-  await invoke('update_clipboard_item_cmd', { id, content })
+export async function updateClipboardItem(id, content, htmlContent = undefined) {
+  const params = { id, content }
+  if (htmlContent !== undefined) {
+    params.htmlContent = htmlContent
+  }
+  await invoke('update_clipboard_item_cmd', params)
   await invoke('emit_clipboard_updated')
 }
 
