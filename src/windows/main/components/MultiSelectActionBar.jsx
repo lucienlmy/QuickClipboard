@@ -123,7 +123,7 @@ function MultiSelectActionBar({ activeTab }) {
   };
 
   return (
-    <div className="flex-shrink-0 h-11 px-3 border-t border-qc-border bg-qc-panel-2/70 backdrop-blur-sm">
+    <div className="multi-select-action-bar flex-shrink-0 h-11 px-3 border-t border-qc-border bg-qc-panel backdrop-blur-sm rounded-bl-[8px] rounded-br-[8px]">
       <div className="h-full flex items-center justify-between gap-3">
         <div className="text-sm font-medium text-qc-fg">
           {t('multiSelect.selectedCount', { count: selectedCount })}
@@ -162,7 +162,7 @@ function MultiSelectActionBar({ activeTab }) {
               onClick={handleMergePaste}
               aria-disabled={!selectedCount || !mergeState.canMerge}
             >
-              <i className="ti ti-fold-down" style={{ fontSize: 15 }}></i>
+              <i className="ti ti-clipboard-list" style={{ fontSize: 15 }}></i>
             </button>
           </Tooltip>
 

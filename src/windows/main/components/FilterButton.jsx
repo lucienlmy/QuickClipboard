@@ -11,7 +11,7 @@ function FilterButton({ id, label, icon, isActive, onClick, buttonRef }) {
   };
 
   return (
-    <div ref={buttonRef} className="relative w-7 h-7">
+    <div ref={buttonRef} className="relative w-7 h-7 shrink-0">
       <Tooltip content={label} placement="bottom" asChild>
         <button
           onClick={handleClick}

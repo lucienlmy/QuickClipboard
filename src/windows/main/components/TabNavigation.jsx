@@ -5,6 +5,7 @@ import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import TabButton from './TabButton';
 import FilterButton from './FilterButton';
+import GroupsPopup from './GroupsPopup';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 const FILTER_BUTTON_SIZE = 28;
@@ -21,7 +22,9 @@ function TabNavigation({
   contentFilter,
   onFilterChange,
   emojiMode,
-  onEmojiModeChange
+  onEmojiModeChange,
+  onGroupChange,
+  groupsPopupRef
 }) {
   const {
     t
@@ -137,7 +140,7 @@ function TabNavigation({
     }
 
     setFilterIndicator({
-      width: FILTER_BUTTON_SIZE,
+      width: activeElement.offsetWidth,
       left: activeElement.offsetLeft
     });
   }, [contentFilter, shouldExpandFilters, collapsedVisibleFilterCount]);
@@ -289,7 +292,7 @@ function TabNavigation({
       />
 
       {/* 右侧：内容筛选，Emoji/符号切换 - 50% */}
-      <div ref={rightAreaRef} className="flex-1 flex items-center px-1 relative">
+      <div ref={rightAreaRef} className="tab-navigation-right flex-1 flex items-center pl-1 pr-0 relative">
         <div
           className={`flex items-center justify-center gap-1 relative ${
             activeTab === 'emoji' || isFilterAutoExpanded ? 'w-full' : 'mx-auto'
@@ -387,28 +390,20 @@ function TabNavigation({
                   )}
 
                   <div
-                    className={`overflow-hidden shrink-0 ${uiAnimationEnabled ? 'transition-all duration-300 ease-out' : ''}`}
+                    className={`overflow-visible shrink-0 ${uiAnimationEnabled ? 'transition-all duration-300 ease-out' : ''}`}
                     style={{
                       width: shouldHideGroupButton ? '0px' : `${GROUP_BUTTON_WIDTH}px`,
                       opacity: shouldHideGroupButton ? 0 : 1,
                       pointerEvents: shouldHideGroupButton ? 'none' : 'auto'
                     }}
                   >
-                    <Tooltip content={t('groups.title')} placement="bottom" asChild>
-                      <button
-                        type="button"
-                        className={`relative z-10 w-[60px] h-7 flex items-center justify-center rounded-lg focus:outline-none text-qc-fg-muted hover:bg-qc-hover ${
-                          uiAnimationEnabled ? 'hover:scale-105' : ''
-                        }`}
-                        style={uiAnimationEnabled ? {
-                          transitionProperty: 'transform, box-shadow, background-color, color',
-                          transitionDuration: '200ms, 200ms, 500ms, 500ms'
-                        } : {}}
-                        aria-label={t('groups.title')}
-                      >
-                        <i className="ti ti-folders" style={{ fontSize: 16 }} />
-                      </button>
-                    </Tooltip>
+                    <GroupsPopup
+                      ref={groupsPopupRef}
+                      activeTab={activeTab}
+                      onTabChange={onTabChange}
+                      onGroupChange={onGroupChange}
+                      mode="tab"
+                    />
                   </div>
                 </>
               )

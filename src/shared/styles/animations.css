@@ -24,6 +24,30 @@
   }
 }
 
+/* 下拉菜单从上往下展开 */
+@keyframes dropdownDown {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 下拉菜单向上收起 */
+@keyframes dropdownUp {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+
 /* 遮罩淡入 */
 @keyframes fadeIn {
   from {
@@ -154,6 +178,14 @@
 
 .animate-slide-down {
   animation: slideDown 0.2s ease-in forwards;
+}
+
+.animate-dropdown-down {
+  animation: dropdownDown 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-dropdown-up {
+  animation: dropdownUp 0.18s ease-out forwards;
 }
 
 .animate-fade-in {
