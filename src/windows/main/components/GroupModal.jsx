@@ -112,10 +112,13 @@ function GroupModal({
 
   return (
     <div
-      className="fixed inset-0 bg-transparent flex items-center justify-center z-50"
+      className="fixed inset-[5px] rounded-[8px] overflow-hidden flex items-center justify-center z-50 backdrop-blur-[6px]"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--qc-surface) 28%, transparent)',
+      }}
       onClick={handleOverlayClick}
     >
-      <div className="group-modal bg-qc-panel rounded-lg shadow-xl w-[320px] max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="group-modal bg-qc-panel rounded-lg shadow-xl w-[320px] max-h-[80vh] overflow-hidden flex flex-col border border-qc-border">
 
         {/* header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-qc-border">
@@ -145,7 +148,12 @@ function GroupModal({
               onChange={e => setName(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('groups.modal.namePlaceholder')}
-              className="w-full px-3 py-2 bg-qc-panel-2 border border-qc-border rounded-md text-qc-fg placeholder:text-qc-fg-subtle focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 appearance-none bg-qc-panel-2 border border-qc-border rounded-md text-qc-fg placeholder:text-qc-fg-subtle focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{
+                backgroundColor: 'var(--qc-panel-2)',
+                color: 'var(--qc-fg)',
+                colorScheme: 'light',
+              }}
               autoFocus
             />
           </div>
