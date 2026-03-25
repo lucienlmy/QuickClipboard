@@ -96,12 +96,12 @@ pub fn disable_ai_translation_cancel_shortcut() -> Result<(), String> {
 // 复制纯文本到剪贴板
 #[tauri::command]
 pub fn copy_text_to_clipboard(text: String) -> Result<(), String> {
-    use clipboard_rs::ClipboardContext;
-    use crate::services::paste::set_clipboard_text;
+    use clipboard_rs::{Clipboard, ClipboardContext};
     
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
-    set_clipboard_text(&ctx, &text)
+    ctx.set_text(text)
+        .map_err(|e| format!("设置文本到剪贴板失败: {}", e))
 }
 
 // 检查 Win+V 是否已在系统中被禁用

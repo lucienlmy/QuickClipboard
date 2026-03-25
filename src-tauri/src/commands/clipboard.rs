@@ -260,8 +260,7 @@ pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
 // 复制图片文件到剪贴板
 #[tauri::command]
 pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
-    use clipboard_rs::ClipboardContext;
-    use crate::services::paste::set_clipboard_files;
+    use clipboard_rs::{Clipboard, ClipboardContext};
     use sha2::{Sha256, Digest};
     
     let path = Path::new(&file_path);
@@ -297,8 +296,9 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
     
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
-    
-    set_clipboard_files(&ctx, vec![final_path])
+
+    ctx.set_files(vec![final_path])
+        .map_err(|e| format!("设置文件到剪贴板失败: {}", e))
 }
 
 // 复制剪贴板项内容（不记录到历史）
