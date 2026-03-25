@@ -21,6 +21,7 @@ import {
 } from '@shared/api'
 import { getFavoriteItemPasteOptions } from '@shared/api/favorites'
 import { clipboardStore } from '@shared/store/clipboardStore'
+import { getOneTimePasteEnabled } from '@shared/services/oneTimePaste'
 
 const TOAST_CONFIG = {
   size: TOAST_SIZES.EXTRA_SMALL,
@@ -295,7 +296,7 @@ async function handlePasteActions(result, item, pasteOptions = [], isClipboard =
 
   // 粘贴后置顶
   if (isClipboard) {
-    if (settingsStore.pasteToTop && item.id && !item.is_pinned) {
+    if (!getOneTimePasteEnabled() && settingsStore.pasteToTop && item.id && !item.is_pinned) {
       try {
         await moveClipboardItemToTop(item.id)
       } finally {

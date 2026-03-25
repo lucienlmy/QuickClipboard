@@ -17,6 +17,8 @@ import { useTheme } from '@shared/hooks/useTheme';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 import { getClipboardItemPasteOptions } from '@shared/api/clipboard';
 import { extractFormatKinds, formatKindsToLabels } from '@shared/utils/pasteFormatHints';
+import { settingsStore } from '@shared/store/settingsStore';
+import { getOneTimePasteEnabled } from '@shared/services/oneTimePaste';
 import logoIcon from '@/assets/icon1024.png';
 
 const PREVIEW_MODE_TEXT = 'text';
@@ -288,7 +290,7 @@ function ClipboardItem({
       try {
         await pasteClipboardItem(item.id);
         // 粘贴后置顶
-        if (settings.pasteToTop && item.id && !item.is_pinned) {
+        if (!getOneTimePasteEnabled() && settingsStore.pasteToTop && item.id && !item.is_pinned) {
           try {
             await moveClipboardItemToTop(item.id);
           } finally {

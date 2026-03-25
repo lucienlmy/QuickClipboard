@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { restoreLastFocus } from '@shared/api/window'
+import { getOneTimePasteEnabled } from '@shared/services/oneTimePaste'
 // 获取剪贴板历史列表
 export async function getClipboardHistory(params = {}) {
   try {
@@ -42,6 +43,17 @@ export async function pasteClipboardItem(clipboardId, action = null) {
     }
 
     await invoke('paste_content', { params })
+
+    // 一次性粘贴：粘贴后删除当前记录
+    if (getOneTimePasteEnabled()) {
+      try {
+        await deleteClipboardItem(clipboardId)
+        const { loadClipboardItems } = await import('@shared/store/clipboardStore')
+        await loadClipboardItems()
+      } catch (deleteError) {
+        console.error('一次性粘贴删除剪贴板记录失败:', deleteError)
+      }
+    }
 
     return true
   } catch (error) {

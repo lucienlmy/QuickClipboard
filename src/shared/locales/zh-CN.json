@@ -907,7 +907,14 @@
     "screenshot": "截屏",
     "oneTimePaste": "一次性粘贴",
     "aiTranslation": "AI翻译",
-    "formatToggle": "格式粘贴"
+    "formatToggle": "格式粘贴",
+    "more": "更多",
+    "moreMenu": {
+      "screenshot": "截屏",
+      "contentPreview": "内容预览",
+      "globalPaste": "全局粘贴",
+      "settings": "设置"
+    }
   },
   "floatingToolbar": {
     "scrollToTop": "返回顶部",
