@@ -107,6 +107,7 @@ fn clipboard_item_to_record(item: ClipboardItem) -> ClipboardRecord {
         source_app: None,
         source_icon_hash: None,
         char_count: None,
+        raw_formats: Vec::new(),
         created_at: item.created_at,
         updated_at: item.updated_at,
     }

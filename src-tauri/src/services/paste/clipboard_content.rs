@@ -114,11 +114,23 @@ pub fn set_clipboard_from_item(
     content_type: &str,
     content: &str,
     html_content: &Option<String>,
+    raw_formats: &[lan_sync_core::ClipboardRawFormat],
     skip_record: bool,
 ) -> Result<(), String> {
     let ctx = ClipboardContext::new().map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
 
     let primary_type = content_type.split(',').next().unwrap_or(content_type);
+
+    if !raw_formats.is_empty() && primary_type != "image" && primary_type != "file" {
+        let payload = build_raw_format_payload(raw_formats);
+        if !payload.is_empty() {
+            if skip_record {
+                crate::services::clipboard::set_last_hash_contents(&payload);
+            }
+
+            return set_clipboard_contents(&ctx, payload);
+        }
+    }
 
     match primary_type {
         "image" | "file" => {
@@ -152,4 +164,12 @@ pub fn set_clipboard_from_item(
             }
         }
     }
+}
+
+fn build_raw_format_payload(raw_formats: &[lan_sync_core::ClipboardRawFormat]) -> Vec<ClipboardContent> {
+    raw_formats
+        .iter()
+        .filter(|item| item.format_name != crate::services::clipboard::INTERNAL_IMAGE_PATH_FORMAT)
+        .map(|item| ClipboardContent::Other(item.format_name.clone(), item.raw_data.clone()))
+        .collect()
 }

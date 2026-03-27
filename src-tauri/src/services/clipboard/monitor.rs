@@ -130,6 +130,19 @@ fn clipboard_item_to_lan_sync_record(
         source_app: item.source_app,
         source_icon_hash: item.source_icon_hash,
         char_count: item.char_count,
+        raw_formats: crate::services::database::get_clipboard_data_items("clipboard", &item.id.to_string())
+            .map(|items| {
+                items
+                    .into_iter()
+                    .map(|raw| lan_sync_core::ClipboardRawFormat {
+                        format_name: raw.format_name,
+                        raw_data: raw.raw_data,
+                        is_primary: raw.is_primary,
+                        format_order: raw.format_order,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
         created_at: item.created_at,
         updated_at: item.updated_at,
     })

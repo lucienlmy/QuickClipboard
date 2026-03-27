@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use lan_sync_core::{ClipboardRecord, ConnectionState, CoreEvent, LanSyncConfig, LanSyncManager};
+use lan_sync_core::{
+    ClipboardRawFormat, ClipboardRecord, ConnectionState, CoreEvent, LanSyncConfig,
+    LanSyncManager,
+};
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -93,6 +96,7 @@ async fn record_roundtrip_text() -> AnyResult<()> {
         source_app: None,
         source_icon_hash: None,
         char_count: Some(5),
+        raw_formats: vec![],
         created_at: 1,
         updated_at: 1,
     };
@@ -101,6 +105,67 @@ async fn record_roundtrip_text() -> AnyResult<()> {
     let record = recv_remote_record(&mut server_events, Duration::from_secs(2)).await?;
     if record.uuid != rec.uuid || record.content != rec.content {
         return Err("收到的记录不一致".into());
+    }
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn record_roundtrip_raw_formats() -> AnyResult<()> {
+    let server = LanSyncManager::new(LanSyncConfig {
+        device_id: "server".to_string(),
+        ..Default::default()
+    });
+    server.set_enabled(true).await;
+    let port = server.start_server(0).await?;
+
+    let mut server_events = server.subscribe().await;
+
+    let client = LanSyncManager::new(LanSyncConfig {
+        device_id: "client".to_string(),
+        ..Default::default()
+    });
+    client.set_enabled(true).await;
+    client
+        .connect_peer(&format!("ws://127.0.0.1:{}", port), false, None)
+        .await?;
+
+    let start = std::time::Instant::now();
+    loop {
+        if client.get_snapshot().await.state == ConnectionState::Connected {
+            break;
+        }
+        if start.elapsed() > Duration::from_secs(2) {
+            return Err("等待连接超时".into());
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    let rec = ClipboardRecord {
+        uuid: "u-raw".to_string(),
+        source_device_id: "client".to_string(),
+        is_remote: false,
+        content: "hello".to_string(),
+        html_content: Some("<b>hello</b>".to_string()),
+        content_type: "rich_text".to_string(),
+        image_id: None,
+        source_app: None,
+        source_icon_hash: None,
+        char_count: Some(5),
+        raw_formats: vec![ClipboardRawFormat {
+            format_name: "CF_UNICODETEXT".to_string(),
+            raw_data: b"hello".to_vec(),
+            is_primary: true,
+            format_order: 0,
+        }],
+        created_at: 1,
+        updated_at: 1,
+    };
+    client.send_clipboard_record(rec.clone()).await?; 
+
+    let record = recv_remote_record(&mut server_events, Duration::from_secs(2)).await?; 
+    if record.uuid != rec.uuid || record.raw_formats.len() != 1 {
+        return Err("原始格式未正确传输".into());
     }
 
     Ok(())
@@ -156,6 +221,7 @@ async fn client_to_server_is_forwarded_to_others() -> AnyResult<()> {
         source_app: None,
         source_icon_hash: None,
         char_count: Some(7),
+        raw_formats: vec![],
         created_at: 1,
         updated_at: 1,
     };
@@ -226,6 +292,7 @@ async fn server_broadcast_excluding_source() -> AnyResult<()> {
         source_app: None,
         source_icon_hash: None,
         char_count: Some(7),
+        raw_formats: vec![],
         created_at: 1,
         updated_at: 1,
     };
@@ -303,6 +370,7 @@ async fn server_broadcast_to_two_clients() -> AnyResult<()> {
         source_app: None,
         source_icon_hash: None,
         char_count: Some(6),
+        raw_formats: vec![],
         created_at: 1,
         updated_at: 1,
     };
@@ -368,6 +436,7 @@ async fn server_broadcast_to_client() -> AnyResult<()> {
         source_app: None,
         source_icon_hash: None,
         char_count: Some(11),
+        raw_formats: vec![],
         created_at: 1,
         updated_at: 1,
     };
@@ -408,6 +477,7 @@ async fn record_queue_flush_on_connect() -> AnyResult<()> {
         source_app: None,
         source_icon_hash: None,
         char_count: Some(6),
+        raw_formats: vec![],
         created_at: 1,
         updated_at: 1,
     };

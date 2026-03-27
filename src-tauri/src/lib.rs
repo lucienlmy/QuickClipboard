@@ -548,6 +548,7 @@ pub fn run() {
                                                     &record.content_type,
                                                     &record.content,
                                                     &record.html_content,
+                                                    &record.raw_formats,
                                                     true,
                                                 );
                                             }

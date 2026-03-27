@@ -22,6 +22,14 @@ pub struct AuthResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClipboardRawFormat {
+    pub format_name: String,
+    pub raw_data: Vec<u8>,
+    pub is_primary: bool,
+    pub format_order: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClipboardRecord {
     pub uuid: String,
     pub source_device_id: String,
@@ -38,6 +46,8 @@ pub struct ClipboardRecord {
     pub source_icon_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub char_count: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub raw_formats: Vec<ClipboardRawFormat>,
     pub created_at: i64,
     pub updated_at: i64,
 }

@@ -409,6 +409,17 @@ pub fn insert_remote_clipboard_record(
         return Err("远端记录缺少 uuid".to_string());
     }
 
+    let raw_formats: Vec<ClipboardDataSeed> = record
+        .raw_formats
+        .iter()
+        .map(|item| ClipboardDataSeed {
+            format_name: item.format_name.clone(),
+            raw_data: item.raw_data.clone(),
+            is_primary: item.is_primary,
+            format_order: item.format_order,
+        })
+        .collect();
+
     let inserted_or_existing: Option<i64> = with_connection(|conn| {
         let existing: Option<i64> = conn
             .query_row(
@@ -503,7 +514,15 @@ pub fn insert_remote_clipboard_record(
         Ok(id)
     })?;
 
-    inserted_or_existing.ok_or_else(|| "插入远端记录失败".to_string())
+    let clipboard_id = inserted_or_existing.ok_or_else(|| "插入远端记录失败".to_string())?;
+
+    if !raw_formats.is_empty() {
+        let target_id = clipboard_id.to_string();
+        delete_clipboard_data_items("clipboard", &target_id)?;
+        save_clipboard_data_items("clipboard", &target_id, &raw_formats)?;
+    }
+
+    Ok(clipboard_id)
 }
 
 // 根据ID获取剪贴板项（指定截断长度）

@@ -1,4 +1,7 @@
-use lan_sync_core::{ClipboardRecord, CoreEvent, LanSyncConfig, LanSyncError, LanSyncManager, Snapshot};
+use lan_sync_core::{
+    ClipboardRawFormat, ClipboardRecord, CoreEvent, LanSyncConfig, LanSyncError, LanSyncManager,
+    Snapshot,
+};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -191,6 +194,38 @@ fn local_image_file_exists(image_id: &str) -> bool {
     false
 }
 
+fn load_raw_formats_for_clipboard_item(clipboard_id: i64) -> Vec<ClipboardRawFormat> {
+    crate::services::database::get_clipboard_data_items("clipboard", &clipboard_id.to_string())
+        .map(|items| {
+            items
+                .into_iter()
+                .map(|item| ClipboardRawFormat {
+                    format_name: item.format_name,
+                    raw_data: item.raw_data,
+                    is_primary: item.is_primary,
+                    format_order: item.format_order,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn load_raw_formats_for_favorite_item(favorite_id: &str) -> Vec<ClipboardRawFormat> {
+    crate::services::database::get_clipboard_data_items("favorite", favorite_id)
+        .map(|items| {
+            items
+                .into_iter()
+                .map(|item| ClipboardRawFormat {
+                    format_name: item.format_name,
+                    raw_data: item.raw_data,
+                    is_primary: item.is_primary,
+                    format_order: item.format_order,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn should_sync_record(record: &ClipboardRecord) -> bool {
     if record.content_type == "file" {
         return false;
@@ -356,6 +391,7 @@ pub async fn sync_clipboard_item(clipboard_id: i64) -> Result<String, LanSyncErr
         source_app: item.source_app,
         source_icon_hash: item.source_icon_hash,
         char_count: item.char_count,
+        raw_formats: load_raw_formats_for_clipboard_item(clipboard_id),
         created_at: item.created_at,
         updated_at: item.updated_at,
     };
@@ -392,6 +428,7 @@ pub async fn sync_favorite_item(favorite_id: String) -> Result<String, LanSyncEr
         source_app: None,
         source_icon_hash: None,
         char_count: item.char_count,
+        raw_formats: load_raw_formats_for_favorite_item(&favorite_id),
         created_at: item.created_at,
         updated_at: item.updated_at,
     };
