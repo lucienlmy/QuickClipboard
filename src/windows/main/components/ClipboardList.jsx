@@ -8,7 +8,7 @@ import { ROW_HEIGHT_CONFIG } from '@shared/hooks/useItemCommon';
 import { clipboardStore, loadClipboardRange, pasteClipboardItem } from '@shared/store/clipboardStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
-import { moveClipboardItemToTop, moveClipboardItemById } from '@shared/api';
+import { moveClipboardItemToTop, moveClipboardItemById, closePreviewWindow } from '@shared/api';
 import { getOneTimePasteEnabled } from '@shared/services/oneTimePaste';
 import ClipboardItem from './ClipboardItem';
 
@@ -139,6 +139,16 @@ const ClipboardList = forwardRef(({
     },
     enabled: snap.activeTab === 'clipboard' && !isMultiSelectMode
   });
+
+  const handleVirtuosoScrollState = useCallback((scrolling) => {
+    if (scrolling) {
+      // 滚动时主动关闭预览，避免鼠标静止滚动导致旧预览残留
+      closePreviewWindow().catch(() => { });
+      handleScrollStart();
+      return;
+    }
+    handleScrollEnd();
+  }, [handleScrollEnd, handleScrollStart]);
 
   const ensureRangeLoaded = useCallback(async (startIndex, endIndex) => {
     const missingIndexes = [];
@@ -385,7 +395,7 @@ const ClipboardList = forwardRef(({
               animationDelay={animationDelay}
             />
           </div>;
-        }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
+        }} isScrolling={handleVirtuosoScrollState} style={{
           height: '100%'
         }} />
       </SortableContext>

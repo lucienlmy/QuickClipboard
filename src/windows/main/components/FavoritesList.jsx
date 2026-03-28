@@ -9,7 +9,7 @@ import { favoritesStore, loadFavoritesRange, pasteFavorite } from '@shared/store
 import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { settingsStore } from '@shared/store/settingsStore';
-import { moveFavoriteItem } from '@shared/api';
+import { moveFavoriteItem, closePreviewWindow } from '@shared/api';
 import FavoriteItem from './FavoriteItem';
 
 const SCROLL_DEBOUNCE_DELAY = 50;
@@ -134,6 +134,16 @@ const FavoritesList = forwardRef(({
     },
     enabled: snap.activeTab === 'favorites' && !isMultiSelectMode
   });
+
+  const handleVirtuosoScrollState = useCallback((scrolling) => {
+    if (scrolling) {
+      // 滚动时主动关闭预览，避免鼠标静止滚动导致旧预览残留
+      closePreviewWindow().catch(() => { });
+      handleScrollStart();
+      return;
+    }
+    handleScrollEnd();
+  }, [handleScrollEnd, handleScrollStart]);
 
   const ensureRangeLoaded = useCallback(async (startIndex, endIndex) => {
     const missingIndexes = [];
@@ -369,7 +379,7 @@ const FavoritesList = forwardRef(({
                   animationDelay={animationDelay}
                 />
               </div>;
-        }} isScrolling={scrolling => scrolling ? handleScrollStart() : handleScrollEnd()} style={{
+        }} isScrolling={handleVirtuosoScrollState} style={{
           height: '100%'
         }} />
         </SortableContext>

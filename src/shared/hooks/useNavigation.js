@@ -141,6 +141,14 @@ export function useNavigation({
             const index = parseInt(itemElement.getAttribute('data-index'), 10)
             if (!isNaN(index) && index >= 0 && index < items.length) {
               handleItemHover(index)
+              // 补发 mouseover，触发列表项的 onMouseEnter 逻辑（如预览窗口）
+              itemElement.dispatchEvent(new MouseEvent('mouseover', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: x,
+                clientY: y,
+              }))
             }
           }
         }
@@ -148,16 +156,29 @@ export function useNavigation({
     }, 50)
   }, [handleItemHover, items.length])
   
-  // 监听鼠标移动，记录位置
+  // 监听鼠标移动/滚轮，记录位置（支持“鼠标不动仅滚动”场景）
   useEffect(() => {
+    const updateMousePosition = (x, y) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return
+      }
+      lastMousePositionRef.current = { x, y }
+    }
+
     const handleMouseMove = (e) => {
-      lastMousePositionRef.current = { x: e.clientX, y: e.clientY }
+      updateMousePosition(e.clientX, e.clientY)
+    }
+
+    const handleWheel = (e) => {
+      updateMousePosition(e.clientX, e.clientY)
     }
     
     document.addEventListener('mousemove', handleMouseMove, { passive: true })
+    document.addEventListener('wheel', handleWheel, { passive: true })
     
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('wheel', handleWheel)
     }
   }, [])
   
