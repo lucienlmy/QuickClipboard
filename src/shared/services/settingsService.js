@@ -63,6 +63,7 @@ export const defaultSettings = {
   saveImages: true,
   imagePreview: false,
   textPreview: false,
+  filePreview: false,
   displayPriorityOrder: 'text,html,image',
   autoScrollToTopOnShow: false,
   autoClearSearch: false,

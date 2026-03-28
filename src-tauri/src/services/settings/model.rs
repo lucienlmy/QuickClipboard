@@ -24,6 +24,7 @@ pub struct AppSettings {
     pub save_images: bool,
     pub image_preview: bool,
     pub text_preview: bool,
+    pub file_preview: bool,
     pub display_priority_order: String,
 
     // 音效设置
@@ -194,6 +195,7 @@ impl Default for AppSettings {
             save_images: true,
             image_preview: false,
             text_preview: false,
+            file_preview: false,
             display_priority_order: "text,html,image".to_string(),
 
             sound_enabled: true,

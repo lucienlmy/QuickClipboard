@@ -63,6 +63,10 @@ function ClipboardSection({
           <Toggle checked={settings.textPreview} onChange={checked => onSettingChange('textPreview', checked)} />
         </SettingItem>
 
+        <SettingItem label={t('settings.clipboard.filePreview')} description={t('settings.clipboard.filePreviewDesc')}>
+          <Toggle checked={settings.filePreview !== false} onChange={checked => onSettingChange('filePreview', checked)} />
+        </SettingItem>
+
         <SettingItem label={t('settings.clipboard.displayPriority')} description={t('settings.clipboard.displayPriorityDesc')}>
           <Select value={settings.displayPriorityOrder || 'text,html,image'} onChange={value => onSettingChange('displayPriorityOrder', value)} options={displayPriorityOptions} className="w-56" />
         </SettingItem>

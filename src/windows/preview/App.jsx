@@ -459,10 +459,12 @@ function App() {
 
   const supportedPreviewModes = useMemo(
     () => orderPreviewModesByDisplayPriority(
-      resolveFormatPreviewModes(previewItem, formatKinds),
+      resolveFormatPreviewModes(previewItem, formatKinds).filter((mode) => (
+        mode !== MODE_FILE || settings.filePreview !== false
+      )),
       settings.displayPriorityOrder,
     ),
-    [previewItem, formatKinds, settings.displayPriorityOrder],
+    [previewItem, formatKinds, settings.displayPriorityOrder, settings.filePreview],
   );
 
   const filePreviewFiles = useMemo(

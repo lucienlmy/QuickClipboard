@@ -203,7 +203,8 @@ const TitleBar = forwardRef(({
     const previewItem = createMenuItem('menu-preview-group', t('tools.moreMenu.contentPreview'), { icon: 'ti ti-eye' });
     previewItem.children = [
       createMenuItem('menu-preview-text', t('settings.clipboard.textPreview'), { icon: checkIcon(settingsSnap.textPreview !== false) }),
-      createMenuItem('menu-preview-image', t('settings.clipboard.imagePreview'), { icon: checkIcon(settingsSnap.imagePreview !== false) })
+      createMenuItem('menu-preview-image', t('settings.clipboard.imagePreview'), { icon: checkIcon(settingsSnap.imagePreview !== false) }),
+      createMenuItem('menu-preview-file', t('settings.clipboard.filePreview'), { icon: checkIcon(settingsSnap.filePreview !== false) })
     ];
 
     const displayPriorityItem = createMenuItem('menu-display-priority-group', t('settings.clipboard.displayPriority'), { icon: 'ti ti-sort-descending-2' });
@@ -271,6 +272,13 @@ const TitleBar = forwardRef(({
           await settingsStore.saveSetting('imagePreview', settingsSnap.imagePreview === false);
         } catch (error) {
           console.error('切换图片预览失败:', error);
+        }
+        break;
+      case 'menu-preview-file':
+        try {
+          await settingsStore.saveSetting('filePreview', settingsSnap.filePreview === false);
+        } catch (error) {
+          console.error('切换文件预览失败:', error);
         }
         break;
       case 'menu-paste-format':

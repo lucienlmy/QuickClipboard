@@ -86,7 +86,7 @@ function ClipboardItem({
       return settings.imagePreview !== false;
     }
     if (previewMode === PREVIEW_MODE_FILE) {
-      return true;
+      return settings.filePreview !== false;
     }
     if (previewMode === PREVIEW_MODE_TEXT || previewMode === PREVIEW_MODE_HTML) {
       return settings.textPreview !== false;
