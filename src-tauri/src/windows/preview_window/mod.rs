@@ -98,6 +98,17 @@ pub async fn show_preview_window(
     source: String,
     item_id: String,
 ) -> Result<(), String> {
+    let window_state = crate::get_window_state();
+    if window_state.state != crate::WindowState::Visible {
+        eprintln!(
+            "主窗口当前未处于可见状态，忽略预览窗口创建请求（state: {:?}, snapped: {}, hidden: {}）",
+            window_state.state,
+            window_state.is_snapped,
+            window_state.is_hidden,
+        );
+        return Ok(());
+    }
+
     if let Ok(guard) = PREVIEW_DATA.lock() {
         if let Some(current) = guard.as_ref() {
             let same_request =
