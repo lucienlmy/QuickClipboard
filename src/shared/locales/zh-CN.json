@@ -1023,6 +1023,27 @@
     "formatHtml": "HTML",
     "formatRtf": "RTF",
     "formatImage": "图片",
-    "formatFile": "文件"
+    "formatFile": "文件",
+    "fileHint": "Ctrl+滚轮，滚动文件列表",
+    "fileHeaderName": "名称",
+    "fileHeaderSize": "大小",
+    "fileHeaderType": "类型",
+    "fileHeaderPath": "路径",
+    "fileHeaderStatus": "状态",
+    "fileStatusMissing": "文件不存在",
+    "fileStatusDirectory": "目录",
+    "fileStatusReady": "可用",
+    "fileTypeDirectory": "目录",
+    "fileTypeUnknown": "文件",
+    "fileExtraDirectory": "目录项",
+    "fileEmpty": "没有可预览的文件",
+    "fileSummaryCount": "共 {{count}} 项",
+    "fileSummarySize": "总大小 {{size}}",
+    "fileSummaryDirectory": "目录 {{count}}",
+    "fileSummaryMissing": "缺失 {{count}}",
+    "fileSizeDirectory": "目录",
+    "fileUnknownName": "未命名文件",
+    "fileNoPath": "无路径信息",
+    "fileStoredPath": "存储路径：{{path}}"
   }
 }

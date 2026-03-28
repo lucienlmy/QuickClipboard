@@ -9,6 +9,7 @@ export const FORMAT_KIND_FILE = 'file';
 export const PREVIEW_MODE_TEXT = 'text';
 export const PREVIEW_MODE_HTML = 'html';
 export const PREVIEW_MODE_IMAGE = 'image';
+export const PREVIEW_MODE_FILE = 'file';
 
 const FORMAT_KIND_ORDER = [
   FORMAT_KIND_TEXT,
@@ -22,6 +23,7 @@ const PREVIEW_MODE_ORDER = [
   PREVIEW_MODE_TEXT,
   PREVIEW_MODE_HTML,
   PREVIEW_MODE_IMAGE,
+  PREVIEW_MODE_FILE,
 ];
 
 const PASTE_OPTION_KIND_TO_FORMAT_KIND = {
@@ -144,9 +146,15 @@ export function resolvePreviewModes(item, formatKinds = []) {
     modes.add(PREVIEW_MODE_IMAGE);
   }
 
+  if (kinds.has(FORMAT_KIND_FILE) || primaryType === 'file' || hasType(contentType, 'file')) {
+    modes.add(PREVIEW_MODE_FILE);
+  }
+
   if (modes.size === 0) {
     if (primaryType === 'image') {
       modes.add(PREVIEW_MODE_IMAGE);
+    } else if (primaryType === 'file') {
+      modes.add(PREVIEW_MODE_FILE);
     } else {
       modes.add(PREVIEW_MODE_TEXT);
     }

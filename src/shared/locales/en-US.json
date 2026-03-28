@@ -1033,6 +1033,27 @@
     "formatHtml": "HTML",
     "formatRtf": "RTF",
     "formatImage": "Image",
-    "formatFile": "File"
+    "formatFile": "File",
+    "fileHint": "Ctrl+Wheel, scroll file list",
+    "fileHeaderName": "Name",
+    "fileHeaderSize": "Size",
+    "fileHeaderType": "Type",
+    "fileHeaderPath": "Path",
+    "fileHeaderStatus": "Status",
+    "fileStatusMissing": "File not found",
+    "fileStatusDirectory": "Folder",
+    "fileStatusReady": "Available",
+    "fileTypeDirectory": "Folder",
+    "fileTypeUnknown": "File",
+    "fileExtraDirectory": "Folder item",
+    "fileEmpty": "No files to preview",
+    "fileSummaryCount": "{{count}} items",
+    "fileSummarySize": "Total size {{size}}",
+    "fileSummaryDirectory": "{{count}} folders",
+    "fileSummaryMissing": "{{count}} missing",
+    "fileSizeDirectory": "Folder",
+    "fileUnknownName": "Untitled file",
+    "fileNoPath": "No path info",
+    "fileStoredPath": "Stored path: {{path}}"
   }
 }

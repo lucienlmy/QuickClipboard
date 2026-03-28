@@ -25,17 +25,20 @@ import {
   DISPLAY_FORMAT_IMAGE,
   resolveDisplayFormatByPriority,
 } from '@shared/utils/displayFormatPriority';
+import {
+  PREVIEW_MODE_TEXT,
+  PREVIEW_MODE_HTML,
+  PREVIEW_MODE_IMAGE,
+  PREVIEW_MODE_FILE,
+} from '@shared/utils/pasteFormatHints';
 
-const PREVIEW_MODE_TEXT = 'text';
-const PREVIEW_MODE_HTML = 'html';
-const PREVIEW_MODE_IMAGE = 'image';
 const PREVIEW_HOVER_DELAY_MS = 120;
 const favoriteFormatKindsCache = new Map();
 
 const getItemPreviewMode = (item, type, displayPriorityOrder) => {
   const primaryType = getPrimaryType(type || item?.content_type);
   if (primaryType === 'image') return PREVIEW_MODE_IMAGE;
-  if (primaryType === 'file') return null;
+  if (primaryType === 'file') return PREVIEW_MODE_FILE;
 
   if (primaryType === 'text' || primaryType === 'rich_text' || primaryType === 'link') {
     const displayFormat = resolveDisplayFormatByPriority(item, displayPriorityOrder);
@@ -76,11 +79,18 @@ function FavoriteItem({
   const isImageType = renderType === 'image';
   const isImageOrFileType = isFileType || isImageType;
   const previewMode = getItemPreviewMode(item, renderType, settings.displayPriorityOrder);
-  const previewEnabled = previewMode === PREVIEW_MODE_IMAGE
-    ? settings.imagePreview !== false
-    : (previewMode === PREVIEW_MODE_TEXT || previewMode === PREVIEW_MODE_HTML)
-      ? settings.textPreview !== false
-      : false;
+  const previewEnabled = (() => {
+    if (previewMode === PREVIEW_MODE_IMAGE) {
+      return settings.imagePreview !== false;
+    }
+    if (previewMode === PREVIEW_MODE_FILE) {
+      return true;
+    }
+    if (previewMode === PREVIEW_MODE_TEXT || previewMode === PREVIEW_MODE_HTML) {
+      return settings.textPreview !== false;
+    }
+    return false;
+  })();
   const sortTooltipContent = t('clipboard.dragSortOnlyRight', '拖拽排序');
   const [showDragSideTooltips, setShowDragSideTooltips] = useState(false);
   const [formatKinds, setFormatKinds] = useState(() => extractFormatKinds([], item));
@@ -307,7 +317,7 @@ function FavoriteItem({
     if (previewMode && previewEnabled) {
       previewTimerRef.current = setTimeout(() => {
         showPreviewWindow(previewMode, 'favorite', item.id).catch((error) => {
-          console.error('显示图片预览失败:', error);
+          console.error('显示预览失败:', error);
         });
       }, PREVIEW_HOVER_DELAY_MS);
     } else {

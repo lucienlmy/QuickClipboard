@@ -1,8 +1,15 @@
 import { getPrimaryType } from '@shared/utils/contentType';
+import {
+  PREVIEW_MODE_TEXT,
+  PREVIEW_MODE_HTML,
+  PREVIEW_MODE_IMAGE,
+  PREVIEW_MODE_FILE,
+} from '@shared/utils/pasteFormatHints';
 
-export const MODE_TEXT = 'text';
-export const MODE_HTML = 'html';
-export const MODE_IMAGE = 'image';
+export const MODE_TEXT = PREVIEW_MODE_TEXT;
+export const MODE_HTML = PREVIEW_MODE_HTML;
+export const MODE_IMAGE = PREVIEW_MODE_IMAGE;
+export const MODE_FILE = PREVIEW_MODE_FILE;
 
 export const PREVIEW_OFFSET = 14;
 export const TEXT_SCROLL_STEP = 120;
@@ -28,11 +35,98 @@ export function resolvePreviewMode(requestedMode, item) {
     return MODE_IMAGE;
   }
 
+  if (requestedMode === MODE_FILE || primaryType === 'file') {
+    return MODE_FILE;
+  }
+
   if (requestedMode === MODE_HTML) {
     return MODE_HTML;
   }
 
   return MODE_TEXT;
+}
+
+function normalizePreviewFileEntry(file = {}) {
+  const rawPath = typeof file?.path === 'string' ? file.path.trim() : '';
+  const actualPath = typeof file?.actual_path === 'string' ? file.actual_path.trim() : '';
+  const derivedName = (actualPath || rawPath)
+    .split(/[/\\]/)
+    .filter(Boolean)
+    .pop() || '';
+  const name = typeof file?.name === 'string' && file.name.trim()
+    ? file.name.trim()
+    : derivedName || '未命名文件';
+
+  return {
+    name,
+    path: rawPath,
+    actualPath,
+    displayPath: actualPath || rawPath,
+    size: Number(file?.size) || 0,
+    isDirectory: Boolean(file?.is_directory),
+    exists: file?.exists !== false,
+    fileType: typeof file?.file_type === 'string' ? file.file_type.trim() : '',
+    iconData: typeof file?.icon_data === 'string' ? file.icon_data : '',
+    width: Number(file?.width) || null,
+    height: Number(file?.height) || null,
+  };
+}
+
+export function parsePreviewFiles(item) {
+  const content = typeof item?.content === 'string' ? item.content.trim() : '';
+  if (!content.startsWith('files:')) {
+    return [];
+  }
+
+  try {
+    const filesData = JSON.parse(content.slice(6));
+    const files = Array.isArray(filesData?.files) ? filesData.files : [];
+    return files
+      .map((file) => normalizePreviewFileEntry(file))
+      .filter((file) => file.path || file.actualPath || file.name);
+  } catch {
+    return [];
+  }
+}
+
+export function buildPreviewFileStats(files = []) {
+  const stats = {
+    fileCount: 0,
+    directoryCount: 0,
+    missingCount: 0,
+    existingCount: 0,
+    totalSize: 0,
+    longestNameLength: 0,
+    longestPathLength: 0,
+  };
+
+  files.forEach((file) => {
+    if (!file) return;
+
+    stats.fileCount += 1;
+    if (file.isDirectory) {
+      stats.directoryCount += 1;
+    } else {
+      stats.totalSize += Number(file.size) > 0 ? Number(file.size) : 0;
+    }
+
+    if (file.exists === false) {
+      stats.missingCount += 1;
+    } else {
+      stats.existingCount += 1;
+    }
+
+    const nameLength = String(file.name || '').length;
+    const pathLength = String(file.displayPath || file.actualPath || file.path || '').length;
+    if (nameLength > stats.longestNameLength) {
+      stats.longestNameLength = nameLength;
+    }
+    if (pathLength > stats.longestPathLength) {
+      stats.longestPathLength = pathLength;
+    }
+  });
+
+  return stats;
 }
 
 export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}) {
@@ -56,6 +150,34 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
     }
 
     return { width: maxEdge, height: maxEdge };
+  }
+
+  if (mode === MODE_FILE) {
+    const fileCount = Number(options.fileCount);
+    const visibleRows = isFiniteNumber(fileCount) && fileCount > 0
+      ? Math.min(fileCount, 8)
+      : 4;
+    const longestNameLength = Number(options.longestFileNameLength);
+    const longestPathLength = Number(options.longestFilePathLength);
+    const nameBonus = isFiniteNumber(longestNameLength) && longestNameLength > 0
+      ? clamp(Math.round(Math.min(longestNameLength, 28) * 7), 0, 180)
+      : 0;
+    const pathBonus = isFiniteNumber(longestPathLength) && longestPathLength > 0
+      ? clamp(Math.round(Math.min(longestPathLength, 40) * 3), 0, 120)
+      : 0;
+    const width = clamp(
+      620 + nameBonus + pathBonus,
+      520,
+      Math.max(520, workAreaWidth - 24),
+    );
+    const maxHeight = clamp(
+      roundSize(workAreaHeight * 0.68, 240),
+      240,
+      Math.max(240, workAreaHeight - 24),
+    );
+    const height = clamp(150 + visibleRows * 52, 220, maxHeight);
+
+    return { width, height };
   }
 
   if (mode === MODE_HTML) {

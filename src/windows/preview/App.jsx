@@ -21,6 +21,7 @@ import {
 import { normalizeDisplayPriorityOrder } from '@shared/utils/displayFormatPriority';
 import {
   ImagePreview,
+  FilePreview,
   HtmlPreview,
   PreviewHint,
   TextPreview,
@@ -29,6 +30,7 @@ import {
   MODE_TEXT,
   MODE_HTML,
   MODE_IMAGE,
+  MODE_FILE,
   TEXT_SCROLL_STEP,
   IMAGE_SCALE_STEP,
   IMAGE_SCALE_MIN,
@@ -44,6 +46,8 @@ import {
   chooseContainerPosition,
   estimateTextHeight,
   resolvePreviewMode,
+  parsePreviewFiles,
+  buildPreviewFileStats,
   parseImageFilePath,
   parseRawImagePath,
   parseFirstImageId,
@@ -128,6 +132,7 @@ function orderPreviewModesByDisplayPriority(modes, displayPriorityOrder) {
     text: MODE_TEXT,
     html: MODE_HTML,
     image: MODE_IMAGE,
+    file: MODE_FILE,
   };
   const orderedModes = orderedFormats
     .map((format) => modeOrderMap[format])
@@ -162,6 +167,7 @@ function App() {
   const [mousePositionPhysical, setMousePositionPhysical] = useState({ x: 0, y: 0 });
   const textPreviewRef = useRef(null);
   const htmlPreviewRef = useRef(null);
+  const filePreviewRef = useRef(null);
   const imageScaleIndicatorTimerRef = useRef(null);
   const settings = useSnapshot(settingsStore);
   const { theme, darkThemeStyle, backgroundImagePath } = settings;
@@ -219,6 +225,8 @@ function App() {
     setPreviewMode(
       previewData.mode === MODE_IMAGE
         ? MODE_IMAGE
+        : previewData.mode === MODE_FILE
+          ? MODE_FILE
         : previewData.mode === MODE_HTML
           ? MODE_HTML
           : MODE_TEXT,
@@ -426,6 +434,12 @@ function App() {
         return;
       }
 
+      if (previewMode === MODE_FILE) {
+        const delta = direction === 'up' ? -TEXT_SCROLL_STEP : TEXT_SCROLL_STEP;
+        filePreviewRef.current?.scrollBy(delta);
+        return;
+      }
+
       if (previewMode === MODE_IMAGE) {
         setImageScale((prev) => {
           const next = direction === 'up' ? prev + IMAGE_SCALE_STEP : prev - IMAGE_SCALE_STEP;
@@ -449,6 +463,16 @@ function App() {
       settings.displayPriorityOrder,
     ),
     [previewItem, formatKinds, settings.displayPriorityOrder],
+  );
+
+  const filePreviewFiles = useMemo(
+    () => parsePreviewFiles(previewItem),
+    [previewItem],
+  );
+
+  const filePreviewStats = useMemo(
+    () => buildPreviewFileStats(filePreviewFiles),
+    [filePreviewFiles],
   );
 
   useEffect(() => {
@@ -519,6 +543,9 @@ function App() {
       imageHeight: imageDimensions?.height,
       htmlWidth: htmlPreferredSize?.width,
       htmlHeight: htmlPreferredSize?.height,
+      fileCount: filePreviewStats.fileCount,
+      longestFileNameLength: filePreviewStats.longestNameLength,
+      longestFilePathLength: filePreviewStats.longestPathLength,
     });
   }, [
     previewMode,
@@ -527,6 +554,7 @@ function App() {
     textPreferredHeight,
     imageDimensions,
     htmlPreferredSize,
+    filePreviewStats,
   ]);
 
   const displaySize = useMemo(() => {
@@ -575,6 +603,9 @@ function App() {
   const previewModeLabel = useMemo(() => {
     if (previewMode === MODE_IMAGE) {
       return t('previewWindow.formatImage', '图片');
+    }
+    if (previewMode === MODE_FILE) {
+      return t('previewWindow.formatFile', '文件');
     }
     if (previewMode === MODE_HTML) {
       return t('previewWindow.formatHtml', 'HTML');
@@ -659,6 +690,29 @@ function App() {
       );
     }
 
+    if (previewMode === MODE_FILE) {
+      return (
+        <div className="flex items-center gap-2">
+          <PreviewHint style={previewHintStyle}>
+            {t('previewWindow.currentFormatHint', { format: previewModeLabel })}
+          </PreviewHint>
+          {formatHintText && (
+            <PreviewHint style={previewHintStyle}>
+              {t('previewWindow.formatsHint', { formats: formatHintText })}
+            </PreviewHint>
+          )}
+          {showSwitchHint && (
+            <PreviewHint style={previewHintStyle}>
+              {t('previewWindow.switchFormatHint')}
+            </PreviewHint>
+          )}
+          <PreviewHint style={previewHintStyle}>
+            {t('previewWindow.fileHint', 'Ctrl+滚轮，滚动文件列表')}
+          </PreviewHint>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-2">
         <PreviewHint style={previewHintStyle}>
@@ -727,6 +781,33 @@ function App() {
                 onPreferredHeightChange={setTextPreferredHeight}
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {previewMode === MODE_FILE && (
+        <div
+          className="absolute border border-qc-border-strong overflow-hidden"
+          style={{
+            width: `${boxSize.width}px`,
+            height: `${boxSize.height}px`,
+            left: `${relativeLeft}px`,
+            top: `${relativeTop}px`,
+            opacity: isVisible ? 1 : 0,
+            transition: 'opacity 90ms ease-out',
+            borderRadius: '8px',
+            backgroundColor: textContainerBackgroundColor,
+            boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
+            ...textContainerBackgroundImageStyle,
+          }}
+        >
+          <div className="w-full h-full overflow-hidden">
+            <FilePreview
+              ref={filePreviewRef}
+              files={filePreviewFiles}
+              stats={filePreviewStats}
+              t={t}
+            />
           </div>
         </div>
       )}

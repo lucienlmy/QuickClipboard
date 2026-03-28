@@ -106,8 +106,14 @@ pub fn delete_favorite_items(ids: Vec<String>) -> Result<(), String> {
 #[tauri::command]
 pub fn get_favorite_item_by_id_cmd(id: String, max_length: Option<usize>) -> Result<FavoriteItem, String> {
     use crate::services::database::get_favorite_by_id_with_limit;
-    get_favorite_by_id_with_limit(&id, max_length)?
-        .ok_or_else(|| format!("收藏项不存在: {}", id))
+    let mut item = get_favorite_by_id_with_limit(&id, max_length)?
+        .ok_or_else(|| format!("收藏项不存在: {}", id))?;
+
+    if item.content_type == "file" || item.content_type == "image" {
+        check_and_fill_file_exists(&mut item);
+    }
+
+    Ok(item)
 }
 
 // 添加收藏项
