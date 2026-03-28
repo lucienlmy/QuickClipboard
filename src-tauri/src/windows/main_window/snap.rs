@@ -190,7 +190,9 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         SnapEdge::None => return Ok(()),
     };
     
-    let _ = window.show();
+    if !window.is_visible().unwrap_or(false) {
+        let _ = window.show();
+    }
     let _ = window.emit("edge-snap-show", ());
     
     // 根据动画配置决定是否使用过渡
@@ -204,10 +206,8 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     set_hidden(false);
     
     super::state::set_window_state(super::state::WindowState::Visible);
-    let _ = window.set_always_on_top(false);
-    std::thread::sleep(std::time::Duration::from_millis(10));
     let _ = window.set_always_on_top(true);
-    
+
     crate::input_monitor::enable_mouse_monitoring();
     crate::input_monitor::enable_navigation_keys();
     

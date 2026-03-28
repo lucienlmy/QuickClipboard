@@ -12,22 +12,15 @@ function animateExpand(container) {
   container.style.opacity = '0'
   container.style.overflow = 'hidden'
 
-  //到达底部后反弹
-  function easeWithBounce(t) {
-    if (t < 0.6) {
-      const normalized = t / 0.6
-      return 1 - Math.pow(1 - normalized, 3)
-    }
-    else {
-      const bouncePhase = (t - 0.6) / 0.4
-      const bounceOffset = Math.cos(bouncePhase * Math.PI) * 0.025
-      return 1 - bounceOffset * (1 - bouncePhase) 
-    }
+  function easeInOutCubic(t) {
+    return t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2
   }
 
   function animate(currentTime) {
     const progress = Math.min((currentTime - startTime) / duration, 1)
-    const eased = easeWithBounce(progress)
+    const eased = easeInOutCubic(progress)
     
     container.style.height = `${targetHeight * eased}px`
     container.style.opacity = Math.min(progress * 2, 1)
