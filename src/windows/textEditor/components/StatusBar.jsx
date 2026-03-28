@@ -10,7 +10,7 @@ function StatusBar({
   const {
     t
   } = useTranslation();
-  return <div className="min-h-14 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t border-qc-border bg-qc-surface">
+  return <div className="min-h-14 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t border-qc-border bg-qc-surface/80 backdrop-blur-sm">
       <div className="flex flex-wrap items-center gap-3 text-sm text-qc-fg-muted">
         <span className="whitespace-nowrap">{t('textEditor.charCount', {
           count: charCount

@@ -25,6 +25,7 @@ export const defaultSettings = {
   darkThemeStyle: 'classic',
   opacity: 0.9,
   backgroundImagePath: '',
+  superBackgroundBlurScale: 1,
   clipboardAnimationEnabled: true,
   uiAnimationEnabled: true,
 

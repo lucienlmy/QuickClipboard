@@ -312,6 +312,8 @@
       "darkThemeModernDesc": "Vibrant modern dark theme with rich colors",
       "darkThemeClassic": "Classic Style",
       "darkThemeClassicDesc": "Elegant gray-based dark theme",
+      "backgroundBlurStrength": "Background Blur Strength",
+      "backgroundBlurStrengthDesc": "Adjust the frosted-glass blur used by the Super Background theme, and set it to 0% to disable blur",
       "backgroundImage": "Background Image",
       "backgroundImageDesc": "Select a custom background image for super background theme",
       "selectBackgroundImage": "Select Background Image",

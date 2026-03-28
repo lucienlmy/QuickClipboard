@@ -45,26 +45,23 @@ function TextEditor({
     '.cm-gutters': {
       backgroundColor: 'color-mix(in srgb, var(--qc-panel) 85%, transparent)',
       color: 'var(--qc-fg-muted)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
+      backdropFilter: 'blur(var(--theme-superbg-blur-10, 10px))',
+      WebkitBackdropFilter: 'blur(var(--theme-superbg-blur-10, 10px))',
       border: 'none'
     },
     '.cm-gutterElement': {
       color: 'var(--qc-fg-muted)'
     },
-    '.cm-activeLineGutter': {
-      color: 'var(--qc-fg)'
-    },
     '.cm-activeLine': {
       backgroundColor: 'color-mix(in srgb, var(--qc-accent, #3b82f6) 14%, transparent)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
+      backdropFilter: 'blur(var(--theme-superbg-blur-10, 10px))',
+      WebkitBackdropFilter: 'blur(var(--theme-superbg-blur-10, 10px))',
       borderRadius: '8px'
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'color-mix(in srgb, var(--qc-accent, #3b82f6) 10%, transparent)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
+      backdropFilter: 'blur(var(--theme-superbg-blur-10, 10px))',
+      WebkitBackdropFilter: 'blur(var(--theme-superbg-blur-10, 10px))',
       color: 'var(--qc-fg)'
     },
     '.cm-line': {

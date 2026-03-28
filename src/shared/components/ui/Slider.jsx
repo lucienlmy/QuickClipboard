@@ -6,7 +6,8 @@ function Slider({
   max = 100,
   step = 1,
   unit = '',
-  className = ''
+  className = '',
+  sliderClassName = ''
 }) {
   const [displayValue, setDisplayValue] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
@@ -49,7 +50,7 @@ function Slider({
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
-        className="w-24 h-2 bg-qc-panel-2 rounded-lg appearance-none cursor-pointer accent-[var(--qc-accent)]" 
+        className={`h-2 bg-qc-panel-2 rounded-lg appearance-none cursor-pointer accent-[var(--qc-accent)] ${sliderClassName || 'w-24'}`} 
       />
       <span className="text-sm font-medium text-qc-fg-muted whitespace-nowrap">
         {displayValue}{unit}

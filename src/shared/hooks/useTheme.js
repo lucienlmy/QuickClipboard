@@ -24,6 +24,21 @@ export function getEffectiveTheme(theme, systemIsDark = settingsStore.systemIsDa
 
 let backgroundThemeStyleElement = null
 
+function syncSuperBackgroundBlurScale(scale, enabled) {
+  if (typeof document === 'undefined') return
+
+  const body = document.body
+  if (!body) return
+
+  if (enabled) {
+    const resolvedScale = Number(scale)
+    const safeScale = Number.isFinite(resolvedScale) && resolvedScale >= 0 ? resolvedScale : 1
+    body.style.setProperty('--theme-superbg-blur-scale', String(safeScale))
+  } else {
+    body.style.removeProperty('--theme-superbg-blur-scale')
+  }
+}
+
 function loadBackgroundThemeCSS() {
   if (backgroundThemeStyleElement) return
 
@@ -41,19 +56,18 @@ function unloadBackgroundThemeCSS() {
 }
 
 export function useTheme() {
-  const { theme, darkThemeStyle, backgroundImagePath, systemIsDark } = useSnapshot(settingsStore)
+  const { theme, darkThemeStyle, backgroundImagePath, superBackgroundBlurScale, systemIsDark } = useSnapshot(settingsStore)
 
   // 背景主题 CSS 注入
   useEffect(() => {
-    const effectiveTheme = getEffectiveTheme(theme, systemIsDark)
-    const isDark = effectiveTheme === 'dark'
-
     if (theme === 'background') {
       loadBackgroundThemeCSS()
+      syncSuperBackgroundBlurScale(superBackgroundBlurScale, true)
     } else {
       unloadBackgroundThemeCSS()
+      syncSuperBackgroundBlurScale(superBackgroundBlurScale, false)
     }
-  }, [theme, darkThemeStyle, systemIsDark])
+  }, [theme, darkThemeStyle, superBackgroundBlurScale, systemIsDark])
 
   // 计算实际应用的主题
   const effectiveTheme = getEffectiveTheme(theme, systemIsDark)
@@ -92,6 +106,7 @@ export function applyThemeToBody(theme, windowName = '') {
   // 应用主题类
   if (theme === 'background') {
     body.classList.add('theme-background')
+    syncSuperBackgroundBlurScale(settingsStore.superBackgroundBlurScale, true)
   } else if (effectiveTheme === 'dark') {
     body.classList.add('theme-dark')
     if (darkThemeStyle === 'classic') {
@@ -100,5 +115,8 @@ export function applyThemeToBody(theme, windowName = '') {
   } else {
     body.classList.add('theme-light')
   }
-}
 
+  if (theme !== 'background') {
+    syncSuperBackgroundBlurScale(settingsStore.superBackgroundBlurScale, false)
+  }
+}

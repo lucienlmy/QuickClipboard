@@ -7,6 +7,7 @@ import { toast } from '@shared/store/toastStore';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
+import Slider from '@shared/components/ui/Slider';
 import SegmentedControl from '@shared/components/ui/SegmentedControl';
 import ThemeOption from '../components/ThemeOption';
 function AppearanceSection({
@@ -38,6 +39,10 @@ function AppearanceSection({
     label: t('settings.appearance.themeBackground'),
     preview: 'linear-gradient(135deg, #0093E9 0%, #80D0C7 100%)'
   }];
+  const blurScale = Number.isFinite(Number(settings.superBackgroundBlurScale))
+    ? Number(settings.superBackgroundBlurScale)
+    : 1;
+  const blurPercent = Math.round(blurScale * 100);
   const handleSelectBackgroundImage = async () => {
     try {
       const selected = await open({
@@ -124,6 +129,19 @@ function AppearanceSection({
           </div>}
 
         {theme === 'background' && <div className="space-y-3 animate-slide-in-left-fast">
+            <SettingItem label={t('settings.appearance.backgroundBlurStrength')} description={t('settings.appearance.backgroundBlurStrengthDesc')}>
+              <Slider
+                value={blurPercent}
+                onChange={value => onSettingChange('superBackgroundBlurScale', value / 100)}
+                min={0}
+                max={200}
+                step={5}
+                unit="%"
+                className="w-full max-w-xl"
+                sliderClassName="flex-1 min-w-0 w-auto"
+              />
+            </SettingItem>
+
             <label className="block text-sm font-medium text-qc-fg">
               {t('settings.appearance.backgroundImage')}
             </label>

@@ -304,6 +304,8 @@
       "darkThemeModernDesc": "色彩丰富的现代暗色主题",
       "darkThemeClassic": "经典风格",
       "darkThemeClassicDesc": "低调优雅的灰色暗色主题",
+      "backgroundBlurStrength": "背景模糊强度",
+      "backgroundBlurStrengthDesc": "调整超级背景主题中毛玻璃效果的模糊程度，0% 可关闭模糊",
       "backgroundImage": "背景图片",
       "backgroundImageDesc": "为超级背景主题选择自定义背景图片",
       "selectBackgroundImage": "选择背景图片",
