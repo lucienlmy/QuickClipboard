@@ -1,12 +1,26 @@
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::{WebviewWindow, Manager};
 
 static MAIN_WINDOW: Mutex<Option<WebviewWindow>> = Mutex::new(None);
 static MONITORING_ACTIVE: AtomicBool = AtomicBool::new(false);
+static RESIZE_SUPPRESS_UNTIL_MS: AtomicU64 = AtomicU64::new(0);
+
+const RESIZE_SUPPRESS_DURATION_MS: u64 = 400;
 
 pub fn init_edge_monitor(window: WebviewWindow) {
+    let window_for_event = window.clone();
+    window_for_event.on_window_event(|event| {
+        match event {
+            tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                // 调整窗口大小时，系统会持续重算边框位置，短暂暂停贴边自动切换避免闪烁
+                suppress_edge_actions_after_resize();
+            }
+            _ => {}
+        }
+    });
+
     *MAIN_WINDOW.lock() = Some(window);
 }
 
@@ -40,6 +54,11 @@ pub fn start_edge_monitoring() {
 
             let state = crate::get_window_state();
 
+            if is_resize_suppressed() {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
+
             // 拖拽时跳过监控
             if !state.is_snapped || state.is_dragging {
                 std::thread::sleep(Duration::from_millis(100));
@@ -71,11 +90,9 @@ pub fn start_edge_monitoring() {
 
             if is_near && state.is_hidden {
                 if !crate::services::system::is_front_app_globally_disabled_from_settings() {
-                let _ = crate::show_snapped_window(&window);
+                    let _ = crate::show_snapped_window(&window);
                 }
-            }
-
-            else if !is_near && !state.is_hidden && !state.is_pinned {
+            } else if !is_near && !state.is_hidden && !state.is_pinned {
                 let _ = crate::hide_snapped_window(&window);
             }
             
@@ -88,6 +105,26 @@ pub fn start_edge_monitoring() {
 pub fn stop_edge_monitoring() {
     MONITORING_ACTIVE.store(false, Ordering::Relaxed);
 }
+
+fn suppress_edge_actions_after_resize() {
+    let now_ms = current_time_millis();
+    RESIZE_SUPPRESS_UNTIL_MS.store(
+        now_ms.saturating_add(RESIZE_SUPPRESS_DURATION_MS),
+        Ordering::SeqCst,
+    );
+}
+
+fn is_resize_suppressed() -> bool {
+    current_time_millis() < RESIZE_SUPPRESS_UNTIL_MS.load(Ordering::SeqCst)
+}
+
+fn current_time_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 const CONTENT_INSET_LOGICAL: f64 = 5.0;
 
 fn check_mouse_near_edge(
