@@ -272,36 +272,28 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
         return Err(format!("图片文件不存在: {}", file_path));
     }
     
-    // 检查是否已经在数据目录下
+    // 统一先复制到 clipboard_images，避免剪贴板直接依赖会被销毁的源文件
+    let image_data = std::fs::read(path)
+        .map_err(|e| format!("读取图片失败: {}", e))?;
+
+    let hash = format!("{:x}", Sha256::digest(&image_data));
+    let filename = format!("{}.png", &hash[..16]);
+
     let data_dir = crate::services::get_data_directory()?;
-    let is_in_data_dir = path.starts_with(&data_dir);
-    
-    let final_path = if is_in_data_dir {
-        file_path.clone()
-    } else {
-        let image_data = std::fs::read(&path)
-            .map_err(|e| format!("读取图片失败: {}", e))?;
-        
-        let hash = format!("{:x}", Sha256::digest(&image_data));
-        let filename = format!("{}.png", &hash[..16]);
-        
-        let clipboard_images_dir = data_dir.join("clipboard_images");
-        std::fs::create_dir_all(&clipboard_images_dir)
-            .map_err(|e| format!("创建目录失败: {}", e))?;
-        
-        let saved_path = clipboard_images_dir.join(&filename);
-        if !saved_path.exists() {
-            std::fs::write(&saved_path, &image_data)
-                .map_err(|e| format!("保存图片失败: {}", e))?;
-        }
-        
-        saved_path.to_string_lossy().to_string()
-    };
+    let clipboard_images_dir = data_dir.join("clipboard_images");
+    std::fs::create_dir_all(&clipboard_images_dir)
+        .map_err(|e| format!("创建目录失败: {}", e))?;
+
+    let saved_path = clipboard_images_dir.join(&filename);
+    if !saved_path.exists() {
+        std::fs::write(&saved_path, &image_data)
+            .map_err(|e| format!("保存图片失败: {}", e))?;
+    }
     
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
 
-    ctx.set_files(vec![final_path])
+    ctx.set_files(vec![saved_path.to_string_lossy().to_string()])
         .map_err(|e| format!("设置文件到剪贴板失败: {}", e))
 }
 
