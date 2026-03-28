@@ -4,7 +4,7 @@ use super::input_common;
 mod windows_raw_input {
     use super::input_common;
     use std::mem::size_of;
-    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
     use std::thread;
 
     use windows::core::w;
@@ -27,6 +27,8 @@ mod windows_raw_input {
     static RAW_INPUT_ACTIVE: AtomicBool = AtomicBool::new(false);
     static RAW_INPUT_THREAD_ID: AtomicU32 = AtomicU32::new(0);
     static CTRL_DOWN: AtomicBool = AtomicBool::new(false);
+    static MIDDLE_BUTTON_DOWN: AtomicBool = AtomicBool::new(false);
+    static MIDDLE_BUTTON_PRESS_ID: AtomicU64 = AtomicU64::new(0);
 
     pub(crate) fn start_raw_input_if_needed() {
         if RAW_INPUT_ACTIVE.swap(true, Ordering::SeqCst) {
@@ -194,6 +196,7 @@ mod windows_raw_input {
                 const RI_MOUSE_LEFT_BUTTON_DOWN: u16 = 0x0001;
                 const RI_MOUSE_RIGHT_BUTTON_DOWN: u16 = 0x0004;
                 const RI_MOUSE_MIDDLE_BUTTON_DOWN: u16 = 0x0010;
+                const RI_MOUSE_MIDDLE_BUTTON_UP: u16 = 0x0020;
                 const RI_MOUSE_WHEEL: u16 = 0x0400;
 
                 if (button_flags & (RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_RIGHT_BUTTON_DOWN)) != 0 {
@@ -202,10 +205,13 @@ mod windows_raw_input {
                     });
                 }
 
+                if (button_flags & RI_MOUSE_MIDDLE_BUTTON_UP) != 0 {
+                    MIDDLE_BUTTON_DOWN.store(false, Ordering::SeqCst);
+                    MIDDLE_BUTTON_PRESS_ID.fetch_add(1, Ordering::SeqCst);
+                }
+
                 if (button_flags & RI_MOUSE_MIDDLE_BUTTON_DOWN) != 0 {
-                    input_common::run_on_main_thread(|| {
-                        handle_middle_button_action_impl();
-                    });
+                    handle_middle_button_down_impl();
                 }
 
                 if (button_flags & RI_MOUSE_WHEEL) != 0 {
@@ -370,6 +376,67 @@ mod windows_raw_input {
         if let Some(window) = input_common::try_get_main_window() {
             crate::show_main_window(&window);
         }
+    }
+
+    fn handle_middle_button_down_impl() {
+        let settings = crate::get_settings();
+        if !settings.mouse_middle_button_enabled {
+            return;
+        }
+
+        if crate::services::low_memory::is_low_memory_mode() {
+            return;
+        }
+
+        if crate::services::system::is_front_app_globally_disabled_from_settings() {
+            return;
+        }
+
+        if !check_modifier_requirement_impl(&settings.mouse_middle_button_modifier) {
+            return;
+        }
+
+        if settings.mouse_middle_button_modifier != "None" {
+            input_common::run_on_main_thread(|| {
+                handle_middle_button_action_impl();
+            });
+            return;
+        }
+
+        if settings.mouse_middle_button_trigger != "long_press" {
+            input_common::run_on_main_thread(|| {
+                handle_middle_button_action_impl();
+            });
+            return;
+        }
+
+        let threshold_ms = settings.mouse_middle_button_long_press_ms.max(1) as u64;
+        let press_id = MIDDLE_BUTTON_PRESS_ID.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
+        MIDDLE_BUTTON_DOWN.store(true, Ordering::SeqCst);
+
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(threshold_ms));
+
+            if !MIDDLE_BUTTON_DOWN.load(Ordering::SeqCst) {
+                return;
+            }
+
+            if MIDDLE_BUTTON_PRESS_ID.load(Ordering::SeqCst) != press_id {
+                return;
+            }
+
+            input_common::run_on_main_thread(move || {
+                if !MIDDLE_BUTTON_DOWN.load(Ordering::SeqCst) {
+                    return;
+                }
+
+                if MIDDLE_BUTTON_PRESS_ID.load(Ordering::SeqCst) != press_id {
+                    return;
+                }
+
+                handle_middle_button_action_impl();
+            });
+        });
     }
 
     fn is_mouse_outside_window_impl(window: &WebviewWindow) -> bool {
