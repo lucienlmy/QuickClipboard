@@ -24,6 +24,11 @@ const EmojiTab = lazy(() => import('./components/EmojiTab'));
 import MultiSelectActionBar from './components/MultiSelectActionBar';
 import ToastContainer from '@shared/components/common/ToastContainer';
 
+const TAB_NAVIGATION_MODE = {
+  HORIZONTAL: 'horizontal',
+  SIDEBAR: 'sidebar'
+};
+
 function App() {
   const {
     t
@@ -43,10 +48,16 @@ function App() {
   const [contentFilter, setContentFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [emojiMode, setEmojiMode] = useState('emoji'); // 'emoji' | 'symbols' | 'images'
+  const [windowWidth, setWindowWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
   const clipboardTabRef = useRef(null);
   const favoritesTabRef = useRef(null);
   const groupsPopupRef = useRef(null);
   const searchRef = useRef(null);
+  const sidebarTabsBreakpoint = 550;
+  const tabNavigationMode = windowWidth >= sidebarTabsBreakpoint
+    ? TAB_NAVIGATION_MODE.SIDEBAR
+    : TAB_NAVIGATION_MODE.HORIZONTAL;
+  const isSidebarTabsLayout = tabNavigationMode === TAB_NAVIGATION_MODE.SIDEBAR;
 
   // 监听设置变更事件
   useSettingsSync();
@@ -68,6 +79,19 @@ function App() {
 
   // 窗口动画
   useWindowAnimation();
+
+  // 监听窗口宽度，切换 Tab 栏布局模式
+  useEffect(() => {
+    const updateWindowWidth = () => {
+      setWindowWidth(typeof window !== 'undefined' ? window.innerWidth : 0);
+    };
+
+    updateWindowWidth();
+    window.addEventListener('resize', updateWindowWidth);
+    return () => {
+      window.removeEventListener('resize', updateWindowWidth);
+    };
+  }, []);
 
   // 同步当前标签页到导航store
   useEffect(() => {
@@ -345,46 +369,57 @@ function App() {
     bg-qc-surface
   `.trim().replace(/\s+/g, ' ');
   const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} onNavigate={handleSearchNavigate} position={settings.titleBarPosition} activeTab={activeTab} />;
-  const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} onGroupChange={handleGroupChange} groupsPopupRef={groupsPopupRef} />;
-  const ContentComponent = <div ref={contentDragRef} className="flex-1 overflow-hidden relative pb-[8px] bg-qc-surface transition-colors duration-500">
+  const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} onGroupChange={handleGroupChange} groupsPopupRef={groupsPopupRef} navigationMode={tabNavigationMode} />;
+  const ContentComponent = <div ref={contentDragRef} className="flex-1 min-h-0 overflow-hidden relative pb-[8px] bg-qc-surface transition-colors duration-500">
       {activeTab === 'clipboard' && <ClipboardTab ref={clipboardTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'favorites' && <FavoritesTab ref={favoritesTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'emoji' && <Suspense fallback={null}><EmojiTab emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} /></Suspense>}
     </div>;
   const ActionBarComponent = <MultiSelectActionBar activeTab={activeTab} />;
+  const renderWorkspace = () => {
+    if (isSidebarTabsLayout) {
+      return <div className="flex flex-1 min-h-0 min-w-0 flex-row overflow-hidden">
+          {TabNavigationComponent}
+          <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+            {ContentComponent}
+            {ActionBarComponent}
+          </div>
+        </div>;
+    }
+
+    return <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
+        {TabNavigationComponent}
+        {ContentComponent}
+        {ActionBarComponent}
+      </div>;
+  };
   const renderLayout = () => {
     switch (settings.titleBarPosition) {
       case 'top':
         return <>
             {TitleBarComponent}
-            {TabNavigationComponent}
-            {ContentComponent}
-            {ActionBarComponent}
+            {renderWorkspace()}
           </>;
       case 'bottom':
         return <>
-            {TabNavigationComponent}
-            {ContentComponent}
-            {ActionBarComponent}
+            {renderWorkspace()}
             {TitleBarComponent}
           </>;
       case 'left':
         return <>
-            <div className="flex flex-col h-full">
-              {TitleBarComponent}
-            </div>
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {TabNavigationComponent}
-              {ContentComponent}
-              {ActionBarComponent}
+            <div className="flex flex-1 min-h-0 min-w-0 flex-row overflow-hidden">
+              <div className="flex flex-col h-full">
+                {TitleBarComponent}
+              </div>
+              <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+                {renderWorkspace()}
+              </div>
             </div>
           </>;
       case 'right':
         return <>
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {TabNavigationComponent}
-              {ContentComponent}
-              {ActionBarComponent}
+            <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+              {renderWorkspace()}
             </div>
             <div className="flex flex-col h-full">
               {TitleBarComponent}
