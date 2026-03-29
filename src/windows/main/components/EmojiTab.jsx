@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from '@shared/store/toastStore';
@@ -12,11 +12,63 @@ import { ImageLibraryTab } from './emoji';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 import {
   SYMBOL_CATS, EMOJI_CATS, IMAGE_CATS, SKIN_TONES,
-  EMOJI_COLS, SYMBOL_COLS,
   RECENT_KEY, SKIN_TONE_KEY, MAX_RECENT,
-  symbolCategories, splitIntoRowsStatic,
-  ensureEmojiData, getEmojiDataCache, getEmojiRowsCache, getEmojiMetaCache, getEmojiSkinSupport
+  symbolCategories,
+  ensureEmojiData, getEmojiDataCache, getEmojiMetaCache, getEmojiSkinSupport
 } from './emoji/emojiData';
+
+const DEFAULT_GRID_COLS = 8;
+const GRID_MIN_COLS = 4;
+const GRID_MAX_COLS = 12;
+const GRID_MIN_CELL_WIDTH = 42;
+const GRID_GAP_PX = 2;
+const GRID_HORIZONTAL_PADDING_PX = 8;
+
+const splitIntoRowsResponsive = (items, cols, catId) => {
+  const rows = [];
+  if (!Array.isArray(items) || items.length === 0) return rows;
+
+  for (let i = 0; i < items.length; i += cols) {
+    rows.push({
+      type: 'row',
+      items: items.slice(i, i + cols),
+      cols,
+      catId,
+      id: `${catId}-row-${i}`
+    });
+  }
+
+  return rows;
+};
+
+const getResponsiveGridCols = (width) => {
+  if (!width) return DEFAULT_GRID_COLS;
+
+  const availableWidth = Math.max(0, width - GRID_HORIZONTAL_PADDING_PX);
+  const rawCols = Math.floor((availableWidth + GRID_GAP_PX) / (GRID_MIN_CELL_WIDTH + GRID_GAP_PX));
+  return Math.max(GRID_MIN_COLS, Math.min(GRID_MAX_COLS, rawCols || DEFAULT_GRID_COLS));
+};
+
+const PreviewTooltipCard = ({ char, title, subtitle, codeLabel, sizeClass = 'text-[36px]' }) => {
+  return (
+    <div className="flex items-center gap-3 px-1 py-0.5">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-qc-active ring-1 ring-qc-border">
+        <span className={`${sizeClass} leading-none`}>{char}</span>
+      </div>
+      <div className="min-w-0">
+        <div className="max-w-[220px] text-[15px] font-semibold leading-snug text-qc-fg break-words">
+          {title}
+        </div>
+        {(subtitle || codeLabel) && (
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-qc-fg-subtle">
+            {subtitle ? <span>{subtitle}</span> : null}
+            {codeLabel ? <span>{codeLabel}</span> : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 
 
@@ -33,8 +85,10 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const [skinPickerEmoji, setSkinPickerEmoji] = useState(null);
   const [isReady, setIsReady] = useState(false);
   const [isModeReady, setIsModeReady] = useState(true);
+  const [contentWidth, setContentWidth] = useState(0);
   const prevEmojiModeRef = useRef(emojiMode);
   const scrollContainerRef = useRef(null);
+  const contentMeasureRef = useRef(null);
   const activeCategoryRef = useRef('recent');
   const sidebarButtonsRef = useRef({});
   const virtualDataRef = useRef([]); 
@@ -44,6 +98,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const [scrollerElement, setScrollerElement] = useState(null);
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
+  const gridCols = useMemo(() => getResponsiveGridCols(contentWidth), [contentWidth]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -53,6 +108,43 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     }, 300);
     return () => clearTimeout(timer);
   }, []);
+
+  useLayoutEffect(() => {
+    if (showImages) return undefined;
+
+    const target = contentMeasureRef.current;
+    if (!target) return undefined;
+
+    let rafId = 0;
+    let observer = null;
+
+    const measure = () => {
+      rafId = requestAnimationFrame(() => {
+        const nextWidth = target.clientWidth || 0;
+        setContentWidth(prev => (prev === nextWidth ? prev : nextWidth));
+      });
+    };
+
+    measure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(measure);
+      observer.observe(target);
+    } else {
+      window.addEventListener('resize', measure);
+    }
+
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      if (observer) {
+        observer.disconnect();
+      } else {
+        window.removeEventListener('resize', measure);
+      }
+    };
+  }, [showImages]);
 
 
   // 加载最近使用
@@ -199,24 +291,25 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
         emoji: ch,
         name: formatSymbolTitle(ch, cat.id)
       }));
-      cache[cat.id] = splitIntoRowsStatic(symbols, SYMBOL_COLS, cat.id);
+      cache[cat.id] = splitIntoRowsResponsive(symbols, gridCols, cat.id);
     });
     return cache;
-  }, [formatSymbolTitle]);
+  }, [formatSymbolTitle, gridCols]);
 
   // 构建虚拟列表数据
   const virtualData = useMemo(() => {
     if (!isModeReady) return [];
+    const emojiDataCache = getEmojiDataCache();
     
     if (searchQuery && searchResults) {
       const sections = [];
       if (searchResults.emojis.length > 0) {
         sections.push({ type: 'header', title: t('emoji.searchResults'), id: 'header-search-emoji' });
-        sections.push(...splitIntoRowsStatic(searchResults.emojis, EMOJI_COLS, 'search-emoji'));
+        sections.push(...splitIntoRowsResponsive(searchResults.emojis, gridCols, 'search-emoji'));
       }
       if (searchResults.symbols.length > 0) {
         sections.push({ type: 'header', title: t('emoji.symbolResults'), id: 'header-search-symbol' });
-        sections.push(...splitIntoRowsStatic(searchResults.symbols, SYMBOL_COLS, 'search-symbol'));
+        sections.push(...splitIntoRowsResponsive(searchResults.symbols, gridCols, 'search-symbol'));
       }
       if (sections.length === 0) {
         sections.push({ type: 'empty', id: 'no-results' });
@@ -236,7 +329,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       return sections;
     }
     
-    if (!getEmojiRowsCache()) return [];
+    if (!emojiDataCache) return [];
     const sections = [];
     // 最近使用
     sections.push({ type: 'header', title: t('emoji.recent'), id: 'header-recent' });
@@ -246,19 +339,19 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
         name: item.name,
         nameCn: item.nameCn
       }));
-      sections.push(...splitIntoRowsStatic(recentEntries, EMOJI_COLS, 'recent'));
+      sections.push(...splitIntoRowsResponsive(recentEntries, gridCols, 'recent'));
     } else {
       sections.push({ type: 'empty-recent', id: 'empty-recent' });
     }
     EMOJI_CATS.filter(c => c.id !== 'recent').forEach(cat => {
-      const rows = getEmojiRowsCache()?.[cat.id];
+      const rows = splitIntoRowsResponsive(emojiDataCache?.[cat.id] || [], gridCols, cat.id);
       if (rows?.length > 0) {
         sections.push({ type: 'header', title: t(cat.labelKey), id: `header-${cat.id}` });
         sections.push(...rows);
       }
     });
     return sections;
-  }, [searchQuery, searchResults, emojiMode, recentEmojis, t, symbolRowsCache, isReady, isModeReady]);
+  }, [searchQuery, searchResults, emojiMode, recentEmojis, t, symbolRowsCache, isReady, isModeReady, gridCols]);
 
   virtualDataRef.current = virtualData;
 
@@ -368,7 +461,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
         <div 
           className="grid gap-0.5 px-1" 
           style={{ 
-            gridTemplateColumns: `repeat(${section.cols}, 1fr)`,
+            gridTemplateColumns: `repeat(${section.cols}, minmax(0, 1fr))`,
             contentVisibility: 'auto',
             containIntrinsicSize: '0 36px'
           }}
@@ -378,6 +471,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
             const displayChar = shouldApplySkin ? applySkintone(baseChar) : baseChar;
             const skinVariants = shouldApplySkin ? getSkinVariants(baseChar) : null;
             const meta = emojiMetaRef.current[baseChar];
+            const codePoint = baseChar?.codePointAt?.(0);
+            const codeLabel = codePoint ? `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}` : '';
             const name = typeof item === 'object'
               ? (isChinese ? (item.nameCn || item.name) : (item.name || item.nameCn))
               : (isChinese ? (meta?.nameCn || meta?.name) : (meta?.name || meta?.nameCn)) || baseChar;
@@ -385,12 +480,18 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
               <div key={`${baseChar}-${idx}`} className="relative group">
                 <Tooltip
                   content={
-                    <div className="flex items-center gap-2">
-                      <span className="text-[22px] leading-none">{displayChar}</span>
-                      <span className="text-[11px] leading-snug">{name}</span>
-                    </div>
+                    <PreviewTooltipCard
+                      char={displayChar}
+                      title={name}
+                      subtitle={section.catId === 'symbols'
+                        ? t('emoji.symbols')
+                        : (section.catId === 'people-body' ? t('emoji.people') : '')}
+                      codeLabel={codeLabel}
+                      sizeClass={section.catId === 'symbols' ? 'text-[27px]' : 'text-[34px]'}
+                    />
                   }
                   placement="top"
+                  maxWidth={360}
                   asChild
                 >
                   <button
@@ -448,9 +549,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       <div className="emoji-sidebar w-10 flex-shrink-0 bg-qc-panel border-r border-qc-border flex flex-col py-1 overflow-y-auto scrollbar-hide">
         {/* 分类按钮 */}
         {currentCategories.map((cat, idx) => (
-          <Tooltip content={t(cat.labelKey)} placement="right" asChild>
+          <Tooltip key={cat.id} content={t(cat.labelKey)} placement="right" asChild>
             <button
-              key={cat.id}
               ref={el => sidebarButtonsRef.current[cat.id] = el}
               onClick={() => handleCategoryClick(cat.id)}
               className={`w-8 h-8 mx-auto mb-0.5 flex items-center justify-center rounded-lg transition-colors ${
@@ -491,7 +591,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
         {showImages ? (
           <ImageLibraryTab imageCategory={imageCategory} searchQuery={searchQuery} />
         ) : (
-        <div className="emoji-content flex-1 overflow-hidden custom-scrollbar-container">
+        <div ref={contentMeasureRef} className="emoji-content flex-1 overflow-hidden custom-scrollbar-container">
           {(!isReady || !isModeReady) ? (
             <div className="flex items-center justify-center h-32 text-qc-fg-subtle">
               <i className="ti ti-loader-2 animate-spin mr-2"></i>
@@ -538,9 +638,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
             {skinPickerEmoji.variants.map((variant, i) => {
               const isCurrent = (i === 0 && skinTone === 'default') || (i > 0 && SKIN_TONES[i]?.id === skinTone);
               return (
-                <Tooltip content={SKIN_TONES[i]?.label || 'Default'} placement="top" asChild>
+                <Tooltip key={variant} content={SKIN_TONES[i]?.label || 'Default'} placement="top" asChild>
                   <button
-                    key={variant}
                     onClick={() => {
                       handlePaste(skinPickerEmoji.item, skinPickerEmoji.catId, variant, skinPickerEmoji.baseChar);
                       setSkinPickerEmoji(null);
