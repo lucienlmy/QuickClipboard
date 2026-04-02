@@ -333,6 +333,24 @@ body.theme-background {
   border-top-color: var(--bg-titlebar-border, rgba(232, 233, 234, 0.8)) !important;
 }
 
+.theme-background .multi-select-action-bar {
+  background-color: var(--bg-titlebar-bg, rgb(240, 240, 240)) !important;
+  border-top-color: var(--bg-titlebar-border, rgba(232, 233, 234, 0.8)) !important;
+}
+
+.theme-background .main-content-area::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  pointer-events: none;
+  background-color: transparent;
+  backdrop-filter: blur(var(--theme-superbg-blur-8));
+  -webkit-backdrop-filter: blur(var(--theme-superbg-blur-8));
+}
+
 
 .theme-background.has-dynamic-titlebar .footer-bar button {
   color: var(--bg-titlebar-text, #333333) !important;

@@ -65,6 +65,52 @@ pub struct ClipboardItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatTextMessage {
+    pub message_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    pub text: String,
+    pub sent_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileMeta {
+    pub file_id: String,
+    pub file_name: String,
+    pub file_size: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileOfferMessage {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    pub files: Vec<ChatFileMeta>,
+    pub sent_at_ms: u64,
+    pub expire_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileDecisionMessage {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    pub decided_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileDoneMessage {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    pub sent_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LanSyncMessage {
     Hello(HelloMessage),
@@ -77,4 +123,10 @@ pub enum LanSyncMessage {
     PairDenied { reason: String },
     ClipboardRecord { record: ClipboardRecord },
     ClipboardItem(ClipboardItem),
+    ChatText(ChatTextMessage),
+    ChatFileOffer(ChatFileOfferMessage),
+    ChatFileAccept(ChatFileDecisionMessage),
+    ChatFileReject(ChatFileDecisionMessage),
+    ChatFileExpired(ChatFileDecisionMessage),
+    ChatFileDone(ChatFileDoneMessage),
 }

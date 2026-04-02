@@ -70,6 +70,59 @@
     "confirmDelete": "Are you sure you want to delete this favorite item?",
     "confirmDeleteTitle": "Confirm Delete"
   },
+  "chat": {
+    "title": "Chat",
+    "status": {
+      "waitingAccept": "Waiting for confirmation",
+      "pending": "Waiting for your confirmation",
+      "transferring": "Transferring {{progress}}%",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "done": "Completed",
+      "failed": "Transfer failed (checksum mismatch)"
+    },
+    "device": {
+      "none": "No online devices"
+    },
+    "action": {
+      "viewFile": "View file",
+      "accept": "Accept",
+      "reject": "Reject",
+      "addFile": "Add file",
+      "send": "Send"
+    },
+    "dialog": {
+      "pickModeTitle": "Choose add mode",
+      "pickModeMessage": "Select folder or files to add",
+      "pickFolder": "Choose folder",
+      "pickFiles": "Choose files"
+    },
+    "placeholder": {
+      "input": "Type a message...",
+      "selectDeviceFirst": "Please select an online device first"
+    },
+    "tooltip": {
+      "resizeComposer": "Drag to resize the input area"
+    },
+    "drag": {
+      "dropToAddFile": "Drop to add files"
+    },
+    "fileCard": {
+      "itemsCount": "{{count}} items"
+    },
+    "sendHotkey": {
+      "tooltip": "Send shortcut",
+      "enter": "Press Enter to send",
+      "ctrlEnter": "Press Ctrl+Enter to send"
+    },
+    "toast": {
+      "noValidFiles": "No valid files selected",
+      "addFileFailed": "Failed to add files: {{message}}",
+      "noRevealableFile": "No file available to open",
+      "revealFailed": "Failed to open file location: {{message}}",
+      "dragTimeoutCancelled": "Drag timed out (10s), this add action was cancelled"
+    }
+  },
   "emoji": {
     "title": "Emoji/Symbols",
     "emoji": "Emoji",

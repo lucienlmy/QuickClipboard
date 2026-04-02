@@ -11,7 +11,8 @@ function TabButton({
   index,
   buttonRef,
   navigationMode = 'horizontal',
-  showLabel = true
+  showLabel = true,
+  badgeCount = 0
 }) {
   const settings = useSnapshot(settingsStore);
   const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
@@ -28,7 +29,7 @@ function TabButton({
     ${isSidebarLayout
       ? (showLabel
         ? 'justify-start px-3 gap-2 w-full h-9 whitespace-nowrap'
-        : 'justify-start px-3 gap-2 w-10 h-9 overflow-hidden')
+        : 'justify-center px-0 gap-0 w-10 h-9')
       : 'justify-center w-full h-full'}
     ${uiAnimationEnabled ? 'hover:scale-105' : ''}
     ${isActive
@@ -39,6 +40,8 @@ function TabButton({
     transitionProperty: 'transform, box-shadow, background-color, color',
     transitionDuration: '200ms, 200ms, 500ms, 500ms'
   } : {};
+  const showBadge = Number(badgeCount) > 0;
+  const badgeText = Number(badgeCount) > 99 ? '99+' : String(badgeCount);
 
   return (
     <div
@@ -57,6 +60,11 @@ function TabButton({
           {isSidebarLayout && showLabel && (
             <span className="text-[12px] font-medium leading-none truncate">
               {label}
+            </span>
+          )}
+          {showBadge && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center">
+              {badgeText}
             </span>
           )}
         </button>

@@ -8,6 +8,7 @@ import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore } from '@shared/store/favoritesStore';
+import { chatStore } from '@shared/store/chatStore';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
@@ -20,6 +21,7 @@ import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
 import FavoritesTab from './components/FavoritesTab';
+import ChatTab from './components/ChatTab';
 const EmojiTab = lazy(() => import('./components/EmojiTab'));
 import MultiSelectActionBar from './components/MultiSelectActionBar';
 import ToastContainer from '@shared/components/common/ToastContainer';
@@ -62,6 +64,10 @@ function App() {
   // 监听设置变更事件
   useSettingsSync();
 
+  useEffect(() => {
+    chatStore.init();
+  }, []);
+
   // 启动时检查 Win+V
   useEffect(() => {
     const checkWinV = async () => {
@@ -98,6 +104,7 @@ function App() {
     navigationStore.setActiveTab(activeTab);
     clipboardStore.exitMultiSelectMode();
     favoritesStore.exitMultiSelectMode();
+    chatStore.setChatActive(activeTab === 'chat');
   }, [activeTab]);
   useEffect(() => {
     const setupListeners = async () => {
@@ -269,7 +276,7 @@ function App() {
   };
   const handleTabLeft = () => {
     setActiveTab(currentTab => {
-      const tabs = ['clipboard', 'favorites', 'emoji'];
+      const tabs = ['clipboard', 'favorites', 'emoji', 'chat'];
       const currentIndex = tabs.indexOf(currentTab);
       if (currentIndex === -1) return tabs[tabs.length - 1];
       return tabs[currentIndex === 0 ? tabs.length - 1 : currentIndex - 1];
@@ -277,7 +284,7 @@ function App() {
   };
   const handleTabRight = () => {
     setActiveTab(currentTab => {
-      const tabs = ['clipboard', 'favorites', 'emoji'];
+      const tabs = ['clipboard', 'favorites', 'emoji', 'chat'];
       const currentIndex = tabs.indexOf(currentTab);
       if (currentIndex === -1) return tabs[0];
       return tabs[currentIndex === tabs.length - 1 ? 0 : currentIndex + 1];
@@ -370,9 +377,10 @@ function App() {
   `.trim().replace(/\s+/g, ' ');
   const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} onNavigate={handleSearchNavigate} position={settings.titleBarPosition} activeTab={activeTab} />;
   const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} onGroupChange={handleGroupChange} groupsPopupRef={groupsPopupRef} navigationMode={tabNavigationMode} />;
-  const ContentComponent = <div ref={contentDragRef} className="flex-1 min-h-0 overflow-hidden relative pb-[8px] bg-qc-surface transition-colors duration-500">
+  const ContentComponent = <div ref={contentDragRef} className="main-content-area flex-1 min-h-0 overflow-hidden relative pb-[8px] bg-qc-surface transition-colors duration-500">
       {activeTab === 'clipboard' && <ClipboardTab ref={clipboardTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'favorites' && <FavoritesTab ref={favoritesTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
+      {activeTab === 'chat' && <ChatTab />}
       {activeTab === 'emoji' && <Suspense fallback={null}><EmojiTab emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} /></Suspense>}
     </div>;
   const ActionBarComponent = <MultiSelectActionBar activeTab={activeTab} />;

@@ -1,5 +1,5 @@
 use super::state::{set_window_state, WindowState};
-use tauri::{AppHandle, WebviewWindow};
+use tauri::{AppHandle, Manager, WebviewWindow};
 
 // 显示主窗口
 pub fn show_main_window(window: &WebviewWindow) {
@@ -26,6 +26,8 @@ pub fn show_main_window(window: &WebviewWindow) {
 
 // 隐藏主窗口
 pub fn hide_main_window(window: &WebviewWindow) {
+    let _ = crate::windows::chat_drop_proxy::hide_chat_drop_proxy(&window.app_handle());
+
     if crate::is_context_menu_visible() {
         return;
     }
@@ -119,6 +121,7 @@ fn hide_normal_window(window: &WebviewWindow) {
     use tauri::Manager;
 
     let _ = crate::windows::pin_image_window::close_image_preview(window.app_handle().clone());
+    let _ = crate::windows::chat_drop_proxy::hide_chat_drop_proxy(&window.app_handle());
     #[cfg(feature = "gpu-image-viewer")]
     let _ = crate::windows::native_pin_window::close_native_image_preview();
     let _ = crate::windows::preview_window::close_preview_window(window.app_handle().clone());

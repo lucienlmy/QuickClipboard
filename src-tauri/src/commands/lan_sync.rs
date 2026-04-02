@@ -2,6 +2,7 @@ use crate::services;
 use lan_sync_core::Snapshot;
 use serde::Serialize;
 use std::net::IpAddr;
+use crate::windows::chat_drop_proxy::ChatDropProxyBounds;
 
 #[derive(Serialize)]
 pub struct LanSyncInfo {
@@ -9,6 +10,33 @@ pub struct LanSyncInfo {
     pub snapshot: Snapshot,
     pub local_ips: Vec<String>,
     pub recommended_peer_urls: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct LanChatSendTextInput {
+    pub to_device_id: String,
+    pub text: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct LanChatSendFileOfferInput {
+    pub to_device_id: String,
+    pub text: Option<String>,
+    pub files: Vec<services::lan_sync::ChatFileInfoInput>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct LanChatFileDecisionInput {
+    pub transfer_id: String,
+    pub from_device_id: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct LanChatDropProxyBoundsInput {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 fn get_local_lan_ipv4s() -> Vec<String> {
@@ -138,4 +166,101 @@ pub async fn lan_sync_disconnect_device(device_id: String) -> Result<bool, Strin
 #[tauri::command]
 pub async fn lan_sync_remove_trusted_device(device_id: String) -> Result<bool, String> {
     Ok(services::lan_sync::remove_trusted_device(&device_id).await)
+}
+
+#[tauri::command]
+pub async fn lan_chat_list_connected_devices() -> Result<Vec<services::lan_sync::ChatConnectedDevice>, String> {
+    Ok(services::lan_sync::list_chat_connected_devices().await)
+}
+
+#[tauri::command]
+pub async fn lan_chat_send_text(input: LanChatSendTextInput) -> Result<lan_sync_core::ChatTextMessage, String> {
+    services::lan_sync::chat_send_text(&input.to_device_id, &input.text)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_chat_send_file_offer(
+    input: LanChatSendFileOfferInput,
+) -> Result<lan_sync_core::ChatFileOfferMessage, String> {
+    services::lan_sync::chat_send_file_offer(services::lan_sync::ChatFileOfferInput {
+        to_device_id: input.to_device_id,
+        text: input.text,
+        files: input.files,
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_chat_accept_file_offer(
+    input: LanChatFileDecisionInput,
+) -> Result<lan_sync_core::ChatFileDecisionMessage, String> {
+    services::lan_sync::chat_accept_file_offer(services::lan_sync::ChatFileAcceptInput {
+        transfer_id: input.transfer_id,
+        from_device_id: input.from_device_id,
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_chat_reject_file_offer(
+    input: LanChatFileDecisionInput,
+) -> Result<lan_sync_core::ChatFileDecisionMessage, String> {
+    services::lan_sync::chat_reject_file_offer(services::lan_sync::ChatFileRejectInput {
+        transfer_id: input.transfer_id,
+        from_device_id: input.from_device_id,
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_chat_prepare_files(paths: Vec<String>) -> Result<Vec<services::lan_sync::ChatFileInfoInput>, String> {
+    services::lan_sync::chat_prepare_files(paths)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_chat_reveal_file(path: String) -> Result<(), String> {
+    services::lan_sync::chat_reveal_file(&path)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_chat_drop_proxy_ensure(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::windows::chat_drop_proxy::ensure_chat_drop_proxy(&app);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn lan_chat_drop_proxy_show(
+    app: tauri::AppHandle,
+    bounds: LanChatDropProxyBoundsInput,
+) -> Result<(), String> {
+    crate::windows::chat_drop_proxy::show_chat_drop_proxy(
+        &app,
+        ChatDropProxyBounds {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+        },
+    )
+}
+
+#[tauri::command]
+pub fn lan_chat_drop_proxy_hide(app: tauri::AppHandle) -> Result<(), String> {
+    crate::windows::chat_drop_proxy::hide_chat_drop_proxy(&app)
+}
+
+#[tauri::command]
+pub fn lan_chat_drop_proxy_dispose(app: tauri::AppHandle) -> Result<(), String> {
+    crate::windows::chat_drop_proxy::dispose_chat_drop_proxy(&app)
 }

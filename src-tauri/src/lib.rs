@@ -235,6 +235,17 @@ pub fn run() {
                 commands::lan_sync_remove_trusted_device,
                 commands::lan_sync_sync_clipboard_item,
                 commands::lan_sync_sync_favorite_item,
+                commands::lan_chat_list_connected_devices,
+                commands::lan_chat_send_text,
+                commands::lan_chat_send_file_offer,
+                commands::lan_chat_accept_file_offer,
+                commands::lan_chat_reject_file_offer,
+                commands::lan_chat_prepare_files,
+                commands::lan_chat_reveal_file,
+                commands::lan_chat_drop_proxy_ensure,
+                commands::lan_chat_drop_proxy_show,
+                commands::lan_chat_drop_proxy_hide,
+                commands::lan_chat_drop_proxy_dispose,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
@@ -570,6 +581,30 @@ pub fn run() {
                                     if !settings.lan_sync_receive_enabled {
                                         continue;
                                     }
+                                    if image_id.starts_with("chat_file:") {
+                                        if let Ok(progress) = crate::services::lan_sync::chat_handle_file_chunk(
+                                            image_id,
+                                            total_len,
+                                            offset,
+                                            data,
+                                        )
+                                        .await
+                                        {
+                                            if let Some((transfer_id, received_size, total_size)) = progress {
+                                                use tauri::Emitter;
+                                                let _ = app_handle.emit(
+                                                    "lan-chat-event",
+                                                    serde_json::json!({
+                                                        "type": "file_progress",
+                                                        "transfer_id": transfer_id,
+                                                        "received_size": received_size,
+                                                        "total_size": total_size
+                                                    }),
+                                                );
+                                            }
+                                        }
+                                        continue;
+                                    }
                                     let end = offset.saturating_add(data.len() as u64);
                                     let now = Instant::now();
                                     let progress = attachment_progress.entry(image_id.clone()).or_insert_with(|| AttachmentProgress {
@@ -619,6 +654,104 @@ pub fn run() {
                                 lan_sync_core::CoreEvent::Paired { device_id, pair_secret } => {
                                     crate::services::lan_sync::on_paired(device_id, pair_secret);
                                 }
+                                lan_sync_core::CoreEvent::ChatText { message } => {
+                                    use tauri::Emitter;
+                                    let _ = app_handle.emit(
+                                        "lan-chat-event",
+                                        serde_json::json!({
+                                            "type": "chat_text",
+                                            "message": message
+                                        }),
+                                    );
+                                }
+                                lan_sync_core::CoreEvent::ChatFileOffer { offer } => {
+                                    crate::services::lan_sync::chat_on_file_offer_received(offer.clone()).await;
+                                    use tauri::Emitter;
+                                    let _ = app_handle.emit(
+                                        "lan-chat-event",
+                                        serde_json::json!({
+                                            "type": "file_offer",
+                                            "offer": offer
+                                        }),
+                                    );
+                                }
+                                lan_sync_core::CoreEvent::ChatFileAccept { decision } => {
+                                    let _ = crate::services::lan_sync::chat_on_file_accept_received(
+                                        decision.clone(),
+                                        Some(&app_handle),
+                                    )
+                                    .await;
+                                    use tauri::Emitter;
+                                    let _ = app_handle.emit(
+                                        "lan-chat-event",
+                                        serde_json::json!({
+                                            "type": "file_accept",
+                                            "decision": decision
+                                        }),
+                                    );
+                                }
+                                lan_sync_core::CoreEvent::ChatFileReject { decision } => {
+                                    crate::services::lan_sync::chat_on_file_reject_or_expired_received(&decision.transfer_id).await;
+                                    use tauri::Emitter;
+                                    let _ = app_handle.emit(
+                                        "lan-chat-event",
+                                        serde_json::json!({
+                                            "type": "file_reject",
+                                            "decision": decision
+                                        }),
+                                    );
+                                }
+                                lan_sync_core::CoreEvent::ChatFileExpired { decision } => {
+                                    crate::services::lan_sync::chat_on_file_reject_or_expired_received(&decision.transfer_id).await;
+                                    use tauri::Emitter;
+                                    let _ = app_handle.emit(
+                                        "lan-chat-event",
+                                        serde_json::json!({
+                                            "type": "file_expired",
+                                            "decision": decision
+                                        }),
+                                    );
+                                }
+                                lan_sync_core::CoreEvent::ChatFileDone { done } => {
+                                    use tauri::Emitter;
+                                    match crate::services::lan_sync::chat_on_file_done_received(&done.transfer_id).await {
+                                        Ok(crate::services::lan_sync::ChatFileDoneResolve::ReceiverCompleted(paths)) => {
+                                            let _ = crate::services::lan_sync::chat_send_file_done_ack(
+                                                &done.from_device_id,
+                                                &done.transfer_id,
+                                            )
+                                            .await;
+                                            let _ = app_handle.emit(
+                                                "lan-chat-event",
+                                                serde_json::json!({
+                                                    "type": "file_done",
+                                                    "done": done,
+                                                    "paths": paths
+                                                }),
+                                            );
+                                        }
+                                        Ok(crate::services::lan_sync::ChatFileDoneResolve::SenderAck) => {
+                                            let _ = app_handle.emit(
+                                                "lan-chat-event",
+                                                serde_json::json!({
+                                                    "type": "file_done",
+                                                    "done": done
+                                                }),
+                                            );
+                                        }
+                                        Ok(crate::services::lan_sync::ChatFileDoneResolve::NotReady) => {}
+                                        Err(err) => {
+                                            let _ = app_handle.emit(
+                                                "lan-chat-event",
+                                                serde_json::json!({
+                                                    "type": "file_failed",
+                                                    "done": done,
+                                                    "error": err
+                                                }),
+                                            );
+                                        }
+                                    }
+                                }
                                 _ => {}
                             }
                         }
@@ -650,6 +783,7 @@ pub fn run() {
                 }
                 tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } => {
                     if label == "main" && !services::low_memory::is_low_memory_mode() {
+                        let _ = crate::windows::chat_drop_proxy::dispose_chat_drop_proxy(app);
                         app.exit(0);
                     }
                 }

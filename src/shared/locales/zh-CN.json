@@ -70,6 +70,59 @@
     "confirmDelete": "确定要删除此收藏项吗？",
     "confirmDeleteTitle": "确认删除"
   },
+  "chat": {
+    "title": "聊天",
+    "status": {
+      "waitingAccept": "等待对方确认",
+      "pending": "待你确认",
+      "transferring": "传输中 {{progress}}%",
+      "rejected": "已拒绝",
+      "expired": "已过期",
+      "done": "已完成",
+      "failed": "传输失败（校验未通过）"
+    },
+    "device": {
+      "none": "暂无在线设备"
+    },
+    "action": {
+      "viewFile": "查看文件",
+      "accept": "接收",
+      "reject": "拒绝",
+      "addFile": "添加文件",
+      "send": "发送"
+    },
+    "dialog": {
+      "pickModeTitle": "选择添加方式",
+      "pickModeMessage": "请选择添加文件夹或文件",
+      "pickFolder": "选择文件夹",
+      "pickFiles": "选择文件"
+    },
+    "placeholder": {
+      "input": "输入消息...",
+      "selectDeviceFirst": "请先选择在线设备"
+    },
+    "tooltip": {
+      "resizeComposer": "拖拽调整输入区域高度"
+    },
+    "drag": {
+      "dropToAddFile": "松开添加文件"
+    },
+    "fileCard": {
+      "itemsCount": "{{count}}项"
+    },
+    "sendHotkey": {
+      "tooltip": "发送快捷键",
+      "enter": "按 Enter 键发送",
+      "ctrlEnter": "按 Ctrl+Enter 键发送"
+    },
+    "toast": {
+      "noValidFiles": "未选择到可用文件",
+      "addFileFailed": "添加文件失败: {{message}}",
+      "noRevealableFile": "未找到可查看的文件",
+      "revealFailed": "打开文件位置失败: {{message}}",
+      "dragTimeoutCancelled": "拖入超时（10秒），已取消本次添加"
+    }
+  },
   "emoji": {
     "title": "表情/符号",
     "emoji": "Emoji",

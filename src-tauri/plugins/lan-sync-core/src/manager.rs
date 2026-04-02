@@ -11,7 +11,9 @@ use tokio::time::{timeout, Duration, Instant};
 use tokio_tungstenite::{accept_async, connect_async, tungstenite::{Bytes, Message}};
 use url::Url;
 
-use crate::protocol::{AuthChallenge, AuthResponse, ClipboardItem, ClipboardRecord, HelloMessage, LanSyncMessage};
+use crate::protocol::{
+    AuthChallenge, AuthResponse, ClipboardItem, ClipboardRecord, HelloMessage, LanSyncMessage,
+};
 use crate::types::{ConnectionState, CoreEvent, LanSyncConfig, LanSyncError, Snapshot};
 
 const CLIENT_SEND_QUEUE_MAX: usize = 200;
@@ -586,6 +588,7 @@ impl LanSyncManager {
             inner.snapshot.state = ConnectionState::Stopped;
             inner.snapshot.server_port = None;
             inner.snapshot.peer_url = None;
+            inner.snapshot.connected_peer_device_id = None;
             inner.snapshot.reconnecting = false;
             inner.snapshot.reconnect_attempt = 0;
             inner.snapshot.next_retry_in_ms = None;
@@ -611,6 +614,7 @@ impl LanSyncManager {
             }
             inner.snapshot.server_port = None;
             inner.snapshot.state = ConnectionState::Listening;
+            inner.snapshot.connected_peer_device_id = None;
             inner.snapshot.server_connected_count = 0;
             inner.snapshot.server_connected_device_ids.clear();
             inner.server_peer_out_txs.clear();
@@ -715,6 +719,7 @@ impl LanSyncManager {
                 h.abort();
             }
             inner.snapshot.peer_url = Some(peer_url.to_string());
+            inner.snapshot.connected_peer_device_id = None;
             inner.snapshot.state = ConnectionState::Connecting;
             inner.snapshot.reconnecting = auto_reconnect;
             inner.snapshot.reconnect_attempt = 0;
@@ -749,6 +754,7 @@ impl LanSyncManager {
                     let mut inner = this.inner.lock().await;
                     if inner.snapshot.enabled {
                         inner.snapshot.state = ConnectionState::Disconnected;
+                        inner.snapshot.connected_peer_device_id = None;
                         inner.snapshot.reconnecting = inner.client_auto_reconnect && !inner.client_manual_disconnect;
                     }
 
@@ -813,10 +819,40 @@ impl LanSyncManager {
         Ok(())
     }
 
+    pub async fn send_message_to_device(
+        &self,
+        target_device_id: &str,
+        message: LanSyncMessage,
+    ) -> Result<(), LanSyncError> {
+        let mut inner = self.inner.lock().await;
+        if !inner.snapshot.enabled {
+            return Err(LanSyncError::NotEnabled);
+        }
+
+        if let Some(tx) = inner.server_peer_out_txs.get(target_device_id) {
+            tx.send(OutgoingFrame::Json(message))
+                .map_err(|_| LanSyncError::Ws("发送失败".to_string()))?;
+            return Ok(());
+        }
+
+        if let Some(tx) = inner.client_out_tx.clone() {
+            tx.send(OutgoingFrame::Json(message))
+                .map_err(|_| LanSyncError::Ws("发送失败".to_string()))?;
+            return Ok(());
+        }
+
+        if inner.client_send_queue.len() >= CLIENT_SEND_QUEUE_MAX {
+            inner.client_send_queue.pop_front();
+        }
+        inner.client_send_queue.push_back(OutgoingFrame::Json(message));
+        Ok(())
+    }
+
     pub async fn disconnect_peer(&self) {
         let mut inner = self.inner.lock().await;
         inner.client_manual_disconnect = true;
         inner.snapshot.state = ConnectionState::Disconnected;
+        inner.snapshot.connected_peer_device_id = None;
         inner.snapshot.reconnecting = false;
         inner.snapshot.reconnect_attempt = 0;
         inner.snapshot.next_retry_in_ms = None;
@@ -953,7 +989,13 @@ impl LanSyncManager {
             | LanSyncMessage::AuthChallenge(_)
             | LanSyncMessage::AuthResponse(_)
             | LanSyncMessage::PairAccepted { .. }
-            | LanSyncMessage::PairDenied { .. } => {
+            | LanSyncMessage::PairDenied { .. }
+            | LanSyncMessage::ChatText(_)
+            | LanSyncMessage::ChatFileOffer(_)
+            | LanSyncMessage::ChatFileAccept(_)
+            | LanSyncMessage::ChatFileReject(_)
+            | LanSyncMessage::ChatFileExpired(_)
+            | LanSyncMessage::ChatFileDone(_) => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
@@ -1209,6 +1251,66 @@ impl LanSyncManager {
                                             LanSyncMessage::PairAccepted { .. }
                                             | LanSyncMessage::PairDenied { .. }
                                             | LanSyncMessage::Hello(_) => {}
+                                            LanSyncMessage::ChatText(message) => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if message.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatText { message: message.clone() });
+                                                }
+                                                if message.to_device_id != my_id {
+                                                    let target = message.to_device_id.clone();
+                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatText(message)).await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileOffer(offer) => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if offer.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileOffer { offer: offer.clone() });
+                                                }
+                                                if offer.to_device_id != my_id {
+                                                    let target = offer.to_device_id.clone();
+                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileOffer(offer)).await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileAccept(decision) => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if decision.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileAccept { decision: decision.clone() });
+                                                }
+                                                if decision.to_device_id != my_id {
+                                                    let target = decision.to_device_id.clone();
+                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileAccept(decision)).await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileReject(decision) => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if decision.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileReject { decision: decision.clone() });
+                                                }
+                                                if decision.to_device_id != my_id {
+                                                    let target = decision.to_device_id.clone();
+                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileReject(decision)).await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileExpired(decision) => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if decision.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileExpired { decision: decision.clone() });
+                                                }
+                                                if decision.to_device_id != my_id {
+                                                    let target = decision.to_device_id.clone();
+                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileExpired(decision)).await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileDone(done) => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if done.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileDone { done: done.clone() });
+                                                }
+                                                if done.to_device_id != my_id {
+                                                    let target = done.to_device_id.clone();
+                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileDone(done)).await;
+                                                }
+                                            }
                                             _ => {}
                                         }
                                     }
@@ -1338,7 +1440,13 @@ impl LanSyncManager {
             | LanSyncMessage::AuthChallenge(_)
             | LanSyncMessage::AuthResponse(_)
             | LanSyncMessage::PairAccepted { .. }
-            | LanSyncMessage::PairDenied { .. } => {
+            | LanSyncMessage::PairDenied { .. }
+            | LanSyncMessage::ChatText(_)
+            | LanSyncMessage::ChatFileOffer(_)
+            | LanSyncMessage::ChatFileAccept(_)
+            | LanSyncMessage::ChatFileReject(_)
+            | LanSyncMessage::ChatFileExpired(_)
+            | LanSyncMessage::ChatFileDone(_) => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
@@ -1419,6 +1527,7 @@ impl LanSyncManager {
         {
             let mut inner = self.inner.lock().await;
             inner.snapshot.state = ConnectionState::Connected;
+            inner.snapshot.connected_peer_device_id = Some(server_device_id.clone());
             Self::refresh_server_snapshot_locked(&mut inner);
         }
 
@@ -1506,6 +1615,24 @@ impl LanSyncManager {
                                                 let record = clipboard_item_to_record(item);
                                                 let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
                                             }
+                                            LanSyncMessage::ChatText(message) => {
+                                                let _ = event_tx.send(CoreEvent::ChatText { message });
+                                            }
+                                            LanSyncMessage::ChatFileOffer(offer) => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileOffer { offer });
+                                            }
+                                            LanSyncMessage::ChatFileAccept(decision) => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileAccept { decision });
+                                            }
+                                            LanSyncMessage::ChatFileReject(decision) => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileReject { decision });
+                                            }
+                                            LanSyncMessage::ChatFileExpired(decision) => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileExpired { decision });
+                                            }
+                                            LanSyncMessage::ChatFileDone(done) => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileDone { done });
+                                            }
                                             _ => {}
                                         }
                                     }
@@ -1531,6 +1658,24 @@ impl LanSyncManager {
                                                 LanSyncMessage::ClipboardItem(item) => {
                                                     let record = clipboard_item_to_record(item);
                                                     let _ = event_tx.send(CoreEvent::RemoteClipboardRecord { record });
+                                                }
+                                                LanSyncMessage::ChatText(message) => {
+                                                    let _ = event_tx.send(CoreEvent::ChatText { message });
+                                                }
+                                                LanSyncMessage::ChatFileOffer(offer) => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileOffer { offer });
+                                                }
+                                                LanSyncMessage::ChatFileAccept(decision) => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileAccept { decision });
+                                                }
+                                                LanSyncMessage::ChatFileReject(decision) => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileReject { decision });
+                                                }
+                                                LanSyncMessage::ChatFileExpired(decision) => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileExpired { decision });
+                                                }
+                                                LanSyncMessage::ChatFileDone(done) => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileDone { done });
                                                 }
                                                 _ => {}
                                             }

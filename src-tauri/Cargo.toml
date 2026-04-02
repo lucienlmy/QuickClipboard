@@ -34,6 +34,7 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = "0.4"
 dirs = "5.0"
 sha2 = "0.10"
+blake3 = "1.5"
 rodio = "0.17"
 if-addrs = "0.13"
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "time", "fs", "io-util"] }
@@ -94,4 +95,3 @@ strip = "debuginfo"
 debug = false
 incremental = false
 overflow-checks = false
-

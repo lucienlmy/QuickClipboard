@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error;
 
-use crate::protocol::ClipboardRecord;
+use crate::protocol::{
+    ChatFileDecisionMessage, ChatFileDoneMessage, ChatFileOfferMessage, ChatTextMessage, ClipboardRecord,
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ConnectionState {
@@ -19,6 +21,7 @@ pub struct Snapshot {
     pub state: ConnectionState,
     pub server_port: Option<u16>,
     pub peer_url: Option<String>,
+    pub connected_peer_device_id: Option<String>,
     pub server_connected_count: u32,
     pub server_connected_device_ids: Vec<String>,
     pub reconnecting: bool,
@@ -33,6 +36,7 @@ impl Default for Snapshot {
             state: ConnectionState::Stopped,
             server_port: None,
             peer_url: None,
+            connected_peer_device_id: None,
             server_connected_count: 0,
             server_connected_device_ids: Vec::new(),
             reconnecting: false,
@@ -62,6 +66,12 @@ pub enum CoreEvent {
         offset: u64,
         data: Vec<u8>,
     },
+    ChatText { message: ChatTextMessage },
+    ChatFileOffer { offer: ChatFileOfferMessage },
+    ChatFileAccept { decision: ChatFileDecisionMessage },
+    ChatFileReject { decision: ChatFileDecisionMessage },
+    ChatFileExpired { decision: ChatFileDecisionMessage },
+    ChatFileDone { done: ChatFileDoneMessage },
 }
 
 #[derive(Debug, Clone)]
@@ -79,10 +89,10 @@ impl Default for LanSyncConfig {
         Self {
             device_id: "desktop".to_string(),
             protocol_version: 1,
-            ping_interval: Duration::from_secs(2),
-            idle_timeout: Duration::from_secs(8),
+            ping_interval: Duration::from_secs(10),
+            idle_timeout: Duration::from_secs(45),
             respond_to_ping: true,
-            connect_timeout: Duration::from_secs(2),
+            connect_timeout: Duration::from_secs(8),
         }
     }
 }
