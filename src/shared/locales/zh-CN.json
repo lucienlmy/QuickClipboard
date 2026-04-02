@@ -257,6 +257,8 @@
       "statusConnectedCountDesc": "当前连接到本机服务端的设备数量（仅服务端模式）",
       "statusPeerUrl": "对端",
       "statusPeerUrlDesc": "当前客户端连接到的服务端地址（仅客户端模式）",
+      "statusDeviceName": "设备名称",
+      "statusDeviceNameDesc": "当前桌面设备在局域网同步中展示给其它设备的名称",
       "statusDeviceId": "设备ID",
       "statusDeviceIdDesc": "本机的设备标识，用于在局域网同步中区分设备",
       "localUrls": "本机可连接地址",

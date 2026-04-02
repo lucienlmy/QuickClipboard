@@ -257,6 +257,8 @@
       "statusConnectedCountDesc": "Number of devices currently connected to this machine (server mode only)",
       "statusPeerUrl": "Remote",
       "statusPeerUrlDesc": "Server URL the client is currently connected to (client mode only)",
+      "statusDeviceName": "Device Name",
+      "statusDeviceNameDesc": "Name this desktop device shows to other devices in LAN Sync",
       "statusDeviceId": "Device ID",
       "statusDeviceIdDesc": "Identifier of this device used to distinguish devices in LAN Sync",
       "localUrls": "Local Connect URLs",

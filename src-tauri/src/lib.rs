@@ -651,8 +651,11 @@ pub fn run() {
                                         attachment_progress.remove(&image_id);
                                     }
                                 }
-                                lan_sync_core::CoreEvent::Paired { device_id, pair_secret } => {
-                                    crate::services::lan_sync::on_paired(device_id, pair_secret);
+                                lan_sync_core::CoreEvent::PeerDiscovered { device_id, device_name } => {
+                                    crate::services::lan_sync::remember_peer_device(device_id, device_name);
+                                }
+                                lan_sync_core::CoreEvent::Paired { device_id, device_name, pair_secret } => {
+                                    crate::services::lan_sync::on_paired(device_id, pair_secret, device_name);
                                 }
                                 lan_sync_core::CoreEvent::ChatText { message } => {
                                     use tauri::Emitter;

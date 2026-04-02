@@ -58,6 +58,7 @@ async fn ensure_no_remote_record(
 async fn record_roundtrip_text() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
+        device_name: None,
         ..Default::default()
     });
     server.set_enabled(true).await;
@@ -114,6 +115,7 @@ async fn record_roundtrip_text() -> AnyResult<()> {
 async fn record_roundtrip_raw_formats() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
+        device_name: None,
         ..Default::default()
     });
     server.set_enabled(true).await;
@@ -123,6 +125,7 @@ async fn record_roundtrip_raw_formats() -> AnyResult<()> {
 
     let client = LanSyncManager::new(LanSyncConfig {
         device_id: "client".to_string(),
+        device_name: None,
         ..Default::default()
     });
     client.set_enabled(true).await;
@@ -175,6 +178,7 @@ async fn record_roundtrip_raw_formats() -> AnyResult<()> {
 async fn client_to_server_is_forwarded_to_others() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
+        device_name: None,
         ..Default::default()
     });
     server.set_enabled(true).await;
@@ -182,10 +186,12 @@ async fn client_to_server_is_forwarded_to_others() -> AnyResult<()> {
 
     let c1 = LanSyncManager::new(LanSyncConfig {
         device_id: "c1".to_string(),
+        device_name: None,
         ..Default::default()
     });
     let c2 = LanSyncManager::new(LanSyncConfig {
         device_id: "c2".to_string(),
+        device_name: None,
         ..Default::default()
     });
     c1.set_enabled(true).await;
@@ -242,6 +248,7 @@ async fn client_to_server_is_forwarded_to_others() -> AnyResult<()> {
 async fn server_broadcast_excluding_source() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
+        device_name: None,
         ..Default::default()
     });
     server.set_enabled(true).await;
@@ -249,10 +256,12 @@ async fn server_broadcast_excluding_source() -> AnyResult<()> {
 
     let c1 = LanSyncManager::new(LanSyncConfig {
         device_id: "c1".to_string(),
+        device_name: None,
         ..Default::default()
     });
     let c2 = LanSyncManager::new(LanSyncConfig {
         device_id: "c2".to_string(),
+        device_name: None,
         ..Default::default()
     });
     c1.set_enabled(true).await;
@@ -315,6 +324,7 @@ async fn server_broadcast_excluding_source() -> AnyResult<()> {
 async fn server_broadcast_to_two_clients() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
+        device_name: None,
         ..Default::default()
     });
     server.set_enabled(true).await;
@@ -322,10 +332,12 @@ async fn server_broadcast_to_two_clients() -> AnyResult<()> {
 
     let client1 = LanSyncManager::new(LanSyncConfig {
         device_id: "c1".to_string(),
+        device_name: None,
         ..Default::default()
     });
     let client2 = LanSyncManager::new(LanSyncConfig {
         device_id: "c2".to_string(),
+        device_name: None,
         ..Default::default()
     });
     client1.set_enabled(true).await;
@@ -391,6 +403,7 @@ async fn server_broadcast_to_two_clients() -> AnyResult<()> {
 async fn server_broadcast_to_client() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
+        device_name: None,
         ..Default::default()
     });
     server.set_enabled(true).await;
@@ -398,6 +411,7 @@ async fn server_broadcast_to_client() -> AnyResult<()> {
 
     let client = LanSyncManager::new(LanSyncConfig {
         device_id: "client".to_string(),
+        device_name: None,
         ..Default::default()
     });
     client.set_enabled(true).await;
@@ -454,6 +468,7 @@ async fn server_broadcast_to_client() -> AnyResult<()> {
 async fn record_queue_flush_on_connect() -> AnyResult<()> {
     let server = LanSyncManager::new(LanSyncConfig {
         device_id: "server".to_string(),
+        device_name: None,
         ..Default::default()
     });
     server.set_enabled(true).await;
@@ -462,6 +477,7 @@ async fn record_queue_flush_on_connect() -> AnyResult<()> {
 
     let client = LanSyncManager::new(LanSyncConfig {
         device_id: "client".to_string(),
+        device_name: None,
         ..Default::default()
     });
     client.set_enabled(true).await;

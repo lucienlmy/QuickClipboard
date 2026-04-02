@@ -7,6 +7,7 @@ use crate::windows::chat_drop_proxy::ChatDropProxyBounds;
 #[derive(Serialize)]
 pub struct LanSyncInfo {
     pub device_id: String,
+    pub local_device_name: String,
     pub snapshot: Snapshot,
     pub local_ips: Vec<String>,
     pub recommended_peer_urls: Vec<String>,
@@ -94,6 +95,7 @@ pub async fn lan_sync_get_info() -> Result<LanSyncInfo, String> {
 
     Ok(LanSyncInfo {
         device_id: services::lan_sync::device_id(),
+        local_device_name: services::lan_sync::local_device_name(),
         snapshot,
         local_ips,
         recommended_peer_urls,

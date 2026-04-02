@@ -50,8 +50,13 @@ impl Default for Snapshot {
 pub enum CoreEvent {
     Log { level: String, message: String },
     StatusChanged { snapshot: Snapshot },
+    PeerDiscovered {
+        device_id: String,
+        device_name: Option<String>,
+    },
     Paired {
         device_id: String,
+        device_name: Option<String>,
         pair_secret: String,
     },
     RemoteClipboardRecord { record: ClipboardRecord },
@@ -77,6 +82,7 @@ pub enum CoreEvent {
 #[derive(Debug, Clone)]
 pub struct LanSyncConfig {
     pub device_id: String,
+    pub device_name: Option<String>,
     pub protocol_version: u32,
     pub ping_interval: Duration,
     pub idle_timeout: Duration,
@@ -88,6 +94,7 @@ impl Default for LanSyncConfig {
     fn default() -> Self {
         Self {
             device_id: "desktop".to_string(),
+            device_name: None,
             protocol_version: 1,
             ping_interval: Duration::from_secs(10),
             idle_timeout: Duration::from_secs(45),

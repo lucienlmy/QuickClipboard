@@ -19,6 +19,8 @@ const CHAT_FILE_OFFER_EXPIRE_MS: u64 = 10 * 60 * 1000;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustedDevice {
     pub device_id: String,
+    #[serde(default)]
+    pub device_name: Option<String>,
     pub pair_secret: String,
     pub first_paired_at_ms: u64,
     pub last_seen_ms: u64,
@@ -27,6 +29,7 @@ pub struct TrustedDevice {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustedDeviceInfo {
     pub device_id: String,
+    pub device_name: Option<String>,
     pub first_paired_at_ms: u64,
     pub last_seen_ms: u64,
     pub connected: bool,
@@ -35,6 +38,7 @@ pub struct TrustedDeviceInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatConnectedDevice {
     pub device_id: String,
+    pub device_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,9 +158,12 @@ static DEVICE_ID: Lazy<String> = Lazy::new(|| {
     id
 });
 
+static LOCAL_DEVICE_NAME: Lazy<String> = Lazy::new(detect_local_device_name);
+
 static MANAGER: Lazy<LanSyncManager> = Lazy::new(|| {
     LanSyncManager::new(LanSyncConfig {
         device_id: DEVICE_ID.clone(),
+        device_name: Some(LOCAL_DEVICE_NAME.clone()),
         ..Default::default()
     })
 });
@@ -275,6 +282,33 @@ fn add_covered_range(ranges: &mut Vec<(u64, u64)>, start: u64, end: u64) -> u64 
 
     *ranges = merged;
     ranges.iter().map(|(a, b)| b.saturating_sub(*a)).sum()
+}
+
+fn normalize_device_name(device_name: Option<String>) -> Option<String> {
+    device_name.and_then(|name| {
+        let normalized = name.trim().to_string();
+        if normalized.is_empty() {
+            None
+        } else {
+            Some(normalized)
+        }
+    })
+}
+
+fn detect_local_device_name() -> String {
+    for key in ["COMPUTERNAME", "HOSTNAME"] {
+        if let Ok(value) = std::env::var(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+    "当前设备".to_string()
+}
+
+pub fn local_device_name() -> String {
+    LOCAL_DEVICE_NAME.clone()
 }
 
 fn compute_blake3_file_hash_hex(path: &Path) -> Result<String, String> {
@@ -412,15 +446,44 @@ pub async fn refresh_server_pair_code() -> Option<(String, u64)> {
     MANAGER.get_server_pair_code().await
 }
 
-pub fn on_paired(device_id: String, pair_secret: String) {
+pub fn remember_peer_device(device_id: String, device_name: Option<String>) {
+    let normalized_name = normalize_device_name(device_name);
+    let mut list = load_trusted_devices();
+    let Some(device) = list.iter_mut().find(|x| x.device_id == device_id) else {
+        return;
+    };
+
+    let mut changed = false;
+    if normalized_name.is_some() && device.device_name != normalized_name {
+        device.device_name = normalized_name;
+        changed = true;
+    }
+
     let now = current_time_ms();
+    if device.last_seen_ms != now {
+        device.last_seen_ms = now;
+        changed = true;
+    }
+
+    if changed {
+        save_trusted_devices(&list);
+    }
+}
+
+pub fn on_paired(device_id: String, pair_secret: String, device_name: Option<String>) {
+    let now = current_time_ms();
+    let normalized_name = normalize_device_name(device_name);
     let mut list = load_trusted_devices();
     if let Some(d) = list.iter_mut().find(|x| x.device_id == device_id) {
         d.pair_secret = pair_secret;
+        if normalized_name.is_some() {
+            d.device_name = normalized_name.clone();
+        }
         d.last_seen_ms = now;
     } else {
         list.push(TrustedDevice {
             device_id,
+            device_name: normalized_name,
             pair_secret,
             first_paired_at_ms: now,
             last_seen_ms: now,
@@ -448,6 +511,7 @@ pub async fn list_trusted_devices() -> Vec<TrustedDeviceInfo> {
             connected: connected_ids.iter().any(|x| x == &d.device_id)
                 || connected_peer_device_id.as_ref().is_some_and(|x| x == &d.device_id),
             device_id: d.device_id,
+            device_name: d.device_name,
             first_paired_at_ms: d.first_paired_at_ms,
             last_seen_ms: d.last_seen_ms,
         })
@@ -756,7 +820,10 @@ pub async fn list_chat_connected_devices() -> Vec<ChatConnectedDevice> {
     let list = list_trusted_devices().await;
     list.into_iter()
         .filter(|d| d.connected)
-        .map(|d| ChatConnectedDevice { device_id: d.device_id })
+        .map(|d| ChatConnectedDevice {
+            device_id: d.device_id,
+            device_name: d.device_name,
+        })
         .collect()
 }
 

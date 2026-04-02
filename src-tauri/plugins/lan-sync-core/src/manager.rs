@@ -955,13 +955,18 @@ impl LanSyncManager {
             .map_err(|e| LanSyncError::Ws(e.to_string()))?;
         let (mut write, mut read) = ws.split();
 
-        let (device_id, version) = {
+        let (device_id, device_name, version) = {
             let inner = self.inner.lock().await;
-            (inner.config.device_id.clone(), inner.config.protocol_version)
+            (
+                inner.config.device_id.clone(),
+                inner.config.device_name.clone(),
+                inner.config.protocol_version,
+            )
         };
 
         let hello = LanSyncMessage::Hello(HelloMessage {
             device_id,
+            device_name,
             version,
             pair_code: None,
         });
@@ -982,8 +987,8 @@ impl LanSyncManager {
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
 
-        let (remote_device_id, remote_pair_code) = match remote_hello {
-            LanSyncMessage::Hello(h) => (h.device_id, h.pair_code),
+        let (remote_device_id, remote_device_name, remote_pair_code) = match remote_hello {
+            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.pair_code),
             LanSyncMessage::ClipboardRecord { .. }
             | LanSyncMessage::ClipboardItem(_)
             | LanSyncMessage::AuthChallenge(_)
@@ -1148,6 +1153,7 @@ impl LanSyncManager {
                 let event_tx = { self.inner.lock().await.event_tx.clone() };
                 let _ = event_tx.send(CoreEvent::Paired {
                     device_id: remote_device_id.clone(),
+                    device_name: remote_device_name.clone(),
                     pair_secret: pair_secret.clone(),
                 });
                 self.set_trusted_device_pair_secret(&remote_device_id, &pair_secret)
@@ -1158,6 +1164,14 @@ impl LanSyncManager {
         let conn_id = self
             .register_connection(remote_device_id.clone(), abort_handle)
             .await;
+
+        {
+            let event_tx = { self.inner.lock().await.event_tx.clone() };
+            let _ = event_tx.send(CoreEvent::PeerDiscovered {
+                device_id: remote_device_id.clone(),
+                device_name: remote_device_name,
+            });
+        }
 
         let (peer_out_tx, mut peer_out_rx) = tokio::sync::mpsc::unbounded_channel::<OutgoingFrame>();
         {
@@ -1407,14 +1421,19 @@ impl LanSyncManager {
 
         let (mut write, mut read) = ws.split();
 
-        let (device_id, version) = {
+        let (device_id, device_name, version) = {
             let inner = self.inner.lock().await;
-            (inner.config.device_id.clone(), inner.config.protocol_version)
+            (
+                inner.config.device_id.clone(),
+                inner.config.device_name.clone(),
+                inner.config.protocol_version,
+            )
         };
 
         let pair_code = { self.inner.lock().await.client_pair_code.clone() };
         let hello = LanSyncMessage::Hello(HelloMessage {
             device_id,
+            device_name,
             version,
             pair_code,
         });
@@ -1433,8 +1452,8 @@ impl LanSyncManager {
         };
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
-        let server_device_id = match remote_hello {
-            LanSyncMessage::Hello(h) => h.device_id,
+        let (server_device_id, server_device_name) = match remote_hello {
+            LanSyncMessage::Hello(h) => (h.device_id, h.device_name),
             LanSyncMessage::ClipboardRecord { .. }
             | LanSyncMessage::ClipboardItem(_)
             | LanSyncMessage::AuthChallenge(_)
@@ -1519,9 +1538,18 @@ impl LanSyncManager {
             let event_tx = { self.inner.lock().await.event_tx.clone() };
             let _ = event_tx.send(CoreEvent::Paired {
                 device_id: server_device_id.clone(),
+                device_name: server_device_name.clone(),
                 pair_secret: pair_secret.clone(),
             });
             self.set_trusted_device_pair_secret(&server_device_id, &pair_secret).await;
+        }
+
+        {
+            let event_tx = { self.inner.lock().await.event_tx.clone() };
+            let _ = event_tx.send(CoreEvent::PeerDiscovered {
+                device_id: server_device_id.clone(),
+                device_name: server_device_name,
+            });
         }
 
         {

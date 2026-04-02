@@ -23,6 +23,7 @@ function LanSyncSection({
   const [snapshot, setSnapshot] = useState(null);
   const [snapshotError, setSnapshotError] = useState('');
   const [deviceId, setDeviceId] = useState('');
+  const [localDeviceName, setLocalDeviceName] = useState('');
   const [recommendedPeerUrls, setRecommendedPeerUrls] = useState([]);
   const [copyTip, setCopyTip] = useState('');
 
@@ -87,6 +88,9 @@ function LanSyncSection({
         setSnapshot(info?.snapshot ?? null);
         if (typeof info?.device_id === 'string') {
           setDeviceId(info.device_id);
+        }
+        if (typeof info?.local_device_name === 'string') {
+          setLocalDeviceName(info.local_device_name);
         }
         setRecommendedPeerUrls(Array.isArray(info?.recommended_peer_urls) ? info.recommended_peer_urls : []);
         setSnapshotError('');
@@ -436,6 +440,7 @@ function LanSyncSection({
         <StatusOverviewCard
           snapshot={snapshot}
           deviceId={deviceId}
+          localDeviceName={localDeviceName}
           stateLabel={stateLabel}
           settings={settings}
           onSettingChange={onSettingChange}
@@ -509,6 +514,7 @@ export default LanSyncSection;
 function StatusOverviewCard({
   snapshot,
   deviceId,
+  localDeviceName,
   stateLabel,
   settings,
   onSettingChange,
@@ -538,6 +544,12 @@ function StatusOverviewCard({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatusCard
+          label={t('settings.lanSync.statusDeviceName')}
+          desc={t('settings.lanSync.statusDeviceNameDesc')}
+          value={localDeviceName || '-'}
+        />
+
         <StatusCard
           label={t('settings.lanSync.statusDeviceId')}
           desc={t('settings.lanSync.statusDeviceIdDesc')}
@@ -886,13 +898,20 @@ function ServerFeatures({
                   className="flex items-center gap-3 p-3 rounded-lg border border-qc-border bg-qc-panel"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-qc-fg break-all font-mono">
+                    <div className="text-sm font-medium text-qc-fg break-all">
+                      {d.device_name || d.device_id}
+                    </div>
+                    <div className="mt-1 text-[11px] text-qc-fg-muted break-all font-mono">
                       {d.device_id}
                     </div>
-                    <div className="mt-1 text-xs text-qc-fg-muted flex items-center gap-2">
+                    <div
+                      className={`mt-1 text-xs flex items-center gap-2 ${
+                        d.connected ? 'text-green-600' : 'text-slate-500'
+                      }`}
+                    >
                       <span
                         className={`inline-block w-2 h-2 rounded-full ${
-                          d.connected ? 'bg-green-500' : 'bg-qc-fg-subtle'
+                          d.connected ? 'bg-green-500' : 'bg-slate-400'
                         }`}
                       />
                       <span>

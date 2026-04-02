@@ -17,6 +17,22 @@ const FILTER_MEDIUM_MIN_WIDTH = FILTER_BUTTON_SIZE * 4 + FILTER_BUTTON_GAP * 4 +
 const FILTER_FULL_MIN_WIDTH = FILTER_BUTTON_SIZE * 5 + FILTER_BUTTON_GAP * 5 + GROUP_BUTTON_WIDTH + RIGHT_SECTION_PADDING;
 const FILTER_IDS = ['all', 'text', 'image', 'file', 'link'];
 
+function getChatDeviceDisplayName(device) {
+  const name = typeof device?.device_name === 'string' ? device.device_name.trim() : '';
+  if (name) return name;
+  const id = typeof device?.device_id === 'string' ? device.device_id.trim() : '';
+  return id;
+}
+
+function getChatDeviceTooltip(device) {
+  const name = getChatDeviceDisplayName(device);
+  const id = typeof device?.device_id === 'string' ? device.device_id.trim() : '';
+  if (name && id && name !== id) {
+    return `${name} (${id})`;
+  }
+  return name || id;
+}
+
 function TabNavigation({
   activeTab,
   onTabChange,
@@ -129,6 +145,7 @@ function TabNavigation({
   const sidebarShowLabel = isSidebarLayout ? !isSidebarCollapsed : true;
   const unreadByDevice = chat.unreadByDevice || {};
   const totalChatUnread = Object.values(unreadByDevice).reduce((sum, n) => sum + (Number(n) || 0), 0);
+  const currentChatDevice = chat.connectedDevices.find((d) => d.device_id === chat.currentDeviceId) || null;
 
   const getBadgeText = (count) => {
     const n = Number(count) || 0;
@@ -456,7 +473,7 @@ function TabNavigation({
                         chat.connectedDevices.map((d) => {
                           const isActive = chat.currentDeviceId === d.device_id;
                           return (
-                            <Tooltip key={d.device_id} content={d.device_id} placement="right" asChild>
+                            <Tooltip key={d.device_id} content={getChatDeviceTooltip(d)} placement="right" asChild>
                               <button
                                 type="button"
                                 onClick={() => chatStore.selectDevice(d.device_id)}
@@ -473,7 +490,7 @@ function TabNavigation({
                                 <i className="ti ti-device-desktop" style={{ fontSize: 16 }} />
                                 {sidebarShowLabel && (
                                   <span className="text-[12px] font-medium leading-none truncate flex-1 min-w-0 text-left">
-                                    {d.device_id}
+                                    {getChatDeviceDisplayName(d)}
                                   </span>
                                 )}
                                 {(Number(unreadByDevice[d.device_id]) || 0) > 0 && (
@@ -635,7 +652,7 @@ function TabNavigation({
               className="w-full min-w-0 h-7 rounded-lg border border-qc-border bg-qc-panel text-qc-fg text-sm px-2 flex items-center justify-between hover:bg-qc-hover"
             >
               <span className="flex-1 min-w-0 truncate text-left pr-2">
-                {chat.currentDeviceId || t('chat.device.none')}
+                {currentChatDevice ? getChatDeviceDisplayName(currentChatDevice) : t('chat.device.none')}
               </span>
               <i className={`ti ${isChatDeviceDropdownOpen ? 'ti-chevron-up' : 'ti-chevron-down'} text-[14px] text-qc-fg-muted`} />
             </button>
@@ -661,8 +678,9 @@ function TabNavigation({
                         className={`w-full h-8 px-2 text-left text-xs flex items-center gap-2 ${
                           isCurrent ? 'bg-blue-500 text-white' : 'text-qc-fg hover:bg-qc-hover'
                         }`}
+                        title={getChatDeviceTooltip(d)}
                       >
-                        <span className="flex-1 truncate">{d.device_id}</span>
+                        <span className="flex-1 truncate">{getChatDeviceDisplayName(d)}</span>
                         {unread > 0 && (
                           <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center shrink-0">
                             {getBadgeText(unread)}

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HelloMessage {
     pub device_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_name: Option<String>,
     pub version: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pair_code: Option<String>,

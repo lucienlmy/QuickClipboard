@@ -24,6 +24,7 @@ where
 fn mk_mgr(device_id: &str) -> LanSyncManager {
     LanSyncManager::new(LanSyncConfig {
         device_id: device_id.to_string(),
+        device_name: None,
         protocol_version: 1,
         ping_interval: Duration::from_secs(2),
         idle_timeout: Duration::from_secs(8),
@@ -40,6 +41,7 @@ async fn ping_keeps_connection_alive() -> AnyResult<()> {
 
     let client = LanSyncManager::new(LanSyncConfig {
         device_id: "client".to_string(),
+        device_name: None,
         protocol_version: 1,
         ping_interval: Duration::from_millis(50),
         idle_timeout: Duration::from_millis(200),
@@ -104,6 +106,7 @@ async fn server_snapshot_tracks_multiple_peers() -> AnyResult<()> {
 async fn auto_reconnect_recovers() -> AnyResult<()> {
     let client = LanSyncManager::new(LanSyncConfig {
         device_id: "client".to_string(),
+        device_name: None,
         protocol_version: 1,
         ping_interval: Duration::from_secs(2),
         idle_timeout: Duration::from_secs(8),
@@ -246,7 +249,12 @@ async fn kick_old_keep_new() -> AnyResult<()> {
 
     let pair_secret = loop {
         let ev = tokio::time::timeout(Duration::from_secs(2), client1_events.recv()).await??;
-        if let CoreEvent::Paired { device_id, pair_secret } = ev {
+        if let CoreEvent::Paired {
+            device_id,
+            pair_secret,
+            ..
+        } = ev
+        {
             if device_id == "server" {
                 break pair_secret;
             }
