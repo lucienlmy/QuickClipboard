@@ -12,11 +12,12 @@ function FileIcon({
   size = 20
 }) {
   const isImageFile = IMAGE_FILE_EXTENSIONS.includes(file.file_type?.toUpperCase());
+  const previewPath = file.actual_path || file.path;
 
   const placeholderSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiBmaWxsPSIjQ0NDQ0NDIi8+Cjwvc3ZnPgo=';
 
-  if (isImageFile && file.path) {
-    const iconSrc = convertFileSrc(file.path, 'asset');
+  if (isImageFile && previewPath) {
+    const iconSrc = convertFileSrc(previewPath, 'asset');
     return <img src={iconSrc} alt={file.file_type || '文件'} className="flex-shrink-0 rounded-sm object-cover" style={{
       width: `${size}px`,
       height: `${size}px`

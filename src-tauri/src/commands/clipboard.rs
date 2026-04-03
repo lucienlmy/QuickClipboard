@@ -304,6 +304,36 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
         .map_err(|e| format!("设置文件到剪贴板失败: {}", e))
 }
 
+// 复制文件列表到剪贴板
+#[tauri::command]
+pub fn copy_files_to_clipboard(paths: Vec<String>) -> Result<(), String> {
+    use clipboard_rs::{Clipboard, ClipboardContext};
+
+    if paths.is_empty() {
+        return Err("没有可复制的文件".to_string());
+    }
+
+    let normalized_paths = paths
+        .into_iter()
+        .map(|path| {
+            let trimmed = path.trim().to_string();
+            if trimmed.is_empty() {
+                return Err("文件路径不能为空".to_string());
+            }
+            if !Path::new(&trimmed).exists() {
+                return Err(format!("文件不存在: {}", trimmed));
+            }
+            Ok(trimmed)
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    let ctx = ClipboardContext::new()
+        .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
+
+    ctx.set_files(normalized_paths)
+        .map_err(|e| format!("设置文件到剪贴板失败: {}", e))
+}
+
 // 复制剪贴板项内容（不记录到历史）
 #[tauri::command]
 pub fn copy_clipboard_item(id: i64) -> Result<(), String> {

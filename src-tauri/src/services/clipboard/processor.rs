@@ -196,7 +196,8 @@ fn collect_file_info(file_paths: &[String]) -> Result<Vec<FileInfo>, String> {
         let (actual_path, stored_path) = if let Some(ref data_dir) = data_dir {
             if path_str.starts_with("clipboard_images/") || path_str.starts_with("clipboard_images\\") 
                 || path_str.starts_with("image_library/") || path_str.starts_with("image_library\\")
-                || path_str.starts_with("pin_images/") || path_str.starts_with("pin_images\\") {
+                || path_str.starts_with("pin_images/") || path_str.starts_with("pin_images\\")
+                || path_str.starts_with("chat_files/") || path_str.starts_with("chat_files\\") {
                 let full_path = data_dir.join(path_str);
                 (full_path.to_string_lossy().to_string(), path_str.clone())
             } 

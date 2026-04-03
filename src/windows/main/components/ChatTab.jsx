@@ -13,6 +13,7 @@ import Tooltip from '@shared/components/common/Tooltip.jsx';
 import { createMenuItem, showContextMenuFromEvent } from '@/plugins/context_menu/index.js';
 import {
   acceptLanChatFileOffer,
+  copyLanChatReceivedFiles,
   prepareLanChatFiles,
   ensureLanChatDropProxy,
   showLanChatDropProxy,
@@ -471,6 +472,20 @@ function ChatTab() {
     }
   };
 
+  const copyReceivedFile = async (message) => {
+    const paths = Array.isArray(message.received_paths) ? message.received_paths.filter(Boolean) : [];
+    if (paths.length === 0) {
+      toast.error(t('common.copyFailed'));
+      return;
+    }
+    try {
+      await copyLanChatReceivedFiles(paths);
+      toast.success(t('common.copied'));
+    } catch (_e) {
+      toast.error(t('common.copyFailed'));
+    }
+  };
+
   const copySelectionText = async () => {
     const text = String(selectionCopy.text || '').trim();
     if (!text) {
@@ -661,12 +676,20 @@ function ChatTab() {
                       <div className={`flex items-center gap-2 text-xs ${isOut ? 'text-white/85' : 'text-qc-fg-muted'}`}>
                         {status ? <span>{status}</span> : null}
                         {!isOut && message.status === 'done' && (
-                          <button
-                            className="text-blue-500 hover:text-blue-600 hover:underline"
-                            onClick={() => revealFile(message)}
-                          >
-                            {t('chat.action.viewFile')}
-                          </button>
+                          <>
+                            <button
+                              className="text-blue-500 hover:text-blue-600 hover:underline"
+                              onClick={() => revealFile(message)}
+                            >
+                              {t('chat.action.viewFile')}
+                            </button>
+                            <button
+                              className="text-blue-500 hover:text-blue-600 hover:underline"
+                              onClick={() => copyReceivedFile(message)}
+                            >
+                              {t('common.copy')}
+                            </button>
+                          </>
                         )}
                       </div>
                     )}

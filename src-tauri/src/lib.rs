@@ -139,6 +139,7 @@ pub fn run() {
                 commands::clear_clipboard_history,
                 commands::save_image_from_path,
                 commands::copy_image_to_clipboard,
+                commands::copy_files_to_clipboard,
                 commands::copy_clipboard_item,
                 commands::merge_copy_clipboard_items,
                 commands::merge_paste_clipboard_items,

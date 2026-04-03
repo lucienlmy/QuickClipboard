@@ -49,6 +49,10 @@ export async function revealLanChatFile(path) {
   return await invoke('lan_chat_reveal_file', { path });
 }
 
+export async function copyLanChatReceivedFiles(paths) {
+  return await invoke('copy_files_to_clipboard', { paths });
+}
+
 export async function ensureLanChatDropProxy() {
   return await invoke('lan_chat_drop_proxy_ensure');
 }
