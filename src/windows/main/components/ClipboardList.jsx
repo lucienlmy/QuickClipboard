@@ -322,6 +322,9 @@ const ClipboardList = forwardRef(({
   const cardSpacingPx = typeof settings.cardSpacing === 'number' ? settings.cardSpacing : 8;
   const defaultHeight = isCardStyle ? rowConfig.cardPx + cardSpacingPx : rowConfig.px;
   const heightClass = isCardStyle ? rowConfig.cardClass : rowConfig.class;
+  const itemHoverClass = settings.uiAnimationEnabled !== false
+    ? 'transform-gpu origin-center transition-transform duration-200 ease-out hover:scale-[1.01]'
+    : '';
   const getCardOuterStyle = (index) => isCardStyle ? {
     paddingLeft: '0.625rem',
     paddingRight: '0.625rem',
@@ -362,8 +365,9 @@ const ClipboardList = forwardRef(({
 
           const dragActive = Boolean(activeId);
           const animationDelay = settings.uiAnimationEnabled !== false ? Math.min(index * 20, 100) : 0;
+          const rowWrapperClass = !isMultiSelectMode && !dragActive ? itemHoverClass : '';
           return isCardStyle ? <div style={getCardOuterStyle(index)}>
-            <div className={heightClass}>
+            <div className={`${heightClass} ${rowWrapperClass}`.trim()}>
               <ClipboardItem
                 item={item}
                 index={index}
@@ -379,7 +383,7 @@ const ClipboardList = forwardRef(({
                 animationDelay={animationDelay}
               />
             </div>
-          </div> : <div className={heightClass}>
+          </div> : <div className={`${heightClass} ${rowWrapperClass}`.trim()}>
             <ClipboardItem
               item={item}
               index={index}

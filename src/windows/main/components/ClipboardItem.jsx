@@ -209,6 +209,7 @@ function ClipboardItem({
   const externalDragPaths = externalDragInfo.paths;
   const externalDragIconPath = externalDragInfo.iconPath;
   const canExternalDrag = externalDragPaths.length > 0;
+  const dragZoneHalfWidth = '50%';
 
   const handleExternalDragMouseDown = useDragWithThreshold({
     onDragStart: () => {
@@ -640,16 +641,19 @@ function ClipboardItem({
           {showDragSideTooltips && (
             <>
               <div
-                className={`absolute top-0 left-0 h-full border-2 border-dashed border-amber-400/80 z-[22] pointer-events-none ${isCardStyle ? 'rounded-l-md rounded-r-none' : ''}`}
+                className={`absolute top-0 left-0 h-full border-2 border-dashed border-r-0 border-amber-400/70 z-[22] pointer-events-none ${isCardStyle ? 'rounded-l-md rounded-r-none' : ''}`}
                 style={{
-                  right: 'max(90px, 35%)'
+                  width: dragZoneHalfWidth
                 }}
               />
               <div
-                className={`absolute top-0 right-0 h-full border-2 border-dashed border-blue-400/80 z-[23] pointer-events-none ${isCardStyle ? 'rounded-r-md rounded-l-none' : ''}`}
+                className={`absolute top-0 right-0 h-full border-2 border-dashed border-l-0 border-blue-400/70 z-[23] pointer-events-none ${isCardStyle ? 'rounded-r-md rounded-l-none' : ''}`}
                 style={{
-                  width: 'max(90px, 35%)'
+                  width: dragZoneHalfWidth
                 }}
+              />
+              <div
+                className="absolute top-1 bottom-1 left-1/2 -translate-x-1/2 border-l border-dashed border-qc-border/50 z-[24] pointer-events-none"
               />
             </>
           )}
@@ -665,7 +669,7 @@ function ClipboardItem({
               <div
                 className={`absolute top-0 left-0 h-full z-[15] pointer-events-auto ${canExternalDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 style={{
-                  right: 'max(90px, 35%)'
+                  width: dragZoneHalfWidth
                 }}
                 onMouseDown={canExternalDrag ? (e) => handleExternalDragMouseDown(e, externalDragPaths, externalDragIconPath) : undefined}
               />
@@ -677,7 +681,7 @@ function ClipboardItem({
             <div
               className="absolute top-0 right-0 h-full z-[20] cursor-grab active:cursor-grabbing bg-transparent"
               style={{
-                width: 'max(90px, 35%)'
+                width: dragZoneHalfWidth
               }}
               onMouseDown={(e) => {
                 // 避免触发左侧外部拖拽
