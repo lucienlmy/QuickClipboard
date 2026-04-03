@@ -33,7 +33,7 @@ pub fn handle_native_menu_event(app: &AppHandle, event: &MenuEvent) {
             let _ = update_native_menu(app);
         }
         "restart" => {
-            app.restart();
+            crate::windows::tray::restart_app_gracefully(app);
         }
         "quit" => {
             crate::services::low_memory::set_user_requested_exit(true);

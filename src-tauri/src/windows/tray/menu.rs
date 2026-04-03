@@ -329,7 +329,7 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
             }
         }
         "restart" => {
-            app.restart();
+            super::restart_app_gracefully(app);
         }
         "quit" => {
             app.exit(0);
