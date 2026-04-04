@@ -17,6 +17,8 @@ export const defaultSettings = {
   runAsAdmin: false,
   startHidden: false,
   showStartupNotification: true,
+  autoLowMemoryEnabled: false,
+  autoLowMemoryIdleMinutes: 15,
   historyLimit: 100,
   language: 'zh-CN',
   

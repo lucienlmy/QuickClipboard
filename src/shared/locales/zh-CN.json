@@ -339,8 +339,13 @@
       "runningAsAdmin": "管理员运行中",
       "startupNotification": "启动通知",
       "startupNotificationDesc": "应用启动时显示系统通知",
+      "autoLowMemory": "自动进入低占用模式",
+      "autoLowMemoryDesc": "当 QuickClipboard 的所有窗口在一段时间内都没有交互时，自动进入低占用模式",
+      "autoLowMemoryIdleMinutes": "窗口空闲时长",
+      "autoLowMemoryIdleMinutesDesc": "超过该时长仍未与任意窗口交互时，自动进入低占用模式",
       "historyLimit": "剪贴板历史数量",
       "historyLimitDesc": "保存的剪贴板历史记录数量",
+      "minutes": "分钟",
       "items": "条",
       "unlimited": "不限"
     },

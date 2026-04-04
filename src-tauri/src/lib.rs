@@ -291,6 +291,7 @@ pub fn run() {
         
     .setup(|app| {
                 services::store::init(app.handle());
+                services::low_memory::init_window_activity_timestamp();
                 #[cfg(desktop)]
                 {
                     use tauri_plugin_autostart::MacosLauncher;
@@ -771,6 +772,7 @@ pub fn run() {
                 windows::updater_window::start_update_checker(app.handle().clone());
 
                 services::memory::init();
+                services::low_memory::init_auto_low_memory_manager(app.handle().clone());
 
             Ok(())
         })

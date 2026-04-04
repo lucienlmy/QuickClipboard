@@ -8,6 +8,8 @@ pub struct AppSettings {
     pub run_as_admin: bool,
     pub start_hidden: bool,
     pub show_startup_notification: bool,
+    pub auto_low_memory_enabled: bool,
+    pub auto_low_memory_idle_minutes: u32,
     #[serde(alias = "history_limit")]
     pub history_limit: u64,
     pub language: String,
@@ -180,6 +182,8 @@ impl Default for AppSettings {
             run_as_admin: false,
             start_hidden: true,
             show_startup_notification: true,
+            auto_low_memory_enabled: false,
+            auto_low_memory_idle_minutes: 15,
             history_limit: 100,
             language: "zh-CN".to_string(),
             theme: "light".to_string(),

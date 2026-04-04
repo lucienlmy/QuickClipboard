@@ -1,5 +1,14 @@
 use tauri::{AppHandle, Manager};
-use super::state::{is_low_memory_mode, set_low_memory_mode};
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+use super::state::{
+    is_low_memory_mode,
+    last_window_activity_at_ms,
+    mark_window_activity,
+    set_low_memory_mode,
+    set_user_requested_exit,
+    try_mark_auto_manager_started,
+};
 
 // 需要销毁的 WebView 窗口列表
 const WEBVIEW_LABELS: &[&str] = &[
@@ -12,12 +21,35 @@ const WEBVIEW_LABELS: &[&str] = &[
     "updater",
 ];
 
+const AUTO_LOW_MEMORY_WINDOW_LABELS: &[&str] = &[
+    "settings",
+    "text-editor",
+    "updater",
+    "preview-window",
+    "context-menu",
+    "screenshot",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum AutoLowMemoryLogState {
+    Disabled,
+    Blocked(Vec<String>),
+    Counting {
+        idle_minutes: u64,
+        started_at_ms: u64,
+    },
+}
+
+static AUTO_LOW_MEMORY_LOG_STATE: Lazy<Mutex<Option<AutoLowMemoryLogState>>> =
+    Lazy::new(|| Mutex::new(None));
+
 // 进入低占用模式
 pub fn enter_low_memory_mode(app: &AppHandle) -> Result<(), String> {
     if is_low_memory_mode() {
         return Ok(());
     }
 
+    set_user_requested_exit(false);
     set_low_memory_mode(true);
 
     if let Err(e) = crate::windows::tray::switch_to_native_menu(app) {
@@ -55,7 +87,9 @@ pub fn exit_low_memory_mode(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    set_user_requested_exit(false);
     set_low_memory_mode(false);
+    mark_window_activity();
 
     let _ = crate::services::notification::show_notification(
         app,
@@ -72,6 +106,136 @@ pub fn exit_low_memory_mode(app: &AppHandle) -> Result<(), String> {
 
     println!("[低占用模式] 已退出");
     Ok(())
+}
+
+pub fn init_auto_low_memory_manager(app: AppHandle) {
+    if !try_mark_auto_manager_started() {
+        return;
+    }
+
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
+
+        loop {
+            interval.tick().await;
+
+            if is_low_memory_mode() {
+                continue;
+            }
+
+            let settings = crate::get_settings();
+            if !settings.auto_low_memory_enabled {
+                log_auto_low_memory_state(AutoLowMemoryLogState::Disabled);
+                continue;
+            }
+
+            let visible_windows = collect_visible_windows_for_auto_low_memory(&app);
+            if !visible_windows.is_empty() {
+                log_auto_low_memory_state(AutoLowMemoryLogState::Blocked(visible_windows));
+                mark_window_activity();
+                continue;
+            }
+
+            let idle_minutes = settings.auto_low_memory_idle_minutes.max(1) as u64;
+            let idle_threshold_ms = idle_minutes * 60 * 1000;
+            let last_activity_at_ms = last_window_activity_at_ms();
+            if last_activity_at_ms == 0 {
+                continue;
+            }
+
+            log_auto_low_memory_state(AutoLowMemoryLogState::Counting {
+                idle_minutes,
+                started_at_ms: last_activity_at_ms,
+            });
+
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_millis() as u64)
+                .unwrap_or(last_activity_at_ms);
+
+            if now_ms.saturating_sub(last_activity_at_ms) < idle_threshold_ms {
+                continue;
+            }
+
+            println!(
+                "[低占用模式][自动检测] 所有相关窗口已隐藏，并已空闲 {} 分钟，准备自动进入低占用模式",
+                idle_minutes
+            );
+
+            if let Err(error) = enter_low_memory_mode(&app) {
+                eprintln!("自动进入低占用模式失败: {}", error);
+                mark_window_activity();
+                continue;
+            }
+
+            println!("[低占用模式] 因窗口空闲自动进入");
+        }
+    });
+}
+
+fn collect_visible_windows_for_auto_low_memory(app: &AppHandle) -> Vec<String> {
+    let mut visible_windows = Vec::new();
+
+    if is_main_window_visible_for_auto_low_memory() {
+        visible_windows.push("main".to_string());
+    }
+
+    if crate::windows::quickpaste::is_visible() {
+        visible_windows.push("quickpaste".to_string());
+    }
+
+    for label in AUTO_LOW_MEMORY_WINDOW_LABELS {
+        let visible = app
+            .get_webview_window(label)
+            .and_then(|window| window.is_visible().ok())
+            .unwrap_or(false);
+
+        if visible {
+            visible_windows.push((*label).to_string());
+        }
+    }
+
+    visible_windows
+}
+
+fn is_main_window_visible_for_auto_low_memory() -> bool {
+    let state = crate::windows::main_window::get_window_state();
+
+    if state.is_hidden {
+        return false;
+    }
+
+    state.state == crate::windows::main_window::WindowState::Visible
+}
+
+fn log_auto_low_memory_state(next_state: AutoLowMemoryLogState) {
+    let mut last_state = AUTO_LOW_MEMORY_LOG_STATE.lock();
+    if last_state.as_ref() == Some(&next_state) {
+        return;
+    }
+
+    match &next_state {
+        AutoLowMemoryLogState::Disabled => {
+            println!("[低占用模式][自动检测] 自动进入低占用模式未启用");
+        }
+        AutoLowMemoryLogState::Blocked(windows) => {
+            println!(
+                "[低占用模式][自动检测] 检测到窗口仍在显示，暂停空闲计时: {}",
+                windows.join(", ")
+            );
+        }
+        AutoLowMemoryLogState::Counting {
+            idle_minutes,
+            started_at_ms: _,
+        } => {
+            println!(
+                "[低占用模式][自动检测] 所有相关窗口均已隐藏，开始空闲计时，{} 分钟后自动进入低占用模式",
+                idle_minutes
+            );
+        }
+    }
+
+    *last_state = Some(next_state);
 }
 
 // 销毁所有 WebView 窗口
@@ -111,8 +275,6 @@ fn recreate_main_window(app: &AppHandle) -> Result<(), String> {
     )
     .title("快速剪贴板")
     .inner_size(width as f64, height as f64)
-    .min_inner_size(350.0, 500.0)
-    .max_inner_size(500.0, 800.0)
     .decorations(false)
     .transparent(true)
     .shadow(false)

@@ -347,8 +347,13 @@
       "runningAsAdmin": "Running as Admin",
       "startupNotification": "Startup Notification",
       "startupNotificationDesc": "Show system notification when app starts",
+      "autoLowMemory": "Auto Low Memory Mode",
+      "autoLowMemoryDesc": "Automatically enter low memory mode when none of the QuickClipboard windows have been interacted with for a while",
+      "autoLowMemoryIdleMinutes": "Window idle duration",
+      "autoLowMemoryIdleMinutesDesc": "Automatically enter low memory mode when no window interaction occurs for the selected duration",
       "historyLimit": "History Limit",
       "historyLimitDesc": "Maximum number of clipboard history items to save",
+      "minutes": "min",
       "items": "items",
       "unlimited": "Unlimited"
     },

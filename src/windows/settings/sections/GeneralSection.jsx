@@ -77,6 +77,22 @@ function GeneralSection({
     label: t('settings.general.unlimited')
   }];
   const languageOptions = getAvailableLanguages();
+  const autoLowMemoryOptions = [{
+    value: 5,
+    label: `5 ${t('settings.general.minutes')}`
+  }, {
+    value: 10,
+    label: `10 ${t('settings.general.minutes')}`
+  }, {
+    value: 15,
+    label: `15 ${t('settings.general.minutes')}`
+  }, {
+    value: 30,
+    label: `30 ${t('settings.general.minutes')}`
+  }, {
+    value: 60,
+    label: `60 ${t('settings.general.minutes')}`
+  }];
   const handleAutoStartChange = async checked => {
     setAutoStartLoading(true);
     try {
@@ -157,6 +173,14 @@ function GeneralSection({
 
       <SettingItem label={t('settings.general.startupNotification')} description={t('settings.general.startupNotificationDesc')}>
         <Toggle checked={settings.showStartupNotification} onChange={checked => onSettingChange('showStartupNotification', checked)} />
+      </SettingItem>
+
+      <SettingItem label={t('settings.general.autoLowMemory')} description={t('settings.general.autoLowMemoryDesc')}>
+        <Toggle checked={settings.autoLowMemoryEnabled} onChange={checked => onSettingChange('autoLowMemoryEnabled', checked)} />
+      </SettingItem>
+
+      <SettingItem label={t('settings.general.autoLowMemoryIdleMinutes')} description={t('settings.general.autoLowMemoryIdleMinutesDesc')}>
+        <Select value={settings.autoLowMemoryIdleMinutes} onChange={value => onSettingChange('autoLowMemoryIdleMinutes', parseInt(value))} options={autoLowMemoryOptions} disabled={!settings.autoLowMemoryEnabled} />
       </SettingItem>
 
       <SettingItem label={t('settings.general.historyLimit')} description={t('settings.general.historyLimitDesc')}>
