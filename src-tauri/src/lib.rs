@@ -74,9 +74,8 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if services::low_memory::is_low_memory_mode() {
-                if let Err(e) = services::low_memory::exit_low_memory_mode(app) {
-                    eprintln!("退出低占用模式失败: {}", e);
-                }
+                let _ = services::low_memory::toggle_panel();
+                return;
             }
             if let Some(window) = app.get_webview_window("main") {
                 show_main_window(&window);
@@ -292,6 +291,7 @@ pub fn run() {
     .setup(|app| {
                 services::store::init(app.handle());
                 services::low_memory::init_window_activity_timestamp();
+                services::low_memory::init_panel(app.handle().clone())?;
                 #[cfg(desktop)]
                 {
                     use tauri_plugin_autostart::MacosLauncher;

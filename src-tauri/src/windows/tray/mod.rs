@@ -5,7 +5,7 @@ pub mod native_menu;
 
 pub use setup::*;
 pub use events::*;
-pub use native_menu::{handle_native_menu_event, is_menu_visible, scroll_page};
+pub use native_menu::handle_native_menu_event;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -85,4 +85,3 @@ pub fn restart_app_gracefully(app: &AppHandle) {
         }
     });
 }
-

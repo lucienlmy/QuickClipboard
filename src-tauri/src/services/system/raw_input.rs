@@ -6,6 +6,7 @@ mod windows_raw_input {
     use std::mem::size_of;
     use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
     use std::thread;
+    use std::time::Duration;
 
     use windows::core::w;
     use windows::core::PCWSTR;
@@ -256,18 +257,19 @@ mod windows_raw_input {
         }
     }
 
-    use parking_lot::Mutex;
-    use std::time::{Duration, Instant};
     use tauri::{Emitter, Manager, WebviewWindow};
 
     #[cfg(target_os = "windows")]
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN};
 
-    static LAST_WHEEL_TIME: Mutex<Option<Instant>> = Mutex::new(None);
-    const WHEEL_THROTTLE_MS: u64 = 30;
-
     fn should_handle_click_outside_impl() -> bool {
         if input_common::is_mouse_monitoring_enabled() {
+            return true;
+        }
+
+        if crate::services::low_memory::is_low_memory_mode()
+            && crate::services::low_memory::is_panel_visible()
+        {
             return true;
         }
 
@@ -283,45 +285,7 @@ mod windows_raw_input {
         false
     }
 
-    fn should_handle_mouse_wheel_impl() -> bool {
-        crate::windows::quickpaste::is_visible()
-            || crate::windows::tray::is_menu_visible()
-            || should_handle_click_outside_impl()
-    }
-
-    fn handle_wheel_event_impl(delta_y: i64) {
-        if !should_handle_mouse_wheel_impl() {
-            return;
-        }
-
-        let dir = if delta_y > 0 { 1 } else if delta_y < 0 { -1 } else { 0 };
-        #[cfg(feature = "screenshot-suite")]
-        screenshot_suite::set_scroll_direction(dir);
-
-        let quickpaste_visible = crate::windows::quickpaste::is_visible();
-
-        use crate::windows::tray::{is_menu_visible, scroll_page};
-        let tray_menu_visible = is_menu_visible();
-
-        if !quickpaste_visible && !tray_menu_visible {
-            return;
-        }
-
-        {
-            let mut last_time = LAST_WHEEL_TIME.lock();
-            let now = Instant::now();
-            if let Some(last) = *last_time {
-                if now.duration_since(last) < Duration::from_millis(WHEEL_THROTTLE_MS) {
-                    return;
-                }
-            }
-            *last_time = Some(now);
-        }
-
-        if tray_menu_visible {
-            let delta = if delta_y < 0 { 1 } else { -1 };
-            scroll_page(delta);
-        }
+    fn handle_wheel_event_impl(_delta_y: i64) {
     }
 
     fn check_modifier_requirement_impl(required: &str) -> bool {
@@ -361,10 +325,6 @@ mod windows_raw_input {
             return;
         }
 
-        if crate::services::low_memory::is_low_memory_mode() {
-            return;
-        }
-
         if crate::services::system::is_front_app_globally_disabled_from_settings() {
             return;
         }
@@ -373,18 +333,14 @@ mod windows_raw_input {
             return;
         }
 
-        if let Some(window) = input_common::try_get_main_window() {
-            crate::show_main_window(&window);
+        if let Some(app) = input_common::try_get_app_handle() {
+            crate::toggle_main_window_visibility(&app);
         }
     }
 
     fn handle_middle_button_down_impl() {
         let settings = crate::get_settings();
         if !settings.mouse_middle_button_enabled {
-            return;
-        }
-
-        if crate::services::low_memory::is_low_memory_mode() {
             return;
         }
 
@@ -452,6 +408,16 @@ mod windows_raw_input {
     }
 
     fn handle_click_outside_impl() {
+        if crate::services::low_memory::is_low_memory_mode()
+            && crate::services::low_memory::is_panel_visible()
+        {
+            let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+            if !crate::services::low_memory::is_point_in_panel(cursor_x, cursor_y) {
+                let _ = crate::services::low_memory::hide_panel();
+            }
+            return;
+        }
+
         if crate::is_context_menu_visible() {
             if let Some(main_window) = input_common::try_get_main_window() {
                 if let Some(menu_window) = main_window.app_handle().get_webview_window("context-menu") {

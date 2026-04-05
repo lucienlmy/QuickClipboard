@@ -1,8 +1,5 @@
 // 菜单构建
 
-use crate::services::database::{get_clipboard_count, query_clipboard_items, QueryParams};
-use super::state::{self, PAGE_SIZE};
-use super::utils::format_item_label;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconId,
@@ -19,116 +16,17 @@ fn parse_accelerator(shortcut: &str) -> Option<String> {
     Some(accelerator)
 }
 
-// 构建剪贴板菜单项
-fn build_clipboard_items(app: &AppHandle) -> Result<Vec<MenuItem<tauri::Wry>>, String> {
-    let total_count = get_clipboard_count().unwrap_or(0) as i64;
-    let total_pages = ((total_count as f64) / (PAGE_SIZE as f64)).ceil() as i64;
-    let current_page = state::get_current_page();
-
-    let current_page = if total_pages > 0 {
-        current_page.min(total_pages - 1).max(0)
-    } else {
-        0
-    };
-    state::set_current_page(current_page);
-
-    let mut menu_items_ref = state::get_menu_items();
-    let mut item_ids = state::get_item_ids();
-    menu_items_ref.clear();
-    item_ids.clear();
-
-    let mut result = Vec::new();
-
-    if total_count == 0 {
-        let empty_item =
-            MenuItem::with_id(app, "clipboard-empty", "(暂无记录)", false, None::<&str>)
-                .map_err(|e| e.to_string())?;
-        result.push(empty_item);
-        return Ok(result);
-    }
-
-    let items = query_clipboard_items(QueryParams {
-        offset: current_page * PAGE_SIZE as i64,
-        limit: PAGE_SIZE as i64,
-        search: None,
-        content_type: None,
-    })?
-    .items;
-
-    for idx in 0..PAGE_SIZE {
-        let (label, item_id, enabled) = if idx < items.len() {
-            let item = &items[idx];
-            let label = format_item_label(item);
-            let display_idx = current_page * PAGE_SIZE as i64 + idx as i64 + 1;
-            (format!("{}. {}", display_idx, label), item.id, true)
-        } else {
-            ("-".to_string(), 0, false)
-        };
-
-        let menu_item = MenuItem::with_id(
-            app,
-            format!("clipboard-slot-{}", idx),
-            &label,
-            enabled,
-            None::<&str>,
-        )
-        .map_err(|e| e.to_string())?;
-
-        if enabled {
-            result.push(menu_item.clone());
-        }
-
-        menu_items_ref.push(menu_item);
-        item_ids.push(item_id);
-    }
-
-    Ok(result)
-}
-
-// 创建分页信息菜单项
-fn create_page_info_item(app: &AppHandle) -> Result<MenuItem<tauri::Wry>, String> {
-    let total_count = get_clipboard_count().unwrap_or(0) as i64;
-    let total_pages = ((total_count as f64) / (PAGE_SIZE as f64)).ceil() as i64;
-    let current_page = state::get_current_page();
-
-    let label = if total_pages > 1 {
-        format!("第 {}/{} 页 (↕滚轮翻页)", current_page + 1, total_pages)
-    } else {
-        "剪贴板历史".to_string()
-    };
-
-    let item = MenuItem::with_id(app, "page-info", &label, false, None::<&str>)
-        .map_err(|e| e.to_string())?;
-
-    state::set_page_info_item(Some(item.clone()));
-
-    Ok(item)
-}
-
 // 创建完整托盘菜单
 fn create_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
-    let clipboard_items = build_clipboard_items(app)?;
-    let page_info = create_page_info_item(app)?;
-
     let menu = Menu::new(app).map_err(|e| e.to_string())?;
-
-    // 剪贴板列表
-    for item in &clipboard_items {
-        menu.append(item).map_err(|e| e.to_string())?;
-    }
-
-    menu.append(&page_info).map_err(|e| e.to_string())?;
 
     let settings = crate::get_settings();
     let is_force_update = crate::windows::updater_window::is_force_update_mode();
 
-    let sep1 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
-    menu.append(&sep1).map_err(|e| e.to_string())?;
-
     let toggle = MenuItem::with_id(
         app,
         "toggle",
-        "显示主窗口",
+        "切换低占用列表",
         !is_force_update,
         parse_accelerator(&settings.toggle_shortcut).as_deref(),
     )

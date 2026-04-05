@@ -49,6 +49,7 @@ pub fn enter_low_memory_mode(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    let _ = super::hide_panel();
     set_user_requested_exit(false);
     set_low_memory_mode(true);
 
@@ -87,6 +88,7 @@ pub fn exit_low_memory_mode(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    let _ = super::hide_panel();
     set_user_requested_exit(false);
     set_low_memory_mode(false);
     mark_window_activity();

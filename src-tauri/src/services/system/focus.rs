@@ -232,6 +232,12 @@ unsafe extern "system" fn focus_callback(
 ) {
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetClassNameW, GetWindowTextW};
 
+    if crate::services::low_memory::is_low_memory_mode()
+        && crate::services::low_memory::is_panel_visible()
+    {
+        return;
+    }
+
     let hwnd = GetForegroundWindow();
     if hwnd.0.is_null() {
         return;

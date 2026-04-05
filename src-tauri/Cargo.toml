@@ -56,6 +56,7 @@ rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
 winreg = "0.55"
 lan-sync-core = { path = "plugins/lan-sync-core" }
+low-memory-fltk = { path = "plugins/low-memory-fltk" }
 
 screenshot-suite = { path = "plugins/screenshot-suite", optional = true }
 

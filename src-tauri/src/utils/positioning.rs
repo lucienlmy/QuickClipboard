@@ -5,7 +5,7 @@ pub fn position_at_cursor(window: &WebviewWindow) -> Result<(), String> {
     let monitor = crate::screen::ScreenUtils::get_monitor_at_cursor(window.app_handle())?;
     let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let window_size = window.outer_size().map_err(|e| e.to_string())?;
-    
+
     let best_pos = calculate_best_position(
         PhysicalPosition::new(cursor_x, cursor_y),
         window_size,
@@ -13,6 +13,20 @@ pub fn position_at_cursor(window: &WebviewWindow) -> Result<(), String> {
     );
     
     window.set_position(best_pos).map_err(|e| e.to_string())
+}
+
+pub fn calculate_popup_position(
+    cursor_x: i32,
+    cursor_y: i32,
+    width: i32,
+    height: i32,
+    monitor: &Monitor,
+) -> PhysicalPosition<i32> {
+    calculate_best_position(
+        PhysicalPosition::new(cursor_x, cursor_y),
+        tauri::PhysicalSize::new(width.max(0) as u32, height.max(0) as u32),
+        monitor,
+    )
 }
 
 fn calculate_best_position(
