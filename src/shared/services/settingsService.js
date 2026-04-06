@@ -70,7 +70,7 @@ export const defaultSettings = {
   autoScrollToTopOnShow: false,
   autoClearSearch: false,
   windowPositionMode: 'smart',
-  rememberWindowSize: false,
+  rememberWindowSize: true,
   titleBarPosition: 'top',
   edgeHideEnabled: true,
   edgeSnapPosition: null,

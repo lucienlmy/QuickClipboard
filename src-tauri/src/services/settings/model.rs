@@ -270,7 +270,7 @@ impl Default for AppSettings {
             app_filter_effect: "clipboard_only".to_string(),
 
             window_position_mode: "smart".to_string(),
-            remember_window_size: false,
+            remember_window_size: true,
             saved_window_position: None,
             saved_window_size: None,
 

@@ -276,7 +276,8 @@ fn recreate_main_window(app: &AppHandle) -> Result<(), String> {
         WebviewUrl::App("windows/main/index.html".into()),
     )
     .title("快速剪贴板")
-    .inner_size(width as f64, height as f64)
+    .inner_size(360.0, 520.0)
+    .min_inner_size(350.0, 500.0)
     .decorations(false)
     .transparent(true)
     .shadow(false)
@@ -292,6 +293,10 @@ fn recreate_main_window(app: &AppHandle) -> Result<(), String> {
     .disable_drag_drop_handler() 
     .build()
     .map_err(|e| format!("重建主窗口失败: {}", e))?;
+
+    if settings.remember_window_size {
+        let _ = window.set_size(tauri::PhysicalSize::new(width, height));
+    }
     
     let _ = window.set_focusable(false);
     
