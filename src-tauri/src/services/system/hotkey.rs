@@ -216,6 +216,21 @@ pub fn register_toggle_hotkey(shortcut_str: &str) -> Result<(), String> {
     })
 }
 
+pub fn register_open_settings_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("open_settings", shortcut_str, |app| {
+        if is_foreground_globally_disabled() {
+            return;
+        }
+
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = crate::windows::settings_window::open_settings_window(&app_clone) {
+                eprintln!("打开设置窗口失败: {}", e);
+            }
+        });
+    })
+}
+
 pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
     let app = get_app()?;
     
@@ -683,6 +698,12 @@ pub fn reload_from_settings() -> Result<(), String> {
         if !settings.toggle_shortcut.is_empty() {
             if let Err(e) = register_toggle_hotkey(&settings.toggle_shortcut) {
                 eprintln!("注册主窗口切换快捷键失败: {}", e);
+            }
+        }
+
+        if !settings.open_settings_shortcut.is_empty() {
+            if let Err(e) = register_open_settings_hotkey(&settings.open_settings_shortcut) {
+                eprintln!("注册打开设置快捷键失败: {}", e);
             }
         }
         

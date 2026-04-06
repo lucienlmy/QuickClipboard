@@ -92,6 +92,9 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
                 </button>
               </div>
             </SettingItem>
+            <SettingItem label={t('settings.shortcuts.openSettings')} description={t('settings.shortcuts.openSettingsDesc')}>
+              <ShortcutInput value={settings.openSettingsShortcut} onChange={value => handleShortcutChange('openSettingsShortcut', value)} onReset={() => handleShortcutChange('openSettingsShortcut', '')} hasError={hasErrorStatus('openSettingsShortcut', 'open_settings')} errorMessage={getErrorMessage('openSettingsShortcut', 'open_settings')} />
+            </SettingItem>
             <SettingItem label={t('settings.shortcuts.quickpasteWindow')} description={t('settings.shortcuts.quickpasteWindowDesc')}>
               <ShortcutInput value={settings.quickpasteShortcut} onChange={value => handleShortcutChange('quickpasteShortcut', value)} onReset={() => handleShortcutChange('quickpasteShortcut', 'Ctrl+`')} hasError={hasErrorStatus('quickpasteShortcut', 'quickpaste')} errorMessage={getErrorMessage('quickpasteShortcut', 'quickpaste')} />
             </SettingItem>
