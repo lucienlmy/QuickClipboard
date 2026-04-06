@@ -13,6 +13,7 @@ import Tooltip from '@shared/components/common/Tooltip.jsx';
 import { createMenuItem, showContextMenuFromEvent } from '@/plugins/context_menu/index.js';
 import {
   acceptLanChatFileOffer,
+  cancelLanChatTransfer,
   copyLanChatReceivedFiles,
   prepareLanChatFiles,
   ensureLanChatDropProxy,
@@ -110,8 +111,16 @@ function statusText(message, now, t) {
   if (message.status === 'rejected') return t('chat.status.rejected');
   if (message.status === 'expired') return t('chat.status.expired');
   if (message.status === 'done') return t('chat.status.done');
+  if (message.status === 'partial') return t('chat.status.partial');
+  if (message.status === 'canceled_by_sender') return t('chat.status.canceledBySender');
+  if (message.status === 'canceled_by_receiver') return t('chat.status.canceledByReceiver');
   if (message.status === 'failed') return t('chat.status.failed');
   return '';
+}
+
+function canCancelTransfer(message) {
+  if (!message || message.message_type !== 'file') return false;
+  return ['waiting_accept', 'pending', 'transferring'].includes(message.status);
 }
 
 let latestComposerHeight = 120;
@@ -451,12 +460,19 @@ function ChatTab() {
 
   const acceptOffer = async (message) => {
     await acceptLanChatFileOffer(message.transfer_id, currentDeviceId);
-    chatStore.markTransferStatus(message.transfer_id, 'transferring');
   };
 
   const rejectOffer = async (message) => {
     await rejectLanChatFileOffer(message.transfer_id, currentDeviceId);
-    chatStore.markTransferStatus(message.transfer_id, 'rejected');
+  };
+
+  const cancelTransfer = async (message) => {
+    try {
+      const peerDeviceId = message.direction === 'out' ? currentDeviceId : message.from_device_id || currentDeviceId;
+      await cancelLanChatTransfer(message.transfer_id, peerDeviceId);
+    } catch (e) {
+      toast.error(String(e));
+    }
   };
 
   const revealFile = async (message) => {
@@ -675,7 +691,7 @@ function ChatTab() {
                     {(status || (!isOut && message.status === 'done')) && (
                       <div className={`flex items-center gap-2 text-xs ${isOut ? 'text-white/85' : 'text-qc-fg-muted'}`}>
                         {status ? <span>{status}</span> : null}
-                        {!isOut && message.status === 'done' && (
+                        {!isOut && (message.status === 'done' || message.status === 'partial') && (
                           <>
                             <button
                               className="text-blue-500 hover:text-blue-600 hover:underline"
@@ -711,6 +727,22 @@ function ChatTab() {
                           onClick={() => rejectOffer(message)}
                         >
                           {t('chat.action.reject')}
+                        </button>
+                        <button
+                          className="h-7 px-3 rounded border border-qc-border text-qc-fg text-xs hover:bg-qc-hover"
+                          onClick={() => cancelTransfer(message)}
+                        >
+                          {t('chat.action.cancel')}
+                        </button>
+                      </div>
+                    )}
+                    {canCancelTransfer(message) && !(!isOut && message.status === 'pending') && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="h-7 px-3 rounded border border-qc-border text-qc-fg text-xs hover:bg-qc-hover"
+                          onClick={() => cancelTransfer(message)}
+                        >
+                          {t('chat.action.cancel')}
                         </button>
                       </div>
                     )}

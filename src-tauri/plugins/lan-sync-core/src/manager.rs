@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures_util::future::{AbortHandle, Abortable};
@@ -61,6 +62,18 @@ fn current_time_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or(Duration::from_secs(0))
         .as_millis() as u64
+}
+
+fn resolve_host_from_socket_addr(addr: SocketAddr) -> Option<String> {
+    match addr.ip() {
+        std::net::IpAddr::V4(ip) => Some(ip.to_string()),
+        std::net::IpAddr::V6(ip) => Some(ip.to_string()),
+    }
+}
+
+fn resolve_host_from_url(url: &str) -> Option<String> {
+    let parsed = Url::parse(url).ok()?;
+    parsed.host_str().map(|host| host.to_string())
 }
 
 fn compute_auth_sig(pair_secret: &str, device_id: &str, nonce: &str, ts_ms: u64) -> String {
@@ -314,6 +327,8 @@ struct Inner {
     client_out_tx: Option<tokio::sync::mpsc::UnboundedSender<OutgoingFrame>>,
     client_send_queue: VecDeque<OutgoingFrame>,
     server_peer_out_txs: HashMap<String, tokio::sync::mpsc::UnboundedSender<OutgoingFrame>>,
+    peer_file_http_port_by_device_id: HashMap<String, u16>,
+    peer_ip_by_device_id: HashMap<String, String>,
 
     active_by_device_id: HashMap<String, (u64, AbortHandle)>,
     next_conn_id: u64,
@@ -336,14 +351,19 @@ impl LanSyncManager {
     pub fn new(config: LanSyncConfig) -> Self {
         let (event_tx, _) = tokio::sync::broadcast::channel::<CoreEvent>(128);
         let inner = Inner {
+            snapshot: Snapshot {
+                file_http_port: config.file_http_port,
+                ..Snapshot::default()
+            },
             config,
-            snapshot: Snapshot::default(),
             server_task: None,
             client_task: None,
             event_tx,
             client_out_tx: None,
             client_send_queue: VecDeque::new(),
             server_peer_out_txs: HashMap::new(),
+            peer_file_http_port_by_device_id: HashMap::new(),
+            peer_ip_by_device_id: HashMap::new(),
 
             active_by_device_id: HashMap::new(),
             next_conn_id: 1,
@@ -375,6 +395,12 @@ impl LanSyncManager {
             .server_pair_code
             .as_ref()
             .map(|_| Instant::now() + PAIR_CODE_TTL);
+    }
+
+    pub async fn set_file_http_port(&self, port: Option<u16>) {
+        let mut inner = self.inner.lock().await;
+        inner.config.file_http_port = port;
+        inner.snapshot.file_http_port = port;
     }
 
     pub async fn get_server_pair_code(&self) -> Option<(String, u64)> {
@@ -573,6 +599,8 @@ impl LanSyncManager {
                 abort_handle.abort();
             }
             inner.server_peer_out_txs.clear();
+            inner.peer_file_http_port_by_device_id.clear();
+            inner.peer_ip_by_device_id.clear();
             inner.snapshot.server_connected_count = 0;
             inner.snapshot.server_connected_device_ids.clear();
 
@@ -587,6 +615,7 @@ impl LanSyncManager {
             inner.client_send_queue.clear();
             inner.snapshot.state = ConnectionState::Stopped;
             inner.snapshot.server_port = None;
+            inner.snapshot.file_http_port = inner.config.file_http_port;
             inner.snapshot.peer_url = None;
             inner.snapshot.connected_peer_device_id = None;
             inner.snapshot.reconnecting = false;
@@ -618,6 +647,9 @@ impl LanSyncManager {
             inner.snapshot.server_connected_count = 0;
             inner.snapshot.server_connected_device_ids.clear();
             inner.server_peer_out_txs.clear();
+            inner.peer_file_http_port_by_device_id.clear();
+            inner.peer_ip_by_device_id.clear();
+            inner.snapshot.file_http_port = inner.config.file_http_port;
         }
 
         let listener = TcpListener::bind(("0.0.0.0", port))
@@ -632,13 +664,13 @@ impl LanSyncManager {
         let this = self.clone();
         let handle = tokio::spawn(async move {
             loop {
-                let Ok((stream, _addr)) = listener.accept().await else {
+                let Ok((stream, addr)) = listener.accept().await else {
                     break;
                 };
                 let mgr = this.clone();
                 let (abort_handle, abort_reg) = AbortHandle::new_pair();
                 tokio::spawn(async move {
-                    let fut = mgr.handle_incoming(stream, abort_handle);
+                    let fut = mgr.handle_incoming(stream, addr, abort_handle);
                     let _ = Abortable::new(fut, abort_reg).await;
                 });
             }
@@ -700,6 +732,61 @@ impl LanSyncManager {
                 .trusted_pair_secret_by_device_id
                 .insert(device_id, pair_secret);
         }
+    }
+
+    pub async fn remember_peer_file_server(
+        &self,
+        device_id: &str,
+        host: Option<String>,
+        port: Option<u16>,
+    ) {
+        let key = device_id.trim();
+        if key.is_empty() {
+            return;
+        }
+
+        let mut inner = self.inner.lock().await;
+        if let Some(host) = host.filter(|value| !value.trim().is_empty()) {
+            inner.peer_ip_by_device_id.insert(key.to_string(), host);
+        }
+        if let Some(port) = port.filter(|value| *value > 0) {
+            inner
+                .peer_file_http_port_by_device_id
+                .insert(key.to_string(), port);
+        }
+    }
+
+    pub async fn resolve_peer_file_server_url(
+        &self,
+        device_id: &str,
+        path: &str,
+        query: &[(String, String)],
+    ) -> Option<String> {
+        let key = device_id.trim();
+        if key.is_empty() {
+            return None;
+        }
+
+        let (host, port) = {
+            let inner = self.inner.lock().await;
+            (
+                inner.peer_ip_by_device_id.get(key).cloned(),
+                inner.peer_file_http_port_by_device_id.get(key).copied(),
+            )
+        };
+
+        let host = host?;
+        let port = port?;
+
+        let mut url = Url::parse(&format!("http://{}:{port}", host)).ok()?;
+        url.set_path(path);
+        if !query.is_empty() {
+            let mut pairs = url.query_pairs_mut();
+            for (name, value) in query {
+                pairs.append_pair(name, value);
+            }
+        }
+        Some(url.to_string())
     }
 
     pub async fn connect_peer(
@@ -851,6 +938,10 @@ impl LanSyncManager {
     pub async fn disconnect_peer(&self) {
         let mut inner = self.inner.lock().await;
         inner.client_manual_disconnect = true;
+        if let Some(device_id) = inner.snapshot.connected_peer_device_id.clone() {
+            inner.peer_file_http_port_by_device_id.remove(&device_id);
+            inner.peer_ip_by_device_id.remove(&device_id);
+        }
         inner.snapshot.state = ConnectionState::Disconnected;
         inner.snapshot.connected_peer_device_id = None;
         inner.snapshot.reconnecting = false;
@@ -948,6 +1039,7 @@ impl LanSyncManager {
     async fn handle_incoming(
         &self,
         stream: tokio::net::TcpStream,
+        remote_addr: SocketAddr,
         abort_handle: AbortHandle,
     ) -> Result<(), LanSyncError> {
         let ws = accept_async(stream)
@@ -968,6 +1060,7 @@ impl LanSyncManager {
             device_id,
             device_name,
             version,
+            file_http_port: self.inner.lock().await.config.file_http_port,
             pair_code: None,
         });
         let hello_text = serde_json::to_string(&hello).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
@@ -987,23 +1080,26 @@ impl LanSyncManager {
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
 
-        let (remote_device_id, remote_device_name, remote_pair_code) = match remote_hello {
-            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.pair_code),
+        let (remote_device_id, remote_device_name, remote_pair_code, remote_file_http_port) =
+            match remote_hello {
+            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.pair_code, h.file_http_port),
             LanSyncMessage::ClipboardRecord { .. }
             | LanSyncMessage::ClipboardItem(_)
             | LanSyncMessage::AuthChallenge(_)
             | LanSyncMessage::AuthResponse(_)
             | LanSyncMessage::PairAccepted { .. }
             | LanSyncMessage::PairDenied { .. }
-            | LanSyncMessage::ChatText(_)
-            | LanSyncMessage::ChatFileOffer(_)
-            | LanSyncMessage::ChatFileAccept(_)
-            | LanSyncMessage::ChatFileReject(_)
-            | LanSyncMessage::ChatFileExpired(_)
-            | LanSyncMessage::ChatFileDone(_) => {
+            | LanSyncMessage::ChatText(_) => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
+
+        self.remember_peer_file_server(
+            &remote_device_id,
+            resolve_host_from_socket_addr(remote_addr),
+            remote_file_http_port,
+        )
+        .await;
 
         {
             let denied_reason = {
@@ -1275,56 +1371,6 @@ impl LanSyncManager {
                                                     let _ = self.send_message_to_device(&target, LanSyncMessage::ChatText(message)).await;
                                                 }
                                             }
-                                            LanSyncMessage::ChatFileOffer(offer) => {
-                                                let my_id = self.inner.lock().await.config.device_id.clone();
-                                                if offer.to_device_id == my_id {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileOffer { offer: offer.clone() });
-                                                }
-                                                if offer.to_device_id != my_id {
-                                                    let target = offer.to_device_id.clone();
-                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileOffer(offer)).await;
-                                                }
-                                            }
-                                            LanSyncMessage::ChatFileAccept(decision) => {
-                                                let my_id = self.inner.lock().await.config.device_id.clone();
-                                                if decision.to_device_id == my_id {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileAccept { decision: decision.clone() });
-                                                }
-                                                if decision.to_device_id != my_id {
-                                                    let target = decision.to_device_id.clone();
-                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileAccept(decision)).await;
-                                                }
-                                            }
-                                            LanSyncMessage::ChatFileReject(decision) => {
-                                                let my_id = self.inner.lock().await.config.device_id.clone();
-                                                if decision.to_device_id == my_id {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileReject { decision: decision.clone() });
-                                                }
-                                                if decision.to_device_id != my_id {
-                                                    let target = decision.to_device_id.clone();
-                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileReject(decision)).await;
-                                                }
-                                            }
-                                            LanSyncMessage::ChatFileExpired(decision) => {
-                                                let my_id = self.inner.lock().await.config.device_id.clone();
-                                                if decision.to_device_id == my_id {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileExpired { decision: decision.clone() });
-                                                }
-                                                if decision.to_device_id != my_id {
-                                                    let target = decision.to_device_id.clone();
-                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileExpired(decision)).await;
-                                                }
-                                            }
-                                            LanSyncMessage::ChatFileDone(done) => {
-                                                let my_id = self.inner.lock().await.config.device_id.clone();
-                                                if done.to_device_id == my_id {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileDone { done: done.clone() });
-                                                }
-                                                if done.to_device_id != my_id {
-                                                    let target = done.to_device_id.clone();
-                                                    let _ = self.send_message_to_device(&target, LanSyncMessage::ChatFileDone(done)).await;
-                                                }
-                                            }
                                             _ => {}
                                         }
                                     }
@@ -1403,6 +1449,8 @@ impl LanSyncManager {
         {
             let mut inner = self.inner.lock().await;
             inner.server_peer_out_txs.remove(&remote_id);
+            inner.peer_file_http_port_by_device_id.remove(&remote_id);
+            inner.peer_ip_by_device_id.remove(&remote_id);
         }
 
         res
@@ -1435,6 +1483,7 @@ impl LanSyncManager {
             device_id,
             device_name,
             version,
+            file_http_port: self.inner.lock().await.config.file_http_port,
             pair_code,
         });
         let hello_text = serde_json::to_string(&hello).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
@@ -1452,23 +1501,25 @@ impl LanSyncManager {
         };
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
-        let (server_device_id, server_device_name) = match remote_hello {
-            LanSyncMessage::Hello(h) => (h.device_id, h.device_name),
+        let (server_device_id, server_device_name, server_file_http_port) = match remote_hello {
+            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.file_http_port),
             LanSyncMessage::ClipboardRecord { .. }
             | LanSyncMessage::ClipboardItem(_)
             | LanSyncMessage::AuthChallenge(_)
             | LanSyncMessage::AuthResponse(_)
             | LanSyncMessage::PairAccepted { .. }
             | LanSyncMessage::PairDenied { .. }
-            | LanSyncMessage::ChatText(_)
-            | LanSyncMessage::ChatFileOffer(_)
-            | LanSyncMessage::ChatFileAccept(_)
-            | LanSyncMessage::ChatFileReject(_)
-            | LanSyncMessage::ChatFileExpired(_)
-            | LanSyncMessage::ChatFileDone(_) => {
+            | LanSyncMessage::ChatText(_) => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
+
+        self.remember_peer_file_server(
+            &server_device_id,
+            resolve_host_from_url(&peer_url),
+            server_file_http_port,
+        )
+        .await;
 
         // 客户端：等待鉴权挑战或配对结果
         let pair_res = timeout(Duration::from_secs(5), read.next())
@@ -1646,21 +1697,6 @@ impl LanSyncManager {
                                             LanSyncMessage::ChatText(message) => {
                                                 let _ = event_tx.send(CoreEvent::ChatText { message });
                                             }
-                                            LanSyncMessage::ChatFileOffer(offer) => {
-                                                let _ = event_tx.send(CoreEvent::ChatFileOffer { offer });
-                                            }
-                                            LanSyncMessage::ChatFileAccept(decision) => {
-                                                let _ = event_tx.send(CoreEvent::ChatFileAccept { decision });
-                                            }
-                                            LanSyncMessage::ChatFileReject(decision) => {
-                                                let _ = event_tx.send(CoreEvent::ChatFileReject { decision });
-                                            }
-                                            LanSyncMessage::ChatFileExpired(decision) => {
-                                                let _ = event_tx.send(CoreEvent::ChatFileExpired { decision });
-                                            }
-                                            LanSyncMessage::ChatFileDone(done) => {
-                                                let _ = event_tx.send(CoreEvent::ChatFileDone { done });
-                                            }
                                             _ => {}
                                         }
                                     }
@@ -1690,21 +1726,6 @@ impl LanSyncManager {
                                                 LanSyncMessage::ChatText(message) => {
                                                     let _ = event_tx.send(CoreEvent::ChatText { message });
                                                 }
-                                                LanSyncMessage::ChatFileOffer(offer) => {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileOffer { offer });
-                                                }
-                                                LanSyncMessage::ChatFileAccept(decision) => {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileAccept { decision });
-                                                }
-                                                LanSyncMessage::ChatFileReject(decision) => {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileReject { decision });
-                                                }
-                                                LanSyncMessage::ChatFileExpired(decision) => {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileExpired { decision });
-                                                }
-                                                LanSyncMessage::ChatFileDone(done) => {
-                                                    let _ = event_tx.send(CoreEvent::ChatFileDone { done });
-                                                }
                                                 _ => {}
                                             }
                                         }
@@ -1722,6 +1743,8 @@ impl LanSyncManager {
         {
             let mut inner = self.inner.lock().await;
             inner.client_out_tx = None;
+            inner.peer_file_http_port_by_device_id.remove(&server_device_id);
+            inner.peer_ip_by_device_id.remove(&server_device_id);
         }
 
         Ok(())

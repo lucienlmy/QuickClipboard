@@ -79,6 +79,9 @@
       "rejected": "已拒绝",
       "expired": "已过期",
       "done": "已完成",
+      "partial": "部分完成",
+      "canceledBySender": "发送方已取消",
+      "canceledByReceiver": "接收方已取消",
       "failed": "传输失败（校验未通过）"
     },
     "device": {
@@ -88,6 +91,7 @@
       "viewFile": "查看文件",
       "accept": "接收",
       "reject": "拒绝",
+      "cancel": "取消",
       "addFile": "添加文件",
       "send": "发送"
     },

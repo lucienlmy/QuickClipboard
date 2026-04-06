@@ -33,6 +33,12 @@ pub struct LanChatFileDecisionInput {
 }
 
 #[derive(serde::Deserialize)]
+pub struct LanChatFileCancelInput {
+    pub transfer_id: String,
+    pub peer_device_id: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
 pub struct LanChatDropProxyBoundsInput {
     pub x: f64,
     pub y: f64,
@@ -185,7 +191,7 @@ pub async fn lan_chat_send_text(input: LanChatSendTextInput) -> Result<lan_sync_
 #[tauri::command]
 pub async fn lan_chat_send_file_offer(
     input: LanChatSendFileOfferInput,
-) -> Result<lan_sync_core::ChatFileOfferMessage, String> {
+) -> Result<services::lan_sync::ChatFileOfferPayload, String> {
     services::lan_sync::chat_send_file_offer(services::lan_sync::ChatFileOfferInput {
         to_device_id: input.to_device_id,
         text: input.text,
@@ -198,7 +204,7 @@ pub async fn lan_chat_send_file_offer(
 #[tauri::command]
 pub async fn lan_chat_accept_file_offer(
     input: LanChatFileDecisionInput,
-) -> Result<lan_sync_core::ChatFileDecisionMessage, String> {
+) -> Result<services::lan_sync::ChatFileDecisionPayload, String> {
     services::lan_sync::chat_accept_file_offer(services::lan_sync::ChatFileAcceptInput {
         transfer_id: input.transfer_id,
         from_device_id: input.from_device_id,
@@ -210,10 +216,22 @@ pub async fn lan_chat_accept_file_offer(
 #[tauri::command]
 pub async fn lan_chat_reject_file_offer(
     input: LanChatFileDecisionInput,
-) -> Result<lan_sync_core::ChatFileDecisionMessage, String> {
+) -> Result<services::lan_sync::ChatFileDecisionPayload, String> {
     services::lan_sync::chat_reject_file_offer(services::lan_sync::ChatFileRejectInput {
         transfer_id: input.transfer_id,
         from_device_id: input.from_device_id,
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lan_chat_cancel_transfer(
+    input: LanChatFileCancelInput,
+) -> Result<services::lan_sync::ChatFileCancelResult, String> {
+    services::lan_sync::chat_cancel_transfer(services::lan_sync::ChatFileCancelInput {
+        transfer_id: input.transfer_id,
+        peer_device_id: input.peer_device_id,
     })
     .await
     .map_err(|e| e.to_string())

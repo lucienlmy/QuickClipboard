@@ -3,7 +3,7 @@ use std::time::Duration;
 use thiserror::Error;
 
 use crate::protocol::{
-    ChatFileDecisionMessage, ChatFileDoneMessage, ChatFileOfferMessage, ChatTextMessage, ClipboardRecord,
+    ChatTextMessage, ClipboardRecord,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -20,6 +20,7 @@ pub struct Snapshot {
     pub enabled: bool,
     pub state: ConnectionState,
     pub server_port: Option<u16>,
+    pub file_http_port: Option<u16>,
     pub peer_url: Option<String>,
     pub connected_peer_device_id: Option<String>,
     pub server_connected_count: u32,
@@ -35,6 +36,7 @@ impl Default for Snapshot {
             enabled: false,
             state: ConnectionState::Stopped,
             server_port: None,
+            file_http_port: None,
             peer_url: None,
             connected_peer_device_id: None,
             server_connected_count: 0,
@@ -72,11 +74,6 @@ pub enum CoreEvent {
         data: Vec<u8>,
     },
     ChatText { message: ChatTextMessage },
-    ChatFileOffer { offer: ChatFileOfferMessage },
-    ChatFileAccept { decision: ChatFileDecisionMessage },
-    ChatFileReject { decision: ChatFileDecisionMessage },
-    ChatFileExpired { decision: ChatFileDecisionMessage },
-    ChatFileDone { done: ChatFileDoneMessage },
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +81,7 @@ pub struct LanSyncConfig {
     pub device_id: String,
     pub device_name: Option<String>,
     pub protocol_version: u32,
+    pub file_http_port: Option<u16>,
     pub ping_interval: Duration,
     pub idle_timeout: Duration,
     pub respond_to_ping: bool,
@@ -96,6 +94,7 @@ impl Default for LanSyncConfig {
             device_id: "desktop".to_string(),
             device_name: None,
             protocol_version: 1,
+            file_http_port: None,
             ping_interval: Duration::from_secs(10),
             idle_timeout: Duration::from_secs(45),
             respond_to_ping: true,

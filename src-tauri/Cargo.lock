@@ -17,6 +17,8 @@ dependencies = [
  "fastrand",
  "file_icon_provider",
  "gpu-image-viewer",
+ "hex",
+ "hmac",
  "if-addrs",
  "image",
  "lan-sync-core",

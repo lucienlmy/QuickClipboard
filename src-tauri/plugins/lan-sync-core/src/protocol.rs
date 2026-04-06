@@ -6,6 +6,8 @@ pub struct HelloMessage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_name: Option<String>,
     pub version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_http_port: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pair_code: Option<String>,
 }
@@ -85,34 +87,6 @@ pub struct ChatFileMeta {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatFileOfferMessage {
-    pub transfer_id: String,
-    pub from_device_id: String,
-    pub to_device_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    pub files: Vec<ChatFileMeta>,
-    pub sent_at_ms: u64,
-    pub expire_at_ms: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatFileDecisionMessage {
-    pub transfer_id: String,
-    pub from_device_id: String,
-    pub to_device_id: String,
-    pub decided_at_ms: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatFileDoneMessage {
-    pub transfer_id: String,
-    pub from_device_id: String,
-    pub to_device_id: String,
-    pub sent_at_ms: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LanSyncMessage {
     Hello(HelloMessage),
@@ -126,9 +100,4 @@ pub enum LanSyncMessage {
     ClipboardRecord { record: ClipboardRecord },
     ClipboardItem(ClipboardItem),
     ChatText(ChatTextMessage),
-    ChatFileOffer(ChatFileOfferMessage),
-    ChatFileAccept(ChatFileDecisionMessage),
-    ChatFileReject(ChatFileDecisionMessage),
-    ChatFileExpired(ChatFileDecisionMessage),
-    ChatFileDone(ChatFileDoneMessage),
 }

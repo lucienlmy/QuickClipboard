@@ -41,6 +41,15 @@ export async function rejectLanChatFileOffer(transferId, fromDeviceId) {
   });
 }
 
+export async function cancelLanChatTransfer(transferId, peerDeviceId) {
+  return await invoke('lan_chat_cancel_transfer', {
+    input: {
+      transfer_id: transferId,
+      peer_device_id: peerDeviceId || null
+    }
+  });
+}
+
 export async function prepareLanChatFiles(paths) {
   return await invoke('lan_chat_prepare_files', { paths });
 }

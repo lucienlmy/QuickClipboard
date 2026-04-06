@@ -1,5 +1,5 @@
 use lan_sync_core::{
-    ChatFileDecisionMessage, ChatFileDoneMessage, ChatFileMeta, ChatFileOfferMessage, ChatTextMessage,
+    ChatFileMeta, ChatTextMessage,
     ClipboardRawFormat, ClipboardRecord, CoreEvent, LanSyncConfig, LanSyncError, LanSyncManager, LanSyncMessage,
     Snapshot,
 };
@@ -12,9 +12,12 @@ use uuid::Uuid;
 
 const DEVICE_ID_KEY: &str = "lan_sync_device_id";
 const TRUSTED_DEVICES_KEY: &str = "lan_sync_trusted_devices";
-const CHAT_FILE_PREFIX: &str = "chat_file:";
-const CHAT_FILE_CHUNK_SIZE: usize = 8 * 1024 * 1024;
 const CHAT_FILE_OFFER_EXPIRE_MS: u64 = 10 * 60 * 1000;
+const FILE_HTTP_HEADER_LIMIT: usize = 64 * 1024;
+const FILE_HTTP_IO_BUFFER_SIZE: usize = 64 * 1024;
+const FILE_HTTP_PREPARE_PATH: &str = "/qc-file/prepare-upload";
+const FILE_HTTP_UPLOAD_PATH: &str = "/qc-file/upload";
+const FILE_HTTP_CANCEL_PATH: &str = "/qc-file/cancel";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustedDevice {
@@ -70,13 +73,122 @@ pub struct ChatFileRejectInput {
     pub from_device_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileCancelInput {
+    pub transfer_id: String,
+    pub peer_device_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileCancelResult {
+    pub transfer_id: String,
+    pub peer_device_id: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileOfferPayload {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    pub files: Vec<ChatFileMeta>,
+    pub sent_at_ms: u64,
+    pub expire_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileDecisionPayload {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    pub decided_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileDonePayload {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    pub sent_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChatTransferStatus {
+    WaitingAccept,
+    Transferring,
+    Done,
+    Failed,
+    Rejected,
+    Expired,
+    CanceledBySender,
+    CanceledByReceiver,
+    Partial,
+}
+
+impl ChatTransferStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::WaitingAccept => "waiting_accept",
+            Self::Transferring => "transferring",
+            Self::Done => "done",
+            Self::Failed => "failed",
+            Self::Rejected => "rejected",
+            Self::Expired => "expired",
+            Self::CanceledBySender => "canceled_by_sender",
+            Self::CanceledByReceiver => "canceled_by_receiver",
+            Self::Partial => "partial",
+        }
+    }
+
+    fn is_canceled(self) -> bool {
+        matches!(self, Self::CanceledBySender | Self::CanceledByReceiver)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChatTransferFileStatus {
+    Queue,
+    Transferring,
+    Done,
+    Failed,
+    Canceled,
+    Skipped,
+}
+
+impl ChatTransferFileStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Queue => "queue",
+            Self::Transferring => "transferring",
+            Self::Done => "done",
+            Self::Failed => "failed",
+            Self::Canceled => "canceled",
+            Self::Skipped => "skipped",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IncomingDecision {
+    Accept,
+    Reject,
+    CancelByReceiver,
+}
+
 #[derive(Debug, Clone)]
 struct OutgoingChatTransfer {
     transfer_id: String,
     from_device_id: String,
     to_device_id: String,
+    text: Option<String>,
     files: Vec<ChatFileInfoInput>,
+    sent_at_ms: u64,
     expire_at_ms: u64,
+    status: ChatTransferStatus,
+    file_statuses: HashMap<String, ChatTransferFileStatus>,
+    file_errors: HashMap<String, Option<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -84,8 +196,11 @@ struct IncomingChatTransfer {
     transfer_id: String,
     from_device_id: String,
     to_device_id: String,
+    text: Option<String>,
     files: Vec<ChatFileMeta>,
+    sent_at_ms: u64,
     expire_at_ms: u64,
+    status: ChatTransferStatus,
 }
 
 #[derive(Debug, Clone)]
@@ -94,10 +209,13 @@ struct ReceiveFileProgress {
     file_name: String,
     file_size: u64,
     file_hash: Option<String>,
+    upload_token: Option<String>,
     received: u64,
     received_ranges: Vec<(u64, u64)>,
     covered_size: u64,
     file_path: PathBuf,
+    status: ChatTransferFileStatus,
+    error_message: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -105,22 +223,41 @@ struct IncomingReceiveProgress {
     transfer_id: String,
     from_device_id: String,
     to_device_id: String,
+    text: Option<String>,
+    sent_at_ms: u64,
     files: Vec<ReceiveFileProgress>,
     total_size: u64,
     received_size: u64,
+    status: ChatTransferStatus,
 }
 
-#[derive(Debug, Clone)]
-pub enum ChatFileDoneResolve {
-    ReceiverCompleted(Vec<String>),
-    SenderAck,
-    NotReady,
+#[derive(Debug)]
+struct FileHttpServerState {
+    port: u16,
+    task: tokio::task::JoinHandle<()>,
+}
+
+#[derive(Debug)]
+struct FileHttpRequest {
+    method: String,
+    path: String,
+    query: HashMap<String, String>,
+    content_length: usize,
+    body_prefix: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct FileHttpResponse {
+    status_code: u16,
+    body: String,
 }
 
 #[derive(Default)]
 struct ChatRuntime {
     outgoing_waiting_accept: HashMap<String, OutgoingChatTransfer>,
+    outgoing_sending: HashMap<String, OutgoingChatTransfer>,
     incoming_waiting_decision: HashMap<String, IncomingChatTransfer>,
+    incoming_decision_senders: HashMap<String, tokio::sync::oneshot::Sender<IncomingDecision>>,
     incoming_receiving: HashMap<String, IncomingReceiveProgress>,
 }
 
@@ -170,26 +307,354 @@ static MANAGER: Lazy<LanSyncManager> = Lazy::new(|| {
 
 static CHAT_RUNTIME: Lazy<tokio::sync::Mutex<ChatRuntime>> =
     Lazy::new(|| tokio::sync::Mutex::new(ChatRuntime::default()));
-static CHAT_FILE_WRITERS: Lazy<tokio::sync::Mutex<HashMap<String, std::fs::File>>> =
-    Lazy::new(|| tokio::sync::Mutex::new(HashMap::new()));
+static FILE_HTTP_SERVER: Lazy<tokio::sync::Mutex<Option<FileHttpServerState>>> =
+    Lazy::new(|| tokio::sync::Mutex::new(None));
 
-fn make_chat_chunk_key(transfer_id: &str, file_id: &str) -> String {
-    format!("{}{}:{}", CHAT_FILE_PREFIX, transfer_id, file_id)
+fn get_local_file_http_port() -> u16 {
+    crate::services::get_settings()
+        .lan_sync_server_port
+        .saturating_add(1)
 }
 
-fn make_chat_writer_key(transfer_id: &str, file_id: &str) -> String {
-    format!("{}:{}", transfer_id, file_id)
+async fn sync_core_file_http_port() {
+    MANAGER.set_file_http_port(Some(get_local_file_http_port())).await;
 }
 
-fn parse_chat_chunk_key(key: &str) -> Option<(String, String)> {
-    let rest = key.strip_prefix(CHAT_FILE_PREFIX)?;
-    let mut parts = rest.splitn(2, ':');
-    let transfer_id = parts.next()?.to_string();
-    let file_id = parts.next()?.to_string();
-    if transfer_id.is_empty() || file_id.is_empty() {
-        return None;
+fn emit_lan_chat_event(payload: serde_json::Value) {
+    use tauri::Emitter;
+    if let Some(app) = crate::services::clipboard::get_app_handle() {
+        let _ = app.emit("lan-chat-event", payload);
     }
-    Some((transfer_id, file_id))
+}
+
+fn emit_file_state_event(
+    transfer_id: &str,
+    peer_device_id: &str,
+    status: ChatTransferStatus,
+    error: Option<&str>,
+    files: Vec<serde_json::Value>,
+) {
+    emit_lan_chat_event(serde_json::json!({
+        "type": "file_state",
+        "transfer_id": transfer_id,
+        "peer_device_id": peer_device_id,
+        "status": status.as_str(),
+        "error": error,
+        "files": files,
+    }));
+}
+
+fn emit_outgoing_state(transfer: &OutgoingChatTransfer, error: Option<&str>) {
+    emit_file_state_event(
+        &transfer.transfer_id,
+        &transfer.to_device_id,
+        transfer.status,
+        error,
+        transfer
+            .files
+            .iter()
+            .map(|file| {
+                serde_json::json!({
+                    "file_id": file.file_id,
+                    "file_name": file.file_name,
+                    "file_size": file.file_size,
+                    "status": transfer
+                        .file_statuses
+                        .get(&file.file_id)
+                        .copied()
+                        .unwrap_or(ChatTransferFileStatus::Queue)
+                        .as_str(),
+                    "error": transfer
+                        .file_errors
+                        .get(&file.file_id)
+                        .cloned()
+                        .flatten(),
+                })
+            })
+            .collect(),
+    );
+}
+
+fn emit_incoming_offer_state(transfer: &IncomingChatTransfer, error: Option<&str>) {
+    emit_file_state_event(
+        &transfer.transfer_id,
+        &transfer.from_device_id,
+        transfer.status,
+        error,
+        transfer
+            .files
+            .iter()
+            .map(|file| {
+                serde_json::json!({
+                    "file_id": file.file_id,
+                    "file_name": file.file_name,
+                    "file_size": file.file_size,
+                    "status": ChatTransferFileStatus::Queue.as_str(),
+                    "error": serde_json::Value::Null,
+                })
+            })
+            .collect(),
+    );
+}
+
+fn emit_incoming_receive_state(transfer: &IncomingReceiveProgress, error: Option<&str>) {
+    emit_file_state_event(
+        &transfer.transfer_id,
+        &transfer.from_device_id,
+        transfer.status,
+        error,
+        transfer
+            .files
+            .iter()
+            .map(|file| {
+                serde_json::json!({
+                    "file_id": file.file_id,
+                    "file_name": file.file_name,
+                    "file_size": file.file_size,
+                    "status": file.status.as_str(),
+                    "error": file.error_message,
+                    "received_size": file.received,
+                    "path": file.file_path.to_string_lossy().to_string(),
+                })
+            })
+            .collect(),
+    );
+}
+
+fn build_file_decision_payload(
+    event_type: &str,
+    transfer_id: &str,
+    from_device_id: &str,
+    to_device_id: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "type": event_type,
+        "decision": ChatFileDecisionPayload {
+            transfer_id: transfer_id.to_string(),
+            from_device_id: from_device_id.to_string(),
+            to_device_id: to_device_id.to_string(),
+            decided_at_ms: current_time_ms(),
+        }
+    })
+}
+
+fn build_file_done_payload(
+    transfer_id: &str,
+    from_device_id: &str,
+    to_device_id: &str,
+    paths: Option<Vec<String>>,
+) -> serde_json::Value {
+    let mut payload = serde_json::json!({
+        "type": "file_done",
+        "done": ChatFileDonePayload {
+            transfer_id: transfer_id.to_string(),
+            from_device_id: from_device_id.to_string(),
+            to_device_id: to_device_id.to_string(),
+            sent_at_ms: current_time_ms(),
+        }
+    });
+    if let Some(paths) = paths {
+        payload["paths"] = serde_json::json!(paths);
+    }
+    payload
+}
+
+fn emit_file_failed_event(transfer_id: &str, from_device_id: &str, to_device_id: &str, error: &str) {
+    emit_lan_chat_event(serde_json::json!({
+        "type": "file_failed",
+        "done": ChatFileDonePayload {
+            transfer_id: transfer_id.to_string(),
+            from_device_id: from_device_id.to_string(),
+            to_device_id: to_device_id.to_string(),
+            sent_at_ms: current_time_ms(),
+        },
+        "error": error
+    }));
+}
+
+async fn notify_peer_canceled(to_device_id: &str, transfer_id: &str) {
+    let Some(url) = MANAGER
+        .resolve_peer_file_server_url(
+            to_device_id,
+            FILE_HTTP_CANCEL_PATH,
+            &[("transfer_id".to_string(), transfer_id.to_string())],
+        )
+        .await
+    else {
+        return;
+    };
+
+    let _ = reqwest::Client::new().post(url).body("{}").send().await;
+}
+
+fn build_cancel_result(
+    transfer_id: String,
+    peer_device_id: String,
+    status: ChatTransferStatus,
+) -> ChatFileCancelResult {
+    ChatFileCancelResult {
+        transfer_id,
+        peer_device_id,
+        status: status.as_str().to_string(),
+    }
+}
+
+async fn cleanup_transfers_for_device(device_id: &str, reason: &str) {
+    let (outgoing, incoming_offers, incoming_receiving, decision_senders) = {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+
+        let outgoing_waiting_ids = runtime
+            .outgoing_waiting_accept
+            .iter()
+            .filter(|(_, item)| item.from_device_id == device_id || item.to_device_id == device_id)
+            .map(|(transfer_id, _)| transfer_id.clone())
+            .collect::<Vec<_>>();
+        let outgoing_sending_ids = runtime
+            .outgoing_sending
+            .iter()
+            .filter(|(_, item)| item.from_device_id == device_id || item.to_device_id == device_id)
+            .map(|(transfer_id, _)| transfer_id.clone())
+            .collect::<Vec<_>>();
+        let incoming_offer_ids = runtime
+            .incoming_waiting_decision
+            .iter()
+            .filter(|(_, item)| item.from_device_id == device_id || item.to_device_id == device_id)
+            .map(|(transfer_id, _)| transfer_id.clone())
+            .collect::<Vec<_>>();
+        let incoming_receiving_ids = runtime
+            .incoming_receiving
+            .iter()
+            .filter(|(_, item)| item.from_device_id == device_id || item.to_device_id == device_id)
+            .map(|(transfer_id, _)| transfer_id.clone())
+            .collect::<Vec<_>>();
+
+        let mut outgoing = Vec::new();
+        for transfer_id in outgoing_waiting_ids {
+            if let Some(mut item) = runtime.outgoing_waiting_accept.remove(&transfer_id) {
+                item.status = ChatTransferStatus::Failed;
+                for file in &item.files {
+                    if item
+                        .file_statuses
+                        .get(&file.file_id)
+                        .copied()
+                        .unwrap_or(ChatTransferFileStatus::Queue)
+                        != ChatTransferFileStatus::Done
+                    {
+                        item.file_statuses
+                            .insert(file.file_id.clone(), ChatTransferFileStatus::Failed);
+                        item.file_errors
+                            .insert(file.file_id.clone(), Some(reason.to_string()));
+                    }
+                }
+                outgoing.push(item);
+            }
+        }
+        for transfer_id in outgoing_sending_ids {
+            if let Some(mut item) = runtime.outgoing_sending.remove(&transfer_id) {
+                item.status = ChatTransferStatus::Failed;
+                for file in &item.files {
+                    if item
+                        .file_statuses
+                        .get(&file.file_id)
+                        .copied()
+                        .unwrap_or(ChatTransferFileStatus::Queue)
+                        != ChatTransferFileStatus::Done
+                    {
+                        item.file_statuses
+                            .insert(file.file_id.clone(), ChatTransferFileStatus::Failed);
+                        item.file_errors
+                            .insert(file.file_id.clone(), Some(reason.to_string()));
+                    }
+                }
+                outgoing.push(item);
+            }
+        }
+
+        let mut incoming_offers = Vec::new();
+        let mut decision_senders = Vec::new();
+        for transfer_id in incoming_offer_ids {
+            if let Some(mut item) = runtime.incoming_waiting_decision.remove(&transfer_id) {
+                item.status = ChatTransferStatus::Failed;
+                incoming_offers.push(item);
+            }
+            if let Some(sender) = runtime.incoming_decision_senders.remove(&transfer_id) {
+                decision_senders.push(sender);
+            }
+        }
+
+        let mut incoming_receiving = Vec::new();
+        for transfer_id in incoming_receiving_ids {
+            if let Some(mut item) = runtime.incoming_receiving.remove(&transfer_id) {
+                item.status = ChatTransferStatus::Failed;
+                for file in &mut item.files {
+                    if file.status != ChatTransferFileStatus::Done {
+                        file.status = ChatTransferFileStatus::Failed;
+                        file.error_message = Some(reason.to_string());
+                    }
+                }
+                incoming_receiving.push(item);
+            }
+        }
+
+        (outgoing, incoming_offers, incoming_receiving, decision_senders)
+    };
+
+    for sender in decision_senders {
+        let _ = sender.send(IncomingDecision::Reject);
+    }
+    for transfer in outgoing {
+        emit_outgoing_state(&transfer, Some(reason));
+        emit_file_failed_event(
+            &transfer.transfer_id,
+            &transfer.from_device_id,
+            &transfer.to_device_id,
+            reason,
+        );
+    }
+    for transfer in incoming_offers {
+        emit_incoming_offer_state(&transfer, Some(reason));
+        emit_file_failed_event(
+            &transfer.transfer_id,
+            &transfer.from_device_id,
+            &transfer.to_device_id,
+            reason,
+        );
+    }
+    for transfer in incoming_receiving {
+        emit_incoming_receive_state(&transfer, Some(reason));
+        emit_file_failed_event(
+            &transfer.transfer_id,
+            &transfer.from_device_id,
+            &transfer.to_device_id,
+            reason,
+        );
+    }
+}
+
+pub async fn cleanup_chat_transfers_for_devices(device_ids: Vec<String>, reason: &str) {
+    for device_id in device_ids {
+        if !device_id.trim().is_empty() {
+            cleanup_transfers_for_device(&device_id, reason).await;
+        }
+    }
+}
+
+fn get_pair_secret(device_id: &str) -> Option<String> {
+    load_trusted_devices()
+        .into_iter()
+        .find(|item| item.device_id == device_id)
+        .map(|item| item.pair_secret)
+}
+
+fn compute_transfer_proof(pair_secret: &str, from_device_id: &str, transfer_id: &str) -> Result<String, String> {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+
+    let message = format!("{from_device_id}:{transfer_id}");
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(pair_secret.as_bytes()).map_err(|e| e.to_string())?;
+    mac.update(message.as_bytes());
+    Ok(hex::encode(mac.finalize().into_bytes()))
 }
 
 fn normalize_file_name(name: &str) -> String {
@@ -237,53 +702,6 @@ fn to_rel_path_key(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/").to_lowercase()
 }
 
-fn add_covered_range(ranges: &mut Vec<(u64, u64)>, start: u64, end: u64) -> u64 {
-    if end <= start {
-        return ranges.iter().map(|(s, e)| e.saturating_sub(*s)).sum();
-    }
-
-    let mut out: Vec<(u64, u64)> = Vec::with_capacity(ranges.len() + 1);
-    let mut s = start;
-    let mut e = end;
-    let mut inserted = false;
-
-    for (rs, re) in ranges.iter().copied() {
-        if re < s {
-            out.push((rs, re));
-            continue;
-        }
-        if e < rs {
-            if !inserted {
-                out.push((s, e));
-                inserted = true;
-            }
-            out.push((rs, re));
-            continue;
-        }
-        s = s.min(rs);
-        e = e.max(re);
-    }
-
-    if !inserted {
-        out.push((s, e));
-    }
-
-    out.sort_by_key(|(a, _)| *a);
-    let mut merged: Vec<(u64, u64)> = Vec::with_capacity(out.len());
-    for (rs, re) in out {
-        if let Some((_, le)) = merged.last_mut() {
-            if rs <= *le {
-                *le = (*le).max(re);
-                continue;
-            }
-        }
-        merged.push((rs, re));
-    }
-
-    *ranges = merged;
-    ranges.iter().map(|(a, b)| b.saturating_sub(*a)).sum()
-}
-
 fn normalize_device_name(device_name: Option<String>) -> Option<String> {
     device_name.and_then(|name| {
         let normalized = name.trim().to_string();
@@ -324,12 +742,6 @@ fn compute_blake3_file_hash_hex(path: &Path) -> Result<String, String> {
         hasher.update(&buf[..n]);
     }
     Ok(hasher.finalize().to_hex().to_string())
-}
-
-async fn remove_chat_writer_handles_by_transfer(transfer_id: &str) {
-    let mut writers = CHAT_FILE_WRITERS.lock().await;
-    let prefix = format!("{}:", transfer_id);
-    writers.retain(|k, _| !k.starts_with(&prefix));
 }
 
 fn get_chat_receive_dir() -> Result<PathBuf, String> {
@@ -393,6 +805,181 @@ fn build_unique_file_path(base_dir: &Path, file_name: &str, reserved: &mut HashS
     }
 }
 
+async fn stop_file_http_server() {
+    let mut state = FILE_HTTP_SERVER.lock().await;
+    if let Some(server) = state.take() {
+        server.task.abort();
+    }
+}
+
+async fn ensure_file_http_server_started() -> Result<u16, String> {
+    let port = get_local_file_http_port();
+    sync_core_file_http_port().await;
+
+    let mut state = FILE_HTTP_SERVER.lock().await;
+    if let Some(server) = state.as_ref() {
+        if server.port == port && !server.task.is_finished() {
+            return Ok(port);
+        }
+    }
+
+    if let Some(server) = state.take() {
+        server.task.abort();
+    }
+
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+        .await
+        .map_err(|e| format!("文件 HTTP 服务启动失败: {e}"))?;
+    let task = tokio::spawn(async move {
+        loop {
+            let Ok((stream, remote_addr)) = listener.accept().await else {
+                break;
+            };
+            tokio::spawn(async move {
+                let _ = handle_file_http_client(stream, remote_addr).await;
+            });
+        }
+    });
+    *state = Some(FileHttpServerState { port, task });
+    Ok(port)
+}
+
+fn parse_http_query(target: &str) -> (String, HashMap<String, String>) {
+    let mut query = HashMap::new();
+    let mut parts = target.splitn(2, '?');
+    let path = parts.next().unwrap_or("/").to_string();
+    if let Some(raw_query) = parts.next() {
+        for item in raw_query.split('&') {
+            let mut kv = item.splitn(2, '=');
+            let key = kv.next().unwrap_or("").trim();
+            let value = kv.next().unwrap_or("").trim();
+            if !key.is_empty() {
+                query.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+    (path, query)
+}
+
+async fn read_file_http_request(
+    stream: &mut tokio::net::TcpStream,
+) -> Result<FileHttpRequest, String> {
+    use tokio::io::AsyncReadExt;
+
+    let mut buffer = Vec::with_capacity(4096);
+    let mut chunk = vec![0u8; 2048];
+    let header_end = loop {
+        if buffer.len() > FILE_HTTP_HEADER_LIMIT {
+            return Err("请求头过大".to_string());
+        }
+        let read = stream.read(&mut chunk).await.map_err(|e| e.to_string())?;
+        if read == 0 {
+            return Err("连接已关闭".to_string());
+        }
+        buffer.extend_from_slice(&chunk[..read]);
+        if let Some(pos) = buffer.windows(4).position(|window| window == b"\r\n\r\n") {
+            break pos + 4;
+        }
+    };
+
+    let header_text = String::from_utf8_lossy(&buffer[..header_end]).to_string();
+    let mut lines = header_text.split("\r\n");
+    let request_line = lines.next().ok_or_else(|| "请求格式错误".to_string())?;
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or("").to_string();
+    let target = parts.next().unwrap_or("").to_string();
+    if method.is_empty() || target.is_empty() {
+        return Err("请求格式错误".to_string());
+    }
+
+    let mut content_length = 0usize;
+    for line in lines {
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.splitn(2, ':');
+        let name = parts.next().unwrap_or("").trim().to_ascii_lowercase();
+        let value = parts.next().unwrap_or("").trim();
+        if name == "content-length" {
+            content_length = value.parse::<usize>().map_err(|_| "无效的 Content-Length".to_string())?;
+        }
+    }
+
+    let (path, query) = parse_http_query(&target);
+    Ok(FileHttpRequest {
+        method,
+        path,
+        query,
+        content_length,
+        body_prefix: buffer[header_end..].to_vec(),
+    })
+}
+
+async fn write_file_http_response(
+    stream: &mut tokio::net::TcpStream,
+    response: FileHttpResponse,
+) -> Result<(), String> {
+    use tokio::io::AsyncWriteExt;
+
+    let status_text = match response.status_code {
+        200 => "OK",
+        400 => "Bad Request",
+        403 => "Forbidden",
+        404 => "Not Found",
+        409 => "Conflict",
+        500 => "Internal Server Error",
+        _ => "OK",
+    };
+    let body_bytes = response.body.into_bytes();
+    let header = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        response.status_code,
+        status_text,
+        body_bytes.len()
+    );
+    stream
+        .write_all(header.as_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
+    stream
+        .write_all(&body_bytes)
+        .await
+        .map_err(|e| e.to_string())?;
+    stream.flush().await.map_err(|e| e.to_string())
+}
+
+async fn handle_file_http_client(
+    mut stream: tokio::net::TcpStream,
+    remote_addr: std::net::SocketAddr,
+) -> Result<(), String> {
+    use tokio::io::AsyncReadExt;
+
+    let request = read_file_http_request(&mut stream).await?;
+    let remote_ip = Some(remote_addr.ip().to_string());
+    let response = match (request.method.as_str(), request.path.as_str()) {
+        ("POST", FILE_HTTP_PREPARE_PATH) => {
+            let mut body_bytes = request.body_prefix.clone();
+            if request.content_length > body_bytes.len() {
+                let remaining = request.content_length - body_bytes.len();
+                let mut extra = vec![0u8; remaining];
+                stream.read_exact(&mut extra).await.map_err(|e| e.to_string())?;
+                body_bytes.extend_from_slice(&extra);
+            }
+            let body = String::from_utf8(body_bytes).map_err(|_| "请求体编码错误".to_string())?;
+            handle_http_prepare_upload(body, remote_ip).await
+        }
+        ("POST", FILE_HTTP_UPLOAD_PATH) => {
+            handle_http_upload(&mut stream, request, remote_ip).await
+        }
+        ("POST", FILE_HTTP_CANCEL_PATH) => handle_http_cancel(request, remote_ip).await,
+        _ => FileHttpResponse {
+            status_code: 404,
+            body: r#"{"message":"未找到接口"}"#.to_string(),
+        },
+    };
+    write_file_http_response(&mut stream, response).await
+}
+
 pub fn device_id() -> String {
     DEVICE_ID.clone()
 }
@@ -402,21 +989,26 @@ pub async fn get_snapshot() -> Snapshot {
 }
 
 pub async fn set_enabled(enabled: bool) -> Snapshot {
+    sync_core_file_http_port().await;
     MANAGER.set_enabled(enabled).await;
     if !enabled {
+        stop_file_http_server().await;
+        cleanup_transfers_for_device(&device_id(), "连接已关闭，传输已中断").await;
         let mut runtime = CHAT_RUNTIME.lock().await;
         runtime.outgoing_waiting_accept.clear();
+        runtime.outgoing_sending.clear();
         runtime.incoming_waiting_decision.clear();
+        runtime.incoming_decision_senders.clear();
         runtime.incoming_receiving.clear();
-        drop(runtime);
-        let mut writers = CHAT_FILE_WRITERS.lock().await;
-        writers.clear();
+    } else {
+        let _ = ensure_file_http_server_started().await;
     }
     MANAGER.get_snapshot().await
 }
 
 pub async fn start_server(port: u16) -> Result<u16, LanSyncError> {
     hydrate_trusted_devices_to_core().await;
+    let _ = ensure_file_http_server_started().await;
     let bound = MANAGER.start_server(port).await?;
     let code = format!("{:010}", fastrand::u32(0..1_000_000_000));
     MANAGER.set_server_pair_code(Some(code)).await;
@@ -429,11 +1021,16 @@ pub async fn connect_peer(
     pair_code: Option<String>,
 ) -> Result<(), LanSyncError> {
     hydrate_trusted_devices_to_core().await;
+    let _ = ensure_file_http_server_started().await;
     MANAGER.connect_peer(peer_url, auto_reconnect, pair_code).await
 }
 
 pub async fn disconnect_peer() {
+    let snapshot = MANAGER.get_snapshot().await;
     MANAGER.disconnect_peer().await;
+    if let Some(device_id) = snapshot.connected_peer_device_id {
+        cleanup_transfers_for_device(&device_id, "连接已断开，传输已中断").await;
+    }
 }
 
 pub async fn get_server_pair_code() -> Option<(String, u64)> {
@@ -519,7 +1116,11 @@ pub async fn list_trusted_devices() -> Vec<TrustedDeviceInfo> {
 }
 
 pub async fn disconnect_device(device_id: &str) -> bool {
-    MANAGER.disconnect_device(device_id).await
+    let disconnected = MANAGER.disconnect_device(device_id).await;
+    if disconnected {
+        cleanup_transfers_for_device(device_id, "连接已断开，传输已中断").await;
+    }
+    disconnected
 }
 
 pub async fn ban_device_for_current_pair_code(device_id: &str) -> bool {
@@ -841,7 +1442,7 @@ pub async fn chat_send_text(to_device_id: &str, text: &str) -> Result<ChatTextMe
     Ok(msg)
 }
 
-pub async fn chat_send_file_offer(input: ChatFileOfferInput) -> Result<ChatFileOfferMessage, LanSyncError> {
+pub async fn chat_send_file_offer(input: ChatFileOfferInput) -> Result<ChatFileOfferPayload, LanSyncError> {
     if input.files.is_empty() {
         return Err(LanSyncError::Protocol("没有可发送的文件".to_string()));
     }
@@ -869,7 +1470,7 @@ pub async fn chat_send_file_offer(input: ChatFileOfferInput) -> Result<ChatFileO
     let transfer_id = Uuid::new_v4().to_string();
     let now = current_time_ms();
     let expire_at_ms = now.saturating_add(CHAT_FILE_OFFER_EXPIRE_MS);
-    let offer = ChatFileOfferMessage {
+    let offer = ChatFileOfferPayload {
         transfer_id: transfer_id.clone(),
         from_device_id: device_id(),
         to_device_id: input.to_device_id.clone(),
@@ -889,12 +1490,18 @@ pub async fn chat_send_file_offer(input: ChatFileOfferInput) -> Result<ChatFileO
                     .get(idx)
                     .and_then(|x| x.file_hash.clone()),
             })
-            .collect(),
+        .collect(),
         sent_at_ms: now,
         expire_at_ms,
     };
 
     {
+        let mut file_statuses = HashMap::new();
+        let mut file_errors = HashMap::new();
+        for file in &normalized_files {
+            file_statuses.insert(file.file_id.clone(), ChatTransferFileStatus::Queue);
+            file_errors.insert(file.file_id.clone(), None);
+        }
         let mut runtime = CHAT_RUNTIME.lock().await;
         runtime.outgoing_waiting_accept.insert(
             transfer_id.clone(),
@@ -902,19 +1509,962 @@ pub async fn chat_send_file_offer(input: ChatFileOfferInput) -> Result<ChatFileO
                 transfer_id: transfer_id.clone(),
                 from_device_id: offer.from_device_id.clone(),
                 to_device_id: offer.to_device_id.clone(),
+                text: offer.text.clone(),
                 files: normalized_files,
+                sent_at_ms: now,
                 expire_at_ms,
+                status: ChatTransferStatus::WaitingAccept,
+                file_statuses,
+                file_errors,
             },
         );
     }
 
-    MANAGER
-        .send_message_to_device(
-            &offer.to_device_id,
-            LanSyncMessage::ChatFileOffer(offer.clone()),
-        )
-        .await?;
+    if let Some(transfer) = {
+        let runtime = CHAT_RUNTIME.lock().await;
+        runtime.outgoing_waiting_accept.get(&transfer_id).cloned()
+    } {
+        emit_outgoing_state(&transfer, None);
+    }
+
+    let offer_to_send = offer.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = negotiate_and_upload_chat_files(offer_to_send.transfer_id.clone()).await;
+    });
     Ok(offer)
+}
+
+async fn negotiate_and_upload_chat_files(transfer_id: String) -> Result<(), String> {
+    let outgoing = {
+        let runtime = CHAT_RUNTIME.lock().await;
+        runtime.outgoing_waiting_accept.get(&transfer_id).cloned()
+    }
+    .ok_or_else(|| "传输任务不存在".to_string())?;
+
+    if current_time_ms() > outgoing.expire_at_ms {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        if let Some(mut transfer) = runtime.outgoing_waiting_accept.remove(&transfer_id) {
+            transfer.status = ChatTransferStatus::Expired;
+            emit_outgoing_state(&transfer, Some("文件传输请求已过期"));
+            emit_lan_chat_event(build_file_decision_payload(
+                "file_expired",
+                &transfer_id,
+                &outgoing.to_device_id,
+                &outgoing.from_device_id,
+            ));
+        }
+        return Err("文件传输请求已过期".to_string());
+    }
+
+    let url = MANAGER
+        .resolve_peer_file_server_url(&outgoing.to_device_id, FILE_HTTP_PREPARE_PATH, &[])
+        .await
+        .ok_or_else(|| "未找到对端文件服务".to_string())?;
+    let pair_secret = get_pair_secret(&outgoing.to_device_id)
+        .ok_or_else(|| "未保存对端配对信息".to_string())?;
+    let proof = compute_transfer_proof(&pair_secret, &outgoing.from_device_id, &outgoing.transfer_id)?;
+
+    let mut payload = serde_json::Map::new();
+    payload.insert("transfer_id".to_string(), serde_json::json!(outgoing.transfer_id));
+    payload.insert("from_device_id".to_string(), serde_json::json!(outgoing.from_device_id));
+    payload.insert("to_device_id".to_string(), serde_json::json!(outgoing.to_device_id));
+    if let Some(text) = outgoing.text.as_ref().filter(|value| !value.trim().is_empty()) {
+        payload.insert("text".to_string(), serde_json::json!(text));
+    }
+    payload.insert("sent_at_ms".to_string(), serde_json::json!(outgoing.sent_at_ms));
+    payload.insert("expire_at_ms".to_string(), serde_json::json!(outgoing.expire_at_ms));
+    payload.insert("proof".to_string(), serde_json::json!(proof));
+    payload.insert(
+        "files".to_string(),
+        serde_json::json!(outgoing.files.iter().map(|file| {
+            serde_json::json!({
+                "file_id": file.file_id,
+                "file_name": file.file_name,
+                "file_size": file.file_size,
+                "file_hash": file.file_hash,
+            })
+        }).collect::<Vec<_>>()),
+    );
+    let payload = serde_json::Value::Object(payload);
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(url)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        if let Some(mut transfer) = runtime.outgoing_waiting_accept.remove(&transfer_id) {
+            if transfer.status.is_canceled() {
+                return Ok(());
+            }
+            transfer.status = ChatTransferStatus::Rejected;
+            emit_outgoing_state(&transfer, Some("接收方已拒绝"));
+            emit_lan_chat_event(build_file_decision_payload(
+                "file_reject",
+                &transfer_id,
+                &outgoing.to_device_id,
+                &outgoing.from_device_id,
+            ));
+        }
+        return Err("接收方已拒绝".to_string());
+    }
+
+    if response.status() == reqwest::StatusCode::CONFLICT {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        if let Some(mut transfer) = runtime.outgoing_waiting_accept.remove(&transfer_id) {
+            if transfer.status.is_canceled() {
+                return Ok(());
+            }
+            transfer.status = ChatTransferStatus::CanceledByReceiver;
+            for file in &transfer.files {
+                transfer
+                    .file_statuses
+                    .insert(file.file_id.clone(), ChatTransferFileStatus::Canceled);
+                transfer
+                    .file_errors
+                    .insert(file.file_id.clone(), Some("接收方已取消".to_string()));
+            }
+            emit_outgoing_state(&transfer, Some("接收方已取消"));
+        }
+        return Err("接收方已取消".to_string());
+    }
+
+    if !response.status().is_success() {
+        let message = response.text().await.unwrap_or_else(|_| "文件协商失败".to_string());
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        if let Some(mut transfer) = runtime.outgoing_waiting_accept.remove(&transfer_id) {
+            if transfer.status.is_canceled() {
+                return Ok(());
+            }
+            transfer.status = ChatTransferStatus::Failed;
+            for file in &transfer.files {
+                transfer
+                    .file_statuses
+                    .insert(file.file_id.clone(), ChatTransferFileStatus::Failed);
+                transfer
+                    .file_errors
+                    .insert(file.file_id.clone(), Some(message.clone()));
+            }
+            emit_outgoing_state(&transfer, Some(&message));
+            emit_file_failed_event(
+                &transfer_id,
+                &transfer.from_device_id,
+                &transfer.to_device_id,
+                &message,
+            );
+        }
+        return Err(message);
+    }
+
+    let body = response.text().await.map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+    let mut accepted_files = HashMap::new();
+    if let Some(files) = json.get("files").and_then(|value| value.as_array()) {
+        for item in files {
+            let file_id = item
+                .get("file_id")
+                .and_then(|value| value.as_str())
+                .unwrap_or("")
+                .trim();
+            let upload_token = item
+                .get("upload_token")
+                .and_then(|value| value.as_str())
+                .unwrap_or("")
+                .trim();
+            if !file_id.is_empty() && !upload_token.is_empty() {
+                accepted_files.insert(file_id.to_string(), upload_token.to_string());
+            }
+        }
+    }
+
+    {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        if let Some(mut transfer) = runtime.outgoing_waiting_accept.remove(&transfer_id) {
+            if transfer.status.is_canceled() {
+                return Ok(());
+            }
+            transfer.status = ChatTransferStatus::Transferring;
+            emit_outgoing_state(&transfer, None);
+            runtime.outgoing_sending.insert(transfer_id.clone(), transfer);
+        } else {
+            return Ok(());
+        }
+    }
+    emit_lan_chat_event(build_file_decision_payload(
+        "file_accept",
+        &transfer_id,
+        &outgoing.to_device_id,
+        &outgoing.from_device_id,
+    ));
+
+    let total_size = outgoing.files.iter().map(|file| file.file_size).sum::<u64>();
+    let mut sent_size = 0u64;
+    let mut has_failed_file = false;
+
+    for file in &outgoing.files {
+        let token = accepted_files
+            .get(&file.file_id)
+            .cloned()
+            .ok_or_else(|| format!("缺少文件上传令牌: {}", file.file_name))?;
+        {
+            let mut runtime = CHAT_RUNTIME.lock().await;
+            let Some(transfer) = runtime.outgoing_sending.get_mut(&transfer_id) else {
+                return Ok(());
+            };
+            if transfer.status.is_canceled() {
+                return Ok(());
+            }
+            transfer
+                .file_statuses
+                .insert(file.file_id.clone(), ChatTransferFileStatus::Transferring);
+            transfer.file_errors.insert(file.file_id.clone(), None);
+            emit_outgoing_state(transfer, None);
+        }
+        let file_id = file.file_id.clone();
+        let file_name = file.file_name.clone();
+        let file_size = file.file_size;
+        let upload_url = MANAGER
+            .resolve_peer_file_server_url(
+                &outgoing.to_device_id,
+                FILE_HTTP_UPLOAD_PATH,
+                &[
+                    ("transfer_id".to_string(), outgoing.transfer_id.clone()),
+                    ("file_id".to_string(), file_id),
+                    ("token".to_string(), token),
+                ],
+            )
+            .await
+            .ok_or_else(|| "未找到对端文件上传地址".to_string())?;
+
+        let file_path = file.file_path.clone();
+        let transfer_id_for_emit = outgoing.transfer_id.clone();
+        let from_device_id_for_emit = outgoing.from_device_id.clone();
+        let to_device_id_for_emit = outgoing.to_device_id.clone();
+        let sent_size_before = sent_size;
+        let upload_result = tauri::async_runtime::spawn_blocking(move || -> Result<u64, String> {
+            use std::io::Read;
+
+            struct ProgressReader {
+                inner: std::fs::File,
+                transfer_id: String,
+                sent_base: u64,
+                sent_total: u64,
+                total_size: u64,
+            }
+
+            impl Read for ProgressReader {
+                fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                    let read = self.inner.read(buf)?;
+                    if read > 0 {
+                        self.sent_total = self.sent_total.saturating_add(read as u64);
+                        emit_lan_chat_event(serde_json::json!({
+                            "type": "file_progress",
+                            "transfer_id": self.transfer_id,
+                            "sent_size": self.sent_base.saturating_add(self.sent_total),
+                            "total_size": self.total_size,
+                        }));
+                    }
+                    Ok(read)
+                }
+            }
+
+            let raw_file = std::fs::File::open(&file_path).map_err(|e| e.to_string())?;
+            let reader = ProgressReader {
+                inner: raw_file,
+                transfer_id: transfer_id_for_emit,
+                sent_base: sent_size_before,
+                sent_total: 0,
+                total_size,
+            };
+
+            let response = reqwest::blocking::Client::new()
+                .post(upload_url)
+                .header(reqwest::header::CONTENT_LENGTH, file_size)
+                .body(reqwest::blocking::Body::new(reader))
+                .send()
+                .map_err(|e| e.to_string())?;
+
+            if !response.status().is_success() {
+                return Err(
+                    response
+                        .text()
+                        .unwrap_or_else(|_| format!("文件上传失败: {file_name}")),
+                );
+            }
+
+            Ok(file_size)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+        match upload_result {
+            Ok(uploaded) => {
+                sent_size = sent_size.saturating_add(uploaded);
+                let mut runtime = CHAT_RUNTIME.lock().await;
+                if let Some(transfer) = runtime.outgoing_sending.get_mut(&transfer_id) {
+                    transfer
+                        .file_statuses
+                        .insert(file.file_id.clone(), ChatTransferFileStatus::Done);
+                    transfer.file_errors.insert(file.file_id.clone(), None);
+                    emit_outgoing_state(transfer, None);
+                }
+            }
+            Err(error) => {
+                has_failed_file = true;
+                let mut runtime = CHAT_RUNTIME.lock().await;
+                if let Some(transfer) = runtime.outgoing_sending.get_mut(&transfer_id) {
+                    if transfer.status.is_canceled() {
+                        return Ok(());
+                    }
+                    transfer
+                        .file_statuses
+                        .insert(file.file_id.clone(), ChatTransferFileStatus::Failed);
+                    transfer
+                        .file_errors
+                        .insert(file.file_id.clone(), Some(error.clone()));
+                    emit_outgoing_state(transfer, Some(&error));
+                }
+                emit_file_failed_event(&transfer_id, &from_device_id_for_emit, &to_device_id_for_emit, &error);
+            }
+        }
+    }
+
+    let mut runtime = CHAT_RUNTIME.lock().await;
+    if let Some(mut transfer) = runtime.outgoing_sending.remove(&transfer_id) {
+        if transfer.status.is_canceled() {
+            return Ok(());
+        }
+        transfer.status = if has_failed_file {
+            ChatTransferStatus::Partial
+        } else {
+            ChatTransferStatus::Done
+        };
+        emit_outgoing_state(&transfer, None);
+        emit_lan_chat_event(build_file_done_payload(
+            &transfer_id,
+            &transfer.from_device_id,
+            &transfer.to_device_id,
+            None,
+        ));
+    }
+    Ok(())
+}
+
+async fn handle_http_prepare_upload(body: String, remote_ip: Option<String>) -> FileHttpResponse {
+    let json: serde_json::Value = match serde_json::from_str(&body) {
+        Ok(value) => value,
+        Err(_) => {
+            return FileHttpResponse {
+                status_code: 400,
+                body: r#"{"message":"请求体格式错误"}"#.to_string(),
+            };
+        }
+    };
+
+    let transfer_id = json.get("transfer_id").and_then(|value| value.as_str()).unwrap_or("").trim().to_string();
+    let from_device_id = json.get("from_device_id").and_then(|value| value.as_str()).unwrap_or("").trim().to_string();
+    let to_device_id = json.get("to_device_id").and_then(|value| value.as_str()).unwrap_or("").trim().to_string();
+    let proof = json.get("proof").and_then(|value| value.as_str()).unwrap_or("").trim().to_string();
+
+    if transfer_id.is_empty() || from_device_id.is_empty() || to_device_id.is_empty() || proof.is_empty() {
+        return FileHttpResponse {
+            status_code: 400,
+            body: r#"{"message":"缺少必要参数"}"#.to_string(),
+        };
+    }
+    if to_device_id != device_id() {
+        return FileHttpResponse {
+            status_code: 403,
+            body: r#"{"message":"目标设备不匹配"}"#.to_string(),
+        };
+    }
+
+    let Some(pair_secret) = get_pair_secret(&from_device_id) else {
+        return FileHttpResponse {
+            status_code: 403,
+            body: r#"{"message":"未保存对端配对信息"}"#.to_string(),
+        };
+    };
+
+    let Ok(expected_proof) = compute_transfer_proof(&pair_secret, &from_device_id, &transfer_id) else {
+        return FileHttpResponse {
+            status_code: 403,
+            body: r#"{"message":"传输鉴权失败"}"#.to_string(),
+        };
+    };
+    if !expected_proof.eq_ignore_ascii_case(&proof) {
+        return FileHttpResponse {
+            status_code: 403,
+            body: r#"{"message":"传输鉴权失败"}"#.to_string(),
+        };
+    }
+
+    let files = json
+        .get("files")
+        .and_then(|value| value.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|item| {
+            let file_id = item.get("file_id")?.as_str()?.trim().to_string();
+            let file_name = item.get("file_name")?.as_str()?.trim().to_string();
+            let file_size = item.get("file_size")?.as_u64()?;
+            if file_id.is_empty() || file_name.is_empty() {
+                return None;
+            }
+            Some(ChatFileMeta {
+                file_id,
+                file_name,
+                file_size,
+                file_hash: item
+                    .get("file_hash")
+                    .and_then(|value| value.as_str())
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty()),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if files.is_empty() {
+        return FileHttpResponse {
+            status_code: 400,
+            body: r#"{"message":"未包含文件"}"#.to_string(),
+        };
+    }
+
+    let sent_at_ms = json
+        .get("sent_at_ms")
+        .and_then(|value| value.as_u64())
+        .unwrap_or_else(current_time_ms);
+    let expire_at_ms = json
+        .get("expire_at_ms")
+        .and_then(|value| value.as_u64())
+        .unwrap_or_else(|| current_time_ms().saturating_add(CHAT_FILE_OFFER_EXPIRE_MS));
+    let text = json
+        .get("text")
+        .and_then(|value| value.as_str())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    let offer = ChatFileOfferPayload {
+        transfer_id: transfer_id.clone(),
+        from_device_id: from_device_id.clone(),
+        to_device_id: to_device_id.clone(),
+        text: text.clone(),
+        files: files.clone(),
+        sent_at_ms,
+        expire_at_ms,
+    };
+
+    let (decision_tx, decision_rx) = tokio::sync::oneshot::channel();
+    {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_waiting_decision.insert(
+            transfer_id.clone(),
+            IncomingChatTransfer {
+                transfer_id: transfer_id.clone(),
+                from_device_id: from_device_id.clone(),
+                to_device_id: to_device_id.clone(),
+                text: json
+                    .get("text")
+                    .and_then(|value| value.as_str())
+                    .map(|value| value.to_string())
+                    .filter(|value| !value.trim().is_empty()),
+                files: files.clone(),
+                sent_at_ms: json
+                    .get("sent_at_ms")
+                    .and_then(|value| value.as_u64())
+                    .unwrap_or_else(current_time_ms),
+                expire_at_ms,
+                status: ChatTransferStatus::WaitingAccept,
+            },
+        );
+        runtime
+            .incoming_decision_senders
+            .insert(transfer_id.clone(), decision_tx);
+    }
+
+    if let Some(ip) = remote_ip {
+        MANAGER
+            .remember_peer_file_server(&from_device_id, Some(ip), None)
+            .await;
+    }
+
+    if let Some(transfer) = {
+        let runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_waiting_decision.get(&transfer_id).cloned()
+    } {
+        emit_incoming_offer_state(&transfer, None);
+    }
+    emit_lan_chat_event(serde_json::json!({
+        "type": "file_offer",
+        "offer": offer
+    }));
+
+    let now = current_time_ms();
+    let wait_ms = expire_at_ms.saturating_sub(now).max(1);
+    let decision = match tokio::time::timeout(Duration::from_millis(wait_ms), decision_rx).await {
+        Ok(Ok(value)) => value,
+        _ => IncomingDecision::Reject,
+    };
+
+    let incoming = {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_decision_senders.remove(&transfer_id);
+        runtime.incoming_waiting_decision.remove(&transfer_id)
+    };
+    let Some(incoming) = incoming else {
+        return FileHttpResponse {
+            status_code: 409,
+            body: r#"{"message":"传输会话不存在"}"#.to_string(),
+        };
+    };
+
+    if decision != IncomingDecision::Accept {
+        let (event_type, next_status, error_message) = if current_time_ms() > incoming.expire_at_ms {
+            ("file_expired", ChatTransferStatus::Expired, "文件传输请求已过期")
+        } else if decision == IncomingDecision::CancelByReceiver {
+            ("file_state", ChatTransferStatus::CanceledByReceiver, "已取消接收")
+        } else {
+            ("file_reject", ChatTransferStatus::Rejected, "文件传输请求已拒绝")
+        };
+        let mut incoming = incoming;
+        incoming.status = next_status;
+        emit_incoming_offer_state(&incoming, Some(error_message));
+        if event_type != "file_state" {
+            emit_lan_chat_event(build_file_decision_payload(
+                event_type,
+                &incoming.transfer_id,
+                &incoming.from_device_id,
+                &incoming.to_device_id,
+            ));
+        }
+        return FileHttpResponse {
+            status_code: if decision == IncomingDecision::CancelByReceiver { 409 } else { 403 },
+            body: format!(
+                r#"{{"message":"{}"}}"#,
+                if event_type == "file_expired" {
+                    "文件传输请求已过期"
+                } else if decision == IncomingDecision::CancelByReceiver {
+                    "接收方已取消"
+                } else {
+                    "文件传输请求已拒绝"
+                }
+            ),
+        };
+    }
+
+    let receive_dir = match get_chat_receive_dir() {
+        Ok(dir) => dir,
+        Err(error) => {
+            return FileHttpResponse {
+                status_code: 500,
+                body: format!(r#"{{"message":"{}"}}"#, error.replace('"', "'")),
+            };
+        }
+    };
+
+    let mut files_state = Vec::with_capacity(incoming.files.len());
+    let mut reserved_names: HashSet<String> = HashSet::new();
+    let mut total_size = 0u64;
+    let mut accepted_files = Vec::with_capacity(incoming.files.len());
+    for file in &incoming.files {
+        let file_path = build_unique_file_path(&receive_dir, &file.file_name, &mut reserved_names);
+        let upload_token = Uuid::new_v4().to_string();
+        files_state.push(ReceiveFileProgress {
+            file_id: file.file_id.clone(),
+            file_name: file.file_name.clone(),
+            file_size: file.file_size,
+            file_hash: file.file_hash.clone(),
+            upload_token: Some(upload_token.clone()),
+            received: 0,
+            received_ranges: Vec::new(),
+            covered_size: 0,
+            file_path,
+            status: ChatTransferFileStatus::Queue,
+            error_message: None,
+        });
+        accepted_files.push(serde_json::json!({
+            "file_id": file.file_id,
+            "upload_token": upload_token,
+        }));
+        total_size = total_size.saturating_add(file.file_size);
+    }
+
+    {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_receiving.insert(
+            transfer_id.clone(),
+            IncomingReceiveProgress {
+                transfer_id: transfer_id.clone(),
+                from_device_id: incoming.from_device_id.clone(),
+                to_device_id: incoming.to_device_id.clone(),
+                text: incoming.text.clone(),
+                sent_at_ms: incoming.sent_at_ms,
+                files: files_state,
+                total_size,
+                received_size: 0,
+                status: ChatTransferStatus::Transferring,
+            },
+        );
+    }
+
+    if let Some(state) = {
+        let runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_receiving.get(&transfer_id).cloned()
+    } {
+        emit_incoming_receive_state(&state, None);
+    }
+
+    emit_lan_chat_event(build_file_decision_payload(
+        "file_accept",
+        &transfer_id,
+        &incoming.from_device_id,
+        &incoming.to_device_id,
+    ));
+
+    FileHttpResponse {
+        status_code: 200,
+        body: serde_json::json!({
+            "transfer_id": transfer_id,
+            "files": accepted_files
+        })
+        .to_string(),
+    }
+}
+
+async fn handle_http_upload(
+    stream: &mut tokio::net::TcpStream,
+    request: FileHttpRequest,
+    _remote_ip: Option<String>,
+) -> FileHttpResponse {
+    use tokio::io::AsyncReadExt;
+    use std::io::Write;
+
+    let transfer_id = request.query.get("transfer_id").cloned().unwrap_or_default();
+    let file_id = request.query.get("file_id").cloned().unwrap_or_default();
+    let token = request.query.get("token").cloned().unwrap_or_default();
+    if transfer_id.trim().is_empty() || file_id.trim().is_empty() || token.trim().is_empty() {
+        return FileHttpResponse {
+            status_code: 400,
+            body: r#"{"message":"缺少上传参数"}"#.to_string(),
+        };
+    }
+
+    let (file_path, expected_size, expected_hash, from_device_id, to_device_id, total_size, received_before) = {
+        let runtime = CHAT_RUNTIME.lock().await;
+        let Some(state) = runtime.incoming_receiving.get(&transfer_id) else {
+            return FileHttpResponse {
+                status_code: 409,
+                body: r#"{"message":"传输会话不存在"}"#.to_string(),
+            };
+        };
+        let Some(file_state) = state
+            .files
+            .iter()
+            .find(|file| file.file_id == file_id && file.upload_token.as_deref() == Some(token.as_str()))
+        else {
+            return FileHttpResponse {
+                status_code: 403,
+                body: r#"{"message":"文件令牌无效"}"#.to_string(),
+            };
+        };
+        (
+            file_state.file_path.clone(),
+            file_state.file_size,
+            file_state.file_hash.clone(),
+            state.from_device_id.clone(),
+            state.to_device_id.clone(),
+            state.total_size,
+            state.received_size,
+        )
+    };
+
+    {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        if let Some(state) = runtime.incoming_receiving.get_mut(&transfer_id) {
+            state.status = ChatTransferStatus::Transferring;
+            if let Some(file_state) = state.files.iter_mut().find(|file| file.file_id == file_id) {
+                file_state.status = ChatTransferFileStatus::Transferring;
+                file_state.error_message = None;
+            }
+            emit_incoming_receive_state(state, None);
+        }
+    }
+
+    if let Some(parent) = file_path.parent() {
+        if let Err(error) = std::fs::create_dir_all(parent) {
+            return FileHttpResponse {
+                status_code: 500,
+                body: format!(r#"{{"message":"{}"}}"#, error.to_string().replace('"', "'")),
+            };
+        }
+    }
+
+    let mut file = match std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&file_path)
+    {
+        Ok(file) => file,
+        Err(error) => {
+            return FileHttpResponse {
+                status_code: 500,
+                body: format!(r#"{{"message":"{}"}}"#, error.to_string().replace('"', "'")),
+            };
+        }
+    };
+
+    let mut written = 0u64;
+    let mut remaining = request.content_length;
+    let mut body_prefix = request.body_prefix;
+    if !body_prefix.is_empty() {
+        let writable = std::cmp::min(body_prefix.len(), remaining);
+        if let Err(error) = file.write_all(&body_prefix[..writable]) {
+            return FileHttpResponse {
+                status_code: 500,
+                body: format!(r#"{{"message":"{}"}}"#, error.to_string().replace('"', "'")),
+            };
+        }
+        written = written.saturating_add(writable as u64);
+        remaining -= writable;
+        body_prefix.clear();
+        emit_lan_chat_event(serde_json::json!({
+            "type": "file_progress",
+            "transfer_id": transfer_id,
+            "received_size": received_before.saturating_add(written),
+            "total_size": total_size
+        }));
+    }
+
+    let mut buffer = vec![0u8; FILE_HTTP_IO_BUFFER_SIZE];
+    while remaining > 0 {
+        let to_read = std::cmp::min(buffer.len(), remaining);
+        let read = match stream.read(&mut buffer[..to_read]).await {
+            Ok(size) => size,
+            Err(error) => {
+                return FileHttpResponse {
+                    status_code: 500,
+                    body: format!(r#"{{"message":"{}"}}"#, error.to_string().replace('"', "'")),
+                };
+            }
+        };
+        if read == 0 {
+            break;
+        }
+        if let Err(error) = file.write_all(&buffer[..read]) {
+            return FileHttpResponse {
+                status_code: 500,
+                body: format!(r#"{{"message":"{}"}}"#, error.to_string().replace('"', "'")),
+            };
+        }
+        written = written.saturating_add(read as u64);
+        remaining -= read;
+        emit_lan_chat_event(serde_json::json!({
+            "type": "file_progress",
+            "transfer_id": transfer_id,
+            "received_size": received_before.saturating_add(written),
+            "total_size": total_size
+        }));
+    }
+
+    if written != expected_size {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        if let Some(state) = runtime.incoming_receiving.get_mut(&transfer_id) {
+            state.status = ChatTransferStatus::Failed;
+            if let Some(file_state) = state.files.iter_mut().find(|file| file.file_id == file_id) {
+                file_state.status = ChatTransferFileStatus::Failed;
+                file_state.error_message = Some("文件上传不完整".to_string());
+            }
+            emit_incoming_receive_state(state, Some("文件上传不完整"));
+        }
+        runtime.incoming_receiving.remove(&transfer_id);
+        emit_file_failed_event(&transfer_id, &from_device_id, &to_device_id, "文件上传不完整");
+        return FileHttpResponse {
+            status_code: 500,
+            body: r#"{"message":"文件上传不完整"}"#.to_string(),
+        };
+    }
+
+    if let Some(expected_hash) = expected_hash.filter(|value| !value.trim().is_empty()) {
+        match compute_blake3_file_hash_hex(&file_path) {
+            Ok(actual_hash) if actual_hash.eq_ignore_ascii_case(&expected_hash) => {}
+            Ok(_) => {
+                let mut runtime = CHAT_RUNTIME.lock().await;
+                if let Some(state) = runtime.incoming_receiving.get_mut(&transfer_id) {
+                    state.status = ChatTransferStatus::Failed;
+                    if let Some(file_state) = state.files.iter_mut().find(|file| file.file_id == file_id) {
+                        file_state.status = ChatTransferFileStatus::Failed;
+                        file_state.error_message = Some("文件校验失败".to_string());
+                    }
+                    emit_incoming_receive_state(state, Some("文件校验失败"));
+                }
+                runtime.incoming_receiving.remove(&transfer_id);
+                emit_file_failed_event(&transfer_id, &from_device_id, &to_device_id, "文件校验失败");
+                return FileHttpResponse {
+                    status_code: 500,
+                    body: r#"{"message":"文件校验失败"}"#.to_string(),
+                };
+            }
+            Err(error) => {
+                let mut runtime = CHAT_RUNTIME.lock().await;
+                if let Some(state) = runtime.incoming_receiving.get_mut(&transfer_id) {
+                    state.status = ChatTransferStatus::Failed;
+                    if let Some(file_state) = state.files.iter_mut().find(|file| file.file_id == file_id) {
+                        file_state.status = ChatTransferFileStatus::Failed;
+                        file_state.error_message = Some(error.clone());
+                    }
+                    emit_incoming_receive_state(state, Some(&error));
+                }
+                runtime.incoming_receiving.remove(&transfer_id);
+                emit_file_failed_event(&transfer_id, &from_device_id, &to_device_id, &error);
+                return FileHttpResponse {
+                    status_code: 500,
+                    body: format!(r#"{{"message":"{}"}}"#, error.replace('"', "'")),
+                };
+            }
+        }
+    }
+
+    let completed_paths = {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        let Some(state) = runtime.incoming_receiving.get_mut(&transfer_id) else {
+            return FileHttpResponse {
+                status_code: 409,
+                body: r#"{"message":"传输会话不存在"}"#.to_string(),
+            };
+        };
+
+        let Some(file_state) = state.files.iter_mut().find(|file| file.file_id == file_id) else {
+            return FileHttpResponse {
+                status_code: 409,
+                body: r#"{"message":"传输文件不存在"}"#.to_string(),
+            };
+        };
+
+        let previous_received = file_state.received;
+        file_state.received = written;
+        file_state.covered_size = written;
+        file_state.received_ranges = vec![(0, written)];
+        file_state.status = ChatTransferFileStatus::Done;
+        file_state.error_message = None;
+        state.received_size = state
+            .received_size
+            .saturating_add(file_state.received.saturating_sub(previous_received));
+
+        emit_incoming_receive_state(state, None);
+
+        if state
+            .files
+            .iter()
+            .all(|file| matches!(file.status, ChatTransferFileStatus::Done | ChatTransferFileStatus::Failed))
+        {
+            state.status = if state
+                .files
+                .iter()
+                .any(|file| file.status == ChatTransferFileStatus::Failed)
+            {
+                ChatTransferStatus::Partial
+            } else {
+                ChatTransferStatus::Done
+            };
+            emit_incoming_receive_state(state, None);
+            let paths = state
+                .files
+                .iter()
+                .map(|file| file.file_path.to_string_lossy().to_string())
+                .collect::<Vec<_>>();
+            runtime.incoming_receiving.remove(&transfer_id);
+            Some(paths)
+        } else {
+            None
+        }
+    };
+
+    if let Some(paths) = completed_paths {
+        emit_lan_chat_event(build_file_done_payload(
+            &transfer_id,
+            &from_device_id,
+            &to_device_id,
+            Some(paths),
+        ));
+    }
+
+    FileHttpResponse {
+        status_code: 200,
+        body: r#"{"ok":true}"#.to_string(),
+    }
+}
+
+async fn handle_http_cancel(request: FileHttpRequest, _remote_ip: Option<String>) -> FileHttpResponse {
+    let transfer_id = request.query.get("transfer_id").cloned().unwrap_or_default();
+    if transfer_id.trim().is_empty() {
+        return FileHttpResponse {
+            status_code: 400,
+            body: r#"{"message":"缺少 transfer_id"}"#.to_string(),
+        };
+    }
+
+    let (outgoing, incoming_offer, incoming_receive, decision_sender) = {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        (
+            runtime
+                .outgoing_waiting_accept
+                .remove(&transfer_id)
+                .or_else(|| runtime.outgoing_sending.remove(&transfer_id)),
+            runtime.incoming_waiting_decision.remove(&transfer_id),
+            runtime.incoming_receiving.remove(&transfer_id),
+            runtime.incoming_decision_senders.remove(&transfer_id),
+        )
+    };
+
+    if let Some(sender) = decision_sender {
+        let _ = sender.send(IncomingDecision::Reject);
+    }
+
+    if let Some(mut transfer) = outgoing {
+        transfer.status = ChatTransferStatus::CanceledByReceiver;
+        for file in &transfer.files {
+            let current = transfer
+                .file_statuses
+                .get(&file.file_id)
+                .copied()
+                .unwrap_or(ChatTransferFileStatus::Queue);
+            if current != ChatTransferFileStatus::Done {
+                transfer
+                    .file_statuses
+                    .insert(file.file_id.clone(), ChatTransferFileStatus::Canceled);
+                transfer
+                    .file_errors
+                    .insert(file.file_id.clone(), Some("接收方已取消".to_string()));
+            }
+        }
+        emit_outgoing_state(&transfer, Some("接收方已取消"));
+    }
+    if let Some(mut transfer) = incoming_offer {
+        transfer.status = ChatTransferStatus::CanceledBySender;
+        emit_incoming_offer_state(&transfer, Some("发送方已取消"));
+    }
+    if let Some(mut transfer) = incoming_receive {
+        transfer.status = ChatTransferStatus::CanceledBySender;
+        for file in &mut transfer.files {
+            if file.status != ChatTransferFileStatus::Done {
+                file.status = ChatTransferFileStatus::Canceled;
+                file.error_message = Some("发送方已取消".to_string());
+            }
+        }
+        emit_incoming_receive_state(&transfer, Some("发送方已取消"));
+    }
+
+    FileHttpResponse {
+        status_code: 200,
+        body: r#"{"ok":true}"#.to_string(),
+    }
 }
 
 pub async fn chat_prepare_files(paths: Vec<String>) -> Result<Vec<ChatFileInfoInput>, LanSyncError> {
@@ -1027,353 +2577,159 @@ pub async fn chat_prepare_files(paths: Vec<String>) -> Result<Vec<ChatFileInfoIn
     Ok(out)
 }
 
-pub async fn chat_reject_file_offer(input: ChatFileRejectInput) -> Result<ChatFileDecisionMessage, LanSyncError> {
-    let decision = ChatFileDecisionMessage {
+pub async fn chat_reject_file_offer(input: ChatFileRejectInput) -> Result<ChatFileDecisionPayload, LanSyncError> {
+    let decision = ChatFileDecisionPayload {
         transfer_id: input.transfer_id.clone(),
         from_device_id: device_id(),
         to_device_id: input.from_device_id.clone(),
         decided_at_ms: current_time_ms(),
     };
 
-    {
+    let (transfer, sender) = {
         let mut runtime = CHAT_RUNTIME.lock().await;
-        runtime.incoming_waiting_decision.remove(&input.transfer_id);
-    }
-
-    MANAGER
-        .send_message_to_device(
-            &decision.to_device_id,
-            LanSyncMessage::ChatFileReject(decision.clone()),
+        (
+            runtime.incoming_waiting_decision.remove(&input.transfer_id),
+            runtime.incoming_decision_senders.remove(&input.transfer_id),
         )
-        .await?;
+    };
+    if let Some(mut transfer) = transfer {
+        transfer.status = ChatTransferStatus::Rejected;
+        emit_incoming_offer_state(&transfer, Some("文件传输请求已拒绝"));
+    }
+    if let Some(sender) = sender {
+        let _ = sender.send(IncomingDecision::Reject);
+    }
     Ok(decision)
 }
 
-pub async fn chat_accept_file_offer(input: ChatFileAcceptInput) -> Result<ChatFileDecisionMessage, LanSyncError> {
-    let incoming = {
-        let mut runtime = CHAT_RUNTIME.lock().await;
-        runtime.incoming_waiting_decision.remove(&input.transfer_id)
+pub async fn chat_accept_file_offer(input: ChatFileAcceptInput) -> Result<ChatFileDecisionPayload, LanSyncError> {
+    let expired = {
+        let runtime = CHAT_RUNTIME.lock().await;
+        runtime
+            .incoming_waiting_decision
+            .get(&input.transfer_id)
+            .map(|item| current_time_ms() > item.expire_at_ms)
+            .unwrap_or(true)
     };
 
-    let Some(incoming) = incoming else {
-        return Err(LanSyncError::Protocol("文件邀约不存在或已处理".to_string()));
-    };
-
-    if current_time_ms() > incoming.expire_at_ms {
-        let expired = ChatFileDecisionMessage {
-            transfer_id: input.transfer_id.clone(),
-            from_device_id: device_id(),
-            to_device_id: input.from_device_id.clone(),
-            decided_at_ms: current_time_ms(),
-        };
-        let target = expired.to_device_id.clone();
-        let _ = MANAGER
-            .send_message_to_device(
-                &target,
-                LanSyncMessage::ChatFileExpired(expired),
-            )
-            .await;
+    if expired {
         return Err(LanSyncError::Protocol("文件邀约已过期".to_string()));
     }
 
-    let receive_dir = get_chat_receive_dir().map_err(LanSyncError::Protocol)?;
-    std::fs::create_dir_all(&receive_dir).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
-
-    let mut files = Vec::with_capacity(incoming.files.len());
-    let mut total_size: u64 = 0;
-    let mut reserved_names: HashSet<String> = HashSet::new();
-    for f in &incoming.files {
-        let file_name = f.file_name.clone();
-        let file_path = build_unique_file_path(&receive_dir, &file_name, &mut reserved_names);
-        files.push(ReceiveFileProgress {
-            file_id: f.file_id.clone(),
-            file_name,
-            file_size: f.file_size,
-            file_hash: f.file_hash.clone(),
-            received: 0,
-            received_ranges: Vec::new(),
-            covered_size: 0,
-            file_path,
-        });
-        total_size = total_size.saturating_add(f.file_size);
-    }
-
-    {
+    let sender = {
         let mut runtime = CHAT_RUNTIME.lock().await;
-        runtime.incoming_receiving.insert(
-            input.transfer_id.clone(),
-            IncomingReceiveProgress {
-                transfer_id: input.transfer_id.clone(),
-                from_device_id: incoming.from_device_id.clone(),
-                to_device_id: incoming.to_device_id.clone(),
-                files,
-                total_size,
-                received_size: 0,
-            },
-        );
-    }
+        if let Some(transfer) = runtime.incoming_waiting_decision.get_mut(&input.transfer_id) {
+            transfer.status = ChatTransferStatus::Transferring;
+            emit_incoming_offer_state(transfer, None);
+        }
+        runtime.incoming_decision_senders.remove(&input.transfer_id)
+    };
 
-    let decision = ChatFileDecisionMessage {
+    let Some(sender) = sender else {
+        return Err(LanSyncError::Protocol("文件邀约不存在或已处理".to_string()));
+    };
+    let _ = sender.send(IncomingDecision::Accept);
+
+    let decision = ChatFileDecisionPayload {
         transfer_id: input.transfer_id,
         from_device_id: device_id(),
         to_device_id: input.from_device_id,
         decided_at_ms: current_time_ms(),
     };
 
-    MANAGER
-        .send_message_to_device(
-            &decision.to_device_id,
-            LanSyncMessage::ChatFileAccept(decision.clone()),
-        )
-        .await?;
-
     Ok(decision)
 }
 
-pub async fn chat_on_file_offer_received(offer: ChatFileOfferMessage) {
-    let mut runtime = CHAT_RUNTIME.lock().await;
-    runtime.incoming_waiting_decision.insert(
-        offer.transfer_id.clone(),
-        IncomingChatTransfer {
-            transfer_id: offer.transfer_id,
-            from_device_id: offer.from_device_id,
-            to_device_id: offer.to_device_id,
-            files: offer.files,
-            expire_at_ms: offer.expire_at_ms,
-        },
-    );
-}
+pub async fn chat_cancel_transfer(input: ChatFileCancelInput) -> Result<ChatFileCancelResult, LanSyncError> {
+    let transfer_id = input.transfer_id.trim().to_string();
+    if transfer_id.is_empty() {
+        return Err(LanSyncError::Protocol("transfer_id 不能为空".to_string()));
+    }
 
-pub async fn chat_on_file_accept_received(
-    accept: ChatFileDecisionMessage,
-    app_handle: Option<&tauri::AppHandle>,
-) -> Result<(), LanSyncError> {
     let outgoing = {
         let mut runtime = CHAT_RUNTIME.lock().await;
-        runtime.outgoing_waiting_accept.remove(&accept.transfer_id)
+        runtime
+            .outgoing_waiting_accept
+            .remove(&transfer_id)
+            .or_else(|| runtime.outgoing_sending.remove(&transfer_id))
     };
-    let Some(outgoing) = outgoing else {
-        return Ok(());
-    };
-
-    if current_time_ms() > outgoing.expire_at_ms {
-        let expired = ChatFileDecisionMessage {
-            transfer_id: outgoing.transfer_id.clone(),
-            from_device_id: outgoing.from_device_id,
-            to_device_id: outgoing.to_device_id,
-            decided_at_ms: current_time_ms(),
-        };
-        let target = expired.to_device_id.clone();
-        let _ = MANAGER
-            .send_message_to_device(
-                &target,
-                LanSyncMessage::ChatFileExpired(expired),
-            )
-            .await;
-        return Ok(());
-    }
-
-    let snapshot = MANAGER.get_snapshot().await;
-    let is_server_connected = snapshot.server_port.is_some() && snapshot.server_connected_count > 0;
-
-    let total_size = outgoing
-        .files
-        .iter()
-        .fold(0u64, |acc, x| acc.saturating_add(x.file_size));
-    let mut sent_size: u64 = 0;
-    for file in &outgoing.files {
-        let bytes = std::fs::read(&file.file_path).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
-        let total_len = bytes.len() as u64;
-        let mut offset: u64 = 0;
-        while (offset as usize) < bytes.len() {
-            let end = std::cmp::min(bytes.len(), offset as usize + CHAT_FILE_CHUNK_SIZE);
-            let part = &bytes[offset as usize..end];
-            let chunk_key = make_chat_chunk_key(&outgoing.transfer_id, &file.file_id);
-            if is_server_connected {
-                MANAGER
-                    .broadcast_attachment_chunk_to(
-                        &outgoing.to_device_id,
-                        &chunk_key,
-                        total_len,
-                        offset,
-                        part,
-                    )
-                    .await?;
-            } else {
-                MANAGER
-                    .send_attachment_chunk_to(&outgoing.to_device_id, &chunk_key, total_len, offset, part)
-                    .await?;
-            }
-            sent_size = sent_size.saturating_add(part.len() as u64);
-            if let Some(app) = app_handle {
-                use tauri::Emitter;
-                let _ = app.emit(
-                    "lan-chat-event",
-                    serde_json::json!({
-                        "type": "file_progress",
-                        "transfer_id": outgoing.transfer_id,
-                        "sent_size": sent_size,
-                        "total_size": total_size
-                    }),
-                );
-            }
-            offset = end as u64;
-        }
-    }
-
-    let done = ChatFileDoneMessage {
-        transfer_id: outgoing.transfer_id,
-        from_device_id: device_id(),
-        to_device_id: outgoing.to_device_id.clone(),
-        sent_at_ms: current_time_ms(),
-    };
-
-    if let Some(app) = app_handle {
-        use tauri::Emitter;
-        let _ = app.emit(
-            "lan-chat-event",
-            serde_json::json!({
-                "type": "file_done",
-                "done": done
-            }),
-        );
-    }
-
-    MANAGER
-        .send_message_to_device(&outgoing.to_device_id, LanSyncMessage::ChatFileDone(done))
-        .await?;
-    Ok(())
-}
-
-pub async fn chat_on_file_reject_or_expired_received(transfer_id: &str) {
-    let mut runtime = CHAT_RUNTIME.lock().await;
-    runtime.outgoing_waiting_accept.remove(transfer_id);
-}
-
-pub async fn chat_handle_file_chunk(
-    image_id: String,
-    total_len: u64,
-    offset: u64,
-    data: Vec<u8>,
-) -> Result<Option<(String, u64, u64)>, String> {
-    let Some((transfer_id, file_id)) = parse_chat_chunk_key(&image_id) else {
-        return Ok(None);
-    };
-
-    let (file_path, expected_file_size) = {
-        let runtime = CHAT_RUNTIME.lock().await;
-        let Some(state) = runtime.incoming_receiving.get(&transfer_id) else {
-            return Ok(None);
-        };
-        let Some(file_state) = state.files.iter().find(|f| f.file_id == file_id) else {
-            return Ok(None);
-        };
-        (file_state.file_path.clone(), file_state.file_size)
-    };
-
-    if offset >= expected_file_size || data.is_empty() {
-        return Ok(None);
-    }
-
-    let writable_len = std::cmp::min(
-        data.len() as u64,
-        expected_file_size.saturating_sub(offset),
-    ) as usize;
-    if writable_len == 0 {
-        return Ok(None);
-    }
-
-    use std::io::{Seek, SeekFrom, Write};
-    if let Some(parent) = file_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-
-    let writer_key = make_chat_writer_key(&transfer_id, &file_id);
-    {
-        let mut writers = CHAT_FILE_WRITERS.lock().await;
-        let writer = if let Some(existing) = writers.get_mut(&writer_key) {
-            existing
-        } else {
-            let opened = std::fs::OpenOptions::new()
-                .create(true)
-                .write(true)
-                .read(true)
-                .open(&file_path)
-                .map_err(|e| e.to_string())?;
-            writers.insert(writer_key.clone(), opened);
-            writers
-                .get_mut(&writer_key)
-                .ok_or_else(|| "创建写入器失败".to_string())?
-        };
-
-        writer
-            .seek(SeekFrom::Start(offset))
-            .map_err(|e| e.to_string())?;
-        writer
-            .write_all(&data[..writable_len])
-            .map_err(|e| e.to_string())?;
-    }
-
-    let write_end = offset.saturating_add(writable_len as u64);
-    let mut runtime = CHAT_RUNTIME.lock().await;
-    let Some(state) = runtime.incoming_receiving.get_mut(&transfer_id) else {
-        return Ok(None);
-    };
-    let Some(file_state) = state.files.iter_mut().find(|f| f.file_id == file_id) else {
-        return Ok(None);
-    };
-
-    let previous_received = file_state.received;
-    let covered = add_covered_range(&mut file_state.received_ranges, offset, write_end);
-    file_state.covered_size = covered.min(expected_file_size);
-    file_state.received = file_state.covered_size;
-
-    if file_state.received >= expected_file_size {
-        let mut writers = CHAT_FILE_WRITERS.lock().await;
-        if let Some(writer) = writers.get_mut(&writer_key) {
-            writer
-                .set_len(expected_file_size)
-                .map_err(|e| e.to_string())?;
-        }
-    }
-
-    let delta = file_state.received.saturating_sub(previous_received);
-    if delta > 0 {
-        state.received_size = state.received_size.saturating_add(delta);
-    }
-    Ok(Some((transfer_id, state.received_size, state.total_size)))
-}
-
-pub async fn chat_on_file_done_received(transfer_id: &str) -> Result<ChatFileDoneResolve, String> {
-    let mut runtime = CHAT_RUNTIME.lock().await;
-    let Some(state) = runtime.incoming_receiving.get(transfer_id) else {
-        return Ok(ChatFileDoneResolve::SenderAck);
-    };
-    let completed = state.files.iter().all(|f| f.received >= f.file_size);
-    if !completed {
-        return Ok(ChatFileDoneResolve::NotReady);
-    }
-    let Some(state) = runtime.incoming_receiving.remove(transfer_id) else {
-        return Ok(ChatFileDoneResolve::NotReady);
-    };
-    drop(runtime);
-    remove_chat_writer_handles_by_transfer(transfer_id).await;
-
-    for f in &state.files {
-        if let Some(expected_hash) = f.file_hash.as_ref().filter(|s| !s.trim().is_empty()) {
-            let actual = compute_blake3_file_hash_hex(&f.file_path)?;
-            if actual.to_lowercase() != expected_hash.to_lowercase() {
-                return Err(format!("文件校验失败: {}", f.file_name));
+    if let Some(mut transfer) = outgoing {
+        transfer.status = ChatTransferStatus::CanceledBySender;
+        for file in &transfer.files {
+            let current = transfer
+                .file_statuses
+                .get(&file.file_id)
+                .copied()
+                .unwrap_or(ChatTransferFileStatus::Queue);
+            if current != ChatTransferFileStatus::Done {
+                transfer
+                    .file_statuses
+                    .insert(file.file_id.clone(), ChatTransferFileStatus::Canceled);
+                transfer
+                    .file_errors
+                    .insert(file.file_id.clone(), Some("已取消发送".to_string()));
             }
         }
+        emit_outgoing_state(&transfer, Some("已取消发送"));
+        notify_peer_canceled(&transfer.to_device_id, &transfer_id).await;
+        return Ok(build_cancel_result(
+            transfer_id,
+            transfer.to_device_id,
+            ChatTransferStatus::CanceledBySender,
+        ));
     }
 
-    let paths = state
-        .files
-        .into_iter()
-        .map(|f| f.file_path.to_string_lossy().to_string())
-        .collect::<Vec<_>>();
-    Ok(ChatFileDoneResolve::ReceiverCompleted(paths))
+    let (incoming_offer, decision_sender) = {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        (
+            runtime.incoming_waiting_decision.remove(&transfer_id),
+            runtime.incoming_decision_senders.remove(&transfer_id),
+        )
+    };
+    if let Some(mut transfer) = incoming_offer {
+        transfer.status = ChatTransferStatus::CanceledByReceiver;
+        emit_incoming_offer_state(&transfer, Some("已取消接收"));
+        if let Some(sender) = decision_sender {
+            let _ = sender.send(IncomingDecision::CancelByReceiver);
+        }
+        notify_peer_canceled(&transfer.from_device_id, &transfer_id).await;
+        return Ok(build_cancel_result(
+            transfer_id,
+            transfer.from_device_id,
+            ChatTransferStatus::CanceledByReceiver,
+        ));
+    }
+
+    let incoming_receive = {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_receiving.remove(&transfer_id)
+    };
+    if let Some(mut transfer) = incoming_receive {
+        transfer.status = ChatTransferStatus::CanceledByReceiver;
+        for file in &mut transfer.files {
+            if file.status != ChatTransferFileStatus::Done {
+                file.status = ChatTransferFileStatus::Canceled;
+                file.error_message = Some("已取消接收".to_string());
+            }
+        }
+        emit_incoming_receive_state(&transfer, Some("已取消接收"));
+        notify_peer_canceled(&transfer.from_device_id, &transfer_id).await;
+        return Ok(build_cancel_result(
+            transfer_id,
+            transfer.from_device_id,
+            ChatTransferStatus::CanceledByReceiver,
+        ));
+    }
+
+    if let Some(peer_device_id) = input.peer_device_id.filter(|value| !value.trim().is_empty()) {
+        return Ok(build_cancel_result(
+            transfer_id,
+            peer_device_id,
+            ChatTransferStatus::CanceledBySender,
+        ));
+    }
+
+    Err(LanSyncError::Protocol("传输不存在或已结束".to_string()))
 }
 
 pub async fn chat_reveal_file(path: &str) -> Result<(), LanSyncError> {
@@ -1401,18 +2757,6 @@ pub async fn chat_reveal_file(path: &str) -> Result<(), LanSyncError> {
             .map_err(|e| LanSyncError::Protocol(format!("打开目录失败: {}", e)))?;
         Ok(())
     }
-}
-
-pub async fn chat_send_file_done_ack(to_device_id: &str, transfer_id: &str) -> Result<(), LanSyncError> {
-    let done = ChatFileDoneMessage {
-        transfer_id: transfer_id.to_string(),
-        from_device_id: device_id(),
-        to_device_id: to_device_id.to_string(),
-        sent_at_ms: current_time_ms(),
-    };
-    MANAGER
-        .send_message_to_device(to_device_id, LanSyncMessage::ChatFileDone(done))
-        .await
 }
 
 pub async fn subscribe() -> tokio::sync::broadcast::Receiver<CoreEvent> {

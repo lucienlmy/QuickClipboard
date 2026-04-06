@@ -240,6 +240,7 @@ pub fn run() {
                 commands::lan_chat_send_file_offer,
                 commands::lan_chat_accept_file_offer,
                 commands::lan_chat_reject_file_offer,
+                commands::lan_chat_cancel_transfer,
                 commands::lan_chat_prepare_files,
                 commands::lan_chat_reveal_file,
                 commands::lan_chat_drop_proxy_ensure,
@@ -413,7 +414,7 @@ pub fn run() {
                 {
                     let app_handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
-                        use std::collections::HashMap;
+                        use std::collections::{HashMap, HashSet};
                         use std::time::{Duration, Instant};
 
                         struct AttachmentProgress {
@@ -476,6 +477,7 @@ pub fn run() {
                         }
 
                         let mut attachment_progress: HashMap<String, AttachmentProgress> = HashMap::new();
+                        let mut last_connected_chat_devices: HashSet<String> = HashSet::new();
                         let mut last_purge = Instant::now();
 
                         let mut rx = crate::services::lan_sync::subscribe().await;
@@ -583,30 +585,6 @@ pub fn run() {
                                     if !settings.lan_sync_receive_enabled {
                                         continue;
                                     }
-                                    if image_id.starts_with("chat_file:") {
-                                        if let Ok(progress) = crate::services::lan_sync::chat_handle_file_chunk(
-                                            image_id,
-                                            total_len,
-                                            offset,
-                                            data,
-                                        )
-                                        .await
-                                        {
-                                            if let Some((transfer_id, received_size, total_size)) = progress {
-                                                use tauri::Emitter;
-                                                let _ = app_handle.emit(
-                                                    "lan-chat-event",
-                                                    serde_json::json!({
-                                                        "type": "file_progress",
-                                                        "transfer_id": transfer_id,
-                                                        "received_size": received_size,
-                                                        "total_size": total_size
-                                                    }),
-                                                );
-                                            }
-                                        }
-                                        continue;
-                                    }
                                     let end = offset.saturating_add(data.len() as u64);
                                     let now = Instant::now();
                                     let progress = attachment_progress.entry(image_id.clone()).or_insert_with(|| AttachmentProgress {
@@ -659,6 +637,34 @@ pub fn run() {
                                 lan_sync_core::CoreEvent::Paired { device_id, device_name, pair_secret } => {
                                     crate::services::lan_sync::on_paired(device_id, pair_secret, device_name);
                                 }
+                                lan_sync_core::CoreEvent::StatusChanged { snapshot } => {
+                                    let mut current_devices: HashSet<String> = snapshot
+                                        .server_connected_device_ids
+                                        .iter()
+                                        .filter(|device_id| !device_id.trim().is_empty())
+                                        .cloned()
+                                        .collect();
+                                    if let Some(device_id) = snapshot
+                                        .connected_peer_device_id
+                                        .filter(|device_id| !device_id.trim().is_empty())
+                                    {
+                                        current_devices.insert(device_id);
+                                    }
+
+                                    let removed_devices = last_connected_chat_devices
+                                        .difference(&current_devices)
+                                        .cloned()
+                                        .collect::<Vec<_>>();
+                                    last_connected_chat_devices = current_devices;
+
+                                    if !removed_devices.is_empty() {
+                                        crate::services::lan_sync::cleanup_chat_transfers_for_devices(
+                                            removed_devices,
+                                            "连接已断开，传输已中断",
+                                        )
+                                        .await;
+                                    }
+                                }
                                 lan_sync_core::CoreEvent::ChatText { message } => {
                                     use tauri::Emitter;
                                     let _ = app_handle.emit(
@@ -668,94 +674,6 @@ pub fn run() {
                                             "message": message
                                         }),
                                     );
-                                }
-                                lan_sync_core::CoreEvent::ChatFileOffer { offer } => {
-                                    crate::services::lan_sync::chat_on_file_offer_received(offer.clone()).await;
-                                    use tauri::Emitter;
-                                    let _ = app_handle.emit(
-                                        "lan-chat-event",
-                                        serde_json::json!({
-                                            "type": "file_offer",
-                                            "offer": offer
-                                        }),
-                                    );
-                                }
-                                lan_sync_core::CoreEvent::ChatFileAccept { decision } => {
-                                    let _ = crate::services::lan_sync::chat_on_file_accept_received(
-                                        decision.clone(),
-                                        Some(&app_handle),
-                                    )
-                                    .await;
-                                    use tauri::Emitter;
-                                    let _ = app_handle.emit(
-                                        "lan-chat-event",
-                                        serde_json::json!({
-                                            "type": "file_accept",
-                                            "decision": decision
-                                        }),
-                                    );
-                                }
-                                lan_sync_core::CoreEvent::ChatFileReject { decision } => {
-                                    crate::services::lan_sync::chat_on_file_reject_or_expired_received(&decision.transfer_id).await;
-                                    use tauri::Emitter;
-                                    let _ = app_handle.emit(
-                                        "lan-chat-event",
-                                        serde_json::json!({
-                                            "type": "file_reject",
-                                            "decision": decision
-                                        }),
-                                    );
-                                }
-                                lan_sync_core::CoreEvent::ChatFileExpired { decision } => {
-                                    crate::services::lan_sync::chat_on_file_reject_or_expired_received(&decision.transfer_id).await;
-                                    use tauri::Emitter;
-                                    let _ = app_handle.emit(
-                                        "lan-chat-event",
-                                        serde_json::json!({
-                                            "type": "file_expired",
-                                            "decision": decision
-                                        }),
-                                    );
-                                }
-                                lan_sync_core::CoreEvent::ChatFileDone { done } => {
-                                    use tauri::Emitter;
-                                    match crate::services::lan_sync::chat_on_file_done_received(&done.transfer_id).await {
-                                        Ok(crate::services::lan_sync::ChatFileDoneResolve::ReceiverCompleted(paths)) => {
-                                            let _ = crate::services::lan_sync::chat_send_file_done_ack(
-                                                &done.from_device_id,
-                                                &done.transfer_id,
-                                            )
-                                            .await;
-                                            let _ = app_handle.emit(
-                                                "lan-chat-event",
-                                                serde_json::json!({
-                                                    "type": "file_done",
-                                                    "done": done,
-                                                    "paths": paths
-                                                }),
-                                            );
-                                        }
-                                        Ok(crate::services::lan_sync::ChatFileDoneResolve::SenderAck) => {
-                                            let _ = app_handle.emit(
-                                                "lan-chat-event",
-                                                serde_json::json!({
-                                                    "type": "file_done",
-                                                    "done": done
-                                                }),
-                                            );
-                                        }
-                                        Ok(crate::services::lan_sync::ChatFileDoneResolve::NotReady) => {}
-                                        Err(err) => {
-                                            let _ = app_handle.emit(
-                                                "lan-chat-event",
-                                                serde_json::json!({
-                                                    "type": "file_failed",
-                                                    "done": done,
-                                                    "error": err
-                                                }),
-                                            );
-                                        }
-                                    }
                                 }
                                 _ => {}
                             }

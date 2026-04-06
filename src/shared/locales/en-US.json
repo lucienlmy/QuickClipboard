@@ -79,6 +79,9 @@
       "rejected": "Rejected",
       "expired": "Expired",
       "done": "Completed",
+      "partial": "Partially completed",
+      "canceledBySender": "Canceled by sender",
+      "canceledByReceiver": "Canceled by receiver",
       "failed": "Transfer failed (checksum mismatch)"
     },
     "device": {
@@ -88,6 +91,7 @@
       "viewFile": "View file",
       "accept": "Accept",
       "reject": "Reject",
+      "cancel": "Cancel",
       "addFile": "Add file",
       "send": "Send"
     },

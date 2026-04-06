@@ -43,6 +43,13 @@ function updateFileMessageStatusByTransfer(state, transferId, patch) {
   });
 }
 
+function buildReceivedPathsFromFiles(files) {
+  if (!Array.isArray(files)) return [];
+  return files
+    .map((file) => file?.path)
+    .filter((path) => typeof path === 'string' && path.trim());
+}
+
 export const chatStore = proxy({
   currentDeviceId: '',
   connectedDevices: [],
@@ -137,6 +144,8 @@ export const chatStore = proxy({
       message_type: 'file',
       transfer_id: offer.transfer_id,
       direction: 'out',
+      from_device_id: offer.from_device_id,
+      to_device_id: offer.to_device_id,
       text: offer.text || '',
       files: offer.files || [],
       status: 'waiting_accept',
@@ -153,6 +162,8 @@ export const chatStore = proxy({
       message_type: 'file',
       transfer_id: offer.transfer_id,
       direction: 'in',
+      from_device_id: offer.from_device_id,
+      to_device_id: offer.to_device_id,
       text: offer.text || '',
       files: offer.files || [],
       status: nowMs() > offer.expire_at_ms ? 'expired' : 'pending',
@@ -191,13 +202,42 @@ export const chatStore = proxy({
     Object.values(this.sessions).forEach((session) => {
       const msg = session.messages.find((m) => m.message_type === 'file' && m.transfer_id === transferId);
       if (msg) {
-        if (msg.status === 'done' || msg.status === 'rejected' || msg.status === 'expired') {
+        if (['done', 'rejected', 'expired', 'canceled_by_sender', 'canceled_by_receiver'].includes(msg.status)) {
           return;
         }
         msg.status = 'transferring';
         msg.progress = progress;
       }
     });
+  },
+
+  handleFileState(payload) {
+    const transferId = payload?.transfer_id;
+    if (!transferId) return;
+    const files = Array.isArray(payload?.files) ? payload.files : [];
+    const patch = {
+      status: payload?.status || 'failed',
+      files,
+      error: payload?.error || '',
+      progress: 0
+    };
+
+    const totalSize = files.reduce((sum, file) => sum + Number(file?.file_size || 0), 0);
+    const receivedSize = files.reduce((sum, file) => sum + Number(file?.received_size || 0), 0);
+    if (totalSize > 0) {
+      patch.progress = Math.min(100, Math.floor(receivedSize * 100 / totalSize));
+    }
+    if (patch.status === 'done' || patch.status === 'partial') {
+      const receivedPaths = buildReceivedPathsFromFiles(files);
+      if (receivedPaths.length > 0) {
+        patch.received_paths = receivedPaths;
+      }
+      if (patch.status === 'done') {
+        patch.progress = 100;
+      }
+    }
+
+    updateFileMessageStatusByTransfer(this, transferId, patch);
   },
 
   handleFileDone(payload) {
@@ -238,6 +278,8 @@ export const chatStore = proxy({
         this.handleIncomingText(payload.message);
       } else if (type === 'file_offer' && payload.offer) {
         this.handleIncomingFileOffer(payload.offer);
+      } else if (type === 'file_state') {
+        this.handleFileState(payload);
       } else if (type === 'file_accept' && payload.decision) {
         this.handleFileAccept(payload.decision);
       } else if (type === 'file_reject' && payload.decision) {
