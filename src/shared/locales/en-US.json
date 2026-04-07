@@ -1057,6 +1057,14 @@
       "small": "Small",
       "xsmall": "Extra Small"
     },
+    "showShortcuts": {
+      "label": "Show List Shortcuts",
+      "description": "Show number shortcut hints on the right side of list items"
+    },
+    "showIndex": {
+      "label": "Show List Index",
+      "description": "Show item index numbers on the right side of list items"
+    },
     "fileDisplayMode": {
       "label": "File Display Mode",
       "detailed": "Detailed",

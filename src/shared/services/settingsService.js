@@ -80,6 +80,8 @@ export const defaultSettings = {
   pasteWithFormat: true,
   pasteShortcutMode: 'ctrl_v',
   pasteToTop: false,
+  showListShortcuts: true,
+  showListIndex: true,
   showBadges: true,
   showSourceIcon: true,
   updateCheckInterval: 'daily',

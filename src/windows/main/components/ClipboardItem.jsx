@@ -62,6 +62,7 @@ function ClipboardItem({
   isDragActive = false,
   isDraggable = true,
   showShortcut = true,
+  showIndex = true,
   animationDelay = 0
 }) {
   const {
@@ -793,9 +794,9 @@ function ClipboardItem({
           </Tooltip>
         )}
         {/* 序号 */}
-        <span className={`${numberBadgeClasses} pointer-events-none`}>
+        {showIndex && <span className={`${numberBadgeClasses} pointer-events-none`}>
           {index + 1}
-        </span>
+        </span>}
       </div>
 
       {isCompactHeight ?

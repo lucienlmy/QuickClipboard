@@ -27,8 +27,9 @@ const ClipboardList = forwardRef(({
   const snap = useSnapshot(navigationStore);
   const clipSnap = useSnapshot(clipboardStore);
   const isMultiSelectMode = clipSnap.isMultiSelectMode;
-  const showShortcut = !clipSnap.filter && clipSnap.contentType === 'all';
   const settings = useSnapshot(settingsStore);
+  const showShortcut = settings.showListShortcuts !== false && !clipSnap.filter && clipSnap.contentType === 'all';
+  const showIndex = settings.showListIndex !== false;
   const itemsArray = useMemo(() => {
     return Array.from({
       length: clipSnap.totalCount
@@ -380,6 +381,7 @@ const ClipboardList = forwardRef(({
                 isDragActive={!isMultiSelectMode && dragActive}
                 isDraggable={!isMultiSelectMode}
                 showShortcut={showShortcut}
+                showIndex={showIndex}
                 animationDelay={animationDelay}
               />
             </div>
@@ -396,6 +398,7 @@ const ClipboardList = forwardRef(({
               isDragActive={!isMultiSelectMode && dragActive}
               isDraggable={!isMultiSelectMode}
               showShortcut={showShortcut}
+              showIndex={showIndex}
               animationDelay={animationDelay}
             />
           </div>;
@@ -417,6 +420,7 @@ const ClipboardList = forwardRef(({
               isDragActive={!isMultiSelectMode}
               isDraggable={!isMultiSelectMode}
               showShortcut={showShortcut}
+              showIndex={showIndex}
             />
           </div>
         );

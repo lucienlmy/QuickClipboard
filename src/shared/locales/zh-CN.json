@@ -1047,6 +1047,14 @@
       "small": "小",
       "xsmall": "极小"
     },
+    "showShortcuts": {
+      "label": "显示列表快捷键",
+      "description": "在列表右侧显示数字快捷键提示"
+    },
+    "showIndex": {
+      "label": "显示列表序号",
+      "description": "在列表右侧显示条目序号"
+    },
     "fileDisplayMode": {
       "label": "文件显示模式",
       "detailed": "详细信息",

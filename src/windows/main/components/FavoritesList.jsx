@@ -29,6 +29,7 @@ const FavoritesList = forwardRef(({
   const isMultiSelectMode = favSnap.isMultiSelectMode;
   const groupsSnap = useSnapshot(groupsStore);
   const settings = useSnapshot(settingsStore);
+  const showIndex = settings.showListIndex !== false;
   const itemsArray = useMemo(() => {
     return Array.from({
       length: favSnap.totalCount
@@ -365,6 +366,7 @@ const FavoritesList = forwardRef(({
                     onClick={handleItemClick}
                     isDraggable={canDrag && !isMultiSelectMode}
                     isDragActive={!isMultiSelectMode && dragActive}
+                    showIndex={showIndex}
                     animationDelay={animationDelay}
                   />
                 </div>
@@ -380,6 +382,7 @@ const FavoritesList = forwardRef(({
                   onClick={handleItemClick}
                   isDraggable={canDrag && !isMultiSelectMode}
                   isDragActive={!isMultiSelectMode && dragActive}
+                  showIndex={showIndex}
                   animationDelay={animationDelay}
                 />
               </div>;
@@ -400,6 +403,7 @@ const FavoritesList = forwardRef(({
                 sortId={activeItem._sortId}
                 isDragActive={!isMultiSelectMode}
                 isDraggable={!isMultiSelectMode}
+                showIndex={showIndex}
               />
             </div>
           );

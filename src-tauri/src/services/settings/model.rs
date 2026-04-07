@@ -129,6 +129,8 @@ pub struct AppSettings {
     pub paste_shortcut_mode: String,
     
     pub paste_to_top: bool,
+    pub show_list_shortcuts: bool,
+    pub show_list_index: bool,
     pub show_badges: bool,
     pub show_source_icon: bool,
     pub update_check_interval: String,
@@ -287,6 +289,8 @@ impl Default for AppSettings {
             paste_with_format: true,
             paste_shortcut_mode: "ctrl_v".to_string(),
             paste_to_top: false,
+            show_list_shortcuts: true,
+            show_list_index: true,
             show_badges: true,
             show_source_icon: true,
             update_check_interval: "daily".to_string(),

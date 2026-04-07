@@ -61,6 +61,7 @@ function FavoriteItem({
   onHover,
   onClick,
   isDragActive = false,
+  showIndex = true,
   animationDelay = 0
 }) {
   const {
@@ -698,9 +699,9 @@ function FavoriteItem({
           </Tooltip>
         )}
         {/* 序号 */}
-        <span className={`${numberBadgeClasses} pointer-events-none`}>
+        {showIndex && <span className={`${numberBadgeClasses} pointer-events-none`}>
           {index + 1}
-        </span>
+        </span>}
       </div>
 
       {isCompactHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">

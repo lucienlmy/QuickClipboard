@@ -123,6 +123,14 @@ function ClipboardSection({
           <Toggle checked={settings.showSourceIcon !== false} onChange={checked => onSettingChange('showSourceIcon', checked)} />
         </SettingItem>
 
+        <SettingItem label={t('listSettings.showShortcuts.label')} description={t('listSettings.showShortcuts.description')}>
+          <Toggle checked={settings.showListShortcuts !== false} onChange={checked => onSettingChange('showListShortcuts', checked)} />
+        </SettingItem>
+
+        <SettingItem label={t('listSettings.showIndex.label')} description={t('listSettings.showIndex.description')}>
+          <Toggle checked={settings.showListIndex !== false} onChange={checked => onSettingChange('showListIndex', checked)} />
+        </SettingItem>
+
         <SettingItem label={t('settings.clipboard.pasteShortcutMode')} description={t('settings.clipboard.pasteShortcutModeDesc')}>
           <Select value={settings.pasteShortcutMode || 'ctrl_v'} onChange={value => onSettingChange('pasteShortcutMode', value)} options={pasteShortcutModeOptions} className="w-48" />
         </SettingItem>
