@@ -6,6 +6,7 @@ use std::fs;
 mod commands;
 mod security;
 mod services;
+mod startup_diagnostics;
 mod utils;
 mod windows;
 
@@ -31,13 +32,21 @@ pub use windows::settings_window::open_settings_window;
 pub use windows::quickpaste;
 pub use windows::plugins::context_menu::is_context_menu_visible;
 pub use services::low_memory::{is_low_memory_mode, enter_low_memory_mode, exit_low_memory_mode};
+pub use startup_diagnostics::install_panic_hook as install_startup_panic_hook;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    startup_diagnostics::set_startup_stage("执行启动安全检查");
+    startup_diagnostics::mark_starting();
     security::check_webview_security();
+    if let Some(message) = startup_diagnostics::detect_blocking_previous_instance() {
+        startup_diagnostics::show_error_dialog("QuickClipboard 检测到异常旧进程", &message);
+        return;
+    }
     #[cfg(windows)]
     {
         use std::process::Command;
+        startup_diagnostics::set_startup_stage("处理安装器启动参数");
         let args: Vec<String> = std::env::args().collect();
         let is_installer_launch = args.iter().any(|a| a == "--installer-launch");
         let already_restarted = args.iter().any(|a| a == "--qc-restarted");
@@ -56,6 +65,7 @@ pub fn run() {
             }
         }
 
+        startup_diagnostics::set_startup_stage("检查管理员启动配置");
         if let Ok(settings) = services::settings::load_settings_from_file() {
             if settings.run_as_admin {
                 let is_admin = services::system::is_running_as_admin();
@@ -71,6 +81,7 @@ pub fn run() {
         }
     }
     
+    startup_diagnostics::set_startup_stage("构建 Tauri 应用");
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if services::low_memory::is_low_memory_mode() {
@@ -97,7 +108,7 @@ pub fn run() {
     #[cfg(feature = "screenshot-suite")]
     let builder = builder.plugin(screenshot_suite::init());
         
-    builder.invoke_handler(tauri::generate_handler![
+    let app = builder.invoke_handler(tauri::generate_handler![
                 commands::start_custom_drag,
                 commands::stop_custom_drag,
                 commands::toggle_main_window,
@@ -290,15 +301,20 @@ pub fn run() {
             ])
         
     .setup(|app| {
+                startup_diagnostics::set_startup_stage("执行 setup：初始化 store");
                 services::store::init(app.handle());
+                startup_diagnostics::set_startup_stage("执行 setup：初始化低占用状态");
                 services::low_memory::init_window_activity_timestamp();
+                startup_diagnostics::set_startup_stage("执行 setup：初始化低占用面板");
                 services::low_memory::init_panel(app.handle().clone())?;
                 #[cfg(desktop)]
                 {
                     use tauri_plugin_autostart::MacosLauncher;
+                    startup_diagnostics::set_startup_stage("执行 setup：初始化开机自启插件");
                     app.handle().plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![])))?;
                 }
                 
+                startup_diagnostics::set_startup_stage("执行 setup：获取主窗口");
                 let window = app.get_webview_window("main").ok_or("无法获取主窗口")?;
                 let _ = window.set_focusable(false);
                 #[cfg(debug_assertions)]
@@ -315,6 +331,7 @@ pub fn run() {
                     }
                 }
 
+                startup_diagnostics::set_startup_stage("执行 setup：初始化数据库");
                 let db_path_buf = get_data_directory()?.join("quickclipboard.db");
                 let db_path_str = db_path_buf.to_str().ok_or("数据库路径无效")?;
                 if let Err(e1) = services::database::init_database(db_path_str) {
@@ -331,6 +348,7 @@ pub fn run() {
                     conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
                 });
                 
+                startup_diagnostics::set_startup_stage("执行 setup：加载设置");
                 let mut settings = get_settings();
                 
                 if let Some((w, h)) = settings.saved_window_size.filter(|_| settings.remember_window_size) {
@@ -347,14 +365,18 @@ pub fn run() {
                 }
                 let _ = services::database::limit_clipboard_history(settings.history_limit);
                 
+                startup_diagnostics::set_startup_stage("执行 setup：初始化屏幕与输入监听");
                 utils::init_screen_utils(app.handle().clone());
                 hotkey::init_hotkey_manager(app.handle().clone(), window.clone());
                 input_monitor::init_input_monitor(window.clone());
                 #[cfg(target_os = "windows")]
                 services::system::raw_input::start_raw_input_if_needed();
                 init_edge_monitor(window.clone());
+                startup_diagnostics::set_startup_stage("执行 setup：创建托盘图标");
                 setup_tray(app.handle())?;
+                startup_diagnostics::set_startup_stage("执行 setup：加载全局快捷键");
                 hotkey::reload_from_settings()?;
+                startup_diagnostics::set_startup_stage("执行 setup：初始化扩展窗口状态");
                 windows::plugins::context_menu::init();
                 windows::plugins::input_dialog::init();
                 quickpaste::init_quickpaste_state();
@@ -689,14 +711,25 @@ pub fn run() {
 
                 windows::updater_window::start_update_checker(app.handle().clone());
 
+                startup_diagnostics::set_startup_stage("执行 setup：完成启动收尾");
                 services::memory::init();
                 services::low_memory::init_auto_low_memory_manager(app.handle().clone());
+                startup_diagnostics::mark_ready();
 
             Ok(())
         })
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|app, event| {
+        .build(tauri::generate_context!());
+
+    let app = match app {
+        Ok(app) => app,
+        Err(error) => {
+            startup_diagnostics::report_startup_error("构建应用失败：", error);
+            return;
+        }
+    };
+
+    startup_diagnostics::set_startup_stage("运行应用事件循环");
+    app.run(|app, event| {
             match event {
                 tauri::RunEvent::ExitRequested { api, .. } => {
                     if services::low_memory::is_low_memory_mode() 
