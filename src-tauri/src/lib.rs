@@ -68,11 +68,14 @@ pub fn run() {
         startup_diagnostics::set_startup_stage("检查管理员启动配置");
         if let Ok(settings) = services::settings::load_settings_from_file() {
             if settings.run_as_admin {
+                startup_diagnostics::set_startup_stage("检查管理员启动：检测当前进程权限");
                 let is_admin = services::system::is_running_as_admin();
                 
                 if is_admin {
+                    startup_diagnostics::set_startup_stage("检查管理员启动：当前已是管理员，准备同步计划任务");
                     let _ = services::system::create_scheduled_task();
                 } else {
+                    startup_diagnostics::set_startup_stage("检查管理员启动：当前不是管理员，准备提权重启");
                     if services::system::elevate::try_elevate_and_restart() {
                         std::process::exit(0);
                     }

@@ -26,6 +26,12 @@ pub fn set_startup_stage(stage: &str) {
     persist_status();
 }
 
+pub fn set_startup_stage_if_starting(stage: &str) {
+    if STARTUP_STATE.read().as_str() == "starting" {
+        set_startup_stage(stage);
+    }
+}
+
 pub fn current_startup_stage() -> String {
     STARTUP_STAGE.read().clone()
 }

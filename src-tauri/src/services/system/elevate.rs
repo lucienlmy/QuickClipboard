@@ -49,6 +49,8 @@ pub fn is_running_as_admin() -> bool {
 #[cfg(windows)]
 pub fn is_scheduled_task_exists() -> bool {
     use std::process::Command;
+
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：查询计划任务是否存在");
     
     let output = Command::new("schtasks")
         .args(["/Query", "/TN", TASK_NAME])
@@ -67,6 +69,8 @@ pub fn is_scheduled_task_exists() -> bool {
 #[cfg(windows)]
 pub fn is_scheduled_task_path_valid() -> bool {
     use std::process::Command;
+
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：校验计划任务目标路径");
     
     let current_exe = match std::env::current_exe() {
         Ok(p) => p.to_string_lossy().to_lowercase(),
@@ -96,6 +100,8 @@ pub fn is_scheduled_task_path_valid() -> bool {
 #[cfg(windows)]
 pub fn create_scheduled_task() -> Result<(), String> {
     use std::process::Command;
+
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：准备创建计划任务");
     
     let exe_path = std::env::current_exe()
         .map_err(|e| format!("获取程序路径失败: {}", e))?;
@@ -103,12 +109,14 @@ pub fn create_scheduled_task() -> Result<(), String> {
     let exe_path_str = exe_path.to_string_lossy();
     
     // 先删除可能存在的旧任务
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：删除旧的计划任务");
     let _ = Command::new("schtasks")
         .args(["/Delete", "/TN", TASK_NAME, "/F"])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
     
     // 创建新任务，使用最高权限运行
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：创建新的计划任务");
     let output = Command::new("schtasks")
         .args([
             "/Create",
@@ -141,6 +149,8 @@ pub fn create_scheduled_task() -> Result<(), String> {
 #[cfg(windows)]
 pub fn delete_scheduled_task() -> Result<(), String> {
     use std::process::Command;
+
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：删除计划任务");
     
     let _ = Command::new("schtasks")
         .args(["/Delete", "/TN", TASK_NAME, "/F"])
@@ -159,6 +169,8 @@ pub fn delete_scheduled_task() -> Result<(), String> {
 #[cfg(windows)]
 pub fn run_via_scheduled_task() -> bool {
     use std::process::Command;
+
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：通过计划任务启动提权实例");
     
     let output = Command::new("schtasks")
         .args(["/Run", "/TN", TASK_NAME])
@@ -176,10 +188,12 @@ pub fn run_via_scheduled_task() -> bool {
 // 尝试以管理员权限重启程序（优先使用计划任务）
 #[cfg(windows)]
 pub fn try_elevate_and_restart() -> bool {
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：尝试复用已有计划任务");
     if is_scheduled_task_exists() && is_scheduled_task_path_valid() && run_via_scheduled_task() {
         return true;
     }
     
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：回退到 UAC 提权");
     try_elevate_with_uac()
 }
 
@@ -196,6 +210,8 @@ pub fn try_elevate_with_uac() -> bool {
     use ::windows::Win32::UI::Shell::ShellExecuteW;
     use ::windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
     use ::windows::core::PCWSTR;
+
+    crate::startup_diagnostics::set_startup_stage_if_starting("检查管理员启动：拉起 UAC 提权窗口");
 
     if let Ok(exe_path) = std::env::current_exe() {
         let operation: Vec<u16> = OsStr::new("runas")
