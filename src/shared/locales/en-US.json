@@ -1054,7 +1054,8 @@
       "auto": "Auto",
       "large": "Large",
       "medium": "Medium",
-      "small": "Small"
+      "small": "Small",
+      "xsmall": "Extra Small"
     },
     "fileDisplayMode": {
       "label": "File Display Mode",

@@ -3,7 +3,7 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteClipboardItem, clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
-import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
+import { ROW_HEIGHT_CONFIG, useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
@@ -509,7 +509,12 @@ function ClipboardItem({
 
     return `${modifier}+${index + 1}`;
   };
-  const isSmallHeight = settings.rowHeight === 'small';
+  const isCompactHeight = settings.rowHeight === 'small' || settings.rowHeight === 'xsmall';
+  const isXSmallHeight = settings.rowHeight === 'xsmall';
+  const compactRowHeightPx = (ROW_HEIGHT_CONFIG[settings.rowHeight] || ROW_HEIGHT_CONFIG.medium).px;
+  const floatingControlsClasses = isXSmallHeight
+    ? 'absolute top-1/2 right-2 -translate-y-1/2 flex items-center gap-1.5 z-20'
+    : 'absolute top-2 right-2 flex items-center gap-1.5 z-20';
   const formatHintLabels = useMemo(() => formatKindsToLabels(formatKinds, t), [formatKinds, t]);
   const shouldShowFormatHintTooltip = settings.textPreview === false && formatHintLabels.length > 1;
   const formatHintTooltipContent = shouldShowFormatHintTooltip
@@ -725,7 +730,7 @@ function ClipboardItem({
         </Tooltip>
       )}
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
-      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
+      <div className={floatingControlsClasses}>
         {/* 悬停操作按钮组 */}
         {!isMultiSelectMode && <div className={actionGroupClasses}>
           <Tooltip content={t('contextMenu.addToFavorites')} placement="bottom">
@@ -793,12 +798,12 @@ function ClipboardItem({
         </span>
       </div>
 
-      {isSmallHeight ?
+      {isCompactHeight ?
         // 小行高模式：显示内容（隐藏时间）
         <div className="flex items-center gap-2 h-full overflow-hidden">
           <div className="flex-1 min-w-0 overflow-hidden h-full">
             {renderContent(true, false, {
-              availableHeightPx: 50 - 16,
+              availableHeightPx: Math.max(compactRowHeightPx - 16, 16),
               disableExternalDrag: isImageOrFileType || isMultiSelectMode,
               disableExternalTooltip: isImageOrFileType || isMultiSelectMode,
             })}
@@ -826,7 +831,7 @@ function ClipboardItem({
               availableHeightPx: (() => {
                 if (settings.rowHeight === 'auto') return undefined;
                 const rowPx = 90;
-                const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : rowPx;
+                const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : settings.rowHeight === 'xsmall' ? 34 : rowPx;
                 return base - 16 - 22;
               })(),
               disableExternalDrag: isImageOrFileType || isMultiSelectMode,

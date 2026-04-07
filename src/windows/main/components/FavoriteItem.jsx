@@ -2,7 +2,7 @@ import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
-import { useItemCommon } from '@shared/hooks/useItemCommon.jsx';
+import { ROW_HEIGHT_CONFIG, useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { focusWindowImmediately, restoreFocus } from '@shared/hooks/useInputFocus';
@@ -538,7 +538,12 @@ function FavoriteItem({
     backdrop-blur-md
     ${color ? 'text-white border-white/20 shadow-sm' : 'text-qc-fg-muted border-qc-border bg-qc-panel/80'}
   `.trim().replace(/\s+/g, ' ');
-  const isSmallHeight = settings.rowHeight === 'small';
+  const isCompactHeight = settings.rowHeight === 'small' || settings.rowHeight === 'xsmall';
+  const isXSmallHeight = settings.rowHeight === 'xsmall';
+  const compactRowHeightPx = (ROW_HEIGHT_CONFIG[settings.rowHeight] || ROW_HEIGHT_CONFIG.medium).px;
+  const floatingControlsClasses = isXSmallHeight
+    ? 'absolute top-1/2 right-2 -translate-y-1/2 flex items-center gap-1.5 z-20'
+    : 'absolute top-2 right-2 flex items-center gap-1.5 z-20';
   const formatHintLabels = useMemo(() => formatKindsToLabels(formatKinds, t), [formatKinds, t]);
   const shouldShowFormatHintTooltip = settings.textPreview === false && formatHintLabels.length > 1;
   const formatHintTooltipContent = shouldShowFormatHintTooltip
@@ -654,7 +659,7 @@ function FavoriteItem({
         </Tooltip>
       )}
       {/* 顶部操作区域：操作按钮、分组、序号 */}
-      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
+      <div className={floatingControlsClasses}>
         {/* 悬停操作按钮组 */}
         {!isMultiSelectMode && <div className={actionGroupClasses}>
           {/* 编辑按钮 */}
@@ -698,7 +703,7 @@ function FavoriteItem({
         </span>
       </div>
 
-      {isSmallHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
+      {isCompactHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
         {isEditingTitle ? (
           <input
             type="text"
@@ -718,6 +723,7 @@ function FavoriteItem({
         ) : (
           <div className="flex-1 min-w-0 overflow-hidden h-full">
             {renderContent(true, false, {
+              availableHeightPx: Math.max(compactRowHeightPx - 16, 16),
               disableExternalDrag: isImageOrFileType || isMultiSelectMode,
               disableExternalTooltip: isImageOrFileType || isMultiSelectMode,
             })}
@@ -768,7 +774,7 @@ function FavoriteItem({
           {renderContent(false, shouldShowTitle(), {
             availableHeightPx: (() => {
               if (settings.rowHeight === 'auto') return undefined;
-              const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : 90;
+              const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : settings.rowHeight === 'xsmall' ? 34 : 90;
               const timeCost = 22;
               const titleCost = shouldShowTitle() ? 20 : 0;
               return base - 16 - timeCost - titleCost;

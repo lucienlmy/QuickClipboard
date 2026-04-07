@@ -1044,7 +1044,8 @@
       "auto": "自适应",
       "large": "大",
       "medium": "中",
-      "small": "小"
+      "small": "小",
+      "xsmall": "极小"
     },
     "fileDisplayMode": {
       "label": "文件显示模式",

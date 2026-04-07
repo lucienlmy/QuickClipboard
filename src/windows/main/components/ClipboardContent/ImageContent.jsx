@@ -20,6 +20,7 @@ function parseFirstImageId(imageId) {
 function ImageContent({ item }) {
   const settings = useSnapshot(settingsStore);
   const isAutoHeight = settings.rowHeight === 'auto';
+  const isXSmallHeight = settings.rowHeight === 'xsmall';
   const maxSizeMb = settings.imageMaxSizeMb || 15;
   const maxWidth = settings.imageMaxWidth || 4096;
   const maxHeight = settings.imageMaxHeight || 4096;
@@ -112,12 +113,12 @@ function ImageContent({ item }) {
   };
 
   if (loading) {
-    return <div className="w-full min-h-[80px] bg-qc-panel-2 rounded flex items-center justify-center">
+    return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-qc-panel-2 rounded flex items-center justify-center overflow-hidden`}>
       <span className="text-sm text-qc-fg-muted">加载中...</span>
     </div>;
   }
   if (error) {
-    return <div className="w-full min-h-[80px] bg-red-50 rounded flex items-center justify-center">
+    return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-red-50 rounded flex items-center justify-center overflow-hidden`}>
       <span className="text-sm text-red-500">{t('clipboard.imageLoadFailed', '图片加载失败')}</span>
     </div>;
   }
@@ -141,6 +142,37 @@ function ImageContent({ item }) {
     const badgeColorClass = !fileExists ? 'bg-red-500' : 'bg-amber-500';
     const iconName = !fileExists ? 'ti-photo-off' : 'ti-photo';
     const badgeIcon = !fileExists ? 'ti-x' : 'ti-alert-triangle';
+
+    if (isXSmallHeight) {
+      const summaryText = [statusText, dimensionText, fileSize ? formatFileSize(fileSize) : null]
+        .filter(Boolean)
+        .join(' · ');
+
+      return (
+        <div
+          className={`w-full h-full rounded overflow-hidden flex items-center gap-2 px-2 bg-gradient-to-br ${colorClasses} border ${!fileExists ? 'opacity-60' : ''}`}
+        >
+          <div className="relative flex-shrink-0">
+            <i className={`ti ${iconName} text-base ${iconColorClass}`} />
+            <div className={`absolute -bottom-0.5 -right-0.5 ${badgeColorClass} rounded-full w-3 h-3 flex items-center justify-center`}>
+              <i className={`ti ${badgeIcon} text-white`} style={{ fontSize: 7 }} />
+            </div>
+          </div>
+          <div className="min-w-0 flex-1 flex items-center gap-1.5 text-xs overflow-hidden">
+            <Tooltip content={fileName || statusText} placement="top" asChild>
+              <span className={`truncate font-medium ${textColorClass} ${!fileExists ? 'line-through' : ''}`}>
+                {fileName || statusText}
+              </span>
+            </Tooltip>
+            {summaryText ? (
+              <span className={`truncate ${subTextColorClass}`}>
+                {summaryText}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div

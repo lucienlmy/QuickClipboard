@@ -15,7 +15,8 @@ export const ROW_HEIGHT_CONFIG = {
   auto: { px: 90, cardPx: 90, class: '', cardClass: '', itemClass: 'min-h-[50px] max-h-[350px]', lineClamp: 'line-clamp-none', lineClampWithTitle: 'line-clamp-none' },
   large: { px: 120, cardPx: 120, class: 'h-[120px]', cardClass: 'h-[120px]', itemClass: 'h-full', lineClamp: 'line-clamp-4', lineClampWithTitle: 'line-clamp-3' },
   medium: { px: 90, cardPx: 90, class: 'h-[90px]', cardClass: 'h-[90px]', itemClass: 'h-full', lineClamp: 'line-clamp-3', lineClampWithTitle: 'line-clamp-2' },
-  small: { px: 50, cardPx: 50, class: 'h-[50px]', cardClass: 'h-[50px]', itemClass: 'h-full', lineClamp: 'line-clamp-2', lineClampWithTitle: 'line-clamp-2' }
+  small: { px: 50, cardPx: 50, class: 'h-[50px]', cardClass: 'h-[50px]', itemClass: 'h-full', lineClamp: 'line-clamp-2', lineClampWithTitle: 'line-clamp-2' },
+  xsmall: { px: 34, cardPx: 34, class: 'h-[34px]', cardClass: 'h-[34px]', itemClass: 'h-full', lineClamp: 'line-clamp-1', lineClampWithTitle: 'line-clamp-1' }
 };
 
 function matchesFilterType(contentType, filterType) {

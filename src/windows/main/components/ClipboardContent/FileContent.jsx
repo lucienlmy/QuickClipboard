@@ -48,6 +48,7 @@ function FileContent({
 }) {
   const { t } = useTranslation();
   const settings = useSnapshot(settingsStore);
+  const isXSmallHeight = settings.rowHeight === 'xsmall';
   
   const renderFileName = (name) => {
     return searchKeyword ? highlightText(name, searchKeyword) : name;
@@ -82,9 +83,9 @@ function FileContent({
 
   // 仅图标模式：网格布局
   if (settings.fileDisplayMode === 'iconOnly') {
-    const iconSize = compact ? 29 : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 80 : 50;
-    const itemSize = compact ? 33 : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 84 : 54;
-    const gap = compact ? '0.25rem' : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? '0.5rem' : '0.375rem';
+    const iconSize = isXSmallHeight ? 18 : compact ? 29 : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 80 : 50;
+    const itemSize = isXSmallHeight ? 22 : compact ? 33 : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 84 : 54;
+    const gap = isXSmallHeight ? '0.125rem' : compact ? '0.25rem' : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? '0.5rem' : '0.375rem';
     return <div className="w-full h-full overflow-y-auto">
       <div className="w-full flex flex-wrap" style={{
         gap
@@ -117,6 +118,35 @@ function FileContent({
 
   // 小行高模式
   if (compact) {
+    if (isXSmallHeight) {
+      const firstFile = filesData.files[0];
+      const exists = firstFile.exists !== false;
+      const totalCount = filesData.files.length;
+      const title = exists ? buildTitle(firstFile) : `${firstFile.name}\n${t('clipboard.fileNotFound', '文件不存在')}`;
+      const metaText = exists ? formatFileSize(firstFile.size || 0) : t('clipboard.fileNotFound', '文件不存在');
+      const countText = totalCount > 1 ? t('clipboard.fileCount', { count: totalCount, defaultValue: `共 ${totalCount} 个文件` }) : null;
+
+      return <div
+        className={`w-full h-full flex items-center gap-1.5 px-0.5 overflow-hidden ${exists ? '' : 'opacity-70'}`}
+        title={title}
+      >
+        <FileIcon file={firstFile} size={18} />
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden text-xs">
+          <span className={`truncate font-medium ${exists ? 'text-qc-fg' : 'text-red-600 line-through'}`}>
+            {renderFileName(firstFile.name)}
+          </span>
+          <span className="text-qc-fg-subtle flex-shrink-0">
+            {metaText}
+          </span>
+          {countText ? (
+            <span className="text-qc-fg-subtle truncate">
+              {countText}
+            </span>
+          ) : null}
+        </div>
+      </div>;
+    }
+
     return <div className="w-full h-full overflow-hidden">
       {filesData.files.map((file, index) => {
         const exists = file.exists !== false;

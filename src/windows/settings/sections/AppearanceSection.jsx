@@ -216,6 +216,9 @@ function AppearanceSection({
             }, {
               value: 'small',
               label: t('listSettings.rowHeight.small')
+            }, {
+              value: 'xsmall',
+              label: t('listSettings.rowHeight.xsmall')
             }]} className="max-w-xl" />
           </SettingItem>
 
