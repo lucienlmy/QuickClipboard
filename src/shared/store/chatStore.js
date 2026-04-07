@@ -292,6 +292,8 @@ export const chatStore = proxy({
         this.handleFileDone(payload);
       } else if (type === 'file_failed') {
         this.handleFileFailed(payload);
+      } else if (type === 'file_service_probe' || type === 'file_service_probe_result' || type === 'file_service_retry') {
+        console.log('[LAN文件调试]', payload);
       }
     });
     this.unlisten = unlisten;

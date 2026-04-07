@@ -23,11 +23,12 @@ export async function sendLanChatFileOffer(toDeviceId, text, files) {
   });
 }
 
-export async function acceptLanChatFileOffer(transferId, fromDeviceId) {
+export async function acceptLanChatFileOffer(transferId, fromDeviceId, selectedMode = null) {
   return await invoke('lan_chat_accept_file_offer', {
     input: {
       transfer_id: transferId,
-      from_device_id: fromDeviceId
+      from_device_id: fromDeviceId,
+      selected_mode: selectedMode
     }
   });
 }

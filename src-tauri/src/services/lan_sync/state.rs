@@ -2,6 +2,7 @@ use lan_sync_core::{ChatFileMeta, ClipboardRawFormat, CoreEvent, LanSyncConfig, 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -13,6 +14,8 @@ pub(super) const FILE_HTTP_HEADER_LIMIT: usize = 64 * 1024;
 pub(super) const FILE_HTTP_IO_BUFFER_SIZE: usize = 64 * 1024;
 pub(super) const FILE_HTTP_PREPARE_PATH: &str = "/qc-file/prepare-upload";
 pub(super) const FILE_HTTP_UPLOAD_PATH: &str = "/qc-file/upload";
+pub(super) const FILE_HTTP_PREPARE_DOWNLOAD_PATH: &str = "/qc-file/prepare-download";
+pub(super) const FILE_HTTP_DOWNLOAD_PATH: &str = "/qc-file/download";
 pub(super) const FILE_HTTP_CANCEL_PATH: &str = "/qc-file/cancel";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,12 +58,18 @@ pub struct ChatFileOfferInput {
     pub to_device_id: String,
     pub text: Option<String>,
     pub files: Vec<ChatFileInfoInput>,
+    #[serde(default)]
+    pub supported_modes: Vec<String>,
+    #[serde(default)]
+    pub preferred_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatFileAcceptInput {
     pub transfer_id: String,
     pub from_device_id: String,
+    #[serde(default)]
+    pub selected_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +101,12 @@ pub struct ChatFileOfferPayload {
     pub files: Vec<ChatFileMeta>,
     pub sent_at_ms: u64,
     pub expire_at_ms: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_modes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +115,8 @@ pub struct ChatFileDecisionPayload {
     pub from_device_id: String,
     pub to_device_id: String,
     pub decided_at_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,6 +130,7 @@ pub struct ChatFileDonePayload {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ChatTransferStatus {
     WaitingAccept,
+    WaitingDownload,
     Transferring,
     Done,
     Failed,
@@ -127,6 +145,7 @@ impl ChatTransferStatus {
     pub(super) fn as_str(self) -> &'static str {
         match self {
             Self::WaitingAccept => "waiting_accept",
+            Self::WaitingDownload => "waiting_download",
             Self::Transferring => "transferring",
             Self::Done => "done",
             Self::Failed => "failed",
@@ -169,9 +188,32 @@ impl ChatTransferFileStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum IncomingDecision {
-    Accept,
+    Accept(ChatTransferMode),
     Reject,
     CancelByReceiver,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ChatTransferMode {
+    SenderPush,
+    ReceiverPull,
+}
+
+impl ChatTransferMode {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::SenderPush => "sender_push",
+            Self::ReceiverPull => "receiver_pull",
+        }
+    }
+
+    pub(super) fn from_str(value: &str) -> Option<Self> {
+        match value.trim() {
+            "sender_push" => Some(Self::SenderPush),
+            "receiver_pull" => Some(Self::ReceiverPull),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -183,9 +225,13 @@ pub(super) struct OutgoingChatTransfer {
     pub files: Vec<ChatFileInfoInput>,
     pub sent_at_ms: u64,
     pub expire_at_ms: u64,
+    pub supported_modes: Vec<ChatTransferMode>,
+    pub preferred_mode: ChatTransferMode,
+    pub selected_mode: Option<ChatTransferMode>,
     pub status: ChatTransferStatus,
     pub file_statuses: HashMap<String, ChatTransferFileStatus>,
     pub file_errors: HashMap<String, Option<String>>,
+    pub download_tokens: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -197,6 +243,9 @@ pub(super) struct IncomingChatTransfer {
     pub files: Vec<ChatFileMeta>,
     pub sent_at_ms: u64,
     pub expire_at_ms: u64,
+    pub supported_modes: Vec<ChatTransferMode>,
+    pub preferred_mode: ChatTransferMode,
+    pub selected_mode: Option<ChatTransferMode>,
     pub status: ChatTransferStatus,
 }
 
@@ -314,8 +363,44 @@ pub(super) fn get_local_file_http_port() -> u16 {
         .saturating_add(1)
 }
 
+pub(super) fn get_local_file_http_hosts() -> Vec<String> {
+    let mut private = Vec::new();
+    let mut other = Vec::new();
+
+    let Ok(ifaces) = if_addrs::get_if_addrs() else {
+        return Vec::new();
+    };
+
+    for iface in ifaces {
+        let ip = iface.ip();
+        if ip.is_loopback() {
+            continue;
+        }
+
+        match ip {
+            IpAddr::V4(v4) => {
+                if v4.is_private() {
+                    private.push(v4.to_string());
+                } else {
+                    other.push(v4.to_string());
+                }
+            }
+            IpAddr::V6(_) => {}
+        }
+    }
+
+    private.extend(other);
+    private.sort();
+    private.dedup();
+    private
+}
+
 pub(super) async fn sync_core_file_http_port() {
     MANAGER.set_file_http_port(Some(get_local_file_http_port())).await;
+}
+
+pub(super) async fn sync_core_file_http_hosts() {
+    MANAGER.set_file_http_hosts(get_local_file_http_hosts()).await;
 }
 
 pub(super) fn emit_lan_chat_event(payload: serde_json::Value) {
@@ -330,6 +415,7 @@ pub(super) fn emit_file_state_event(
     peer_device_id: &str,
     status: ChatTransferStatus,
     error: Option<&str>,
+    selected_mode: Option<ChatTransferMode>,
     files: Vec<serde_json::Value>,
 ) {
     emit_lan_chat_event(serde_json::json!({
@@ -338,6 +424,7 @@ pub(super) fn emit_file_state_event(
         "peer_device_id": peer_device_id,
         "status": status.as_str(),
         "error": error,
+        "selected_mode": selected_mode.map(|mode| mode.as_str()),
         "files": files,
     }));
 }
@@ -348,6 +435,7 @@ pub(super) fn emit_outgoing_state(transfer: &OutgoingChatTransfer, error: Option
         &transfer.to_device_id,
         transfer.status,
         error,
+        transfer.selected_mode,
         transfer
             .files
             .iter()
@@ -379,6 +467,7 @@ pub(super) fn emit_incoming_offer_state(transfer: &IncomingChatTransfer, error: 
         &transfer.from_device_id,
         transfer.status,
         error,
+        transfer.selected_mode,
         transfer
             .files
             .iter()
@@ -401,6 +490,7 @@ pub(super) fn emit_incoming_receive_state(transfer: &IncomingReceiveProgress, er
         &transfer.from_device_id,
         transfer.status,
         error,
+        None,
         transfer
             .files
             .iter()
@@ -424,6 +514,7 @@ pub(super) fn build_file_decision_payload(
     transfer_id: &str,
     from_device_id: &str,
     to_device_id: &str,
+    selected_mode: Option<ChatTransferMode>,
 ) -> serde_json::Value {
     serde_json::json!({
         "type": event_type,
@@ -432,6 +523,7 @@ pub(super) fn build_file_decision_payload(
             from_device_id: from_device_id.to_string(),
             to_device_id: to_device_id.to_string(),
             decided_at_ms: current_time_ms(),
+            selected_mode: selected_mode.map(|mode| mode.as_str().to_string()),
         }
     })
 }
@@ -718,6 +810,42 @@ pub(super) fn normalize_device_name(device_name: Option<String>) -> Option<Strin
             Some(normalized)
         }
     })
+}
+
+pub(super) fn default_supported_transfer_modes() -> Vec<ChatTransferMode> {
+    vec![ChatTransferMode::SenderPush, ChatTransferMode::ReceiverPull]
+}
+
+pub(super) fn parse_supported_transfer_modes(modes: &[String]) -> Vec<ChatTransferMode> {
+    let mut parsed = Vec::new();
+    for mode in modes {
+        let Some(mode) = ChatTransferMode::from_str(mode) else {
+            continue;
+        };
+        if !parsed.contains(&mode) {
+            parsed.push(mode);
+        }
+    }
+    if parsed.is_empty() {
+        default_supported_transfer_modes()
+    } else {
+        parsed
+    }
+}
+
+pub(super) fn choose_preferred_transfer_mode(
+    supported_modes: &[ChatTransferMode],
+    preferred_mode: Option<&str>,
+) -> ChatTransferMode {
+    if let Some(mode) = preferred_mode.and_then(ChatTransferMode::from_str) {
+        if supported_modes.contains(&mode) {
+            return mode;
+        }
+    }
+    supported_modes
+        .first()
+        .copied()
+        .unwrap_or(ChatTransferMode::SenderPush)
 }
 
 fn detect_local_device_name() -> String {

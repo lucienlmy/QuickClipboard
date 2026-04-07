@@ -8,6 +8,8 @@ pub struct HelloMessage {
     pub version: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_http_port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub file_http_hosts: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pair_code: Option<String>,
 }
@@ -78,6 +80,39 @@ pub struct ChatTextMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileOfferMessage {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    pub files: Vec<ChatFileMeta>,
+    pub sent_at_ms: u64,
+    pub expire_at_ms: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_modes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileDecisionMessage {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+    pub decided_at_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFileCancelMessage {
+    pub transfer_id: String,
+    pub from_device_id: String,
+    pub to_device_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatFileMeta {
     pub file_id: String,
     pub file_name: String,
@@ -100,4 +135,8 @@ pub enum LanSyncMessage {
     ClipboardRecord { record: ClipboardRecord },
     ClipboardItem(ClipboardItem),
     ChatText(ChatTextMessage),
+    ChatFileOffer { offer: ChatFileOfferMessage },
+    ChatFileAccept { decision: ChatFileDecisionMessage },
+    ChatFileReject { decision: ChatFileDecisionMessage },
+    ChatFileCancel { cancel: ChatFileCancelMessage },
 }

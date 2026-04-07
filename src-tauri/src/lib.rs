@@ -700,6 +700,18 @@ pub fn run() {
                                         }),
                                     );
                                 }
+                                lan_sync_core::CoreEvent::ChatFileOffer { offer } => {
+                                    crate::services::lan_sync::handle_incoming_file_offer_message(offer).await;
+                                }
+                                lan_sync_core::CoreEvent::ChatFileAccept { decision } => {
+                                    crate::services::lan_sync::handle_incoming_file_accept(decision).await;
+                                }
+                                lan_sync_core::CoreEvent::ChatFileReject { decision } => {
+                                    crate::services::lan_sync::handle_incoming_file_reject(decision).await;
+                                }
+                                lan_sync_core::CoreEvent::ChatFileCancel { cancel } => {
+                                    crate::services::lan_sync::handle_incoming_file_cancel_message(cancel).await;
+                                }
                                 _ => {}
                             }
                         }

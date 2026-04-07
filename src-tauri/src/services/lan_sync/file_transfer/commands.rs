@@ -1,10 +1,10 @@
 use crate::services::lan_sync::state::{
-    build_cancel_result, current_time_ms, device_id, emit_incoming_offer_state, emit_incoming_receive_state,
-    emit_outgoing_state, notify_peer_canceled, ChatFileAcceptInput, ChatFileCancelInput, ChatFileCancelResult,
-    ChatFileDecisionPayload, ChatFileInfoInput, ChatFileRejectInput, ChatTransferFileStatus, ChatTransferStatus,
-    IncomingDecision, CHAT_RUNTIME,
+    build_cancel_result, choose_preferred_transfer_mode, current_time_ms, device_id, emit_incoming_offer_state,
+    emit_incoming_receive_state, emit_outgoing_state, notify_peer_canceled, ChatFileAcceptInput,
+    ChatFileCancelInput, ChatFileCancelResult, ChatFileDecisionPayload, ChatFileInfoInput, ChatFileRejectInput,
+    ChatTransferFileStatus, ChatTransferMode, ChatTransferStatus, IncomingDecision, CHAT_RUNTIME, MANAGER,
 };
-use lan_sync_core::LanSyncError;
+use lan_sync_core::{ChatFileCancelMessage, ChatFileDecisionMessage, LanSyncError, LanSyncMessage};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -113,11 +113,13 @@ pub async fn chat_prepare_files(paths: Vec<String>) -> Result<Vec<ChatFileInfoIn
 }
 
 pub async fn chat_reject_file_offer(input: ChatFileRejectInput) -> Result<ChatFileDecisionPayload, LanSyncError> {
+    let from_device_id = input.from_device_id.clone();
     let decision = ChatFileDecisionPayload {
         transfer_id: input.transfer_id.clone(),
         from_device_id: device_id(),
-        to_device_id: input.from_device_id.clone(),
+        to_device_id: from_device_id.clone(),
         decided_at_ms: current_time_ms(),
+        selected_mode: None,
     };
 
     let (transfer, sender) = {
@@ -134,6 +136,20 @@ pub async fn chat_reject_file_offer(input: ChatFileRejectInput) -> Result<ChatFi
     if let Some(sender) = sender {
         let _ = sender.send(IncomingDecision::Reject);
     }
+    MANAGER
+        .send_message_to_device(
+            &from_device_id,
+            LanSyncMessage::ChatFileReject {
+                decision: ChatFileDecisionMessage {
+                    transfer_id: input.transfer_id,
+                    from_device_id: device_id(),
+                    to_device_id: from_device_id.clone(),
+                    decided_at_ms: current_time_ms(),
+                    selected_mode: None,
+                },
+            },
+        )
+        .await?;
     Ok(decision)
 }
 
@@ -151,25 +167,55 @@ pub async fn chat_accept_file_offer(input: ChatFileAcceptInput) -> Result<ChatFi
         return Err(LanSyncError::Protocol("文件邀约已过期".to_string()));
     }
 
-    let sender = {
+    let (sender, selected_mode) = {
         let mut runtime = CHAT_RUNTIME.lock().await;
+        let mut selected_mode = ChatTransferMode::SenderPush;
         if let Some(transfer) = runtime.incoming_waiting_decision.get_mut(&input.transfer_id) {
-            transfer.status = ChatTransferStatus::Transferring;
+            selected_mode = input
+                .selected_mode
+                .as_deref()
+                .and_then(ChatTransferMode::from_str)
+                .filter(|mode| transfer.supported_modes.contains(mode))
+                .unwrap_or_else(|| choose_preferred_transfer_mode(&transfer.supported_modes, Some(transfer.preferred_mode.as_str())));
+            transfer.selected_mode = Some(selected_mode);
+            transfer.status = if selected_mode == ChatTransferMode::ReceiverPull {
+                ChatTransferStatus::WaitingDownload
+            } else {
+                ChatTransferStatus::Transferring
+            };
             emit_incoming_offer_state(transfer, None);
         }
-        runtime.incoming_decision_senders.remove(&input.transfer_id)
+        (
+            runtime.incoming_decision_senders.remove(&input.transfer_id),
+            selected_mode,
+        )
     };
 
-    let Some(sender) = sender else {
-        return Err(LanSyncError::Protocol("文件邀约不存在或已处理".to_string()));
-    };
-    let _ = sender.send(IncomingDecision::Accept);
+    if let Some(sender) = sender {
+        let _ = sender.send(IncomingDecision::Accept(selected_mode));
+    }
+
+    MANAGER
+        .send_message_to_device(
+            &input.from_device_id,
+            LanSyncMessage::ChatFileAccept {
+                decision: ChatFileDecisionMessage {
+                    transfer_id: input.transfer_id.clone(),
+                    from_device_id: device_id(),
+                    to_device_id: input.from_device_id.clone(),
+                    decided_at_ms: current_time_ms(),
+                    selected_mode: Some(selected_mode.as_str().to_string()),
+                },
+            },
+        )
+        .await?;
 
     Ok(ChatFileDecisionPayload {
         transfer_id: input.transfer_id,
         from_device_id: device_id(),
         to_device_id: input.from_device_id,
         decided_at_ms: current_time_ms(),
+        selected_mode: Some(selected_mode.as_str().to_string()),
     })
 }
 
@@ -200,7 +246,23 @@ pub async fn chat_cancel_transfer(input: ChatFileCancelInput) -> Result<ChatFile
             }
         }
         emit_outgoing_state(&transfer, Some("已取消发送"));
-        notify_peer_canceled(&transfer.to_device_id, &transfer_id).await;
+        MANAGER
+            .send_message_to_device(
+                &transfer.to_device_id,
+                LanSyncMessage::ChatFileCancel {
+                    cancel: ChatFileCancelMessage {
+                        transfer_id: transfer_id.clone(),
+                        from_device_id: device_id(),
+                        to_device_id: transfer.to_device_id.clone(),
+                    },
+                },
+            )
+            .await?;
+        let peer_device_id = transfer.to_device_id.clone();
+        let transfer_id_for_http = transfer_id.clone();
+        tauri::async_runtime::spawn(async move {
+            notify_peer_canceled(&peer_device_id, &transfer_id_for_http).await;
+        });
         return Ok(build_cancel_result(
             transfer_id,
             transfer.to_device_id,
@@ -221,7 +283,23 @@ pub async fn chat_cancel_transfer(input: ChatFileCancelInput) -> Result<ChatFile
         if let Some(sender) = decision_sender {
             let _ = sender.send(IncomingDecision::CancelByReceiver);
         }
-        notify_peer_canceled(&transfer.from_device_id, &transfer_id).await;
+        MANAGER
+            .send_message_to_device(
+                &transfer.from_device_id,
+                LanSyncMessage::ChatFileCancel {
+                    cancel: ChatFileCancelMessage {
+                        transfer_id: transfer_id.clone(),
+                        from_device_id: device_id(),
+                        to_device_id: transfer.from_device_id.clone(),
+                    },
+                },
+            )
+            .await?;
+        let peer_device_id = transfer.from_device_id.clone();
+        let transfer_id_for_http = transfer_id.clone();
+        tauri::async_runtime::spawn(async move {
+            notify_peer_canceled(&peer_device_id, &transfer_id_for_http).await;
+        });
         return Ok(build_cancel_result(
             transfer_id,
             transfer.from_device_id,
@@ -242,7 +320,23 @@ pub async fn chat_cancel_transfer(input: ChatFileCancelInput) -> Result<ChatFile
             }
         }
         emit_incoming_receive_state(&transfer, Some("已取消接收"));
-        notify_peer_canceled(&transfer.from_device_id, &transfer_id).await;
+        MANAGER
+            .send_message_to_device(
+                &transfer.from_device_id,
+                LanSyncMessage::ChatFileCancel {
+                    cancel: ChatFileCancelMessage {
+                        transfer_id: transfer_id.clone(),
+                        from_device_id: device_id(),
+                        to_device_id: transfer.from_device_id.clone(),
+                    },
+                },
+            )
+            .await?;
+        let peer_device_id = transfer.from_device_id.clone();
+        let transfer_id_for_http = transfer_id.clone();
+        tauri::async_runtime::spawn(async move {
+            notify_peer_canceled(&peer_device_id, &transfer_id_for_http).await;
+        });
         return Ok(build_cancel_result(
             transfer_id,
             transfer.from_device_id,

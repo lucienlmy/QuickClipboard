@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use futures_util::future::{AbortHandle, Abortable};
@@ -74,6 +74,65 @@ fn resolve_host_from_socket_addr(addr: SocketAddr) -> Option<String> {
 fn resolve_host_from_url(url: &str) -> Option<String> {
     let parsed = Url::parse(url).ok()?;
     parsed.host_str().map(|host| host.to_string())
+}
+
+fn collect_local_file_http_hosts() -> Vec<String> {
+    let mut private = Vec::new();
+    let mut other = Vec::new();
+
+    let Ok(ifaces) = if_addrs::get_if_addrs() else {
+        return Vec::new();
+    };
+
+    for iface in ifaces {
+        let ip = iface.ip();
+        if ip.is_loopback() {
+            continue;
+        }
+
+        match ip {
+            IpAddr::V4(v4) => {
+                if v4.is_private() {
+                    private.push(v4.to_string());
+                } else {
+                    other.push(v4.to_string());
+                }
+            }
+            IpAddr::V6(_) => {}
+        }
+    }
+
+    private.extend(other);
+    private.sort();
+    private.dedup();
+    private
+}
+
+fn merge_file_http_hosts(hosts: &[String], fallback_host: Option<String>) -> Vec<String> {
+    let mut merged = Vec::new();
+
+    for host in hosts {
+        let normalized = host.trim();
+        if normalized.is_empty() {
+            continue;
+        }
+        let normalized = normalized.to_string();
+        if !merged.iter().any(|item| item == &normalized) {
+            merged.push(normalized);
+        }
+    }
+
+    if let Some(host) = fallback_host {
+        let normalized = host.trim();
+        if !normalized.is_empty() {
+            let normalized = normalized.to_string();
+            if !merged.iter().any(|item| item == &normalized) {
+                merged.push(normalized);
+            }
+        }
+    }
+
+    merged
 }
 
 fn compute_auth_sig(pair_secret: &str, device_id: &str, nonce: &str, ts_ms: u64) -> String {
@@ -329,6 +388,7 @@ struct Inner {
     server_peer_out_txs: HashMap<String, tokio::sync::mpsc::UnboundedSender<OutgoingFrame>>,
     peer_file_http_port_by_device_id: HashMap<String, u16>,
     peer_ip_by_device_id: HashMap<String, String>,
+    peer_file_http_hosts_by_device_id: HashMap<String, Vec<String>>,
 
     active_by_device_id: HashMap<String, (u64, AbortHandle)>,
     next_conn_id: u64,
@@ -364,6 +424,7 @@ impl LanSyncManager {
             server_peer_out_txs: HashMap::new(),
             peer_file_http_port_by_device_id: HashMap::new(),
             peer_ip_by_device_id: HashMap::new(),
+            peer_file_http_hosts_by_device_id: HashMap::new(),
 
             active_by_device_id: HashMap::new(),
             next_conn_id: 1,
@@ -401,6 +462,11 @@ impl LanSyncManager {
         let mut inner = self.inner.lock().await;
         inner.config.file_http_port = port;
         inner.snapshot.file_http_port = port;
+    }
+
+    pub async fn set_file_http_hosts(&self, hosts: Vec<String>) {
+        let mut inner = self.inner.lock().await;
+        inner.config.file_http_hosts = merge_file_http_hosts(&hosts, None);
     }
 
     pub async fn get_server_pair_code(&self) -> Option<(String, u64)> {
@@ -601,6 +667,7 @@ impl LanSyncManager {
             inner.server_peer_out_txs.clear();
             inner.peer_file_http_port_by_device_id.clear();
             inner.peer_ip_by_device_id.clear();
+            inner.peer_file_http_hosts_by_device_id.clear();
             inner.snapshot.server_connected_count = 0;
             inner.snapshot.server_connected_device_ids.clear();
 
@@ -649,6 +716,7 @@ impl LanSyncManager {
             inner.server_peer_out_txs.clear();
             inner.peer_file_http_port_by_device_id.clear();
             inner.peer_ip_by_device_id.clear();
+            inner.peer_file_http_hosts_by_device_id.clear();
             inner.snapshot.file_http_port = inner.config.file_http_port;
         }
 
@@ -739,6 +807,7 @@ impl LanSyncManager {
         device_id: &str,
         host: Option<String>,
         port: Option<u16>,
+        candidate_hosts: &[String],
     ) {
         let key = device_id.trim();
         if key.is_empty() {
@@ -746,7 +815,13 @@ impl LanSyncManager {
         }
 
         let mut inner = self.inner.lock().await;
-        if let Some(host) = host.filter(|value| !value.trim().is_empty()) {
+        let merged_hosts = merge_file_http_hosts(candidate_hosts, host.clone());
+        if let Some(primary_host) = merged_hosts.first().cloned() {
+            inner.peer_ip_by_device_id.insert(key.to_string(), primary_host);
+            inner
+                .peer_file_http_hosts_by_device_id
+                .insert(key.to_string(), merged_hosts);
+        } else if let Some(host) = host.filter(|value| !value.trim().is_empty()) {
             inner.peer_ip_by_device_id.insert(key.to_string(), host);
         }
         if let Some(port) = port.filter(|value| *value > 0) {
@@ -762,31 +837,59 @@ impl LanSyncManager {
         path: &str,
         query: &[(String, String)],
     ) -> Option<String> {
+        self.resolve_peer_file_server_urls(device_id, path, query)
+            .await
+            .into_iter()
+            .next()
+    }
+
+    pub async fn resolve_peer_file_server_urls(
+        &self,
+        device_id: &str,
+        path: &str,
+        query: &[(String, String)],
+    ) -> Vec<String> {
         let key = device_id.trim();
         if key.is_empty() {
-            return None;
+            return Vec::new();
         }
 
-        let (host, port) = {
+        let (hosts, port) = {
             let inner = self.inner.lock().await;
-            (
-                inner.peer_ip_by_device_id.get(key).cloned(),
-                inner.peer_file_http_port_by_device_id.get(key).copied(),
-            )
+            let hosts = inner
+                .peer_file_http_hosts_by_device_id
+                .get(key)
+                .cloned()
+                .unwrap_or_else(|| {
+                    inner
+                        .peer_ip_by_device_id
+                        .get(key)
+                        .cloned()
+                        .into_iter()
+                        .collect()
+                });
+            let port = inner.peer_file_http_port_by_device_id.get(key).copied();
+            (hosts, port)
         };
 
-        let host = host?;
-        let port = port?;
-
-        let mut url = Url::parse(&format!("http://{}:{port}", host)).ok()?;
-        url.set_path(path);
-        if !query.is_empty() {
-            let mut pairs = url.query_pairs_mut();
-            for (name, value) in query {
-                pairs.append_pair(name, value);
+        let Some(port) = port else {
+            return Vec::new();
+        };
+        let mut urls = Vec::new();
+        for host in hosts {
+            let Some(mut url) = Url::parse(&format!("http://{}:{port}", host)).ok() else {
+                continue;
+            };
+            url.set_path(path);
+            if !query.is_empty() {
+                let mut pairs = url.query_pairs_mut();
+                for (name, value) in query {
+                    pairs.append_pair(name, value);
+                }
             }
+            urls.push(url.to_string());
         }
-        Some(url.to_string())
+        urls
     }
 
     pub async fn connect_peer(
@@ -941,6 +1044,7 @@ impl LanSyncManager {
         if let Some(device_id) = inner.snapshot.connected_peer_device_id.clone() {
             inner.peer_file_http_port_by_device_id.remove(&device_id);
             inner.peer_ip_by_device_id.remove(&device_id);
+            inner.peer_file_http_hosts_by_device_id.remove(&device_id);
         }
         inner.snapshot.state = ConnectionState::Disconnected;
         inner.snapshot.connected_peer_device_id = None;
@@ -1056,11 +1160,21 @@ impl LanSyncManager {
             )
         };
 
+        let file_http_port = self.inner.lock().await.config.file_http_port;
+        let file_http_hosts = {
+            let inner = self.inner.lock().await;
+            if inner.config.file_http_hosts.is_empty() {
+                collect_local_file_http_hosts()
+            } else {
+                inner.config.file_http_hosts.clone()
+            }
+        };
         let hello = LanSyncMessage::Hello(HelloMessage {
             device_id,
             device_name,
             version,
-            file_http_port: self.inner.lock().await.config.file_http_port,
+            file_http_port,
+            file_http_hosts,
             pair_code: None,
         });
         let hello_text = serde_json::to_string(&hello).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
@@ -1080,16 +1194,20 @@ impl LanSyncManager {
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
 
-        let (remote_device_id, remote_device_name, remote_pair_code, remote_file_http_port) =
+        let (remote_device_id, remote_device_name, remote_pair_code, remote_file_http_port, remote_file_http_hosts) =
             match remote_hello {
-            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.pair_code, h.file_http_port),
+            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.pair_code, h.file_http_port, h.file_http_hosts),
             LanSyncMessage::ClipboardRecord { .. }
             | LanSyncMessage::ClipboardItem(_)
             | LanSyncMessage::AuthChallenge(_)
             | LanSyncMessage::AuthResponse(_)
             | LanSyncMessage::PairAccepted { .. }
             | LanSyncMessage::PairDenied { .. }
-            | LanSyncMessage::ChatText(_) => {
+            | LanSyncMessage::ChatText(_)
+            | LanSyncMessage::ChatFileOffer { .. }
+            | LanSyncMessage::ChatFileAccept { .. }
+            | LanSyncMessage::ChatFileReject { .. }
+            | LanSyncMessage::ChatFileCancel { .. } => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
@@ -1098,6 +1216,7 @@ impl LanSyncManager {
             &remote_device_id,
             resolve_host_from_socket_addr(remote_addr),
             remote_file_http_port,
+            &remote_file_http_hosts,
         )
         .await;
 
@@ -1371,6 +1490,56 @@ impl LanSyncManager {
                                                     let _ = self.send_message_to_device(&target, LanSyncMessage::ChatText(message)).await;
                                                 }
                                             }
+                                            LanSyncMessage::ChatFileOffer { offer } => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if offer.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileOffer { offer: offer.clone() });
+                                                } else {
+                                                    let target = offer.to_device_id.clone();
+                                                    let _ = self
+                                                        .send_message_to_device(&target, LanSyncMessage::ChatFileOffer { offer })
+                                                        .await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileAccept { decision } => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if decision.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileAccept {
+                                                        decision: decision.clone(),
+                                                    });
+                                                } else {
+                                                    let target = decision.to_device_id.clone();
+                                                    let _ = self
+                                                        .send_message_to_device(&target, LanSyncMessage::ChatFileAccept { decision })
+                                                        .await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileReject { decision } => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if decision.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileReject {
+                                                        decision: decision.clone(),
+                                                    });
+                                                } else {
+                                                    let target = decision.to_device_id.clone();
+                                                    let _ = self
+                                                        .send_message_to_device(&target, LanSyncMessage::ChatFileReject { decision })
+                                                        .await;
+                                                }
+                                            }
+                                            LanSyncMessage::ChatFileCancel { cancel } => {
+                                                let my_id = self.inner.lock().await.config.device_id.clone();
+                                                if cancel.to_device_id == my_id {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileCancel {
+                                                        cancel: cancel.clone(),
+                                                    });
+                                                } else {
+                                                    let target = cancel.to_device_id.clone();
+                                                    let _ = self
+                                                        .send_message_to_device(&target, LanSyncMessage::ChatFileCancel { cancel })
+                                                        .await;
+                                                }
+                                            }
                                             _ => {}
                                         }
                                     }
@@ -1451,6 +1620,7 @@ impl LanSyncManager {
             inner.server_peer_out_txs.remove(&remote_id);
             inner.peer_file_http_port_by_device_id.remove(&remote_id);
             inner.peer_ip_by_device_id.remove(&remote_id);
+            inner.peer_file_http_hosts_by_device_id.remove(&remote_id);
         }
 
         res
@@ -1479,11 +1649,21 @@ impl LanSyncManager {
         };
 
         let pair_code = { self.inner.lock().await.client_pair_code.clone() };
+        let file_http_port = self.inner.lock().await.config.file_http_port;
+        let file_http_hosts = {
+            let inner = self.inner.lock().await;
+            if inner.config.file_http_hosts.is_empty() {
+                collect_local_file_http_hosts()
+            } else {
+                inner.config.file_http_hosts.clone()
+            }
+        };
         let hello = LanSyncMessage::Hello(HelloMessage {
             device_id,
             device_name,
             version,
-            file_http_port: self.inner.lock().await.config.file_http_port,
+            file_http_port,
+            file_http_hosts,
             pair_code,
         });
         let hello_text = serde_json::to_string(&hello).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
@@ -1501,15 +1681,19 @@ impl LanSyncManager {
         };
         let remote_hello: LanSyncMessage =
             serde_json::from_str(&text).map_err(|e| LanSyncError::Protocol(e.to_string()))?;
-        let (server_device_id, server_device_name, server_file_http_port) = match remote_hello {
-            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.file_http_port),
+        let (server_device_id, server_device_name, server_file_http_port, server_file_http_hosts) = match remote_hello {
+            LanSyncMessage::Hello(h) => (h.device_id, h.device_name, h.file_http_port, h.file_http_hosts),
             LanSyncMessage::ClipboardRecord { .. }
             | LanSyncMessage::ClipboardItem(_)
             | LanSyncMessage::AuthChallenge(_)
             | LanSyncMessage::AuthResponse(_)
             | LanSyncMessage::PairAccepted { .. }
             | LanSyncMessage::PairDenied { .. }
-            | LanSyncMessage::ChatText(_) => {
+            | LanSyncMessage::ChatText(_)
+            | LanSyncMessage::ChatFileOffer { .. }
+            | LanSyncMessage::ChatFileAccept { .. }
+            | LanSyncMessage::ChatFileReject { .. }
+            | LanSyncMessage::ChatFileCancel { .. } => {
                 return Err(LanSyncError::Protocol("握手阶段收到了非 Hello 消息".to_string()));
             }
         };
@@ -1518,6 +1702,7 @@ impl LanSyncManager {
             &server_device_id,
             resolve_host_from_url(&peer_url),
             server_file_http_port,
+            &server_file_http_hosts,
         )
         .await;
 
@@ -1697,6 +1882,18 @@ impl LanSyncManager {
                                             LanSyncMessage::ChatText(message) => {
                                                 let _ = event_tx.send(CoreEvent::ChatText { message });
                                             }
+                                            LanSyncMessage::ChatFileOffer { offer } => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileOffer { offer });
+                                            }
+                                            LanSyncMessage::ChatFileAccept { decision } => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileAccept { decision });
+                                            }
+                                            LanSyncMessage::ChatFileReject { decision } => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileReject { decision });
+                                            }
+                                            LanSyncMessage::ChatFileCancel { cancel } => {
+                                                let _ = event_tx.send(CoreEvent::ChatFileCancel { cancel });
+                                            }
                                             _ => {}
                                         }
                                     }
@@ -1726,6 +1923,18 @@ impl LanSyncManager {
                                                 LanSyncMessage::ChatText(message) => {
                                                     let _ = event_tx.send(CoreEvent::ChatText { message });
                                                 }
+                                                LanSyncMessage::ChatFileOffer { offer } => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileOffer { offer });
+                                                }
+                                                LanSyncMessage::ChatFileAccept { decision } => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileAccept { decision });
+                                                }
+                                                LanSyncMessage::ChatFileReject { decision } => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileReject { decision });
+                                                }
+                                                LanSyncMessage::ChatFileCancel { cancel } => {
+                                                    let _ = event_tx.send(CoreEvent::ChatFileCancel { cancel });
+                                                }
                                                 _ => {}
                                             }
                                         }
@@ -1745,6 +1954,7 @@ impl LanSyncManager {
             inner.client_out_tx = None;
             inner.peer_file_http_port_by_device_id.remove(&server_device_id);
             inner.peer_ip_by_device_id.remove(&server_device_id);
+            inner.peer_file_http_hosts_by_device_id.remove(&server_device_id);
         }
 
         Ok(())

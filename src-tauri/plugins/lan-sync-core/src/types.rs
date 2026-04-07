@@ -3,7 +3,7 @@ use std::time::Duration;
 use thiserror::Error;
 
 use crate::protocol::{
-    ChatTextMessage, ClipboardRecord,
+    ChatFileCancelMessage, ChatFileDecisionMessage, ChatFileOfferMessage, ChatTextMessage, ClipboardRecord,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -74,6 +74,10 @@ pub enum CoreEvent {
         data: Vec<u8>,
     },
     ChatText { message: ChatTextMessage },
+    ChatFileOffer { offer: ChatFileOfferMessage },
+    ChatFileAccept { decision: ChatFileDecisionMessage },
+    ChatFileReject { decision: ChatFileDecisionMessage },
+    ChatFileCancel { cancel: ChatFileCancelMessage },
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +86,7 @@ pub struct LanSyncConfig {
     pub device_name: Option<String>,
     pub protocol_version: u32,
     pub file_http_port: Option<u16>,
+    pub file_http_hosts: Vec<String>,
     pub ping_interval: Duration,
     pub idle_timeout: Duration,
     pub respond_to_ping: bool,
@@ -95,6 +100,7 @@ impl Default for LanSyncConfig {
             device_name: None,
             protocol_version: 1,
             file_http_port: None,
+            file_http_hosts: Vec::new(),
             ping_interval: Duration::from_secs(10),
             idle_timeout: Duration::from_secs(45),
             respond_to_ping: true,

@@ -3750,6 +3750,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac",
+ "if-addrs",
  "serde",
  "serde_json",
  "sha2",

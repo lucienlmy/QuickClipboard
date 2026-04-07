@@ -2,14 +2,65 @@ use crate::services::lan_sync::state::{
     build_file_decision_payload, build_file_done_payload, build_unique_file_path, compute_blake3_file_hash_hex,
     compute_transfer_proof, current_time_ms, device_id, emit_file_failed_event, emit_incoming_offer_state,
     emit_incoming_receive_state, emit_lan_chat_event, emit_outgoing_state, get_chat_receive_dir, get_pair_secret,
-    ChatTransferFileStatus, ChatTransferStatus, FileHttpRequest, FileHttpResponse, IncomingChatTransfer,
-    IncomingDecision, IncomingReceiveProgress, ReceiveFileProgress, ChatFileOfferPayload,
+    ChatTransferFileStatus, ChatTransferMode, ChatTransferStatus, FileHttpRequest, FileHttpResponse,
+    IncomingChatTransfer, IncomingDecision, IncomingReceiveProgress, ReceiveFileProgress, ChatFileOfferPayload,
     CHAT_FILE_OFFER_EXPIRE_MS, CHAT_RUNTIME, FILE_HTTP_IO_BUFFER_SIZE, MANAGER,
 };
-use lan_sync_core::ChatFileMeta;
+use lan_sync_core::{ChatFileCancelMessage, ChatFileMeta, ChatFileOfferMessage};
 use std::collections::HashSet;
 use std::time::Duration;
 use uuid::Uuid;
+
+pub async fn handle_incoming_file_offer_message(offer: ChatFileOfferMessage) {
+    let supported_modes = crate::services::lan_sync::state::parse_supported_transfer_modes(&offer.supported_modes);
+    let preferred_mode = crate::services::lan_sync::state::choose_preferred_transfer_mode(
+        &supported_modes,
+        offer.preferred_mode.as_deref(),
+    );
+    let payload = ChatFileOfferPayload {
+        transfer_id: offer.transfer_id.clone(),
+        from_device_id: offer.from_device_id.clone(),
+        to_device_id: offer.to_device_id.clone(),
+        text: offer.text.clone(),
+        files: offer.files.clone(),
+        sent_at_ms: offer.sent_at_ms,
+        expire_at_ms: offer.expire_at_ms,
+        supported_modes: supported_modes.iter().map(|mode| mode.as_str().to_string()).collect(),
+        preferred_mode: Some(preferred_mode.as_str().to_string()),
+        selected_mode: None,
+    };
+
+    {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_waiting_decision.insert(
+            offer.transfer_id.clone(),
+            IncomingChatTransfer {
+                transfer_id: offer.transfer_id.clone(),
+                from_device_id: offer.from_device_id.clone(),
+                to_device_id: offer.to_device_id.clone(),
+                text: offer.text,
+                files: offer.files,
+                sent_at_ms: offer.sent_at_ms,
+                expire_at_ms: offer.expire_at_ms,
+                supported_modes,
+                preferred_mode,
+                selected_mode: None,
+                status: ChatTransferStatus::WaitingAccept,
+            },
+        );
+    }
+
+    if let Some(transfer) = {
+        let runtime = CHAT_RUNTIME.lock().await;
+        runtime.incoming_waiting_decision.get(&offer.transfer_id).cloned()
+    } {
+        emit_incoming_offer_state(&transfer, None);
+    }
+    emit_lan_chat_event(serde_json::json!({
+        "type": "file_offer",
+        "offer": payload
+    }));
+}
 
 pub(super) async fn handle_http_prepare_upload(body: String, remote_ip: Option<String>) -> FileHttpResponse {
     let json: serde_json::Value = match serde_json::from_str(&body) {
@@ -107,6 +158,22 @@ pub(super) async fn handle_http_prepare_upload(body: String, remote_ip: Option<S
         .and_then(|value| value.as_str())
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
+    let supported_modes = crate::services::lan_sync::state::parse_supported_transfer_modes(
+        &json
+            .get("supported_modes")
+            .and_then(|value| value.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(|value| value.to_string()))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default(),
+    );
+    let preferred_mode = crate::services::lan_sync::state::choose_preferred_transfer_mode(
+        &supported_modes,
+        json.get("preferred_mode").and_then(|value| value.as_str()),
+    );
 
     let offer = ChatFileOfferPayload {
         transfer_id: transfer_id.clone(),
@@ -116,62 +183,124 @@ pub(super) async fn handle_http_prepare_upload(body: String, remote_ip: Option<S
         files: files.clone(),
         sent_at_ms,
         expire_at_ms,
+        supported_modes: supported_modes.iter().map(|mode| mode.as_str().to_string()).collect(),
+        preferred_mode: Some(preferred_mode.as_str().to_string()),
+        selected_mode: None,
     };
 
-    let (decision_tx, decision_rx) = tokio::sync::oneshot::channel();
+    let incoming_template = IncomingChatTransfer {
+        transfer_id: transfer_id.clone(),
+        from_device_id: from_device_id.clone(),
+        to_device_id: to_device_id.clone(),
+        text: text.clone(),
+        files: files.clone(),
+        sent_at_ms,
+        expire_at_ms,
+        supported_modes: supported_modes.clone(),
+        preferred_mode,
+        selected_mode: None,
+        status: ChatTransferStatus::WaitingAccept,
+    };
+
+    let mut should_emit_offer = false;
+    let mut decision_rx = None;
+    let mut existing_selected_mode = None;
     {
         let mut runtime = CHAT_RUNTIME.lock().await;
-        runtime.incoming_waiting_decision.insert(
-            transfer_id.clone(),
-            IncomingChatTransfer {
-                transfer_id: transfer_id.clone(),
-                from_device_id: from_device_id.clone(),
-                to_device_id: to_device_id.clone(),
-                text: json.get("text").and_then(|value| value.as_str()).map(|value| value.to_string()).filter(|value| !value.trim().is_empty()),
-                files: files.clone(),
-                sent_at_ms: json.get("sent_at_ms").and_then(|value| value.as_u64()).unwrap_or_else(current_time_ms),
-                expire_at_ms,
-                status: ChatTransferStatus::WaitingAccept,
-            },
-        );
-        runtime.incoming_decision_senders.insert(transfer_id.clone(), decision_tx);
+        if let Some(existing) = runtime.incoming_waiting_decision.get_mut(&transfer_id) {
+            if existing.from_device_id != from_device_id || existing.to_device_id != to_device_id {
+                return FileHttpResponse {
+                    status_code: 409,
+                    body: r#"{"message":"传输会话不匹配"}"#.to_string(),
+                };
+            }
+            existing_selected_mode = existing.selected_mode;
+            if existing_selected_mode.is_none() {
+                if runtime.incoming_decision_senders.contains_key(&transfer_id) {
+                    return FileHttpResponse {
+                        status_code: 409,
+                        body: r#"{"message":"传输会话正在等待确认"}"#.to_string(),
+                    };
+                }
+                let (decision_tx, rx) = tokio::sync::oneshot::channel();
+                runtime.incoming_decision_senders.insert(transfer_id.clone(), decision_tx);
+                decision_rx = Some(rx);
+            }
+        } else {
+            let (decision_tx, rx) = tokio::sync::oneshot::channel();
+            runtime
+                .incoming_waiting_decision
+                .insert(transfer_id.clone(), incoming_template.clone());
+            runtime.incoming_decision_senders.insert(transfer_id.clone(), decision_tx);
+            decision_rx = Some(rx);
+            should_emit_offer = true;
+        }
     }
 
     if let Some(ip) = remote_ip {
-        MANAGER.remember_peer_file_server(&from_device_id, Some(ip), None).await;
+        MANAGER
+            .remember_peer_file_server(&from_device_id, Some(ip), None, &[])
+            .await;
     }
 
-    if let Some(transfer) = {
-        let runtime = CHAT_RUNTIME.lock().await;
-        runtime.incoming_waiting_decision.get(&transfer_id).cloned()
-    } {
-        emit_incoming_offer_state(&transfer, None);
+    if should_emit_offer {
+        if let Some(transfer) = {
+            let runtime = CHAT_RUNTIME.lock().await;
+            runtime.incoming_waiting_decision.get(&transfer_id).cloned()
+        } {
+            emit_incoming_offer_state(&transfer, None);
+        }
+        emit_lan_chat_event(serde_json::json!({
+            "type": "file_offer",
+            "offer": offer
+        }));
     }
-    emit_lan_chat_event(serde_json::json!({
-        "type": "file_offer",
-        "offer": offer
-    }));
 
-    let now = current_time_ms();
-    let wait_ms = expire_at_ms.saturating_sub(now).max(1);
-    let decision = match tokio::time::timeout(Duration::from_millis(wait_ms), decision_rx).await {
-        Ok(Ok(value)) => value,
-        _ => IncomingDecision::Reject,
+    let decision = if let Some(selected_mode) = existing_selected_mode {
+        IncomingDecision::Accept(selected_mode)
+    } else {
+        let Some(decision_rx) = decision_rx else {
+            return FileHttpResponse {
+                status_code: 409,
+                body: r#"{"message":"传输会话状态异常"}"#.to_string(),
+            };
+        };
+        let now = current_time_ms();
+        let wait_ms = expire_at_ms.saturating_sub(now).max(1);
+        match tokio::time::timeout(Duration::from_millis(wait_ms), decision_rx).await {
+            Ok(Ok(value)) => value,
+            _ => IncomingDecision::Reject,
+        }
     };
 
-    let incoming = {
+    let incoming = if matches!(decision, IncomingDecision::Accept(ChatTransferMode::ReceiverPull)) {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        let incoming = {
+            let Some(transfer) = runtime.incoming_waiting_decision.get_mut(&transfer_id) else {
+                return FileHttpResponse {
+                    status_code: 409,
+                    body: r#"{"message":"传输会话不存在"}"#.to_string(),
+                };
+            };
+            transfer.selected_mode = Some(ChatTransferMode::ReceiverPull);
+            transfer.status = ChatTransferStatus::WaitingDownload;
+            transfer.clone()
+        };
+        runtime.incoming_decision_senders.remove(&transfer_id);
+        incoming
+    } else {
         let mut runtime = CHAT_RUNTIME.lock().await;
         runtime.incoming_decision_senders.remove(&transfer_id);
-        runtime.incoming_waiting_decision.remove(&transfer_id)
-    };
-    let Some(incoming) = incoming else {
-        return FileHttpResponse {
-            status_code: 409,
-            body: r#"{"message":"传输会话不存在"}"#.to_string(),
+        let Some(transfer) = runtime.incoming_waiting_decision.remove(&transfer_id) else {
+            return FileHttpResponse {
+                status_code: 409,
+                body: r#"{"message":"传输会话不存在"}"#.to_string(),
+            };
         };
+        transfer
     };
 
-    if decision != IncomingDecision::Accept {
+    if !matches!(decision, IncomingDecision::Accept(_)) {
         let (event_type, next_status, error_message) = if current_time_ms() > incoming.expire_at_ms {
             ("file_expired", ChatTransferStatus::Expired, "文件传输请求已过期")
         } else if decision == IncomingDecision::CancelByReceiver {
@@ -188,6 +317,7 @@ pub(super) async fn handle_http_prepare_upload(body: String, remote_ip: Option<S
                 &incoming.transfer_id,
                 &incoming.from_device_id,
                 &incoming.to_device_id,
+                incoming.selected_mode,
             ));
         }
         return FileHttpResponse {
@@ -202,6 +332,34 @@ pub(super) async fn handle_http_prepare_upload(body: String, remote_ip: Option<S
                     "文件传输请求已拒绝"
                 }
             ),
+        };
+    }
+
+    let selected_mode = match decision {
+        IncomingDecision::Accept(mode) => mode,
+        _ => ChatTransferMode::SenderPush,
+    };
+
+    if selected_mode == ChatTransferMode::ReceiverPull {
+        let mut incoming = incoming;
+        incoming.selected_mode = Some(selected_mode);
+        incoming.status = ChatTransferStatus::WaitingDownload;
+        emit_incoming_offer_state(&incoming, None);
+        emit_lan_chat_event(build_file_decision_payload(
+            "file_accept",
+            &transfer_id,
+            &incoming.from_device_id,
+            &incoming.to_device_id,
+            Some(selected_mode),
+        ));
+        return FileHttpResponse {
+            status_code: 200,
+            body: serde_json::json!({
+                "transfer_id": transfer_id,
+                "selected_mode": selected_mode.as_str(),
+                "files": []
+            })
+            .to_string(),
         };
     }
 
@@ -272,6 +430,7 @@ pub(super) async fn handle_http_prepare_upload(body: String, remote_ip: Option<S
         &transfer_id,
         &incoming.from_device_id,
         &incoming.to_device_id,
+        Some(selected_mode),
     ));
 
     FileHttpResponse {
@@ -570,6 +729,64 @@ pub(super) async fn handle_http_cancel(request: FileHttpRequest, _remote_ip: Opt
     }
 }
 
+pub async fn handle_incoming_file_cancel_message(cancel: ChatFileCancelMessage) {
+    let transfer_id = cancel.transfer_id.trim().to_string();
+    if transfer_id.is_empty() {
+        return;
+    }
+
+    let (outgoing, incoming_offer, incoming_receive, decision_sender) = {
+        let mut runtime = CHAT_RUNTIME.lock().await;
+        (
+            runtime
+                .outgoing_waiting_accept
+                .remove(&transfer_id)
+                .or_else(|| runtime.outgoing_sending.remove(&transfer_id)),
+            runtime.incoming_waiting_decision.remove(&transfer_id),
+            runtime.incoming_receiving.remove(&transfer_id),
+            runtime.incoming_decision_senders.remove(&transfer_id),
+        )
+    };
+
+    if let Some(sender) = decision_sender {
+        let _ = sender.send(IncomingDecision::Reject);
+    }
+
+    if let Some(mut transfer) = outgoing {
+        transfer.status = ChatTransferStatus::CanceledByReceiver;
+        for file in &transfer.files {
+            let current = transfer
+                .file_statuses
+                .get(&file.file_id)
+                .copied()
+                .unwrap_or(ChatTransferFileStatus::Queue);
+            if current != ChatTransferFileStatus::Done {
+                transfer.file_statuses.insert(file.file_id.clone(), ChatTransferFileStatus::Canceled);
+                transfer.file_errors.insert(file.file_id.clone(), Some("接收方已取消".to_string()));
+            }
+        }
+        emit_outgoing_state(&transfer, Some("接收方已取消"));
+        return;
+    }
+
+    if let Some(mut transfer) = incoming_offer {
+        transfer.status = ChatTransferStatus::CanceledBySender;
+        emit_incoming_offer_state(&transfer, Some("发送方已取消"));
+        return;
+    }
+
+    if let Some(mut transfer) = incoming_receive {
+        transfer.status = ChatTransferStatus::CanceledBySender;
+        for file in &mut transfer.files {
+            if file.status != ChatTransferFileStatus::Done {
+                file.status = ChatTransferFileStatus::Canceled;
+                file.error_message = Some("发送方已取消".to_string());
+            }
+        }
+        emit_incoming_receive_state(&transfer, Some("发送方已取消"));
+    }
+}
+
 async fn fail_incoming_transfer(
     transfer_id: String,
     file_id: String,
@@ -585,11 +802,16 @@ async fn fail_incoming_transfer(
             file_state.error_message = Some(error.clone());
         }
         emit_incoming_receive_state(state, Some(&error));
+        runtime.incoming_receiving.remove(&transfer_id);
+        emit_file_failed_event(&transfer_id, &from_device_id, &to_device_id, &error);
+        return FileHttpResponse {
+            status_code: 500,
+            body: format!(r#"{{"message":"{}"}}"#, error.replace('"', "'")),
+        };
     }
-    runtime.incoming_receiving.remove(&transfer_id);
-    emit_file_failed_event(&transfer_id, &from_device_id, &to_device_id, &error);
+
     FileHttpResponse {
-        status_code: 500,
-        body: format!(r#"{{"message":"{}"}}"#, error.replace('"', "'")),
+        status_code: 200,
+        body: r#"{"ok":true,"canceled":true}"#.to_string(),
     }
 }

@@ -114,7 +114,10 @@ function statusText(message, now, t) {
   if (message.status === 'partial') return t('chat.status.partial');
   if (message.status === 'canceled_by_sender') return t('chat.status.canceledBySender');
   if (message.status === 'canceled_by_receiver') return t('chat.status.canceledByReceiver');
-  if (message.status === 'failed') return t('chat.status.failed');
+  if (message.status === 'failed') {
+    const detail = typeof message.error === 'string' ? message.error.trim() : '';
+    return detail ? `${t('chat.status.failed')}：${detail}` : t('chat.status.failed');
+  }
   return '';
 }
 
@@ -728,18 +731,12 @@ function ChatTab() {
                         >
                           {t('chat.action.reject')}
                         </button>
-                        <button
-                          className="h-7 px-3 rounded border border-qc-border text-qc-fg text-xs hover:bg-qc-hover"
-                          onClick={() => cancelTransfer(message)}
-                        >
-                          {t('chat.action.cancel')}
-                        </button>
                       </div>
                     )}
-                    {canCancelTransfer(message) && !(!isOut && message.status === 'pending') && (
+                    {canCancelTransfer(message) && (isOut || ['transferring', 'waiting_download'].includes(message.status)) && (
                       <div className="flex items-center gap-2">
                         <button
-                          className="h-7 px-3 rounded border border-qc-border text-qc-fg text-xs hover:bg-qc-hover"
+                          className={`h-7 px-3 rounded border text-xs ${isOut ? 'border-white/30 text-white hover:bg-white/10' : 'border-qc-border text-qc-fg hover:bg-qc-hover'}`}
                           onClick={() => cancelTransfer(message)}
                         >
                           {t('chat.action.cancel')}

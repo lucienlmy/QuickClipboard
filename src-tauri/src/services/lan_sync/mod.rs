@@ -7,7 +7,9 @@ pub use clipboard_sync::{
 };
 pub use file_transfer::{
     chat_accept_file_offer, chat_cancel_transfer, chat_prepare_files, chat_reject_file_offer, chat_reveal_file,
-    chat_send_file_offer,
+    chat_send_file_offer, handle_incoming_file_accept, handle_incoming_file_cancel_message,
+    handle_incoming_file_offer_message,
+    handle_incoming_file_reject,
 };
 pub use state::{
     cleanup_chat_transfers_for_devices, get_snapshot, local_device_name, subscribe, ChatConnectedDevice,
@@ -21,7 +23,8 @@ use uuid::Uuid;
 use self::file_transfer::{ensure_file_http_server_started, stop_file_http_server};
 use self::state::{
     cleanup_transfers_for_device, current_time_ms, hydrate_trusted_devices_to_core, load_trusted_devices,
-    normalize_device_name, save_trusted_devices, sync_core_file_http_port, CHAT_RUNTIME, MANAGER,
+    normalize_device_name, save_trusted_devices, sync_core_file_http_hosts, sync_core_file_http_port, CHAT_RUNTIME,
+    MANAGER,
 };
 
 pub fn device_id() -> String {
@@ -30,6 +33,7 @@ pub fn device_id() -> String {
 
 pub async fn set_enabled(enabled: bool) -> Snapshot {
     sync_core_file_http_port().await;
+    sync_core_file_http_hosts().await;
     MANAGER.set_enabled(enabled).await;
     if !enabled {
         stop_file_http_server().await;
@@ -48,6 +52,7 @@ pub async fn set_enabled(enabled: bool) -> Snapshot {
 
 pub async fn start_server(port: u16) -> Result<u16, LanSyncError> {
     hydrate_trusted_devices_to_core().await;
+    sync_core_file_http_hosts().await;
     let _ = ensure_file_http_server_started().await;
     let bound = MANAGER.start_server(port).await?;
     let code = format!("{:010}", fastrand::u32(0..1_000_000_000));
@@ -61,6 +66,7 @@ pub async fn connect_peer(
     pair_code: Option<String>,
 ) -> Result<(), LanSyncError> {
     hydrate_trusted_devices_to_core().await;
+    sync_core_file_http_hosts().await;
     let _ = ensure_file_http_server_started().await;
     MANAGER.connect_peer(peer_url, auto_reconnect, pair_code).await
 }

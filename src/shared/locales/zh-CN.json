@@ -82,7 +82,7 @@
       "partial": "部分完成",
       "canceledBySender": "发送方已取消",
       "canceledByReceiver": "接收方已取消",
-      "failed": "传输失败（校验未通过）"
+      "failed": "传输失败"
     },
     "device": {
       "none": "暂无在线设备"

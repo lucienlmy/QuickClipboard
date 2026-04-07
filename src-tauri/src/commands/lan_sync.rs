@@ -30,6 +30,7 @@ pub struct LanChatSendFileOfferInput {
 pub struct LanChatFileDecisionInput {
     pub transfer_id: String,
     pub from_device_id: String,
+    pub selected_mode: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -196,6 +197,8 @@ pub async fn lan_chat_send_file_offer(
         to_device_id: input.to_device_id,
         text: input.text,
         files: input.files,
+        supported_modes: Vec::new(),
+        preferred_mode: None,
     })
     .await
     .map_err(|e| e.to_string())
@@ -208,6 +211,7 @@ pub async fn lan_chat_accept_file_offer(
     services::lan_sync::chat_accept_file_offer(services::lan_sync::ChatFileAcceptInput {
         transfer_id: input.transfer_id,
         from_device_id: input.from_device_id,
+        selected_mode: input.selected_mode,
     })
     .await
     .map_err(|e| e.to_string())

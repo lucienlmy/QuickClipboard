@@ -1,7 +1,9 @@
 use super::receiver::{handle_http_cancel, handle_http_prepare_upload, handle_http_upload};
+use super::sender::{handle_http_download, handle_http_prepare_download};
 use crate::services::lan_sync::state::{
     get_local_file_http_port, sync_core_file_http_port, FileHttpRequest, FileHttpResponse, FileHttpServerState,
-    FILE_HTTP_CANCEL_PATH, FILE_HTTP_HEADER_LIMIT, FILE_HTTP_PREPARE_PATH, FILE_HTTP_SERVER, FILE_HTTP_UPLOAD_PATH,
+    FILE_HTTP_CANCEL_PATH, FILE_HTTP_DOWNLOAD_PATH, FILE_HTTP_HEADER_LIMIT, FILE_HTTP_PREPARE_DOWNLOAD_PATH,
+    FILE_HTTP_PREPARE_PATH, FILE_HTTP_SERVER, FILE_HTTP_UPLOAD_PATH,
 };
 use std::collections::HashMap;
 
@@ -168,7 +170,22 @@ async fn handle_file_http_client(
             let body = String::from_utf8(body_bytes).map_err(|_| "请求体编码错误".to_string())?;
             handle_http_prepare_upload(body, remote_ip).await
         }
+        ("POST", FILE_HTTP_PREPARE_DOWNLOAD_PATH) => {
+            let mut body_bytes = request.body_prefix.clone();
+            if request.content_length > body_bytes.len() {
+                let remaining = request.content_length - body_bytes.len();
+                let mut extra = vec![0u8; remaining];
+                stream.read_exact(&mut extra).await.map_err(|e| e.to_string())?;
+                body_bytes.extend_from_slice(&extra);
+            }
+            let body = String::from_utf8(body_bytes).map_err(|_| "请求体编码错误".to_string())?;
+            handle_http_prepare_download(body, remote_ip).await
+        }
         ("POST", FILE_HTTP_UPLOAD_PATH) => handle_http_upload(&mut stream, request, remote_ip).await,
+        ("GET", FILE_HTTP_DOWNLOAD_PATH) => {
+            handle_http_download(&mut stream, request, remote_ip).await?;
+            return Ok(());
+        }
         ("POST", FILE_HTTP_CANCEL_PATH) => handle_http_cancel(request, remote_ip).await,
         _ => FileHttpResponse {
             status_code: 404,
