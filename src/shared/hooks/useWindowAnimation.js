@@ -12,15 +12,20 @@ function animateExpand(container) {
   container.style.opacity = '0'
   container.style.overflow = 'hidden'
 
-  function easeInOutCubic(t) {
-    return t < 0.5
-      ? 4 * t * t * t
-      : 1 - Math.pow(-2 * t + 2, 3) / 2
+  function easeWithSettleBounce(t) {
+    if (t < 0.7) {
+      const normalized = t / 0.7
+      return 1 - Math.pow(1 - normalized, 3)
+    }
+
+    const settlePhase = (t - 0.7) / 0.3
+    const overshoot = Math.cos(settlePhase * Math.PI) * 0.012
+    return 1 - overshoot * (1 - settlePhase)
   }
 
   function animate(currentTime) {
     const progress = Math.min((currentTime - startTime) / duration, 1)
-    const eased = easeInOutCubic(progress)
+    const eased = easeWithSettleBounce(progress)
     
     container.style.height = `${targetHeight * eased}px`
     container.style.opacity = Math.min(progress * 2, 1)
@@ -84,6 +89,7 @@ export function useWindowAnimation() {
       } else {
         container.style.height = '0'
         container.style.opacity = '0'
+        container.style.overflow = 'hidden'
       }
     })
 

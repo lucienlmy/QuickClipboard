@@ -628,7 +628,7 @@ function ClipboardItem({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onWheel={handlePreviewWheel}
-      className={`clipboard-item group relative flex flex-col ${isMultiSelectMode ? 'pl-9 pr-2.5' : 'px-2.5'} py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} ${isDraggable ? 'cursor-move' : 'cursor-pointer'} transition-all ${getHeightClass()}`}
+      className={`clipboard-item group relative flex flex-col ${isMultiSelectMode ? 'pl-9 pr-2.5' : 'px-2.5'} py-2 ${selectedClasses} ${isCardStyle ? 'rounded-md' : ''} ${isDraggable ? 'cursor-move' : 'cursor-pointer'} transition-all ${settings.uiAnimationEnabled !== false ? 'hover:translate-y-[-3px]' : 'no-animation'} ${getHeightClass()}`}
     >
       {isMultiSelectMode && (
         <div className="absolute left-2 top-1/2 -translate-y-1/2 z-20 pointer-events-none">
