@@ -416,20 +416,20 @@ function App() {
       case 'left':
         return <>
             <div className="flex flex-1 min-h-0 min-w-0 flex-row overflow-hidden">
-              <div className="flex flex-col h-full">
+              <div className="flex h-full flex-shrink-0 flex-col">
                 {TitleBarComponent}
               </div>
-              <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+              <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
                 {renderWorkspace()}
               </div>
             </div>
           </>;
       case 'right':
         return <>
-            <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+            <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
               {renderWorkspace()}
             </div>
-            <div className="flex flex-col h-full">
+            <div className="flex h-full flex-shrink-0 flex-col">
               {TitleBarComponent}
             </div>
           </>;

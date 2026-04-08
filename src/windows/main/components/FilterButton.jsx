@@ -2,7 +2,7 @@ import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
-function FilterButton({ id, label, icon, isActive, onClick, buttonRef }) {
+function FilterButton({ id, label, icon, isActive, onClick, buttonRef, tooltipPlacement = 'bottom' }) {
   const settings = useSnapshot(settingsStore);
   const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
 
@@ -12,7 +12,7 @@ function FilterButton({ id, label, icon, isActive, onClick, buttonRef }) {
 
   return (
     <div ref={buttonRef} className="relative w-7 h-7 shrink-0">
-      <Tooltip content={label} placement="bottom" asChild>
+      <Tooltip content={label} placement={tooltipPlacement} asChild>
         <button
           onClick={handleClick}
           className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg
