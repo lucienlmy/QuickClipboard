@@ -290,7 +290,7 @@ const ClipboardList = forwardRef(({
       if (item && !item._isPlaceholder) {
         try {
           const { pasteClipboardItem } = await import('@shared/api/clipboard');
-          await pasteClipboardItem(item.id, 'plain');
+          await pasteClipboardItem(item.id, 'plain_text');
           if (!getOneTimePasteEnabled() && settingsStore.pasteToTop && item.id && !item.is_pinned) {
             try {
               await moveClipboardItemToTop(item.id);

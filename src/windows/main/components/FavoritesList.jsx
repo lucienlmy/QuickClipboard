@@ -285,7 +285,7 @@ const FavoritesList = forwardRef(({
       if (item && !item._isPlaceholder) {
         try {
           const { pasteFavorite } = await import('@shared/api/favorites');
-          await pasteFavorite(item.id, 'plain');
+          await pasteFavorite(item.id, 'plain_text');
         } catch (error) {
           console.error('纯文本粘贴收藏失败:', error);
         }
