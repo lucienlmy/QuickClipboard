@@ -206,7 +206,7 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     set_hidden(false);
     
     super::state::set_window_state(super::state::WindowState::Visible);
-    let _ = window.set_always_on_top(true);
+    let _ = super::refresh_always_on_top(window);
 
     crate::input_monitor::enable_mouse_monitoring();
     crate::input_monitor::enable_navigation_keys();

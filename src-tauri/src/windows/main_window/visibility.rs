@@ -1,6 +1,8 @@
 use super::state::{set_window_state, WindowState};
 use tauri::{AppHandle, Manager, WebviewWindow};
 
+const ALWAYS_ON_TOP_REFRESH_DELAY_MS: u64 = 10;
+
 // 显示主窗口
 pub fn show_main_window(window: &WebviewWindow) {
     if crate::services::system::is_front_app_globally_disabled_from_settings() {
@@ -19,9 +21,7 @@ pub fn show_main_window(window: &WebviewWindow) {
     }
 
     show_normal_window(window);
-    let _ = window.set_always_on_top(false);
-    std::thread::sleep(std::time::Duration::from_millis(10));
-    let _ = window.set_always_on_top(true);
+    let _ = refresh_always_on_top(window);
 }
 
 // 隐藏主窗口
@@ -110,6 +110,19 @@ fn show_normal_window(window: &WebviewWindow) {
 
     crate::input_monitor::enable_mouse_monitoring();
     crate::input_monitor::enable_navigation_keys();
+}
+
+pub fn refresh_always_on_top(window: &WebviewWindow) -> Result<(), String> {
+    window
+        .set_always_on_top(false)
+        .map_err(|e| format!("取消窗口置顶失败: {}", e))?;
+    std::thread::sleep(std::time::Duration::from_millis(
+        ALWAYS_ON_TOP_REFRESH_DELAY_MS,
+    ));
+    window
+        .set_always_on_top(true)
+        .map_err(|e| format!("恢复窗口置顶失败: {}", e))?;
+    Ok(())
 }
 
 fn hide_normal_window(window: &WebviewWindow) {
