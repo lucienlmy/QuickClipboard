@@ -66,6 +66,7 @@ pub fn run() {
         }
 
         startup_diagnostics::set_startup_stage("检查管理员启动配置");
+        #[cfg(not(debug_assertions))]
         if let Ok(settings) = services::settings::load_settings_from_file() {
             if settings.run_as_admin {
                 startup_diagnostics::set_startup_stage("检查管理员启动：检测当前进程权限");
@@ -81,6 +82,10 @@ pub fn run() {
                     }
                 }
             }
+        }
+        #[cfg(debug_assertions)]
+        {
+            eprintln!("[dev] 开发模式：跳过管理员提权检查（run_as_admin 设置在 release 模式下生效）");
         }
     }
     
