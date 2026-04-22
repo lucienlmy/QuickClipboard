@@ -56,8 +56,8 @@ export const defaultSettings = {
   previousGroupShortcut: 'Ctrl+ArrowUp',
   nextGroupShortcut: 'Ctrl+ArrowDown',
   togglePinShortcut: 'Ctrl+P',
-  toggleClipboardMonitorShortcut: 'Ctrl+Shift+Z',
-  togglePasteWithFormatShortcut: 'Ctrl+Shift+X',
+  toggleClipboardMonitorShortcut: '',
+  togglePasteWithFormatShortcut: '',
   pastePlainTextShortcut: '',
   
   // 剪贴板设置

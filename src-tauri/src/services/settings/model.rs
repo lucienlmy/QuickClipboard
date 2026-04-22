@@ -307,8 +307,8 @@ impl Default for AppSettings {
             previous_group_shortcut: "Ctrl+ArrowUp".to_string(),
             next_group_shortcut: "Ctrl+ArrowDown".to_string(),
             toggle_pin_shortcut: "Ctrl+P".to_string(),
-            toggle_clipboard_monitor_shortcut: "Ctrl+Shift+Z".to_string(),
-            toggle_paste_with_format_shortcut: "Ctrl+Shift+X".to_string(),
+            toggle_clipboard_monitor_shortcut: String::new(),
+            toggle_paste_with_format_shortcut: String::new(),
             paste_plain_text_shortcut: String::new(),
 
             custom_storage_path: None,
