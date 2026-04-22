@@ -68,6 +68,7 @@ pub async fn show_dialog(
     .always_on_top(true)
     .focused(true)
     .visible(false)
+    .drag_and_drop(false)
     .build()
     .map_err(|e| format!("创建输入对话框失败: {}", e))?;
 

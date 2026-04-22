@@ -244,6 +244,7 @@ async fn create_pin_image_window(
     .skip_taskbar(true)
     .focused(false)
     .visible(false)
+    .drag_and_drop(false)
     .build()
     .map_err(|e| format!("创建贴图窗口失败: {}", e))?;
     

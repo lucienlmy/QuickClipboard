@@ -154,6 +154,7 @@ pub async fn show_menu(
             .resizable(false).maximizable(false).minimizable(false)
             .decorations(false).transparent(true).shadow(false)
             .always_on_top(true).focused(is_tray).focusable(is_tray).visible(false).skip_taskbar(true)
+            .drag_and_drop(false)
             .build().map_err(|e| format!("创建菜单窗口失败: {}", e))?;
         let _ = w.set_ignore_cursor_events(false);
         let _ = w.set_position(tauri::PhysicalPosition::new(init_phys_x, init_phys_y));

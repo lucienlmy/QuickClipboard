@@ -16,6 +16,7 @@ pub fn create_community_window(app: &AppHandle) -> Result<(), String> {
     .skip_taskbar(false)
     .visible(true)
     .focused(true)
+    .drag_and_drop(false)
     .shadow(false)
     .build()
     .map_err(|e| format!("创建社区交流窗口失败: {}", e))?;

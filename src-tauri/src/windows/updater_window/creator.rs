@@ -161,6 +161,7 @@ pub fn open_updater_window(app: &AppHandle, force_update: bool) -> Result<Webvie
     .visible(true)
     .focused(false)
     .focusable(false)
+    .drag_and_drop(false)
     .build()
     .map_err(|e| format!("创建更新窗口失败: {}", e))?;
 
