@@ -244,66 +244,77 @@ function App() {
     setTextContent(originalTextContent);
   };
 
+  const outerContainerClasses = `
+    h-screen w-screen
+    ${isDark ? 'dark' : ''}
+  `.trim().replace(/\s+/g, ' ');
   const containerClasses = `
     text-editor-container
-    h-screen w-screen
+    h-full w-full
     flex flex-col
+    overflow-hidden
     bg-qc-surface
     ${isBackground ? 'bg-opacity-0' : ''}
-    ${isDark ? 'dark' : ''}
   `.trim().replace(/\s+/g, ' ');
 
   return (
-    <div className={containerClasses}>
-      <TitleBar title={title} hasChanges={hasChanges} />
+    <div className={outerContainerClasses} style={{
+      padding: '5px'
+    }}>
+      <div className={containerClasses} style={{
+        borderRadius: '8px',
+        boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
+      }}>
+        <TitleBar title={title} hasChanges={hasChanges} />
 
-      <EditorToolbar
-        onReset={handleReset}
-        title={title}
-        onTitleChange={setTitle}
-        wordWrap={wordWrap}
-        onWordWrapChange={() => setWordWrap(!wordWrap)}
-        showTitle={editorData?.type === 'favorite'}
-        groups={groupsSnap.groups}
-        selectedGroup={selectedGroup}
-        onGroupChange={setSelectedGroup}
-        showGroupSelector={editorData?.type === 'favorite'}
-        editableTypes={editableTypes}
-        editMode={editMode}
-        onEditModeChange={setEditMode}
-      />
-
-      {editMode === 'html' && editableTypes.includes('html') ? (
-        <HtmlEditor
-          content={htmlContent}
-          onContentChange={setHtmlContent}
-          onStatsChange={({ chars, lines }) => {
-            setCharCount(chars);
-            setLineCount(lines);
-          }}
+        <EditorToolbar
+          onReset={handleReset}
+          title={title}
+          onTitleChange={setTitle}
           wordWrap={wordWrap}
+          onWordWrapChange={() => setWordWrap(!wordWrap)}
+          showTitle={editorData?.type === 'favorite'}
+          groups={groupsSnap.groups}
+          selectedGroup={selectedGroup}
+          onGroupChange={setSelectedGroup}
+          showGroupSelector={editorData?.type === 'favorite'}
+          editableTypes={editableTypes}
+          editMode={editMode}
+          onEditModeChange={setEditMode}
         />
-      ) : (
-        <TextEditor
-          content={textContent}
-          onContentChange={setTextContent}
-          onStatsChange={({ chars, lines }) => {
-            setCharCount(chars);
-            setLineCount(lines);
-          }}
-          wordWrap={wordWrap}
+
+        {editMode === 'html' && editableTypes.includes('html') ? (
+          <HtmlEditor
+            content={htmlContent}
+            onContentChange={setHtmlContent}
+            onStatsChange={({ chars, lines }) => {
+              setCharCount(chars);
+              setLineCount(lines);
+            }}
+            wordWrap={wordWrap}
+          />
+        ) : (
+          <TextEditor
+            content={textContent}
+            onContentChange={setTextContent}
+            onStatsChange={({ chars, lines }) => {
+              setCharCount(chars);
+              setLineCount(lines);
+            }}
+            wordWrap={wordWrap}
+          />
+        )}
+
+        <StatusBar
+          charCount={charCount}
+          lineCount={lineCount}
+          hasChanges={hasChanges}
+          onSave={handleSave}
+          onCancel={handleCancel}
         />
-      )}
 
-      <StatusBar
-        charCount={charCount}
-        lineCount={lineCount}
-        hasChanges={hasChanges}
-        onSave={handleSave}
-        onCancel={handleCancel}
-      />
-
-      <ToastContainer />
+        <ToastContainer />
+      </div>
     </div>
   );
 }

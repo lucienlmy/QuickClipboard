@@ -15,6 +15,7 @@ pub fn create_settings_window(app: &AppHandle) -> Result<(), String> {
     .maximizable(false)
     .decorations(false)
     .transparent(true)
+    .shadow(false)
     .skip_taskbar(false)
     .visible(true)
     .focused(true)

@@ -169,35 +169,45 @@ function App() {
       </div>;
   };
 
-  const containerClasses = `
-    settings-container 
-    h-screen w-screen 
-    flex flex-col 
-    overflow-hidden 
-    transition-colors duration-500 ease-in-out
+  const outerContainerClasses = `
+    h-screen w-screen
     ${isDark ? 'dark' : ''}
+  `.trim().replace(/\s+/g, ' ');
+  const containerClasses = `
+    settings-container
+    h-full w-full
+    flex flex-col
+    overflow-hidden
+    transition-colors duration-500 ease-in-out
     bg-qc-surface
     ${isBackground ? 'bg-opacity-0' : ''}
   `.trim().replace(/\s+/g, ' ');
-  return <div className={containerClasses}>
-      <SettingsHeader onNavigate={handleSearchNavigate} />
+  return <div className={outerContainerClasses} style={{
+    padding: '5px'
+  }}>
+      <div className={containerClasses} style={{
+      borderRadius: '8px',
+      boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
+    }}>
+        <SettingsHeader onNavigate={handleSearchNavigate} />
 
-      <div className="flex-1 flex overflow-hidden">
-        <SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+        <div className="flex-1 flex overflow-hidden">
+          <SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* 快捷键页面的 Tab 栏 */}
-          {activeSection === 'shortcuts' && (
-            <TabBar tabs={shortcutsTabs} activeTab={shortcutsTab} onTabChange={setShortcutsTab} />
-          )}
-          
-          <main className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${isBackground ? 'bg-transparent' : 'bg-qc-surface'}`}>
-            {renderSection()}
-          </main>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* 快捷键页面的 Tab 栏 */}
+            {activeSection === 'shortcuts' && (
+              <TabBar tabs={shortcutsTabs} activeTab={shortcutsTab} onTabChange={setShortcutsTab} />
+            )}
+            
+            <main className={`flex-1 overflow-y-auto p-6 transition-colors duration-500 ${isBackground ? 'bg-transparent' : 'bg-qc-surface'}`}>
+              {renderSection()}
+            </main>
+          </div>
         </div>
-      </div>
 
-      <ToastContainer />
+        <ToastContainer />
+      </div>
     </div>;
 }
 export default App;
