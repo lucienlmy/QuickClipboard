@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
@@ -165,6 +166,7 @@ function App() {
   const [hasMousePosition, setHasMousePosition] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [mousePositionPhysical, setMousePositionPhysical] = useState({ x: 0, y: 0 });
+  const revealedRequestIdRef = useRef(0);
   const textPreviewRef = useRef(null);
   const htmlPreviewRef = useRef(null);
   const filePreviewRef = useRef(null);
@@ -173,6 +175,25 @@ function App() {
   const { theme, darkThemeStyle, backgroundImagePath } = settings;
   const { effectiveTheme, isDark, isBackground } = useTheme();
   useSettingsSync();
+
+  const resetPreviewState = () => {
+    revealedRequestIdRef.current = 0;
+    setPreviewData(null);
+    setPreviewItem(null);
+    setFormatKinds([]);
+    setPreviewMode(MODE_TEXT);
+    setTextContent('');
+    setHtmlContent('');
+    setHtmlPreferredSize(null);
+    setTextPreferredHeight(null);
+    setImageUrl('');
+    setImageLoadState(IMAGE_STATUS_IDLE);
+    setImageDimensions(null);
+    setImageScale(1);
+    setShowImageScaleIndicator(false);
+    setHasMousePosition(false);
+    setIsVisible(false);
+  };
 
   useEffect(() => {
     const html = document.documentElement;
@@ -197,6 +218,7 @@ function App() {
       .then((data) => {
         if (!mounted) return;
         setPreviewData(data);
+        revealedRequestIdRef.current = 0;
         const cursorX = Number(data?.cursor_x);
         const cursorY = Number(data?.cursor_y);
         if (isFiniteNumber(cursorX) && isFiniteNumber(cursorY)) {
@@ -211,6 +233,53 @@ function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const applyPreviewData = (data) => {
+      setPreviewData(data);
+      revealedRequestIdRef.current = 0;
+      const cursorX = Number(data?.cursor_x);
+      const cursorY = Number(data?.cursor_y);
+      if (isFiniteNumber(cursorX) && isFiniteNumber(cursorY)) {
+        setMousePositionPhysical({ x: cursorX, y: cursorY });
+        setHasMousePosition(true);
+      }
+    };
+
+    const unlistenPromise = listen('preview-window-data-updated', (event) => {
+      applyPreviewData(event.payload);
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten()).catch(() => { });
+    };
+  }, []);
+
+  useEffect(() => {
+    const unlistenPromise = listen('preview-window-will-hide', (event) => {
+      const requestId = Number(event.payload);
+      if (!Number.isFinite(requestId) || requestId <= 0) {
+        return;
+      }
+      if (previewData?.request_id && Number(previewData.request_id) !== requestId) {
+        return;
+      }
+
+      flushSync(() => {
+        resetPreviewState();
+      });
+
+      requestAnimationFrame(() => {
+        invoke('finalize_hide_preview_window', { requestId }).catch((error) => {
+          console.error('完成预览窗口隐藏失败:', error);
+        });
+      });
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten()).catch(() => { });
+    };
+  }, [previewData]);
 
   useEffect(() => {
     applyThemeToBody(theme || defaultSettings.theme, 'preview');
@@ -277,6 +346,11 @@ function App() {
     };
   }, [previewData, settings.displayPriorityOrder]);
 
+  const currentRequestId = useMemo(() => {
+    const requestId = Number(previewData?.request_id);
+    return Number.isFinite(requestId) ? requestId : 0;
+  }, [previewData?.request_id]);
+
   useEffect(() => {
     if (!previewItem || previewMode !== MODE_IMAGE) {
       setImageUrl('');
@@ -319,6 +393,48 @@ function App() {
       cancelled = true;
     };
   }, [previewItem, previewMode, previewData]);
+
+  const previewReady = useMemo(() => {
+    if (!previewData || !previewItem) {
+      return false;
+    }
+
+    if (previewMode === MODE_IMAGE) {
+      return imageLoadState === IMAGE_STATUS_READY || imageLoadState === IMAGE_STATUS_ERROR;
+    }
+
+    return true;
+  }, [previewData, previewItem, previewMode, imageLoadState]);
+
+  useEffect(() => {
+    if (!previewReady || currentRequestId <= 0) {
+      return;
+    }
+    if (revealedRequestIdRef.current === currentRequestId) {
+      return;
+    }
+
+    let cancelled = false;
+    const rafId = requestAnimationFrame(() => {
+      if (cancelled) {
+        return;
+      }
+      invoke('reveal_preview_window', { requestId: currentRequestId })
+        .then(() => {
+          if (!cancelled) {
+            revealedRequestIdRef.current = currentRequestId;
+          }
+        })
+        .catch((error) => {
+          console.error('显示预览窗口失败:', error);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [currentRequestId, previewReady]);
 
   useEffect(() => {
     return () => {

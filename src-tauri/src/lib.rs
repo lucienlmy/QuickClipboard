@@ -137,6 +137,8 @@ pub fn run() {
                 commands::open_text_editor_window,
                 windows::preview_window::show_preview_window,
                 windows::preview_window::close_preview_window,
+                windows::preview_window::reveal_preview_window,
+                windows::preview_window::finalize_hide_preview_window,
                 windows::preview_window::get_preview_window_data,
                 commands::emit_clipboard_updated,
                 commands::emit_quick_texts_updated,

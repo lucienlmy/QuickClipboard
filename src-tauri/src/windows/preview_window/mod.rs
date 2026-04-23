@@ -4,13 +4,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{
-    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
 };
 
 const PREVIEW_WINDOW_LABEL: &str = "preview-window";
+const PREVIEW_REUSE_TTL_MS: u64 = 60_000;
+const PREVIEW_ALWAYS_ON_TOP_REFRESH_DELAY_MS: u64 = 10;
 
 static PREVIEW_REQUEST_VERSION: AtomicU64 = AtomicU64::new(0);
+static PREVIEW_DESTROY_TIMER_VERSION: AtomicU64 = AtomicU64::new(0);
 static PREVIEW_DATA: Lazy<Mutex<Option<PreviewWindowData>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(Clone, Debug, Serialize)]
@@ -28,7 +31,7 @@ pub struct PreviewWindowData {
     pub request_id: u64,
 }
 
-fn close_preview_window_internal(app: &AppHandle) {
+fn destroy_preview_window_internal(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(PREVIEW_WINDOW_LABEL) {
         let _ = window.hide();
         let _ = window.close();
@@ -36,6 +39,69 @@ fn close_preview_window_internal(app: &AppHandle) {
     if let Ok(mut guard) = PREVIEW_DATA.lock() {
         *guard = None;
     }
+}
+
+fn hide_preview_window_internal(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(PREVIEW_WINDOW_LABEL) {
+        let _ = window.hide();
+    }
+}
+
+fn refresh_preview_window_always_on_top(window: &WebviewWindow) -> Result<(), String> {
+    window
+        .set_always_on_top(false)
+        .map_err(|e| format!("取消预览窗口置顶失败: {}", e))?;
+    std::thread::sleep(std::time::Duration::from_millis(
+        PREVIEW_ALWAYS_ON_TOP_REFRESH_DELAY_MS,
+    ));
+    window
+        .set_always_on_top(true)
+        .map_err(|e| format!("恢复预览窗口置顶失败: {}", e))?;
+    Ok(())
+}
+
+fn apply_preview_window_bounds(
+    window: &WebviewWindow,
+    work_area_x: i32,
+    work_area_y: i32,
+    work_area_width: u32,
+    work_area_height: u32,
+) -> Result<(), String> {
+    window
+        .set_position(PhysicalPosition::new(work_area_x, work_area_y))
+        .map_err(|e| format!("设置预览窗口位置失败: {}", e))?;
+    window
+        .set_size(PhysicalSize::new(work_area_width, work_area_height))
+        .map_err(|e| format!("设置预览窗口大小失败: {}", e))?;
+    Ok(())
+}
+
+fn upsert_preview_data(data: PreviewWindowData) {
+    if let Ok(mut guard) = PREVIEW_DATA.lock() {
+        *guard = Some(data);
+    }
+}
+
+fn schedule_preview_window_destroy(app: AppHandle, timer_version: u64, request_id: u64) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(PREVIEW_REUSE_TTL_MS)).await;
+
+        if PREVIEW_DESTROY_TIMER_VERSION.load(Ordering::SeqCst) != timer_version {
+            return;
+        }
+
+        let current_request_id = PREVIEW_DATA
+            .lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().map(|data| data.request_id))
+            .unwrap_or_default();
+
+        if current_request_id != request_id {
+            return;
+        }
+
+        destroy_preview_window_internal(&app);
+    });
 }
 
 fn create_preview_window(
@@ -79,12 +145,13 @@ fn create_preview_window(
     .build()
     .map_err(|e| format!("创建预览窗口失败: {}", e))?;
 
-    window
-        .set_position(PhysicalPosition::new(work_area_x, work_area_y))
-        .map_err(|e| format!("设置预览窗口位置失败: {}", e))?;
-    window
-        .set_size(PhysicalSize::new(work_area_width, work_area_height))
-        .map_err(|e| format!("设置预览窗口大小失败: {}", e))?;
+    apply_preview_window_bounds(
+        &window,
+        work_area_x,
+        work_area_y,
+        work_area_width,
+        work_area_height,
+    )?;
     window
         .set_ignore_cursor_events(true)
         .map_err(|e| format!("设置预览窗口忽略鼠标事件失败: {}", e))?;
@@ -110,18 +177,8 @@ pub async fn show_preview_window(
         return Ok(());
     }
 
-    if let Ok(guard) = PREVIEW_DATA.lock() {
-        if let Some(current) = guard.as_ref() {
-            let same_request =
-                current.mode == mode && current.source == source && current.item_id == item_id;
-            if same_request && app.get_webview_window(PREVIEW_WINDOW_LABEL).is_some() {
-                return Ok(());
-            }
-        }
-    }
-
     let request_id = PREVIEW_REQUEST_VERSION.fetch_add(1, Ordering::SeqCst) + 1;
-    close_preview_window_internal(&app);
+    PREVIEW_DESTROY_TIMER_VERSION.fetch_add(1, Ordering::SeqCst);
 
     let monitor = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(&app)?;
     let work_area = monitor.work_area();
@@ -132,34 +189,43 @@ pub async fn show_preview_window(
     let work_area_width = work_area.size.width;
     let work_area_height = work_area.size.height;
 
-    if let Ok(mut guard) = PREVIEW_DATA.lock() {
-        *guard = Some(PreviewWindowData {
-            mode,
-            source,
-            item_id,
-            cursor_x,
-            cursor_y,
-            scale_factor,
+    let preview_data = PreviewWindowData {
+        mode,
+        source,
+        item_id,
+        cursor_x,
+        cursor_y,
+        scale_factor,
+        work_area_x,
+        work_area_y,
+        work_area_width,
+        work_area_height,
+        request_id,
+    };
+
+    upsert_preview_data(preview_data.clone());
+
+    if let Some(existing) = app.get_webview_window(PREVIEW_WINDOW_LABEL) {
+        apply_preview_window_bounds(
+            &existing,
             work_area_x,
             work_area_y,
             work_area_width,
             work_area_height,
-            request_id,
-        });
+        )?;
+        existing
+            .emit("preview-window-data-updated", &preview_data)
+            .map_err(|e| format!("推送预览窗口数据失败: {}", e))?;
+        return Ok(());
     }
 
     let app_for_create = app.clone();
+    let preview_data_for_create = preview_data.clone();
     tauri::async_runtime::spawn(async move {
         let mut last_error = None;
         for _ in 0..8 {
             if PREVIEW_REQUEST_VERSION.load(Ordering::SeqCst) != request_id {
                 return;
-            }
-
-            if let Some(existing) = app_for_create.get_webview_window(PREVIEW_WINDOW_LABEL) {
-                let _ = existing.hide();
-                let _ = existing.close();
-                tokio::time::sleep(Duration::from_millis(12)).await;
             }
 
             let window = match create_preview_window(
@@ -188,9 +254,7 @@ pub async fn show_preview_window(
                 return;
             }
 
-            if let Err(error) = window.show() {
-                eprintln!("显示预览窗口失败: {}", error);
-            }
+            let _ = window.emit("preview-window-data-updated", &preview_data_for_create);
             return;
         }
 
@@ -205,7 +269,68 @@ pub async fn show_preview_window(
 #[tauri::command]
 pub fn close_preview_window(app: AppHandle) -> Result<(), String> {
     PREVIEW_REQUEST_VERSION.fetch_add(1, Ordering::SeqCst);
-    close_preview_window_internal(&app);
+    let request_id = PREVIEW_DATA
+        .lock()
+        .map_err(|_| "获取预览窗口状态失败".to_string())?
+        .as_ref()
+        .map(|data| data.request_id)
+        .unwrap_or_default();
+
+    if request_id == 0 {
+        hide_preview_window_internal(&app);
+        return Ok(());
+    }
+
+    if let Some(window) = app.get_webview_window(PREVIEW_WINDOW_LABEL) {
+        window
+            .emit("preview-window-will-hide", request_id)
+            .map_err(|e| format!("发送预览窗口隐藏事件失败: {}", e))?;
+    } else {
+        hide_preview_window_internal(&app);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reveal_preview_window(app: AppHandle, request_id: u64) -> Result<(), String> {
+    let current_request_id = PREVIEW_DATA
+        .lock()
+        .map_err(|_| "获取预览窗口状态失败".to_string())?
+        .as_ref()
+        .map(|data| data.request_id)
+        .unwrap_or_default();
+
+    if current_request_id != request_id {
+        return Ok(());
+    }
+
+    if let Some(window) = app.get_webview_window(PREVIEW_WINDOW_LABEL) {
+        refresh_preview_window_always_on_top(&window)?;
+        window
+            .show()
+            .map_err(|e| format!("显示预览窗口失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn finalize_hide_preview_window(app: AppHandle, request_id: u64) -> Result<(), String> {
+    let current_request_id = PREVIEW_DATA
+        .lock()
+        .map_err(|_| "获取预览窗口状态失败".to_string())?
+        .as_ref()
+        .map(|data| data.request_id)
+        .unwrap_or_default();
+
+    if current_request_id != request_id {
+        return Ok(());
+    }
+
+    hide_preview_window_internal(&app);
+    let timer_version = PREVIEW_DESTROY_TIMER_VERSION.fetch_add(1, Ordering::SeqCst) + 1;
+    schedule_preview_window_destroy(app, timer_version, request_id);
     Ok(())
 }
 
