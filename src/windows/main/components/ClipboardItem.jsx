@@ -211,16 +211,31 @@ function ClipboardItem({
   const externalDragIconPath = externalDragInfo.iconPath;
   const canExternalDrag = externalDragPaths.length > 0;
   const dragZoneHalfWidth = '50%';
+  const itemRootRef = useRef(null);
+  const closeHoverPreview = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    closePreviewWindow().catch(() => { });
+  }, []);
+  const scheduleHoverPreview = useCallback(() => {
+    closeHoverPreview();
+    if (!previewMode || !previewEnabled) {
+      return;
+    }
+    previewTimerRef.current = setTimeout(() => {
+      showPreviewWindow(previewMode, 'clipboard', item.id).catch((error) => {
+        console.error('显示预览失败:', error);
+      });
+    }, PREVIEW_HOVER_DELAY_MS);
+  }, [closeHoverPreview, item.id, previewEnabled, previewMode]);
 
   const handleExternalDragMouseDown = useDragWithThreshold({
     onDragStart: () => {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
       // 外部拖拽时关闭图片预览，避免拖拽过程中占用/闪烁
       if (previewEnabled) {
-        closePreviewWindow().catch(() => { });
+        closeHoverPreview();
       }
     }
   });
@@ -228,27 +243,19 @@ function ClipboardItem({
   // 拖拽开始时关闭预览
   useEffect(() => {
     if (isDragActive && previewEnabled) {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
-      closePreviewWindow().catch(() => { });
+      closeHoverPreview();
     }
-  }, [isDragActive, previewEnabled]);
+  }, [closeHoverPreview, isDragActive, previewEnabled]);
 
   useEffect(() => {
     if (!isMultiSelectMode) {
       return;
     }
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    closePreviewWindow().catch(() => { });
+    closeHoverPreview();
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageOrFileType, isMultiSelectMode]);
+  }, [closeHoverPreview, isImageOrFileType, isMultiSelectMode]);
 
   useEffect(() => {
     setFormatKinds(extractFormatKinds([], item));
@@ -346,21 +353,8 @@ function ClipboardItem({
       onHover();
     }
 
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-
     // 预览窗口：延迟触发，避免鼠标快速掠过时频繁创建窗口
-    if (previewMode && previewEnabled) {
-      previewTimerRef.current = setTimeout(() => {
-        showPreviewWindow(previewMode, 'clipboard', item.id).catch((error) => {
-          console.error('显示预览失败:', error);
-        });
-      }, PREVIEW_HOVER_DELAY_MS);
-    } else {
-      closePreviewWindow().catch(() => { });
-    }
+    scheduleHoverPreview();
   };
 
   // 处理鼠标离开
@@ -368,15 +362,11 @@ function ClipboardItem({
     if (isMultiSelectMode) {
       return;
     }
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    closePreviewWindow().catch(() => { });
+    closeHoverPreview();
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageOrFileType, isMultiSelectMode]);
+  }, [closeHoverPreview, isImageOrFileType, isMultiSelectMode]);
 
   const handlePreviewWheel = useCallback((e) => {
     if (isMultiSelectMode || !e.ctrlKey || !previewMode || !previewEnabled) {
@@ -468,7 +458,7 @@ function ClipboardItem({
     e.stopPropagation();
 
     if (previewEnabled) {
-      closePreviewWindow().catch(() => { });
+      closeHoverPreview();
     }
 
     try {
@@ -488,6 +478,19 @@ function ClipboardItem({
       });
     }
   };
+  const handleActionGroupMouseLeave = useCallback((event) => {
+    const nextTarget = event.relatedTarget;
+    if (!nextTarget || !(nextTarget instanceof Node)) {
+      return;
+    }
+    if (!itemRootRef.current?.contains(nextTarget)) {
+      return;
+    }
+    if (isDragging || isDragActive || isMultiSelectMode) {
+      return;
+    }
+    scheduleHoverPreview();
+  }, [isDragActive, isDragging, isMultiSelectMode, scheduleHoverPreview]);
 
   const getShortcut = () => {
     if (!settings.numberShortcuts) return null;
@@ -618,7 +621,10 @@ function ClipboardItem({
 
   const itemNode = (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        itemRootRef.current = node;
+      }}
       style={{ ...style, ...animationStyle }}
       {...(isImageOrFileType || !isDraggable ? {} : attributes)}
       {...(isImageOrFileType || !isDraggable ? {} : listeners)}
@@ -733,7 +739,7 @@ function ClipboardItem({
       {/* 顶部操作区域：操作按钮、快捷键、序号 */}
       <div className={floatingControlsClasses}>
         {/* 悬停操作按钮组 */}
-        {!isMultiSelectMode && <div className={actionGroupClasses}>
+        {!isMultiSelectMode && <div className={actionGroupClasses} onMouseEnter={closeHoverPreview} onMouseLeave={handleActionGroupMouseLeave}>
           <Tooltip content={t('contextMenu.addToFavorites')} placement="bottom">
             <button className={actionButtonClasses} onClick={handleFavoriteClick}>
               <i className="ti ti-star" style={{ fontSize: 12 }}></i>

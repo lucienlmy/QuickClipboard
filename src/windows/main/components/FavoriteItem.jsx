@@ -172,15 +172,30 @@ function FavoriteItem({
   const externalDragIconPath = externalDragInfo.iconPath;
   const canExternalDrag = externalDragPaths.length > 0;
   const dragZoneHalfWidth = '50%';
+  const itemRootRef = useRef(null);
+  const closeHoverPreview = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    closePreviewWindow().catch(() => { });
+  }, []);
+  const scheduleHoverPreview = useCallback(() => {
+    closeHoverPreview();
+    if (!previewMode || !previewEnabled) {
+      return;
+    }
+    previewTimerRef.current = setTimeout(() => {
+      showPreviewWindow(previewMode, 'favorite', item.id).catch((error) => {
+        console.error('显示预览失败:', error);
+      });
+    }, PREVIEW_HOVER_DELAY_MS);
+  }, [closeHoverPreview, item.id, previewEnabled, previewMode]);
 
   const handleExternalDragMouseDown = useDragWithThreshold({
     onDragStart: () => {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
       if (previewEnabled) {
-        closePreviewWindow().catch(() => { });
+        closeHoverPreview();
       }
     }
   });
@@ -190,27 +205,19 @@ function FavoriteItem({
   // 拖拽开始时关闭预览
   useEffect(() => {
     if (isDragActive && previewEnabled) {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
-      closePreviewWindow().catch(() => { });
+      closeHoverPreview();
     }
-  }, [isDragActive, previewEnabled]);
+  }, [closeHoverPreview, isDragActive, previewEnabled]);
 
   useEffect(() => {
     if (!isMultiSelectMode) {
       return;
     }
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    closePreviewWindow().catch(() => { });
+    closeHoverPreview();
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageOrFileType, isMultiSelectMode]);
+  }, [closeHoverPreview, isImageOrFileType, isMultiSelectMode]);
 
   useEffect(() => {
     setFormatKinds(extractFormatKinds([], item));
@@ -310,21 +317,8 @@ function FavoriteItem({
       onHover();
     }
 
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-
     // 预览窗口：延迟触发，避免鼠标快速掠过时频繁创建窗口
-    if (previewMode && previewEnabled) {
-      previewTimerRef.current = setTimeout(() => {
-        showPreviewWindow(previewMode, 'favorite', item.id).catch((error) => {
-          console.error('显示预览失败:', error);
-        });
-      }, PREVIEW_HOVER_DELAY_MS);
-    } else {
-      closePreviewWindow().catch(() => { });
-    }
+    scheduleHoverPreview();
   };
 
   // 处理鼠标离开
@@ -332,15 +326,11 @@ function FavoriteItem({
     if (isMultiSelectMode) {
       return;
     }
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    closePreviewWindow().catch(() => { });
+    closeHoverPreview();
     if (isImageOrFileType) {
       setShowDragSideTooltips(false);
     }
-  }, [isImageOrFileType, isMultiSelectMode]);
+  }, [closeHoverPreview, isImageOrFileType, isMultiSelectMode]);
 
   const handlePreviewWheel = useCallback((e) => {
     if (isMultiSelectMode || !e.ctrlKey || !previewMode || !previewEnabled) {
@@ -399,7 +389,7 @@ function FavoriteItem({
     e.stopPropagation();
 
     if (previewEnabled) {
-      closePreviewWindow().catch(() => { });
+      closeHoverPreview();
     }
 
     try {
@@ -418,6 +408,19 @@ function FavoriteItem({
       });
     }
   };
+  const handleActionGroupMouseLeave = useCallback((event) => {
+    const nextTarget = event.relatedTarget;
+    if (!nextTarget || !(nextTarget instanceof Node)) {
+      return;
+    }
+    if (!itemRootRef.current?.contains(nextTarget)) {
+      return;
+    }
+    if (isDragActive || isDragging || isMultiSelectMode) {
+      return;
+    }
+    scheduleHoverPreview();
+  }, [isDragActive, isDragging, isMultiSelectMode, scheduleHoverPreview]);
 
   // 判断是否显示标题（只要有非空标题就显示）
   const shouldShowTitle = () => {
@@ -560,7 +563,10 @@ function FavoriteItem({
 
   const itemNode = (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        itemRootRef.current = node;
+      }}
       style={{ ...style, ...animationStyle }}
       {...(isImageOrFileType || !isDraggable ? {} : attributes)}
       {...(isImageOrFileType || !isDraggable ? {} : listeners)}
@@ -662,7 +668,7 @@ function FavoriteItem({
       {/* 顶部操作区域：操作按钮、分组、序号 */}
       <div className={floatingControlsClasses}>
         {/* 悬停操作按钮组 */}
-        {!isMultiSelectMode && <div className={actionGroupClasses}>
+        {!isMultiSelectMode && <div className={actionGroupClasses} onMouseEnter={closeHoverPreview} onMouseLeave={handleActionGroupMouseLeave}>
           {/* 编辑按钮 */}
           {isTextOrRichText ? (
             <Tooltip content={t('common.edit')} placement="bottom" asChild>
