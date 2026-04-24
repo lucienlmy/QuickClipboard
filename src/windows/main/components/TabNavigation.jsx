@@ -742,7 +742,7 @@ function TabNavigation({
           className={`flex min-w-0 max-w-full items-center gap-1 relative ${
             activeTab === 'emoji' || isFilterAutoExpanded
               ? 'w-full justify-center'
-              : useFloatingExpandedFilters
+              : useFloatingExpandedFilters || isGroupsPanelOpen
                 ? 'ml-auto overflow-visible'
                 : 'ml-auto overflow-hidden'
           }`}
@@ -882,6 +882,7 @@ function TabNavigation({
                       activeTab={activeTab}
                       onTabChange={onTabChange}
                       onGroupChange={onGroupChange}
+                      onOpenChange={setIsGroupsPanelOpen}
                       mode={isSidebarLayout ? 'tab-sidebar' : 'tab'}
                     />
                   </div>
