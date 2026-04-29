@@ -569,6 +569,96 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
+pub fn refresh_hidden_snapped_window(window: &WebviewWindow) -> Result<(), String> {
+    let state = super::state::get_window_state();
+
+    if !state.is_snapped || !state.is_hidden {
+        return Ok(());
+    }
+
+    let settings = crate::get_settings();
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
+    let ratio = state
+        .snap_ratio
+        .or(settings.edge_snap_ratio)
+        .unwrap_or(compute_snap_ratio(
+            window.app_handle(),
+            state.snap_edge,
+            x,
+            y,
+            size.width as i32,
+            size.height as i32,
+        )?);
+    let resolved = resolve_hidden_position(
+        window.app_handle(),
+        state.snap_edge,
+        state
+            .snap_monitor_id
+            .as_deref()
+            .or(settings.edge_snap_monitor_id.as_deref()),
+        ratio,
+        size.width as i32,
+        size.height as i32,
+        settings.edge_hide_offset,
+    )?;
+
+    window
+        .set_position(tauri::PhysicalPosition::new(resolved.x, resolved.y))
+        .map_err(|e| e.to_string())?;
+    set_snap_edge(
+        resolved.edge,
+        Some((resolved.x, resolved.y)),
+        Some(resolved.monitor_id.clone()),
+        Some(ratio),
+    );
+    set_hidden(true);
+    save_snap_layout(resolved.edge, ratio, Some(resolved.monitor_id));
+
+    Ok(())
+}
+
+pub fn needs_hidden_snap_refresh(window: &WebviewWindow) -> Result<bool, String> {
+    let state = super::state::get_window_state();
+
+    if !state.is_snapped || !state.is_hidden {
+        return Ok(false);
+    }
+
+    let settings = crate::get_settings();
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
+    let ratio = state
+        .snap_ratio
+        .or(settings.edge_snap_ratio)
+        .unwrap_or(compute_snap_ratio(
+            window.app_handle(),
+            state.snap_edge,
+            x,
+            y,
+            size.width as i32,
+            size.height as i32,
+        )?);
+    let resolved = resolve_hidden_position(
+        window.app_handle(),
+        state.snap_edge,
+        state
+            .snap_monitor_id
+            .as_deref()
+            .or(settings.edge_snap_monitor_id.as_deref()),
+        ratio,
+        size.width as i32,
+        size.height as i32,
+        settings.edge_hide_offset,
+    )?;
+
+    const POSITION_TOLERANCE: i32 = 2;
+    Ok(
+        (x - resolved.x).abs() > POSITION_TOLERANCE
+            || (y - resolved.y).abs() > POSITION_TOLERANCE,
+    )
+}
+
 pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     crate::windows::preview_window::resume_preview_after_main_window_show();
 
@@ -761,4 +851,3 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
     
     Ok(())
 }
-

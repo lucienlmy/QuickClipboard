@@ -381,6 +381,8 @@ pub fn run() {
                 input_monitor::init_input_monitor(window.clone());
                 #[cfg(target_os = "windows")]
                 services::system::raw_input::start_raw_input_if_needed();
+                #[cfg(target_os = "windows")]
+                services::system::display_change_monitor::start_display_change_monitor_if_needed();
                 init_edge_monitor(window.clone());
                 startup_diagnostics::set_startup_stage("执行 setup：创建托盘图标");
                 setup_tray(app.handle())?;

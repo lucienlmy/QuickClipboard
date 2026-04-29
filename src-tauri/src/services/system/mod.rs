@@ -1,6 +1,7 @@
 pub mod hotkey;
 pub mod input_common;
 pub mod input_monitor;
+pub mod display_change_monitor;
 pub mod raw_input;
 pub mod focus;
 pub mod app_filter;
