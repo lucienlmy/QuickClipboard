@@ -71,6 +71,8 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
 }
 
 fn show_normal_window(window: &WebviewWindow) {
+    crate::windows::preview_window::resume_preview_after_main_window_show();
+
     let state = super::state::get_window_state();
     let was_visible = state.state == WindowState::Visible;
 
@@ -129,6 +131,7 @@ fn hide_normal_window(window: &WebviewWindow) {
     use tauri::Emitter;
     use tauri::Manager;
 
+    crate::windows::preview_window::suppress_preview_for_main_window_hide(&window.app_handle());
     let _ = crate::windows::pin_image_window::close_image_preview(window.app_handle().clone());
     let _ = crate::windows::chat_drop_proxy::hide_chat_drop_proxy(&window.app_handle());
     #[cfg(feature = "gpu-image-viewer")]

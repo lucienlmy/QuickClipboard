@@ -95,6 +95,7 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         return Ok(());
     }
 
+    crate::windows::preview_window::suppress_preview_for_main_window_hide(&window.app_handle());
     let _ = crate::windows::pin_image_window::close_image_preview(window.app_handle().clone());
     #[cfg(feature = "gpu-image-viewer")]
     let _ = crate::windows::native_pin_window::close_native_image_preview();
@@ -158,6 +159,8 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
 }
 
 pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
+    crate::windows::preview_window::resume_preview_after_main_window_show();
+
     let state = super::state::get_window_state();
     
     if !state.is_snapped || !state.is_hidden {

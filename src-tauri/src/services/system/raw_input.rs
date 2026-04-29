@@ -3,10 +3,12 @@ use super::input_common;
 #[cfg(target_os = "windows")]
 mod windows_raw_input {
     use super::input_common;
+    use once_cell::sync::Lazy;
+    use parking_lot::Mutex;
     use std::mem::size_of;
     use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
     use std::thread;
-    use std::time::Duration;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use windows::core::w;
     use windows::core::PCWSTR;
@@ -30,6 +32,9 @@ mod windows_raw_input {
     static CTRL_DOWN: AtomicBool = AtomicBool::new(false);
     static MIDDLE_BUTTON_DOWN: AtomicBool = AtomicBool::new(false);
     static MIDDLE_BUTTON_PRESS_ID: AtomicU64 = AtomicU64::new(0);
+    static PREVIEW_GUARD_PENDING: AtomicBool = AtomicBool::new(false);
+    static PREVIEW_GUARD_LAST_RUN_MS: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
+    const PREVIEW_GUARD_THROTTLE_MS: u64 = 50;
 
     pub(crate) fn start_raw_input_if_needed() {
         if RAW_INPUT_ACTIVE.swap(true, Ordering::SeqCst) {
@@ -206,6 +211,8 @@ mod windows_raw_input {
                     });
                 }
 
+                schedule_preview_guard_check();
+
                 if (button_flags & RI_MOUSE_MIDDLE_BUTTON_UP) != 0 {
                     MIDDLE_BUTTON_DOWN.store(false, Ordering::SeqCst);
                     MIDDLE_BUTTON_PRESS_ID.fetch_add(1, Ordering::SeqCst);
@@ -286,6 +293,37 @@ mod windows_raw_input {
     }
 
     fn handle_wheel_event_impl(_delta_y: i64) {
+    }
+
+    fn current_unix_ms() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    }
+
+    fn schedule_preview_guard_check() {
+        if !input_common::is_mouse_monitoring_enabled() {
+            return;
+        }
+
+        let now_ms = current_unix_ms();
+        {
+            let last_run_ms = PREVIEW_GUARD_LAST_RUN_MS.lock();
+            if now_ms.saturating_sub(*last_run_ms) < PREVIEW_GUARD_THROTTLE_MS {
+                return;
+            }
+        }
+
+        if PREVIEW_GUARD_PENDING.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        input_common::run_on_main_thread(|| {
+            handle_preview_guard_check_impl();
+            *PREVIEW_GUARD_LAST_RUN_MS.lock() = current_unix_ms();
+            PREVIEW_GUARD_PENDING.store(false, Ordering::SeqCst);
+        });
     }
 
     fn check_modifier_requirement_impl(required: &str) -> bool {
@@ -405,6 +443,40 @@ mod windows_raw_input {
 
         cursor_x < win_x || cursor_x > win_x + win_width as i32
             || cursor_y < win_y || cursor_y > win_y + win_height as i32
+    }
+
+    fn handle_preview_guard_check_impl() {
+        let Some(app) = input_common::try_get_app_handle() else {
+            return;
+        };
+
+        if app.get_webview_window("preview-window").is_none() {
+            return;
+        }
+
+        let Some(main_window) = input_common::try_get_main_window() else {
+            crate::windows::preview_window::force_close_preview_window(&app);
+            return;
+        };
+
+        let state = crate::get_window_state();
+        if state.state != crate::WindowState::Visible || state.is_hidden {
+            crate::windows::preview_window::force_close_preview_window(&app);
+            return;
+        }
+
+        let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+        let in_menu_region = crate::is_context_menu_visible()
+            && crate::windows::plugins::context_menu::is_point_in_menu_region(cursor_x, cursor_y);
+
+        if in_menu_region {
+            crate::windows::preview_window::force_close_preview_window(&app);
+            return;
+        }
+
+        if is_mouse_outside_window_impl(&main_window) {
+            crate::windows::preview_window::force_close_preview_window(&app);
+        }
     }
 
     fn handle_click_outside_impl() {

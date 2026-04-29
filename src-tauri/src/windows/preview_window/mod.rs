@@ -1,8 +1,9 @@
 use once_cell::sync::Lazy;
 use serde::Serialize;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
@@ -11,9 +12,13 @@ use tauri::{
 const PREVIEW_WINDOW_LABEL: &str = "preview-window";
 const PREVIEW_REUSE_TTL_MS: u64 = 60_000;
 const PREVIEW_ALWAYS_ON_TOP_REFRESH_DELAY_MS: u64 = 10;
+const PREVIEW_HIDE_WATCHDOG_DURATION_MS: u64 = 5_000;
+const PREVIEW_HIDE_WATCHDOG_INTERVAL_MS: u64 = 100;
 
 static PREVIEW_REQUEST_VERSION: AtomicU64 = AtomicU64::new(0);
 static PREVIEW_DESTROY_TIMER_VERSION: AtomicU64 = AtomicU64::new(0);
+static PREVIEW_HIDE_WATCHDOG_VERSION: AtomicU64 = AtomicU64::new(0);
+static PREVIEW_SUPPRESSED: AtomicBool = AtomicBool::new(false);
 static PREVIEW_DATA: Lazy<Mutex<Option<PreviewWindowData>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(Clone, Debug, Serialize)]
@@ -104,6 +109,35 @@ fn schedule_preview_window_destroy(app: AppHandle, timer_version: u64, request_i
     });
 }
 
+fn schedule_preview_hide_watchdog(app: AppHandle, watchdog_version: u64) {
+    tauri::async_runtime::spawn(async move {
+        let started_at = Instant::now();
+
+        loop {
+            if PREVIEW_HIDE_WATCHDOG_VERSION.load(Ordering::SeqCst) != watchdog_version {
+                return;
+            }
+
+            if !PREVIEW_SUPPRESSED.load(Ordering::SeqCst) {
+                return;
+            }
+
+            if started_at.elapsed() >= Duration::from_millis(PREVIEW_HIDE_WATCHDOG_DURATION_MS) {
+                return;
+            }
+
+            if app.get_webview_window(PREVIEW_WINDOW_LABEL).is_some() {
+                destroy_preview_window_internal(&app);
+            }
+
+            tokio::time::sleep(Duration::from_millis(
+                PREVIEW_HIDE_WATCHDOG_INTERVAL_MS,
+            ))
+            .await;
+        }
+    });
+}
+
 fn create_preview_window(
     app: &AppHandle,
     work_area_x: i32,
@@ -166,6 +200,14 @@ pub async fn show_preview_window(
     source: String,
     item_id: String,
 ) -> Result<(), String> {
+    if PREVIEW_SUPPRESSED.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+
+    if crate::is_context_menu_visible() {
+        return Ok(());
+    }
+
     let window_state = crate::get_window_state();
     if window_state.state != crate::WindowState::Visible {
         eprintln!(
@@ -290,6 +332,27 @@ pub fn close_preview_window(app: AppHandle) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+pub fn suppress_preview_for_main_window_hide(app: &AppHandle) {
+    PREVIEW_SUPPRESSED.store(true, Ordering::SeqCst);
+    PREVIEW_REQUEST_VERSION.fetch_add(1, Ordering::SeqCst);
+    PREVIEW_DESTROY_TIMER_VERSION.fetch_add(1, Ordering::SeqCst);
+    destroy_preview_window_internal(app);
+
+    let watchdog_version = PREVIEW_HIDE_WATCHDOG_VERSION.fetch_add(1, Ordering::SeqCst) + 1;
+    schedule_preview_hide_watchdog(app.clone(), watchdog_version);
+}
+
+pub fn resume_preview_after_main_window_show() {
+    PREVIEW_SUPPRESSED.store(false, Ordering::SeqCst);
+    PREVIEW_HIDE_WATCHDOG_VERSION.fetch_add(1, Ordering::SeqCst);
+}
+
+pub fn force_close_preview_window(app: &AppHandle) {
+    PREVIEW_REQUEST_VERSION.fetch_add(1, Ordering::SeqCst);
+    PREVIEW_DESTROY_TIMER_VERSION.fetch_add(1, Ordering::SeqCst);
+    destroy_preview_window_internal(app);
 }
 
 #[tauri::command]
