@@ -133,14 +133,20 @@ fn check_mouse_near_edge(
 ) -> Result<bool, String> {
     let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let (win_x, win_y, win_width, win_height) = crate::get_window_bounds(window)?;
+    let (reference_x, reference_y) =
+        super::snap::get_snap_monitor_reference_point(state, win_x, win_y);
     
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), win_x, win_y)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(
+            window.app_handle(),
+            reference_x,
+            reference_y,
+        )?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
 
     let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), win_x, win_y
+        window.app_handle(), reference_x, reference_y
     );
     
     let settings = crate::get_settings();

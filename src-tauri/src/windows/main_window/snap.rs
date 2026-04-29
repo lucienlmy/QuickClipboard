@@ -12,6 +12,14 @@ fn get_content_inset(scale_factor: f64) -> i32 {
     (FRONTEND_CONTENT_INSET_LOGICAL * scale_factor) as i32
 }
 
+pub(crate) fn get_snap_monitor_reference_point(
+    state: &super::state::MainWindowState,
+    fallback_x: i32,
+    fallback_y: i32,
+) -> (i32, i32) {
+    state.snap_monitor_anchor.unwrap_or((fallback_x, fallback_y))
+}
+
 pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     let settings = crate::get_settings();
     if !settings.edge_hide_enabled {
@@ -42,7 +50,8 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     };
     
     if let Some(edge) = edge {
-        set_snap_edge(edge, Some((x, y)));
+        let monitor_anchor = Some((monitor_x + monitor_w / 2, monitor_y + monitor_h / 2));
+        set_snap_edge(edge, Some((x, y)), monitor_anchor);
         snap_to_edge(window, edge)?;
         super::edge_monitor::start_edge_monitoring();
     } else {
@@ -103,17 +112,22 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
 
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
+    let (reference_x, reference_y) = get_snap_monitor_reference_point(&state, x, y);
     
-    // 使用当前显示器边界
+    // 使用吸附时确认下来的显示器锚点，避免贴边后窗口坐标越界导致隐藏距离计算错误
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), x, y)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(
+            window.app_handle(),
+            reference_x,
+            reference_y,
+        )?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
     let settings = crate::get_settings();
     
     let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), x, y
+        window.app_handle(), reference_x, reference_y
     );
     let content_inset = get_content_inset(scale_factor);
     
@@ -173,15 +187,20 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
+    let (reference_x, reference_y) = get_snap_monitor_reference_point(&state, x, y);
     
-    // 使用当前显示器边界
+    // 使用贴边前仍在屏内的参考点识别显示器，避免隐藏后窗口坐标越界导致多屏取错显示器
     let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), x, y)?;
+        crate::utils::screen::ScreenUtils::get_monitor_at_point(
+            window.app_handle(),
+            reference_x,
+            reference_y,
+        )?;
     let monitor_right = monitor_x + monitor_w;
     let monitor_bottom = monitor_y + monitor_h;
     
     let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), x, y
+        window.app_handle(), reference_x, reference_y
     );
     let content_inset = get_content_inset(scale_factor);
     
@@ -374,7 +393,8 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
         SnapEdge::None => (saved_x, saved_y),
     };
     
-    set_snap_edge(snapped_edge, Some((final_x, final_y)));
+    let monitor_anchor = Some((monitor_x + monitor_w / 2, monitor_y + monitor_h / 2));
+    set_snap_edge(snapped_edge, Some((final_x, final_y)), monitor_anchor);
     set_hidden(true);
     
     window.set_position(tauri::PhysicalPosition::new(final_x, final_y))
