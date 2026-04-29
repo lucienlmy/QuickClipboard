@@ -295,7 +295,7 @@ fn recreate_main_window(app: &AppHandle) -> Result<(), String> {
     .map_err(|e| format!("重建主窗口失败: {}", e))?;
 
     if settings.remember_window_size {
-        let _ = window.set_size(tauri::PhysicalSize::new(width, height));
+        crate::windows::main_window::apply_saved_window_size(&window, width, height);
     }
     
     let _ = window.set_focusable(false);

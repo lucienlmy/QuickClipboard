@@ -1,7 +1,47 @@
 use super::state::{set_window_state, WindowState};
-use tauri::{AppHandle, Manager, WebviewWindow};
+use tauri::{AppHandle, LogicalSize, Manager, WebviewWindow};
 
 const ALWAYS_ON_TOP_REFRESH_DELAY_MS: u64 = 10;
+
+pub(crate) fn normalize_saved_window_size_for_restore(
+    window: &WebviewWindow,
+    width: u32,
+    height: u32,
+) -> (f64, f64) {
+    let scale_factor = window
+        .scale_factor()
+        .ok()
+        .filter(|value| *value > 0.0)
+        .unwrap_or(1.0);
+
+    if scale_factor > 1.0 && (width >= 640 || height >= 900) {
+        (
+            (width as f64 / scale_factor).max(350.0),
+            (height as f64 / scale_factor).max(500.0),
+        )
+    } else {
+        (width.max(350) as f64, height.max(500) as f64)
+    }
+}
+
+pub(crate) fn apply_saved_window_size(window: &WebviewWindow, width: u32, height: u32) {
+    let (logical_width, logical_height) =
+        normalize_saved_window_size_for_restore(window, width, height);
+    let _ = window.set_size(LogicalSize::new(logical_width, logical_height));
+}
+
+fn capture_window_logical_size(window: &WebviewWindow) -> Result<(u32, u32), String> {
+    let size = window.inner_size().map_err(|e| e.to_string())?;
+    let scale_factor = window
+        .scale_factor()
+        .map_err(|e| e.to_string())?
+        .max(1.0);
+
+    Ok((
+        ((size.width as f64) / scale_factor).round().max(1.0) as u32,
+        ((size.height as f64) / scale_factor).round().max(1.0) as u32,
+    ))
+}
 
 // 显示主窗口
 pub fn show_main_window(window: &WebviewWindow) {
@@ -97,7 +137,7 @@ fn show_normal_window(window: &WebviewWindow) {
     // 恢复窗口大小
     if settings.remember_window_size {
         if let Some((w, h)) = settings.saved_window_size {
-            let _ = window.set_size(tauri::PhysicalSize::new(w, h));
+            apply_saved_window_size(window, w, h);
         }
     }
 
@@ -151,8 +191,8 @@ fn hide_normal_window(window: &WebviewWindow) {
             settings.saved_window_position = Some((position.x, position.y));
 
             if settings.remember_window_size {
-                if let Ok(size) = window.outer_size() {
-                    settings.saved_window_size = Some((size.width, size.height));
+                if let Ok(size) = capture_window_logical_size(window) {
+                    settings.saved_window_size = Some(size);
                 }
             }
 

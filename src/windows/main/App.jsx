@@ -171,11 +171,14 @@ function App() {
       resizeTimer = setTimeout(async () => {
         try {
           const appWindow = getCurrentWindow();
-          const size = await appWindow.outerSize();
+          const size = await appWindow.innerSize();
+          const scaleFactor = await appWindow.scaleFactor();
+          const logicalWidth = Math.max(1, Math.round(size.width / Math.max(scaleFactor, 1)));
+          const logicalHeight = Math.max(1, Math.round(size.height / Math.max(scaleFactor, 1)));
           const {
             saveWindowSize
           } = await import('@shared/api/settings');
-          await saveWindowSize(size.width, size.height);
+          await saveWindowSize(logicalWidth, logicalHeight);
         } catch (error) {
           console.error('保存窗口大小失败:', error);
         }

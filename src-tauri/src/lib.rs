@@ -362,7 +362,7 @@ pub fn run() {
                 let mut settings = get_settings();
                 
                 if let Some((w, h)) = settings.saved_window_size.filter(|_| settings.remember_window_size) {
-                    let _ = window.set_size(tauri::PhysicalSize::new(w, h));
+                    windows::main_window::apply_saved_window_size(&window, w, h);
                 }
                 let settings_exists = services::settings::storage::SettingsStorage::exists().unwrap_or(true);
                 if !settings_exists {

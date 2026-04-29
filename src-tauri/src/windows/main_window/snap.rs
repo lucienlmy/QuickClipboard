@@ -279,6 +279,47 @@ fn resolve_saved_monitor_and_edge(
         .ok_or_else(|| "未找到可用的贴边显示器".to_string())
 }
 
+fn normalize_saved_logical_size_for_monitor(
+    monitor_scale_factor: f64,
+    width: u32,
+    height: u32,
+) -> (f64, f64) {
+    if monitor_scale_factor > 1.0 && (width >= 640 || height >= 900) {
+        (
+            (width as f64 / monitor_scale_factor).max(350.0),
+            (height as f64 / monitor_scale_factor).max(500.0),
+        )
+    } else {
+        (width.max(350) as f64, height.max(500) as f64)
+    }
+}
+
+fn resolve_startup_restore_window_size(
+    window: &WebviewWindow,
+    edge: SnapEdge,
+    monitor_id: Option<&str>,
+    settings: &crate::services::AppSettings,
+) -> Result<(i32, i32), String> {
+    let (monitor, _) = resolve_saved_monitor_and_edge(window.app_handle(), edge, monitor_id)?;
+
+    if settings.remember_window_size {
+        if let Some((saved_width, saved_height)) = settings.saved_window_size {
+            let (logical_width, logical_height) = normalize_saved_logical_size_for_monitor(
+                monitor.scale_factor,
+                saved_width,
+                saved_height,
+            );
+            return Ok((
+                (logical_width * monitor.scale_factor).round().max(1.0) as i32,
+                (logical_height * monitor.scale_factor).round().max(1.0) as i32,
+            ));
+        }
+    }
+
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    Ok((size.width as i32, size.height as i32))
+}
+
 pub(crate) fn compute_snap_layout(
     app: &tauri::AppHandle,
     edge: SnapEdge,
@@ -680,14 +721,19 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
         _ => return Ok(()),
     };
 
-    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let (restore_width, restore_height) = resolve_startup_restore_window_size(
+        window,
+        snapped_edge,
+        settings.edge_snap_monitor_id.as_deref(),
+        &settings,
+    )?;
     let resolved = resolve_hidden_position(
         window.app_handle(),
         snapped_edge,
         settings.edge_snap_monitor_id.as_deref(),
         snapped_ratio,
-        size.width as i32,
-        size.height as i32,
+        restore_width,
+        restore_height,
         settings.edge_hide_offset,
     )?;
 
