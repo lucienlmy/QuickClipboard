@@ -12,6 +12,7 @@ export const MODE_IMAGE = PREVIEW_MODE_IMAGE;
 export const MODE_FILE = PREVIEW_MODE_FILE;
 
 export const PREVIEW_OFFSET = 14;
+export const PREVIEW_MAIN_GAP = 18;
 export const TEXT_SCROLL_STEP = 120;
 export const IMAGE_SCALE_STEP = 0.1;
 export const IMAGE_SCALE_MIN = 1;
@@ -223,7 +224,74 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
   return { width: finalWidth, height: finalHeight };
 }
 
-export function chooseContainerPosition(mouseX, mouseY, width, height, workArea) {
+function isValidRect(rect) {
+  return rect
+    && isFiniteNumber(rect.left)
+    && isFiniteNumber(rect.top)
+    && isFiniteNumber(rect.width)
+    && isFiniteNumber(rect.height)
+    && rect.width > 0
+    && rect.height > 0;
+}
+
+function choosePositionOutsideMainWindow(mouseX, mouseY, width, height, workArea, mainWindowRect) {
+  if (!isValidRect(mainWindowRect)) {
+    return null;
+  }
+
+  const workLeft = workArea.left;
+  const workTop = workArea.top;
+  const workRight = workLeft + workArea.width;
+  const workBottom = workTop + workArea.height;
+  const mainLeft = mainWindowRect.left;
+  const mainTop = mainWindowRect.top;
+  const mainRight = mainLeft + mainWindowRect.width;
+  const mainBottom = mainTop + mainWindowRect.height;
+
+  const rightSpace = workRight - mainRight - PREVIEW_MAIN_GAP;
+  const leftSpace = mainLeft - workLeft - PREVIEW_MAIN_GAP;
+  const canPlaceRight = rightSpace >= width;
+  const canPlaceLeft = leftSpace >= width;
+  const preferredTop = clamp(
+    mouseY - height / 2,
+    workTop,
+    Math.max(workTop, workBottom - height),
+  );
+
+  if (canPlaceRight || canPlaceLeft) {
+    const placeRight = canPlaceRight && (!canPlaceLeft || rightSpace >= leftSpace);
+    return {
+      left: placeRight
+        ? mainRight + PREVIEW_MAIN_GAP
+        : mainLeft - PREVIEW_MAIN_GAP - width,
+      top: preferredTop,
+    };
+  }
+
+  const bottomSpace = workBottom - mainBottom - PREVIEW_MAIN_GAP;
+  const topSpace = mainTop - workTop - PREVIEW_MAIN_GAP;
+  const canPlaceBottom = bottomSpace >= height;
+  const canPlaceTop = topSpace >= height;
+  const preferredLeft = clamp(
+    mouseX - width / 2,
+    workLeft,
+    Math.max(workLeft, workRight - width),
+  );
+
+  if (canPlaceBottom || canPlaceTop) {
+    const placeBottom = canPlaceBottom && (!canPlaceTop || bottomSpace >= topSpace);
+    return {
+      left: preferredLeft,
+      top: placeBottom
+        ? mainBottom + PREVIEW_MAIN_GAP
+        : mainTop - PREVIEW_MAIN_GAP - height,
+    };
+  }
+
+  return null;
+}
+
+export function chooseContainerPosition(mouseX, mouseY, width, height, workArea, mainWindowRect = null) {
   const workLeft = workArea.left;
   const workTop = workArea.top;
   const workRight = workLeft + workArea.width;
@@ -240,6 +308,18 @@ export function chooseContainerPosition(mouseX, mouseY, width, height, workArea)
     !isFiniteNumber(workBottom)
   ) {
     return { left: 0, top: 0 };
+  }
+
+  const outsideMainWindow = choosePositionOutsideMainWindow(
+    mouseX,
+    mouseY,
+    width,
+    height,
+    workArea,
+    mainWindowRect,
+  );
+  if (outsideMainWindow) {
+    return outsideMainWindow;
   }
 
   // 右下 -> 左下 -> 左上 -> 右上

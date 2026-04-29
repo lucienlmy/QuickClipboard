@@ -33,6 +33,10 @@ pub struct PreviewWindowData {
     pub work_area_y: i32,
     pub work_area_width: u32,
     pub work_area_height: u32,
+    pub main_window_x: i32,
+    pub main_window_y: i32,
+    pub main_window_width: u32,
+    pub main_window_height: u32,
     pub request_id: u64,
 }
 
@@ -230,6 +234,10 @@ pub async fn show_preview_window(
     let work_area_y = work_area.position.y;
     let work_area_width = work_area.size.width;
     let work_area_height = work_area.size.height;
+    let (main_window_x, main_window_y, main_window_width, main_window_height) =
+        app.get_webview_window("main")
+            .and_then(|window| crate::get_window_bounds(&window).ok())
+            .unwrap_or((0, 0, 0, 0));
 
     let preview_data = PreviewWindowData {
         mode,
@@ -242,6 +250,10 @@ pub async fn show_preview_window(
         work_area_y,
         work_area_width,
         work_area_height,
+        main_window_x,
+        main_window_y,
+        main_window_width,
+        main_window_height,
         request_id,
     };
 
@@ -255,6 +267,7 @@ pub async fn show_preview_window(
             work_area_width,
             work_area_height,
         )?;
+        refresh_preview_window_always_on_top(&existing)?;
         existing
             .emit("preview-window-data-updated", &preview_data)
             .map_err(|e| format!("推送预览窗口数据失败: {}", e))?;
@@ -296,6 +309,9 @@ pub async fn show_preview_window(
                 return;
             }
 
+            if let Err(error) = refresh_preview_window_always_on_top(&window) {
+                eprintln!("刷新预览窗口置顶失败: {}", error);
+            }
             let _ = window.emit("preview-window-data-updated", &preview_data_for_create);
             return;
         }

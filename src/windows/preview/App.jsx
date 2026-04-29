@@ -654,6 +654,23 @@ function App() {
     };
   }, [previewData, scaleFactor]);
 
+  const mainWindowLogical = useMemo(() => {
+    if (!previewData) {
+      return null;
+    }
+
+    const left = Number(previewData.main_window_x) / scaleFactor;
+    const top = Number(previewData.main_window_y) / scaleFactor;
+    const width = Number(previewData.main_window_width) / scaleFactor;
+    const height = Number(previewData.main_window_height) / scaleFactor;
+
+    if (![left, top, width, height].every((value) => isFiniteNumber(value)) || width <= 0 || height <= 0) {
+      return null;
+    }
+
+    return { left, top, width, height };
+  }, [previewData, scaleFactor]);
+
   const boxSize = useMemo(() => {
     return resolveBoxSize(previewMode, workAreaLogical.height, workAreaLogical.width, {
       textHeight: textPreferredHeight,
@@ -714,8 +731,9 @@ function App() {
       displaySize.width,
       displaySize.height,
       workAreaLogical,
+      mainWindowLogical,
     );
-  }, [previewData, mousePositionLogical, displaySize, workAreaLogical]);
+  }, [previewData, mousePositionLogical, displaySize, workAreaLogical, mainWindowLogical]);
 
   const imageScalePercent = useMemo(() => `${Math.round(imageScale * 100)}%`, [imageScale]);
   const previewModeLabel = useMemo(() => {
