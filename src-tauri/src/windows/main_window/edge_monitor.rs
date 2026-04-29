@@ -133,23 +133,30 @@ fn check_mouse_near_edge(
 ) -> Result<bool, String> {
     let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let (win_x, win_y, win_width, win_height) = crate::get_window_bounds(window)?;
-    let (reference_x, reference_y) =
-        super::snap::get_snap_monitor_reference_point(state, win_x, win_y);
-    
-    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_at_point(
-            window.app_handle(),
-            reference_x,
-            reference_y,
-        )?;
-    let monitor_right = monitor_x + monitor_w;
-    let monitor_bottom = monitor_y + monitor_h;
-
-    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), reference_x, reference_y
-    );
-    
     let settings = crate::get_settings();
+    let ratio = state
+        .snap_ratio
+        .or(settings.edge_snap_ratio)
+        .unwrap_or(super::snap::compute_snap_ratio(
+            window.app_handle(),
+            state.snap_edge,
+            win_x,
+            win_y,
+            win_width as i32,
+            win_height as i32,
+        )?);
+    let resolved = super::snap::resolve_snapped_position(
+        window.app_handle(),
+        state.snap_edge,
+        state
+            .snap_monitor_id
+            .as_deref()
+            .or(settings.edge_snap_monitor_id.as_deref()),
+        ratio,
+        win_width as i32,
+        win_height as i32,
+    )?;
+
     let base_trigger = if settings.edge_hide_offset >= 10 {
         settings.edge_hide_offset
     } else {
@@ -163,29 +170,29 @@ fn check_mouse_near_edge(
         && cursor_y <= win_y + win_height as i32;
     
     // 检查鼠标是否接近对应边缘（使用当前显示器边界）
-    let content_inset = (CONTENT_INSET_LOGICAL * scale_factor) as i32;
+    let content_inset = (CONTENT_INSET_LOGICAL * resolved.scale_factor) as i32;
     let trigger_distance = base_trigger + content_inset;
     
-    let is_near = match state.snap_edge {
+    let is_near = match resolved.edge {
         super::state::SnapEdge::Left => {
-            cursor_x <= monitor_x + trigger_distance
-                && cursor_y >= win_y
-                && cursor_y <= win_y + win_height as i32
+            cursor_x <= resolved.x + trigger_distance
+                && cursor_y >= resolved.y
+                && cursor_y <= resolved.y + win_height as i32
         }
         super::state::SnapEdge::Right => {
-            cursor_x >= monitor_right - trigger_distance
-                && cursor_y >= win_y
-                && cursor_y <= win_y + win_height as i32
+            cursor_x >= resolved.x + win_width as i32 - trigger_distance
+                && cursor_y >= resolved.y
+                && cursor_y <= resolved.y + win_height as i32
         }
         super::state::SnapEdge::Top => {
-            cursor_y <= monitor_y + trigger_distance
-                && cursor_x >= win_x
-                && cursor_x <= win_x + win_width as i32
+            cursor_y <= resolved.y + trigger_distance
+                && cursor_x >= resolved.x
+                && cursor_x <= resolved.x + win_width as i32
         }
         super::state::SnapEdge::Bottom => {
-            cursor_y >= monitor_bottom - trigger_distance
-                && cursor_x >= win_x
-                && cursor_x <= win_x + win_width as i32
+            cursor_y >= resolved.y + win_height as i32 - trigger_distance
+                && cursor_x >= resolved.x
+                && cursor_x <= resolved.x + win_width as i32
         }
         super::state::SnapEdge::None => false,
     };

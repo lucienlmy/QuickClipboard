@@ -47,6 +47,9 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     
     if edge_hide_changed && !settings.edge_hide_enabled {
         settings.edge_snap_position = None;
+        settings.edge_snap_edge = None;
+        settings.edge_snap_ratio = None;
+        settings.edge_snap_monitor_id = None;
         handle_disable_edge_hide(&app);
     }
 
@@ -144,6 +147,9 @@ pub fn set_edge_hide_enabled(enabled: bool, app: tauri::AppHandle) -> Result<(),
     
     if !enabled {
         settings.edge_snap_position = None;
+        settings.edge_snap_edge = None;
+        settings.edge_snap_ratio = None;
+        settings.edge_snap_monitor_id = None;
         handle_disable_edge_hide(&app);
     }
     

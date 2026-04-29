@@ -116,6 +116,9 @@ pub struct AppSettings {
     // 贴边隐藏设置
     pub edge_hide_enabled: bool,
     pub edge_snap_position: Option<(i32, i32)>,
+    pub edge_snap_edge: Option<String>,
+    pub edge_snap_ratio: Option<f64>,
+    pub edge_snap_monitor_id: Option<String>,
     pub edge_hide_offset: i32,
 
     // 窗口行为设置
@@ -280,6 +283,9 @@ impl Default for AppSettings {
 
             edge_hide_enabled: true,
             edge_snap_position: None,
+            edge_snap_edge: None,
+            edge_snap_ratio: None,
+            edge_snap_monitor_id: None,
             edge_hide_offset: 3,
 
             auto_focus_search: false,

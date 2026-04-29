@@ -8,16 +8,382 @@ const FRONTEND_CONTENT_INSET_LOGICAL: f64 = 5.0;
 
 static ANIMATION_VERSION: AtomicU64 = AtomicU64::new(0);
 
+#[derive(Clone, Debug)]
+struct MonitorEdgeContext {
+    id: String,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    scale_factor: f64,
+    left_edge: bool,
+    right_edge: bool,
+    top_edge: bool,
+    bottom_edge: bool,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedSnapPosition {
+    pub x: i32,
+    pub y: i32,
+    pub scale_factor: f64,
+    pub edge: SnapEdge,
+    pub monitor_id: String,
+}
+
 fn get_content_inset(scale_factor: f64) -> i32 {
     (FRONTEND_CONTENT_INSET_LOGICAL * scale_factor) as i32
 }
 
-pub(crate) fn get_snap_monitor_reference_point(
-    state: &super::state::MainWindowState,
-    fallback_x: i32,
-    fallback_y: i32,
+fn clamp_ratio(ratio: f64) -> f64 {
+    if ratio.is_finite() {
+        ratio.clamp(0.0, 1.0)
+    } else {
+        0.5
+    }
+}
+
+fn build_monitor_identifier(monitor: &tauri::Monitor) -> String {
+    if let Some(name) = monitor.name() {
+        let trimmed = name.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+
+    let pos = monitor.position();
+    let size = monitor.size();
+    format!(
+        "monitor:{}:{}:{}:{}:{:.3}",
+        pos.x,
+        pos.y,
+        size.width,
+        size.height,
+        monitor.scale_factor()
+    )
+}
+
+fn edge_to_setting_value(edge: SnapEdge) -> Option<String> {
+    match edge {
+        SnapEdge::Left => Some("left".to_string()),
+        SnapEdge::Right => Some("right".to_string()),
+        SnapEdge::Top => Some("top".to_string()),
+        SnapEdge::Bottom => Some("bottom".to_string()),
+        SnapEdge::None => None,
+    }
+}
+
+fn edge_from_setting_value(value: &str) -> Option<SnapEdge> {
+    match value {
+        "left" => Some(SnapEdge::Left),
+        "right" => Some(SnapEdge::Right),
+        "top" => Some(SnapEdge::Top),
+        "bottom" => Some(SnapEdge::Bottom),
+        _ => None,
+    }
+}
+
+fn build_monitor_contexts(app: &tauri::AppHandle) -> Result<Vec<MonitorEdgeContext>, String> {
+    let monitors = app
+        .available_monitors()
+        .map_err(|e| format!("获取显示器列表失败: {}", e))?;
+    let monitor_edges = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(app)?;
+    let contexts = monitors
+        .into_iter()
+        .filter_map(|monitor| {
+            let pos = monitor.position();
+            let size = monitor.size();
+            let x = pos.x;
+            let y = pos.y;
+            let width = size.width as i32;
+            let height = size.height as i32;
+            let scale_factor = monitor.scale_factor();
+            monitor_edges
+                .iter()
+                .find(|(mx, my, mw, mh, _, _, _, _)| {
+                    *mx == x && *my == y && *mw == width && *mh == height
+                })
+                .map(|(_, _, _, _, left_edge, right_edge, top_edge, bottom_edge)| {
+                    MonitorEdgeContext {
+                        id: build_monitor_identifier(&monitor),
+                        x,
+                        y,
+                        width,
+                        height,
+                        scale_factor,
+                        left_edge: *left_edge,
+                        right_edge: *right_edge,
+                        top_edge: *top_edge,
+                        bottom_edge: *bottom_edge,
+                    }
+                })
+        })
+        .collect();
+    Ok(contexts)
+}
+
+fn monitor_supports_edge(monitor: &MonitorEdgeContext, edge: SnapEdge) -> bool {
+    match edge {
+        SnapEdge::Left => monitor.left_edge,
+        SnapEdge::Right => monitor.right_edge,
+        SnapEdge::Top => monitor.top_edge,
+        SnapEdge::Bottom => monitor.bottom_edge,
+        SnapEdge::None => false,
+    }
+}
+
+fn find_monitor_for_window(
+    app: &tauri::AppHandle,
+    edge: SnapEdge,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> Result<MonitorEdgeContext, String> {
+    let contexts = build_monitor_contexts(app)?;
+    let anchor_x = x + width / 2;
+    let anchor_y = y + height / 2;
+
+    contexts
+        .iter()
+        .cloned()
+        .filter(|monitor| monitor_supports_edge(monitor, edge))
+        .filter(|monitor| {
+            anchor_x >= monitor.x
+                && anchor_x < monitor.x + monitor.width
+                && anchor_y >= monitor.y
+                && anchor_y < monitor.y + monitor.height
+        })
+        .next()
+        .or_else(|| {
+            contexts
+                .iter()
+                .cloned()
+                .filter(|monitor| monitor_supports_edge(monitor, edge))
+                .min_by_key(|monitor| {
+                    let center_x = monitor.x + monitor.width / 2;
+                    let center_y = monitor.y + monitor.height / 2;
+                    let dx = center_x - anchor_x;
+                    let dy = center_y - anchor_y;
+                    dx * dx + dy * dy
+                })
+        })
+        .ok_or_else(|| "未找到可用的贴边显示器".to_string())
+}
+
+fn resolve_usable_edge_on_monitor(
+    monitor: &MonitorEdgeContext,
+    preferred_edge: SnapEdge,
+) -> Option<SnapEdge> {
+    let ordered_edges = match preferred_edge {
+        SnapEdge::Top => [SnapEdge::Top, SnapEdge::Left, SnapEdge::Right, SnapEdge::Bottom],
+        SnapEdge::Bottom => [SnapEdge::Bottom, SnapEdge::Left, SnapEdge::Right, SnapEdge::Top],
+        SnapEdge::Left => [SnapEdge::Left, SnapEdge::Top, SnapEdge::Bottom, SnapEdge::Right],
+        SnapEdge::Right => [SnapEdge::Right, SnapEdge::Top, SnapEdge::Bottom, SnapEdge::Left],
+        SnapEdge::None => [SnapEdge::None, SnapEdge::Top, SnapEdge::Bottom, SnapEdge::Left],
+    };
+
+    ordered_edges
+        .into_iter()
+        .find(|edge| monitor_supports_edge(monitor, *edge))
+}
+
+fn compute_local_ratio_in_monitor(
+    monitor: &MonitorEdgeContext,
+    edge: SnapEdge,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> f64 {
+    match edge {
+        SnapEdge::Top | SnapEdge::Bottom => {
+            let span = (monitor.width - width).max(0) as f64;
+            if span <= 0.0 {
+                0.5
+            } else {
+                clamp_ratio((x - monitor.x) as f64 / span)
+            }
+        }
+        SnapEdge::Left | SnapEdge::Right => {
+            let span = (monitor.height - height).max(0) as f64;
+            if span <= 0.0 {
+                0.5
+            } else {
+                clamp_ratio((y - monitor.y) as f64 / span)
+            }
+        }
+        SnapEdge::None => 0.5,
+    }
+}
+
+fn resolve_position_in_monitor(
+    monitor: &MonitorEdgeContext,
+    edge: SnapEdge,
+    ratio: f64,
+    width: i32,
+    height: i32,
 ) -> (i32, i32) {
-    state.snap_monitor_anchor.unwrap_or((fallback_x, fallback_y))
+    let ratio = clamp_ratio(ratio);
+    match edge {
+        SnapEdge::Top | SnapEdge::Bottom => {
+            let span = (monitor.width - width).max(0);
+            let x = if span > 0 {
+                monitor.x + (span as f64 * ratio).round() as i32
+            } else {
+                monitor.x
+            };
+            (x, monitor.y)
+        }
+        SnapEdge::Left | SnapEdge::Right => {
+            let span = (monitor.height - height).max(0);
+            let y = if span > 0 {
+                monitor.y + (span as f64 * ratio).round() as i32
+            } else {
+                monitor.y
+            };
+            (monitor.x, y)
+        }
+        SnapEdge::None => (monitor.x, monitor.y),
+    }
+}
+
+fn resolve_saved_monitor_and_edge(
+    app: &tauri::AppHandle,
+    preferred_edge: SnapEdge,
+    monitor_id: Option<&str>,
+) -> Result<(MonitorEdgeContext, SnapEdge), String> {
+    let contexts = build_monitor_contexts(app)?;
+
+    if let Some(monitor_id) = monitor_id {
+        if let Some(monitor) = contexts.iter().find(|monitor| monitor.id == monitor_id) {
+            if let Some(edge) = resolve_usable_edge_on_monitor(monitor, preferred_edge) {
+                return Ok((monitor.clone(), edge));
+            }
+        }
+    }
+
+    if let Some(monitor) = contexts
+        .iter()
+        .find(|monitor| monitor_supports_edge(monitor, preferred_edge))
+    {
+        return Ok((monitor.clone(), preferred_edge));
+    }
+
+    contexts
+        .iter()
+        .find_map(|monitor| {
+            resolve_usable_edge_on_monitor(monitor, preferred_edge)
+                .map(|edge| (monitor.clone(), edge))
+        })
+        .ok_or_else(|| "未找到可用的贴边显示器".to_string())
+}
+
+pub(crate) fn compute_snap_layout(
+    app: &tauri::AppHandle,
+    edge: SnapEdge,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> Result<(String, f64), String> {
+    let monitor = find_monitor_for_window(app, edge, x, y, width, height)?;
+    let ratio = compute_local_ratio_in_monitor(&monitor, edge, x, y, width, height);
+    Ok((monitor.id.clone(), ratio))
+}
+
+pub(crate) fn compute_snap_ratio(
+    app: &tauri::AppHandle,
+    edge: SnapEdge,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> Result<f64, String> {
+    Ok(compute_snap_layout(app, edge, x, y, width, height)?.1)
+}
+
+pub(crate) fn resolve_snapped_position(
+    app: &tauri::AppHandle,
+    edge: SnapEdge,
+    monitor_id: Option<&str>,
+    ratio: f64,
+    width: i32,
+    height: i32,
+) -> Result<ResolvedSnapPosition, String> {
+    let (monitor, actual_edge) = resolve_saved_monitor_and_edge(app, edge, monitor_id)?;
+    let content_inset = get_content_inset(monitor.scale_factor);
+    let (base_x, base_y) =
+        resolve_position_in_monitor(&monitor, actual_edge, ratio, width, height);
+
+    let position = match actual_edge {
+        SnapEdge::Left => (monitor.x - content_inset, base_y),
+        SnapEdge::Right => (monitor.x + monitor.width - width + content_inset, base_y),
+        SnapEdge::Top => (base_x, monitor.y - content_inset),
+        SnapEdge::Bottom => (base_x, monitor.y + monitor.height - height + content_inset),
+        SnapEdge::None => (base_x, base_y),
+    };
+    Ok(ResolvedSnapPosition {
+        x: position.0,
+        y: position.1,
+        scale_factor: monitor.scale_factor,
+        edge: actual_edge,
+        monitor_id: monitor.id.clone(),
+    })
+}
+
+fn resolve_hidden_position(
+    app: &tauri::AppHandle,
+    edge: SnapEdge,
+    monitor_id: Option<&str>,
+    ratio: f64,
+    width: i32,
+    height: i32,
+    edge_hide_offset: i32,
+) -> Result<ResolvedSnapPosition, String> {
+    let (monitor, actual_edge) = resolve_saved_monitor_and_edge(app, edge, monitor_id)?;
+    let content_inset = get_content_inset(monitor.scale_factor);
+    let hide_offset = if edge_hide_offset == 0 {
+        0
+    } else {
+        content_inset + edge_hide_offset
+    };
+    let (base_x, base_y) =
+        resolve_position_in_monitor(&monitor, actual_edge, ratio, width, height);
+
+    let position = match actual_edge {
+        SnapEdge::Left => (monitor.x - width + hide_offset, base_y),
+        SnapEdge::Right => (monitor.x + monitor.width - hide_offset, base_y),
+        SnapEdge::Top => (base_x, monitor.y - height + hide_offset),
+        SnapEdge::Bottom => (base_x, monitor.y + monitor.height - hide_offset),
+        SnapEdge::None => (base_x, base_y),
+    };
+    Ok(ResolvedSnapPosition {
+        x: position.0,
+        y: position.1,
+        scale_factor: monitor.scale_factor,
+        edge: actual_edge,
+        monitor_id: monitor.id.clone(),
+    })
+}
+
+fn save_snap_layout(edge: SnapEdge, ratio: f64, monitor_id: Option<String>) {
+    let edge_value = edge_to_setting_value(edge);
+    let normalized_ratio = clamp_ratio(ratio);
+    let _ = crate::services::settings::update_with(|settings| {
+        settings.edge_snap_edge = edge_value.clone();
+        settings.edge_snap_ratio = Some(normalized_ratio);
+        settings.edge_snap_monitor_id = monitor_id.clone();
+    });
+}
+
+fn clear_saved_snap_layout() {
+    let _ = crate::services::settings::update_with(|settings| {
+        settings.edge_snap_position = None;
+        settings.edge_snap_edge = None;
+        settings.edge_snap_ratio = None;
+        settings.edge_snap_monitor_id = None;
+    });
 }
 
 pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
@@ -50,12 +416,14 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
     };
     
     if let Some(edge) = edge {
-        let monitor_anchor = Some((monitor_x + monitor_w / 2, monitor_y + monitor_h / 2));
-        set_snap_edge(edge, Some((x, y)), monitor_anchor);
+        let (monitor_id, ratio) = compute_snap_layout(app, edge, x, y, w as i32, h as i32)?;
+        set_snap_edge(edge, Some((x, y)), Some(monitor_id.clone()), Some(ratio));
+        save_snap_layout(edge, ratio, Some(monitor_id));
         snap_to_edge(window, edge)?;
         super::edge_monitor::start_edge_monitoring();
     } else {
         clear_snap();
+        clear_saved_snap_layout();
         super::edge_monitor::stop_edge_monitoring();
     }
     
@@ -65,27 +433,26 @@ pub fn check_snap(window: &WebviewWindow) -> Result<(), String> {
 pub fn snap_to_edge(window: &WebviewWindow, edge: SnapEdge) -> Result<(), String> {
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
+    let settings = crate::get_settings();
+    let ratio = compute_snap_ratio(
+        window.app_handle(),
+        edge,
+        x,
+        y,
+        size.width as i32,
+        size.height as i32,
+    )?;
     
-    // 使用当前显示器边界
-    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_at_point(window.app_handle(), x, y)?;
-    let monitor_right = monitor_x + monitor_w;
-    let monitor_bottom = monitor_y + monitor_h;
+    let resolved = resolve_snapped_position(
+        window.app_handle(),
+        edge,
+        settings.edge_snap_monitor_id.as_deref(),
+        ratio,
+        size.width as i32,
+        size.height as i32,
+    )?;
     
-    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), x, y
-    );
-    let content_inset = get_content_inset(scale_factor);
-    
-    let (new_x, new_y) = match edge {
-        SnapEdge::Left => (monitor_x - content_inset, y),
-        SnapEdge::Right => (monitor_right - size.width as i32 + content_inset, y),
-        SnapEdge::Top => (x, monitor_y - content_inset),
-        SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + content_inset),
-        SnapEdge::None => return Ok(()),
-    };
-    
-    window.set_position(tauri::PhysicalPosition::new(new_x, new_y))
+    window.set_position(tauri::PhysicalPosition::new(resolved.x, resolved.y))
         .map_err(|e| e.to_string())?;
     
     Ok(())
@@ -112,57 +479,46 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
 
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
-    let (reference_x, reference_y) = get_snap_monitor_reference_point(&state, x, y);
-    
-    // 使用吸附时确认下来的显示器锚点，避免贴边后窗口坐标越界导致隐藏距离计算错误
-    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_at_point(
-            window.app_handle(),
-            reference_x,
-            reference_y,
-        )?;
-    let monitor_right = monitor_x + monitor_w;
-    let monitor_bottom = monitor_y + monitor_h;
-    
     let settings = crate::get_settings();
-    
-    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), reference_x, reference_y
-    );
-    let content_inset = get_content_inset(scale_factor);
-    
-    let hide_offset = if settings.edge_hide_offset == 0 {
-        0
-    } else {
-        content_inset + settings.edge_hide_offset
-    };
-    let (hide_x, hide_y) = match state.snap_edge {
-        SnapEdge::Left => {
-            (monitor_x - size.width as i32 + hide_offset, y)
-        }
-        SnapEdge::Right => {
-            (monitor_right - hide_offset, y)
-        }
-        SnapEdge::Top => {
-            (x, monitor_y - size.height as i32 + hide_offset)
-        }
-        SnapEdge::Bottom => {
-            (x, monitor_bottom - hide_offset)
-        }
-        SnapEdge::None => return Ok(()),
-    };
+    let ratio = state
+        .snap_ratio
+        .or(settings.edge_snap_ratio)
+        .unwrap_or(compute_snap_ratio(
+            window.app_handle(),
+            state.snap_edge,
+            x,
+            y,
+            size.width as i32,
+            size.height as i32,
+        )?);
+    let resolved = resolve_hidden_position(
+        window.app_handle(),
+        state.snap_edge,
+        state
+            .snap_monitor_id
+            .as_deref()
+            .or(settings.edge_snap_monitor_id.as_deref()),
+        ratio,
+        size.width as i32,
+        size.height as i32,
+        settings.edge_hide_offset,
+    )?;
     
     // 根据动画配置决定是否使用过渡
     if settings.clipboard_animation_enabled {
-        animate_window_position(window, x, y, hide_x, hide_y, 200)?;
+        animate_window_position(window, x, y, resolved.x, resolved.y, 200)?;
     } else {
-        window.set_position(tauri::PhysicalPosition::new(hide_x, hide_y))
+        window.set_position(tauri::PhysicalPosition::new(resolved.x, resolved.y))
             .map_err(|e| e.to_string())?;
     }
+    set_snap_edge(
+        resolved.edge,
+        Some((resolved.x, resolved.y)),
+        Some(resolved.monitor_id.clone()),
+        Some(ratio),
+    );
     set_hidden(true);
-    
-    // 保存贴边隐藏位置到设置
-    save_edge_snap_position(hide_x, hide_y);
+    save_snap_layout(resolved.edge, ratio, Some(resolved.monitor_id));
     
     super::state::set_window_state(super::state::WindowState::Hidden);
     
@@ -187,30 +543,29 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
-    let (reference_x, reference_y) = get_snap_monitor_reference_point(&state, x, y);
-    
-    // 使用贴边前仍在屏内的参考点识别显示器，避免隐藏后窗口坐标越界导致多屏取错显示器
-    let (monitor_x, monitor_y, monitor_w, monitor_h) = 
-        crate::utils::screen::ScreenUtils::get_monitor_at_point(
+    let settings = crate::get_settings();
+    let ratio = state
+        .snap_ratio
+        .or(settings.edge_snap_ratio)
+        .unwrap_or(compute_snap_ratio(
             window.app_handle(),
-            reference_x,
-            reference_y,
-        )?;
-    let monitor_right = monitor_x + monitor_w;
-    let monitor_bottom = monitor_y + monitor_h;
-    
-    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), reference_x, reference_y
-    );
-    let content_inset = get_content_inset(scale_factor);
-    
-    let (show_x, show_y) = match state.snap_edge {
-        SnapEdge::Left => (monitor_x - content_inset, y),
-        SnapEdge::Right => (monitor_right - size.width as i32 + content_inset, y),
-        SnapEdge::Top => (x, monitor_y - content_inset),
-        SnapEdge::Bottom => (x, monitor_bottom - size.height as i32 + content_inset),
-        SnapEdge::None => return Ok(()),
-    };
+            state.snap_edge,
+            x,
+            y,
+            size.width as i32,
+            size.height as i32,
+        )?);
+    let resolved = resolve_snapped_position(
+        window.app_handle(),
+        state.snap_edge,
+        state
+            .snap_monitor_id
+            .as_deref()
+            .or(settings.edge_snap_monitor_id.as_deref()),
+        ratio,
+        size.width as i32,
+        size.height as i32,
+    )?;
     
     if !window.is_visible().unwrap_or(false) {
         let _ = window.show();
@@ -218,14 +573,20 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     let _ = window.emit("edge-snap-show", ());
     
     // 根据动画配置决定是否使用过渡
-    let settings = crate::get_settings();
     if settings.clipboard_animation_enabled {
-        animate_window_position(window, x, y, show_x, show_y, 200)?;
+        animate_window_position(window, x, y, resolved.x, resolved.y, 200)?;
     } else {
-        window.set_position(tauri::PhysicalPosition::new(show_x, show_y))
+        window.set_position(tauri::PhysicalPosition::new(resolved.x, resolved.y))
             .map_err(|e| e.to_string())?;
     }
+    set_snap_edge(
+        resolved.edge,
+        Some((resolved.x, resolved.y)),
+        Some(resolved.monitor_id.clone()),
+        Some(ratio),
+    );
     set_hidden(false);
+    save_snap_layout(resolved.edge, ratio, Some(resolved.monitor_id));
     
     super::state::set_window_state(super::state::WindowState::Visible);
     let _ = super::refresh_always_on_top(window);
@@ -301,13 +662,6 @@ pub fn is_window_snapped() -> bool {
     is_snapped()
 }
 
-// 保存贴边隐藏位置到设置
-fn save_edge_snap_position(x: i32, y: i32) {
-    let _ = crate::services::settings::update_with(|settings| {
-        settings.edge_snap_position = Some((x, y));
-    });
-}
-
 // 启动时恢复贴边隐藏状态
 pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String> {
     let settings = crate::get_settings();
@@ -315,90 +669,39 @@ pub fn restore_edge_snap_on_startup(window: &WebviewWindow) -> Result<(), String
     if !settings.edge_hide_enabled {
         return Ok(());
     }
-    
-    let (saved_x, saved_y) = match settings.edge_snap_position {
-        Some(pos) => pos,
-        None => return Ok(()),
+
+    let snapped_edge = settings
+        .edge_snap_edge
+        .as_deref()
+        .and_then(edge_from_setting_value);
+    let snapped_ratio = settings.edge_snap_ratio.map(clamp_ratio);
+    let (snapped_edge, snapped_ratio) = match (snapped_edge, snapped_ratio) {
+        (Some(edge), Some(ratio)) => (edge, ratio),
+        _ => return Ok(()),
     };
-    
+
     let size = window.outer_size().map_err(|e| e.to_string())?;
-    let (w, h) = (size.width as i32, size.height as i32);
-    
-    let monitors = crate::utils::screen::ScreenUtils::get_all_monitors_with_edges(window.app_handle())?;
-    
-    let find_monitor = |x: i32, y: i32| -> Option<(i32, i32, i32, i32, bool, bool, bool, bool)> {
-        let cx = x + w / 2;
-        let cy = y + h / 2;
-        
-        for m in &monitors {
-            let (mx, my, mw, mh, _, _, _, _) = *m;
-            if cx >= mx && cx < mx + mw && cy >= my && cy < my + mh {
-                return Some(*m);
-            }
-        }
-        
-        for m in &monitors {
-            let (mx, my, mw, mh, _, _, _, _) = *m;
-            let m_right = mx + mw;
-            let m_bottom = my + mh;
-            
-            if x < m_right && x + w > mx && y < m_bottom && y + h > my {
-                return Some(*m);
-            }
-        }
-        
-        None
-    };
-    
-    let monitor = match find_monitor(saved_x, saved_y) {
-        Some(m) => m,
-        None => {
-            let _ = crate::services::settings::update_with(|s| {
-                s.edge_snap_position = None;
-            });
-            return Ok(());
-        }
-    };
-    
-    let (monitor_x, monitor_y, monitor_w, monitor_h, left_edge, right_edge, top_edge, bottom_edge) = monitor;
-    let monitor_right = monitor_x + monitor_w;
-    let monitor_bottom = monitor_y + monitor_h;
-    
-    let snapped_edge = if saved_x <= monitor_x && left_edge {
-        SnapEdge::Left
-    } else if saved_x >= monitor_right - w && right_edge {
-        SnapEdge::Right
-    } else if saved_y <= monitor_y && top_edge {
-        SnapEdge::Top
-    } else if saved_y >= monitor_bottom - h && bottom_edge {
-        SnapEdge::Bottom
-    } else {
-        let _ = crate::services::settings::update_with(|s| {
-            s.edge_snap_position = None;
-        });
-        return Ok(());
-    };
-    
-    let scale_factor = crate::utils::screen::ScreenUtils::get_scale_factor_at_point(
-        window.app_handle(), saved_x, saved_y
+    let resolved = resolve_hidden_position(
+        window.app_handle(),
+        snapped_edge,
+        settings.edge_snap_monitor_id.as_deref(),
+        snapped_ratio,
+        size.width as i32,
+        size.height as i32,
+        settings.edge_hide_offset,
+    )?;
+
+    set_snap_edge(
+        resolved.edge,
+        Some((resolved.x, resolved.y)),
+        Some(resolved.monitor_id.clone()),
+        Some(snapped_ratio),
     );
-    let content_inset = get_content_inset(scale_factor);
-    
-    let corrected_y = saved_y.max(monitor_y).min(monitor_bottom - h);
-    let corrected_x = saved_x.max(monitor_x - w + content_inset).min(monitor_right - content_inset);
-    
-    let (final_x, final_y) = match snapped_edge {
-        SnapEdge::Left | SnapEdge::Right => (saved_x, corrected_y),
-        SnapEdge::Top | SnapEdge::Bottom => (corrected_x, saved_y),
-        SnapEdge::None => (saved_x, saved_y),
-    };
-    
-    let monitor_anchor = Some((monitor_x + monitor_w / 2, monitor_y + monitor_h / 2));
-    set_snap_edge(snapped_edge, Some((final_x, final_y)), monitor_anchor);
     set_hidden(true);
     
-    window.set_position(tauri::PhysicalPosition::new(final_x, final_y))
+    window.set_position(tauri::PhysicalPosition::new(resolved.x, resolved.y))
         .map_err(|e| e.to_string())?;
+    save_snap_layout(resolved.edge, snapped_ratio, Some(resolved.monitor_id));
     
     let _ = window.show();
     let _ = window.set_always_on_top(true);
