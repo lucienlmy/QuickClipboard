@@ -735,6 +735,13 @@ function App() {
     );
   }, [previewData, mousePositionLogical, displaySize, workAreaLogical, mainWindowLogical]);
 
+  const isPreviewOnLeftOfMainWindow = useMemo(() => {
+    if (!mainWindowLogical) {
+      return false;
+    }
+    return containerPosition.left + displaySize.width <= mainWindowLogical.left;
+  }, [containerPosition.left, displaySize.width, mainWindowLogical]);
+
   const imageScalePercent = useMemo(() => `${Math.round(imageScale * 100)}%`, [imageScale]);
   const previewModeLabel = useMemo(() => {
     if (previewMode === MODE_IMAGE) {
@@ -794,6 +801,7 @@ function App() {
     Math.max(0, viewportLogical.height - displaySize.height),
   );
   const previewHintTop = Math.max(0, relativeTop - 28);
+  const previewHintMaxWidth = Math.max(240, viewportLogical.width - 24);
 
   const renderPreviewHint = () => {
     const showSwitchHint = supportedPreviewModes.length > 1;
@@ -876,13 +884,19 @@ function App() {
       <div
         className="absolute z-20 pointer-events-none"
         style={{
-          left: `${relativeLeft}px`,
+          left: isPreviewOnLeftOfMainWindow ? 'auto' : `${relativeLeft}px`,
+          right: isPreviewOnLeftOfMainWindow
+            ? `${Math.max(0, viewportLogical.width - relativeLeft - displaySize.width)}px`
+            : 'auto',
           top: `${previewHintTop}px`,
+          maxWidth: `${previewHintMaxWidth}px`,
           opacity: isVisible ? 1 : 0,
           transition: 'opacity 90ms ease-out',
         }}
       >
-        {renderPreviewHint()}
+        <div className={`flex ${isPreviewOnLeftOfMainWindow ? 'justify-end' : 'justify-start'}`}>
+          {renderPreviewHint()}
+        </div>
       </div>
 
       {(previewMode === MODE_TEXT || previewMode === MODE_HTML) && (
