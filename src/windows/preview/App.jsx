@@ -9,6 +9,10 @@ import { settingsStore, initSettings } from '@shared/store/settingsStore';
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import {
+  applyBackgroundImage,
+  clearBackgroundImage,
+} from '@shared/utils/backgroundManager';
+import {
   getClipboardItemById,
   getFavoriteItemById,
   getClipboardItemPasteOptions,
@@ -284,6 +288,21 @@ function App() {
   useEffect(() => {
     applyThemeToBody(theme || defaultSettings.theme, 'preview');
   }, [theme, darkThemeStyle, effectiveTheme]);
+
+  useEffect(() => {
+    if (isBackground && backgroundImagePath) {
+      applyBackgroundImage({
+        containerSelector: '.preview-theme-anchor',
+        backgroundImagePath,
+        windowName: 'preview',
+      });
+    } else {
+      clearBackgroundImage('.preview-theme-anchor');
+    }
+    return () => {
+      clearBackgroundImage('.preview-theme-anchor');
+    };
+  }, [isBackground, backgroundImagePath]);
 
   useEffect(() => {
     if (!previewData) return;
@@ -780,14 +799,46 @@ function App() {
       return undefined;
     }
   }, [isBackground, backgroundImagePath]);
-  const previewHintStyle = {
-    backgroundColor: 'var(--qc-surface)',
-    border: '2px solid color-mix(in srgb, var(--qc-fg) 30%, transparent)',
-    boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
-  };
+  const blurredBackgroundLayerStyle = useMemo(() => {
+    if (!textContainerBackgroundImageStyle) {
+      return undefined;
+    }
+
+    return {
+      ...textContainerBackgroundImageStyle,
+      position: 'absolute',
+      inset: '-12px',
+      filter: 'blur(var(--theme-superbg-blur-10, 10px))',
+      transform: 'scale(1.06)',
+      transformOrigin: 'center',
+      opacity: 0.92,
+      pointerEvents: 'none',
+    };
+  }, [textContainerBackgroundImageStyle]);
+  const previewHintStyle = isBackground
+    ? {
+      backgroundColor: 'var(--bg-titlebar-bg, rgb(240, 240, 240))',
+      color: 'var(--bg-titlebar-text, #333333)',
+      border: '2px solid var(--bg-titlebar-border, rgba(232, 233, 234, 0.8))',
+      backdropFilter: 'none',
+      WebkitBackdropFilter: 'none',
+      boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
+    }
+    : {
+      backgroundColor: 'var(--qc-surface)',
+      border: '2px solid color-mix(in srgb, var(--qc-fg) 30%, transparent)',
+      boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
+    };
 
   if (!previewData || !hasMousePosition) {
-    return <div className="preview-container fixed inset-0 overflow-hidden bg-transparent" />;
+    return (
+      <div className="preview-container fixed inset-0 overflow-hidden bg-transparent">
+        <div
+          className="preview-theme-anchor pointer-events-none absolute opacity-0"
+          style={{ width: 0, height: 0, overflow: 'hidden' }}
+        />
+      </div>
+    );
   }
 
   const relativeLeft = clamp(
@@ -882,6 +933,10 @@ function App() {
   return (
     <div className={`preview-container fixed inset-0 overflow-hidden bg-transparent ${isDark ? 'dark' : ''}`}>
       <div
+        className="preview-theme-anchor pointer-events-none absolute opacity-0"
+        style={{ width: 0, height: 0, overflow: 'hidden' }}
+      />
+      <div
         className="absolute z-20 pointer-events-none"
         style={{
           left: isPreviewOnLeftOfMainWindow ? 'auto' : `${relativeLeft}px`,
@@ -912,10 +967,10 @@ function App() {
             borderRadius: '8px',
             backgroundColor: textContainerBackgroundColor,
             boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
-            ...textContainerBackgroundImageStyle,
           }}
         >
-          <div className="w-full h-full overflow-hidden">
+          {blurredBackgroundLayerStyle && <div style={blurredBackgroundLayerStyle} />}
+          <div className="relative z-10 w-full h-full overflow-hidden">
             {previewMode === MODE_HTML ? (
               <HtmlPreview
                 ref={htmlPreviewRef}
@@ -948,10 +1003,10 @@ function App() {
             borderRadius: '8px',
             backgroundColor: textContainerBackgroundColor,
             boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
-            ...textContainerBackgroundImageStyle,
           }}
         >
-          <div className="w-full h-full overflow-hidden">
+          {blurredBackgroundLayerStyle && <div style={blurredBackgroundLayerStyle} />}
+          <div className="relative z-10 w-full h-full overflow-hidden">
             <FilePreview
               ref={filePreviewRef}
               files={filePreviewFiles}

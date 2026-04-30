@@ -6,7 +6,7 @@ import { TEXT_MIN_HEIGHT, isFiniteNumber } from '../utils';
 function createEditorTheme(isDark, isBackground) {
   const textColor = isBackground ? '#ffffff' : 'var(--qc-fg)';
   const subtleTextColor = isBackground ? 'rgba(255, 255, 255, 0.85)' : 'var(--qc-fg-subtle)';
-  const textBlendMode = isBackground ? 'difference' : 'normal';
+  const textBlendMode = 'normal';
 
   return EditorView.theme(
     {
