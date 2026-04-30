@@ -138,6 +138,7 @@ pub struct AppSettings {
     pub show_badges: bool,
     pub show_source_icon: bool,
     pub update_check_interval: String,
+    pub disable_update_popup: bool,
     pub include_beta_updates: Option<bool>,
 
     // 快捷键设置
@@ -303,6 +304,7 @@ impl Default for AppSettings {
             show_badges: true,
             show_source_icon: true,
             update_check_interval: "daily".to_string(),
+            disable_update_popup: false,
             include_beta_updates: None,
 
             hotkeys_enabled: true,

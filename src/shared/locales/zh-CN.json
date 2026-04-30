@@ -898,6 +898,8 @@
       "updateIntervalWeekly": "每周",
       "includeBetaUpdates": "参加测试版更新",
       "includeBetaUpdatesDesc": "开启后优先检查测试版通道，关闭后仅接收正式版。若你从未改过此项，正式版默认关闭、测试版默认开启；一旦保存，始终以这里的选择为准。",
+      "disableUpdatePopup": "关闭更新弹窗",
+      "disableUpdatePopupDesc": "开启后，后台发现新版本时不再弹出更新窗口，而是将主窗口标题栏左侧图标显示为绿色更新标记；点击该图标可打开更新窗口。手动检查更新仍会打开更新窗口。",
       "github": "GitHub",
       "star": "给个Star",
       "feedback": "反馈问题",

@@ -1,15 +1,38 @@
 use tauri::{AppHandle, WebviewUrl, WebviewWindowBuilder, WebviewWindow, Manager};
 use tauri::{Emitter, Listener};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 use tokio::time::interval;
 
 static FORCE_UPDATE_MODE: AtomicBool = AtomicBool::new(false);
+static UPDATE_BANNER_STATE: LazyLock<Mutex<Option<UpdateBannerState>>> = LazyLock::new(|| Mutex::new(None));
 const AUTO_UPDATE_CHECK_INTERVAL_SECS: u64 = 60 * 60;
 const LAST_AUTO_CHECK_AT_KEY: &str = "updater.last_auto_check_at";
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateBannerState {
+    pub current_version: String,
+    pub latest_version: String,
+}
+
 pub fn is_force_update_mode() -> bool {
     FORCE_UPDATE_MODE.load(Ordering::Relaxed)
+}
+
+pub fn get_update_banner_state() -> Option<UpdateBannerState> {
+    UPDATE_BANNER_STATE
+        .lock()
+        .ok()
+        .and_then(|state| state.clone())
+}
+
+fn set_update_banner_state(app: &AppHandle, state: Option<UpdateBannerState>) {
+    if let Ok(mut guard) = UPDATE_BANNER_STATE.lock() {
+        *guard = state.clone();
+    }
+    let _ = app.emit("update-banner-state-changed", state);
 }
 
 fn parse_env_bool(key: &str) -> Option<bool> {
@@ -73,7 +96,7 @@ async fn check_updates_if_due(app: &AppHandle) -> Result<bool, String> {
     }
 
     crate::services::store::set(LAST_AUTO_CHECK_AT_KEY, &now)?;
-    check_updates_and_open_window(app).await
+    check_updates(app, !settings.disable_update_popup).await
 }
 
 // 检测当前运行的程序是否为安装版
@@ -194,7 +217,7 @@ pub fn open_updater_window(app: &AppHandle, force_update: bool) -> Result<Webvie
     Ok(window)
 }
 
-pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, String> {
+async fn check_updates(app: &AppHandle, should_open_window: bool) -> Result<bool, String> {
     use tauri_plugin_updater::UpdaterExt;
     use std::time::Duration;
     
@@ -256,8 +279,17 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
             let new_version = update.version.clone();
             
             if !use_beta_channel && is_prerelease(&new_version) {
+                set_update_banner_state(app, None);
                 return Ok(false);
             }
+
+            set_update_banner_state(
+                app,
+                Some(UpdateBannerState {
+                    current_version: current_version.clone(),
+                    latest_version: new_version.clone(),
+                }),
+            );
             
             if force_update {
                 FORCE_UPDATE_MODE.store(true, Ordering::Relaxed);
@@ -268,6 +300,10 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
                     let _ = qp_window.hide();
                 }
                 let _ = crate::hotkey::disable_hotkeys();
+            }
+
+            if !force_update && !should_open_window {
+                return Ok(true);
             }
             
             let window = if let Some(w) = app.get_webview_window("updater") {
@@ -306,7 +342,14 @@ pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, Stri
 
             Ok(true)
         }
-        None => Ok(false),
+        None => {
+            set_update_banner_state(app, None);
+            Ok(false)
+        }
     }
+}
+
+pub async fn check_updates_and_open_window(app: &AppHandle) -> Result<bool, String> {
+    check_updates(app, true).await
 }
 

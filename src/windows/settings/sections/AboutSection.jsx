@@ -163,6 +163,16 @@ function AboutSection({
               onChange={checked => onSettingChange('includeBetaUpdates', checked)}
             />
           </SettingItem>
+
+          <SettingItem
+            label={t('settings.about.disableUpdatePopup')}
+            description={t('settings.about.disableUpdatePopupDesc')}
+          >
+            <Toggle
+              checked={settings.disableUpdatePopup === true}
+              onChange={checked => onSettingChange('disableUpdatePopup', checked)}
+            />
+          </SettingItem>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">

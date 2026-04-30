@@ -80,3 +80,7 @@ export async function saveWindowSize(width, height) {
   return await invoke('save_window_size', { width, height })
 }
 
+export async function getUpdateBannerState() {
+  return await invoke('get_update_banner_state')
+}
+

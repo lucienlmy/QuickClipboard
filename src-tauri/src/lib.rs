@@ -243,6 +243,7 @@ pub fn run() {
                 commands::get_app_links_cmd,
                 commands::reload_all_windows,
                 commands::check_updates_and_open_window,
+                commands::get_update_banner_state,
                 commands::lan_sync_get_snapshot,
                 commands::lan_sync_get_info,
                 commands::lan_sync_set_enabled,

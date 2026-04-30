@@ -905,6 +905,8 @@
       "updateIntervalWeekly": "Every week",
       "includeBetaUpdates": "Join beta updates",
       "includeBetaUpdatesDesc": "When enabled, the beta channel is preferred. When disabled, only stable releases are used. If you have never changed this option, stable versions default to off and beta versions default to on; after saving, your choice always wins.",
+      "disableUpdatePopup": "Disable update popup",
+      "disableUpdatePopupDesc": "When enabled, background checks will no longer open the updater window. Instead, the icon on the left side of the main window title bar will turn into a green update marker, and clicking it will open the updater window. Manual update checks still open the updater window.",
       "github": "GitHub",
       "star": "Give a Star",
       "feedback": "Report Issues",

@@ -8,6 +8,7 @@ import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore } from '@shared/store/favoritesStore';
 import { settingsStore } from '@shared/store/settingsStore';
 import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plugins/context_menu/index.js';
+import { invoke } from '@tauri-apps/api/core';
 import { hideMainWindow } from '@shared/api/window';
 import { clearClipboardHistory } from '@shared/api';
 import {
@@ -40,7 +41,8 @@ const TitleBar = forwardRef(({
   searchPlaceholder,
   onNavigate,
   position = 'top',
-  activeTab = 'clipboard'
+  activeTab = 'clipboard',
+  updateBannerState = null
 }, ref) => {
   const { t } = useTranslation();
   const clipboardSnap = useSnapshot(clipboardStore);
@@ -51,6 +53,11 @@ const TitleBar = forwardRef(({
   const [oneTimePasteEnabled, setOneTimePasteEnabledState] = useState(() => getOneTimePasteEnabled());
   const isVertical = position === 'left' || position === 'right';
   const tooltipPlacement = isVertical ? (position === 'left' ? 'right' : 'left') : 'bottom';
+  const showUpdateHint = Boolean(
+    settingsSnap.disableUpdatePopup === true
+    && updateBannerState?.currentVersion
+    && updateBannerState?.latestVersion
+  );
 
   const currentStore = activeTab === 'clipboard'
     ? clipboardStore
@@ -118,6 +125,19 @@ const TitleBar = forwardRef(({
       await openAppSettings();
     } catch (error) {
       console.error('标题栏打开设置失败:', error);
+    }
+  };
+
+  const handleOpenUpdater = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await invoke('check_updates_and_open_window');
+    } catch (error) {
+      console.error('标题栏打开更新窗口失败:', error);
+      toast.error(t('updater.checkFailed', {
+        msg: error?.message || String(error)
+      }), TOAST_CONFIG);
     }
   };
 
@@ -349,12 +369,32 @@ const TitleBar = forwardRef(({
           : `h-9 flex-row items-center justify-between px-2 bg-qc-panel ${
               position === 'top' ? 'border-b border-qc-border' : 'border-t border-qc-border'
             }`
-      } shadow-sm transition-colors duration-500`}
+      } relative overflow-hidden shadow-sm transition-colors duration-500`}
     >
-      <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-none">
-        <div className="w-6 h-6 flex items-center justify-center">
-          <img src={logoIcon} alt="QuickClipboard" className="w-5 h-5" />
-        </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {showUpdateHint ? (
+          <Tooltip
+            content={t('updater.newVersionFound', { version: updateBannerState.latestVersion })}
+            placement={tooltipPlacement}
+            asChild
+          >
+            <button
+              type="button"
+              className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-emerald-500 bg-emerald-50/80 text-emerald-600 shadow-sm transition-all duration-200 hover:bg-emerald-100 dark:bg-emerald-500/12 dark:text-emerald-400"
+              onClick={handleOpenUpdater}
+              aria-label={t('updater.newVersionFound', { version: updateBannerState.latestVersion })}
+            >
+              <img src={logoIcon} alt="QuickClipboard" className="h-4.5 w-4.5 rounded-sm" />
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <i className="ti ti-arrow-big-up text-[12px] leading-none text-emerald-600 dark:text-emerald-400" />
+              </span>
+            </button>
+          </Tooltip>
+        ) : (
+          <div className="w-6 h-6 flex items-center justify-center pointer-events-none">
+            <img src={logoIcon} alt="QuickClipboard" className="w-5 h-5" />
+          </div>
+        )}
       </div>
 
       <div className={`flex ${isVertical ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1'} ${isVertical ? '' : 'flex-shrink-0'}`}>

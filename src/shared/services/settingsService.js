@@ -87,6 +87,7 @@ export const defaultSettings = {
   showBadges: true,
   showSourceIcon: true,
   updateCheckInterval: 'daily',
+  disableUpdatePopup: false,
   includeBetaUpdates: null,
   
   // 音效设置

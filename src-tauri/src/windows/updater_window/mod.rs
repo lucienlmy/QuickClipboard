@@ -1,3 +1,9 @@
 mod creator;
 
-pub use creator::{check_updates_and_open_window, is_force_update_mode, start_update_checker};
+pub use creator::{
+    check_updates_and_open_window,
+    get_update_banner_state,
+    is_force_update_mode,
+    start_update_checker,
+    UpdateBannerState,
+};
