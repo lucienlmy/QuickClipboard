@@ -86,6 +86,18 @@ pub fn hide_main_window(window: &WebviewWindow) {
 
 pub fn toggle_main_window_visibility(app: &AppHandle) {
     if crate::services::low_memory::is_low_memory_mode() {
+        if crate::get_settings().auto_exit_low_memory_mode {
+            if let Err(e) = crate::services::low_memory::exit_low_memory_mode(app) {
+                eprintln!("自动退出低占用模式失败: {}", e);
+                return;
+            }
+
+            if let Some(window) = super::get_main_window(app) {
+                show_main_window(&window);
+            }
+            return;
+        }
+
         if let Err(e) = crate::services::low_memory::toggle_panel() {
             eprintln!("切换低占用列表失败: {}", e);
         }

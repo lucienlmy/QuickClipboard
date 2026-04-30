@@ -347,6 +347,8 @@
       "autoLowMemoryDesc": "当 QuickClipboard 的所有窗口在一段时间内都没有交互时，自动进入低占用模式",
       "autoLowMemoryIdleMinutes": "窗口空闲时长",
       "autoLowMemoryIdleMinutesDesc": "超过该时长仍未与任意窗口交互时，自动进入低占用模式",
+      "autoExitLowMemoryMode": "自动退出低占用模式",
+      "autoExitLowMemoryModeDesc": "低占用模式下触发剪贴板显示或截屏时自动退出低占用模式",
       "historyLimit": "剪贴板历史数量",
       "historyLimitDesc": "保存的剪贴板历史记录数量",
       "minutes": "分钟",

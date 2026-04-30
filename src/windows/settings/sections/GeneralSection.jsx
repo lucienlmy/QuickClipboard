@@ -183,6 +183,10 @@ function GeneralSection({
         <Select value={settings.autoLowMemoryIdleMinutes} onChange={value => onSettingChange('autoLowMemoryIdleMinutes', parseInt(value))} options={autoLowMemoryOptions} disabled={!settings.autoLowMemoryEnabled} />
       </SettingItem>
 
+      <SettingItem label={t('settings.general.autoExitLowMemoryMode')} description={t('settings.general.autoExitLowMemoryModeDesc')}>
+        <Toggle checked={settings.autoExitLowMemoryMode} onChange={checked => onSettingChange('autoExitLowMemoryMode', checked)} />
+      </SettingItem>
+
       <SettingItem label={t('settings.general.historyLimit')} description={t('settings.general.historyLimitDesc')}>
         <Select value={settings.historyLimit} onChange={value => onSettingChange('historyLimit', parseInt(value))} options={historyLimitOptions} />
       </SettingItem>

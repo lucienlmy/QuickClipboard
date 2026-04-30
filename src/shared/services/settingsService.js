@@ -19,6 +19,7 @@ export const defaultSettings = {
   showStartupNotification: true,
   autoLowMemoryEnabled: false,
   autoLowMemoryIdleMinutes: 15,
+  autoExitLowMemoryMode: false,
   historyLimit: 100,
   language: 'zh-CN',
   

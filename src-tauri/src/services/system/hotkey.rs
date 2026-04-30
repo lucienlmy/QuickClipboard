@@ -149,6 +149,20 @@ fn parse_shortcut(shortcut_str: &str) -> Result<Shortcut, String> {
         .map_err(|e| format!("解析快捷键失败: {}", e))
 }
 
+fn ensure_normal_mode_for_hotkey(app: &AppHandle, action_name: &str) -> Result<bool, String> {
+    if !crate::services::low_memory::is_low_memory_mode() {
+        return Ok(true);
+    }
+
+    if !crate::get_settings().auto_exit_low_memory_mode {
+        return Ok(false);
+    }
+
+    crate::services::low_memory::exit_low_memory_mode(app)
+        .map_err(|e| format!("{}前自动退出低占用模式失败: {}", action_name, e))?;
+    Ok(true)
+}
+
 pub fn register_shortcut<F>(id: &str, shortcut_str: &str, handler: F) -> Result<(), String>
 where
     F: Fn(&AppHandle) + Send + Sync + 'static,
@@ -298,7 +312,7 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
 #[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot", shortcut_str, |app| {
-        if crate::services::low_memory::is_low_memory_mode() {
+        if !matches!(ensure_normal_mode_for_hotkey(app, "启动截图"), Ok(true)) {
             return;
         }
 
@@ -319,7 +333,7 @@ pub fn register_screenshot_hotkey(_shortcut_str: &str) -> Result<(), String> {
 #[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_quick_save_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_save", shortcut_str, |app| {
-        if crate::services::low_memory::is_low_memory_mode() {
+        if !matches!(ensure_normal_mode_for_hotkey(app, "启动快速保存截图"), Ok(true)) {
             return;
         }
         if is_foreground_globally_disabled() {
@@ -339,7 +353,7 @@ pub fn register_screenshot_quick_save_hotkey(_shortcut_str: &str) -> Result<(), 
 #[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_quick_pin_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_pin", shortcut_str, |app| {
-        if crate::services::low_memory::is_low_memory_mode() {
+        if !matches!(ensure_normal_mode_for_hotkey(app, "启动快速贴图截图"), Ok(true)) {
             return;
         }
         if is_foreground_globally_disabled() {
@@ -359,7 +373,7 @@ pub fn register_screenshot_quick_pin_hotkey(_shortcut_str: &str) -> Result<(), S
 #[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_quick_ocr_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot_quick_ocr", shortcut_str, |app| {
-        if crate::services::low_memory::is_low_memory_mode() {
+        if !matches!(ensure_normal_mode_for_hotkey(app, "启动快速OCR截图"), Ok(true)) {
             return;
         }
         if is_foreground_globally_disabled() {

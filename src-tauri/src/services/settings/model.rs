@@ -10,6 +10,7 @@ pub struct AppSettings {
     pub show_startup_notification: bool,
     pub auto_low_memory_enabled: bool,
     pub auto_low_memory_idle_minutes: u32,
+    pub auto_exit_low_memory_mode: bool,
     #[serde(alias = "history_limit")]
     pub history_limit: u64,
     pub language: String,
@@ -191,6 +192,7 @@ impl Default for AppSettings {
             show_startup_notification: true,
             auto_low_memory_enabled: false,
             auto_low_memory_idle_minutes: 15,
+            auto_exit_low_memory_mode: false,
             history_limit: 100,
             language: "zh-CN".to_string(),
             theme: "light".to_string(),

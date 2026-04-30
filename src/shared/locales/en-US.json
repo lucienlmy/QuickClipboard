@@ -355,6 +355,8 @@
       "autoLowMemoryDesc": "Automatically enter low memory mode when none of the QuickClipboard windows have been interacted with for a while",
       "autoLowMemoryIdleMinutes": "Window idle duration",
       "autoLowMemoryIdleMinutesDesc": "Automatically enter low memory mode when no window interaction occurs for the selected duration",
+      "autoExitLowMemoryMode": "Auto Exit Low Memory Mode",
+      "autoExitLowMemoryModeDesc": "Automatically exit low memory mode when showing the clipboard or taking a screenshot in low memory mode",
       "historyLimit": "History Limit",
       "historyLimitDesc": "Maximum number of clipboard history items to save",
       "minutes": "min",
