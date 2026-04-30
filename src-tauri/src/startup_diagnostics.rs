@@ -2,6 +2,7 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::panic;
 use std::path::PathBuf;
 use std::sync::Once;
@@ -69,6 +70,7 @@ pub fn install_panic_hook() {
     PANIC_HOOK_ONCE.call_once(|| {
         let default_hook = panic::take_hook();
         panic::set_hook(Box::new(move |panic_info| {
+            let startup_state = current_startup_state();
             let location = panic_info
                 .location()
                 .map(|loc| format!("{}:{}", loc.file(), loc.line()))
@@ -88,12 +90,31 @@ pub fn install_panic_hook() {
                 location,
                 message
             );
-            *STARTUP_STATE.write() = "panic".to_string();
-            persist_status();
-            show_error_dialog("QuickClipboard 启动异常", &detail);
+
+            let suppress_dialog = should_suppress_startup_panic_dialog(
+                startup_state.as_str(),
+                &location,
+                &message,
+            );
+            append_panic_log(
+                startup_state.as_str(),
+                &current_startup_stage(),
+                &location,
+                &message,
+                suppress_dialog,
+            );
+
+            if startup_state == "starting" && !suppress_dialog {
+                *STARTUP_STATE.write() = "panic".to_string();
+                persist_status();
+                show_error_dialog("QuickClipboard 启动异常", &detail);
+            }
 
             default_hook(panic_info);
-            std::process::exit(1);
+
+            if startup_state == "starting" && !suppress_dialog {
+                std::process::exit(1);
+            }
         }));
     });
 }
@@ -152,6 +173,54 @@ fn persist_status() {
     }
 }
 
+fn current_startup_state() -> String {
+    STARTUP_STATE.read().clone()
+}
+
+fn should_suppress_startup_panic_dialog(
+    startup_state: &str,
+    location: &str,
+    message: &str,
+) -> bool {
+    if startup_state != "starting" {
+        return true;
+    }
+
+    is_known_tao_reentrant_panic(location, message)
+}
+
+fn is_known_tao_reentrant_panic(location: &str, message: &str) -> bool {
+    location.contains("tao-")
+        && location.contains("event_loop")
+        && location.contains("runner.rs")
+        && message.contains("either event handler is re-entrant")
+}
+
+fn append_panic_log(
+    startup_state: &str,
+    startup_stage: &str,
+    location: &str,
+    message: &str,
+    suppress_dialog: bool,
+) {
+    let Some(path) = panic_log_file_path() else {
+        return;
+    };
+
+    let now_ms = current_time_ms();
+    let mode = if suppress_dialog { "仅记录" } else { "弹窗" };
+    let entry = format!(
+        "[{now_ms}] 状态: {startup_state}\n阶段: {startup_stage}\n位置: {location}\npanic: {message}\n处理: {mode}\n\n"
+    );
+
+    let mut options = fs::OpenOptions::new();
+    options.create(true).append(true);
+
+    if let Ok(mut file) = options.open(path) {
+        let _ = file.write_all(entry.as_bytes());
+    }
+}
+
 fn read_status() -> Option<StartupStatus> {
     let path = status_file_path()?;
     let content = fs::read_to_string(path).ok()?;
@@ -162,6 +231,12 @@ fn status_file_path() -> Option<PathBuf> {
     let base_dir = dirs::data_local_dir()?.join("quickclipboard");
     fs::create_dir_all(&base_dir).ok()?;
     Some(base_dir.join("startup-status.json"))
+}
+
+fn panic_log_file_path() -> Option<PathBuf> {
+    let base_dir = dirs::data_local_dir()?.join("quickclipboard");
+    fs::create_dir_all(&base_dir).ok()?;
+    Some(base_dir.join("startup-panic.log"))
 }
 
 fn current_time_ms() -> u64 {

@@ -34,6 +34,8 @@ pub use windows::plugins::context_menu::is_context_menu_visible;
 pub use services::low_memory::{is_low_memory_mode, enter_low_memory_mode, exit_low_memory_mode};
 pub use startup_diagnostics::install_panic_hook as install_startup_panic_hook;
 
+const STARTUP_UPDATE_CHECK_DELAY_MS: u64 = 800;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     startup_diagnostics::set_startup_stage("执行启动安全检查");
@@ -734,13 +736,21 @@ pub fn run() {
                 if settings.show_startup_notification {
                     let _ = services::show_startup_notification(app.handle());
                 }
-
-                windows::updater_window::start_update_checker(app.handle().clone());
-
                 startup_diagnostics::set_startup_stage("执行 setup：完成启动收尾");
                 services::memory::init();
                 services::low_memory::init_auto_low_memory_manager(app.handle().clone());
                 startup_diagnostics::mark_ready();
+
+                {
+                    let app_handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            STARTUP_UPDATE_CHECK_DELAY_MS,
+                        ))
+                        .await;
+                        windows::updater_window::start_update_checker(app_handle);
+                    });
+                }
 
             Ok(())
         })
