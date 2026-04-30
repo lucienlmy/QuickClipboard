@@ -7,6 +7,7 @@ use tokio::time::interval;
 
 static FORCE_UPDATE_MODE: AtomicBool = AtomicBool::new(false);
 static UPDATE_BANNER_STATE: LazyLock<Mutex<Option<UpdateBannerState>>> = LazyLock::new(|| Mutex::new(None));
+static UPDATE_WINDOW_PAYLOAD: LazyLock<Mutex<Option<serde_json::Value>>> = LazyLock::new(|| Mutex::new(None));
 const AUTO_UPDATE_CHECK_INTERVAL_SECS: u64 = 60 * 60;
 const LAST_AUTO_CHECK_AT_KEY: &str = "updater.last_auto_check_at";
 
@@ -33,6 +34,28 @@ fn set_update_banner_state(app: &AppHandle, state: Option<UpdateBannerState>) {
         *guard = state.clone();
     }
     let _ = app.emit("update-banner-state-changed", state);
+}
+
+fn set_update_window_payload(payload: Option<serde_json::Value>) {
+    if let Ok(mut guard) = UPDATE_WINDOW_PAYLOAD.lock() {
+        *guard = payload;
+    }
+}
+
+fn get_update_window_payload() -> Option<serde_json::Value> {
+    UPDATE_WINDOW_PAYLOAD
+        .lock()
+        .ok()
+        .and_then(|payload| payload.clone())
+}
+
+fn emit_update_payload(window: &WebviewWindow, payload: serde_json::Value) {
+    let _ = window.emit("update-config", payload.clone());
+
+    let win_for_emit = window.clone();
+    window.once("updater-ready", move |_| {
+        let _ = win_for_emit.emit("update-config", payload);
+    });
 }
 
 fn parse_env_bool(key: &str) -> Option<bool> {
@@ -217,6 +240,28 @@ pub fn open_updater_window(app: &AppHandle, force_update: bool) -> Result<Webvie
     Ok(window)
 }
 
+pub async fn open_cached_update_window(app: &AppHandle) -> Result<bool, String> {
+    let payload = match get_update_window_payload() {
+        Some(payload) => payload,
+        None => return Ok(false),
+    };
+
+    let force_update = payload
+        .get("forceUpdate")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+
+    let window = if let Some(window) = app.get_webview_window("updater") {
+        let _ = window.show();
+        window
+    } else {
+        open_updater_window(app, force_update)?
+    };
+
+    emit_update_payload(&window, payload);
+    Ok(true)
+}
+
 async fn check_updates(app: &AppHandle, should_open_window: bool) -> Result<bool, String> {
     use tauri_plugin_updater::UpdaterExt;
     use std::time::Duration;
@@ -280,6 +325,7 @@ async fn check_updates(app: &AppHandle, should_open_window: bool) -> Result<bool
             
             if !use_beta_channel && is_prerelease(&new_version) {
                 set_update_banner_state(app, None);
+                set_update_window_payload(None);
                 return Ok(false);
             }
 
@@ -302,17 +348,6 @@ async fn check_updates(app: &AppHandle, should_open_window: bool) -> Result<bool
                 let _ = crate::hotkey::disable_hotkeys();
             }
 
-            if !force_update && !should_open_window {
-                return Ok(true);
-            }
-            
-            let window = if let Some(w) = app.get_webview_window("updater") {
-                let _ = w.show();
-                w
-            } else {
-                open_updater_window(app, force_update)?
-            };
-
             // 检测是否为便携版/免安装版（不自动更新）
             let mut is_portable = crate::services::is_portable_build() 
                 || std::env::current_exe()
@@ -324,26 +359,40 @@ async fn check_updates(app: &AppHandle, should_open_window: bool) -> Result<bool
             if let Some(v) = parse_env_bool("QC_FORCE_PORTABLE") {
                 is_portable = v;
             }
+
+            if !force_update && !should_open_window {
+                let payload = serde_json::json!({
+                    "forceUpdate": false,
+                    "version": new_version,
+                    "notes": notes,
+                    "isPortable": is_portable,
+                });
+                set_update_window_payload(Some(payload));
+                return Ok(true);
+            }
             
+            let window = if let Some(w) = app.get_webview_window("updater") {
+                let _ = w.show();
+                w
+            } else {
+                open_updater_window(app, force_update)?
+            };
+
             let payload = serde_json::json!({
                 "forceUpdate": if is_portable { false } else { force_update },
                 "version": new_version,
                 "notes": notes,
                 "isPortable": is_portable,
             });
-            
-            let _ = window.emit("update-config", payload.clone());
 
-            let win_for_emit = window.clone();
-            let payload_clone = payload.clone();
-            window.once("updater-ready", move |_| {
-                let _ = win_for_emit.emit("update-config", payload_clone);
-            });
+            set_update_window_payload(Some(payload.clone()));
+            emit_update_payload(&window, payload);
 
             Ok(true)
         }
         None => {
             set_update_banner_state(app, None);
+            set_update_window_payload(None);
             Ok(false)
         }
     }

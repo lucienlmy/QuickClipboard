@@ -132,7 +132,10 @@ const TitleBar = forwardRef(({
     event.preventDefault();
     event.stopPropagation();
     try {
-      await invoke('check_updates_and_open_window');
+      const opened = await invoke('open_cached_update_window');
+      if (!opened) {
+        await invoke('check_updates_and_open_window');
+      }
     } catch (error) {
       console.error('标题栏打开更新窗口失败:', error);
       toast.error(t('updater.checkFailed', {

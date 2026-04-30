@@ -145,4 +145,9 @@ pub fn get_update_banner_state() -> Option<crate::windows::updater_window::Updat
     crate::windows::updater_window::get_update_banner_state()
 }
 
+#[tauri::command]
+pub async fn open_cached_update_window(app: AppHandle) -> Result<bool, String> {
+    crate::windows::updater_window::open_cached_update_window(&app).await
+}
+
 
