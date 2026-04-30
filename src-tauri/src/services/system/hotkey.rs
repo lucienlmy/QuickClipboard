@@ -398,6 +398,23 @@ pub fn register_toggle_paste_with_format_hotkey(shortcut_str: &str) -> Result<()
     })
 }
 
+pub fn register_toggle_low_memory_mode_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("toggle_low_memory_mode", shortcut_str, |app| {
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            let result = if crate::services::low_memory::is_low_memory_mode() {
+                crate::services::low_memory::exit_low_memory_mode(&app_clone)
+            } else {
+                crate::services::low_memory::enter_low_memory_mode(&app_clone)
+            };
+
+            if let Err(e) = result {
+                eprintln!("切换低占用模式失败: {}", e);
+            }
+        });
+    })
+}
+
 pub fn register_paste_plain_text_hotkey(shortcut_str: &str) -> Result<(), String> {
     let app = get_app()?;
 
@@ -746,6 +763,12 @@ pub fn reload_from_settings() -> Result<(), String> {
         if !settings.toggle_paste_with_format_shortcut.is_empty() {
             if let Err(e) = register_toggle_paste_with_format_hotkey(&settings.toggle_paste_with_format_shortcut) {
                 eprintln!("注册切换格式粘贴快捷键失败: {}", e);
+            }
+        }
+
+        if !settings.toggle_low_memory_mode_shortcut.is_empty() {
+            if let Err(e) = register_toggle_low_memory_mode_hotkey(&settings.toggle_low_memory_mode_shortcut) {
+                eprintln!("注册切换低占用模式快捷键失败: {}", e);
             }
         }
         

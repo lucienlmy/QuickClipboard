@@ -104,6 +104,9 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
             <SettingItem label={t('settings.shortcuts.togglePasteWithFormat')} description={t('settings.shortcuts.togglePasteWithFormatDesc')}>
               <ShortcutInput value={settings.togglePasteWithFormatShortcut} onChange={value => handleShortcutChange('togglePasteWithFormatShortcut', value)} onReset={() => handleShortcutChange('togglePasteWithFormatShortcut', '')} hasError={hasErrorStatus('togglePasteWithFormatShortcut', 'toggle_paste_with_format')} errorMessage={getErrorMessage('togglePasteWithFormatShortcut', 'toggle_paste_with_format')} />
             </SettingItem>
+            <SettingItem label={t('settings.shortcuts.toggleLowMemoryMode')} description={t('settings.shortcuts.toggleLowMemoryModeDesc')}>
+              <ShortcutInput value={settings.toggleLowMemoryModeShortcut} onChange={value => handleShortcutChange('toggleLowMemoryModeShortcut', value)} onReset={() => handleShortcutChange('toggleLowMemoryModeShortcut', '')} hasError={hasErrorStatus('toggleLowMemoryModeShortcut', 'toggle_low_memory_mode')} errorMessage={getErrorMessage('toggleLowMemoryModeShortcut', 'toggle_low_memory_mode')} />
+            </SettingItem>
             <SettingItem label={t('settings.shortcuts.pastePlainText')} description={t('settings.shortcuts.pastePlainTextDesc')}>
               <ShortcutComboInput value={settings.pastePlainTextShortcut} onChange={value => handleShortcutChange('pastePlainTextShortcut', value)} modifierOptions={['Ctrl', 'Shift']} fixedModifiers={['Ctrl']} disabledKeys={['V', 'C', 'X', 'A', 'Z', 'Y']} hasError={hasErrorStatus('pastePlainTextShortcut', 'paste_plain_text')} errorMessage={getErrorMessage('pastePlainTextShortcut', 'paste_plain_text')} />
             </SettingItem>

@@ -451,6 +451,8 @@
       "toggleClipboardMonitorDesc": "Quickly enable or disable clipboard monitoring",
       "togglePasteWithFormat": "Toggle Paste With Format",
       "togglePasteWithFormatDesc": "Quickly toggle whether to preserve formatting when pasting",
+      "toggleLowMemoryMode": "Toggle Low Memory Mode",
+      "toggleLowMemoryModeDesc": "Quickly enter or exit low memory mode. No shortcut is set by default.",
       "pastePlainText": "Paste as Plain Text",
       "pastePlainTextDesc": "Paste first item when window hidden, paste selected item when window visible (both as plain text)",
       "numberShortcutsTitle": "Number Shortcuts",

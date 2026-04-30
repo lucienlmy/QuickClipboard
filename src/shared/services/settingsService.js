@@ -58,6 +58,7 @@ export const defaultSettings = {
   togglePinShortcut: 'Ctrl+P',
   toggleClipboardMonitorShortcut: '',
   togglePasteWithFormatShortcut: '',
+  toggleLowMemoryModeShortcut: '',
   pastePlainTextShortcut: '',
   
   // 剪贴板设置

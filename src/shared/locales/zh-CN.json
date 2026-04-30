@@ -443,6 +443,8 @@
       "toggleClipboardMonitorDesc": "快速启用或禁用剪贴板监听功能",
       "togglePasteWithFormat": "开/关格式粘贴",
       "togglePasteWithFormatDesc": "快速切换粘贴时是否保留格式",
+      "toggleLowMemoryMode": "切换低占用模式",
+      "toggleLowMemoryModeDesc": "快速进入或退出低占用模式，默认不设置快捷键",
       "pastePlainText": "纯文本粘贴",
       "pastePlainTextDesc": "窗口隐藏时粘贴第一条，窗口显示时粘贴选中项（均为纯文本）",
       "numberShortcutsTitle": "数字快捷键",

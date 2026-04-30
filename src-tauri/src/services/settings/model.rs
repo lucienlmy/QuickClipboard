@@ -153,6 +153,7 @@ pub struct AppSettings {
     pub toggle_pin_shortcut: String,
     pub toggle_clipboard_monitor_shortcut: String,
     pub toggle_paste_with_format_shortcut: String,
+    pub toggle_low_memory_mode_shortcut: String,
     pub paste_plain_text_shortcut: String,
 
     // 数据存储设置
@@ -315,6 +316,7 @@ impl Default for AppSettings {
             toggle_pin_shortcut: "Ctrl+P".to_string(),
             toggle_clipboard_monitor_shortcut: String::new(),
             toggle_paste_with_format_shortcut: String::new(),
+            toggle_low_memory_mode_shortcut: String::new(),
             paste_plain_text_shortcut: String::new(),
 
             custom_storage_path: None,
