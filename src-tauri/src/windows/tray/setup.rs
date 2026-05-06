@@ -34,7 +34,9 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     match button {
                         MouseButton::Left if button_state == MouseButtonState::Up => {
                             if crate::services::low_memory::is_low_memory_mode() {
-                                super::native_menu::set_menu_visible(true);
+                                if let Err(e) = crate::services::low_memory::show_panel() {
+                                    eprintln!("低占用模式显示列表窗口失败: {}", e);
+                                }
                             } else {
                                 click_handler();
                             }

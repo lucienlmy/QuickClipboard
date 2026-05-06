@@ -16,5 +16,6 @@ pub use panel::{
     init_panel,
     is_panel_visible,
     is_point_in_panel,
+    show_panel,
     toggle_panel,
 };
