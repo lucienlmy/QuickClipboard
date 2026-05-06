@@ -8,6 +8,8 @@ use super::state::{
     set_low_memory_mode,
     set_user_requested_exit,
     try_mark_auto_manager_started,
+    try_start_exit_low_memory,
+    finish_exit_low_memory,
 };
 
 // 需要销毁的 WebView 窗口列表
@@ -88,9 +90,12 @@ pub fn exit_low_memory_mode(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    if !try_start_exit_low_memory() {
+        return Err("正在退出低占用模式，请稍后再试".to_string());
+    }
+
     let _ = super::hide_panel();
     set_user_requested_exit(false);
-    set_low_memory_mode(false);
     mark_window_activity();
 
     let _ = crate::services::notification::show_notification(
@@ -99,12 +104,22 @@ pub fn exit_low_memory_mode(app: &AppHandle) -> Result<(), String> {
         "已退出低占用模式，主窗口已恢复。",
     );
 
-    crate::windows::tray::switch_to_webview_menu(app)?;
+    let result = crate::windows::tray::switch_to_webview_menu(app)
+        .and_then(|_| recreate_main_window(app))
+        .and_then(|_| {
+            let _ = crate::quickpaste::init_quickpaste_window(app);
+            Ok(())
+        });
 
-    // 重建主窗口
-    recreate_main_window(app)?;
+    if result.is_ok() {
+        set_low_memory_mode(false);
+    }
 
-    let _ = crate::quickpaste::init_quickpaste_window(app);
+    finish_exit_low_memory();
+
+    if let Err(e) = result {
+        return Err(e);
+    }
 
     println!("[低占用模式] 已退出");
     Ok(())

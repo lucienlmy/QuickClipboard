@@ -7,6 +7,8 @@ pub use state::{
     is_low_memory_mode,
     is_user_requested_exit,
     set_user_requested_exit,
+    try_start_exit_low_memory,
+    finish_exit_low_memory,
 };
 pub use manager::{enter_low_memory_mode, exit_low_memory_mode, init_auto_low_memory_manager};
 pub use panel::{

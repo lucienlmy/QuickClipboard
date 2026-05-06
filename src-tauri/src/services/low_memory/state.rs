@@ -5,6 +5,7 @@ static LOW_MEMORY_MODE: AtomicBool = AtomicBool::new(false);
 static USER_REQUESTED_EXIT: AtomicBool = AtomicBool::new(false);
 static AUTO_MANAGER_STARTED: AtomicBool = AtomicBool::new(false);
 static LAST_WINDOW_ACTIVITY_AT_MS: AtomicU64 = AtomicU64::new(0);
+static EXITING_LOW_MEMORY: AtomicBool = AtomicBool::new(false);
 
 fn now_unix_ms() -> u64 {
     SystemTime::now()
@@ -45,4 +46,14 @@ pub fn set_user_requested_exit(requested: bool) {
 // 检查是否是用户主动请求退出
 pub fn is_user_requested_exit() -> bool {
     USER_REQUESTED_EXIT.load(Ordering::SeqCst)
+}
+
+// 尝试开始退出低占用模式（防止并发退出）
+pub fn try_start_exit_low_memory() -> bool {
+    !EXITING_LOW_MEMORY.swap(true, Ordering::SeqCst)
+}
+
+// 完成退出低占用模式
+pub fn finish_exit_low_memory() {
+    EXITING_LOW_MEMORY.store(false, Ordering::SeqCst);
 }
