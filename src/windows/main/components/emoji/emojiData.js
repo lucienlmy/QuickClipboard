@@ -95,7 +95,6 @@ export const SKIN_TONES = [
 
 export const EMOJI_COLS = 8;
 export const SYMBOL_COLS = 8;
-export const IMAGE_COLS = 2;
 
 export const splitIntoRowsStatic = (items, cols, catId) => {
   const rows = [];

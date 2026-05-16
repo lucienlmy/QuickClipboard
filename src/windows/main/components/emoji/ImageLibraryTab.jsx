@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
@@ -7,9 +7,22 @@ import { restoreLastFocus } from '@shared/api/window';
 import { Virtuoso } from 'react-virtuoso';
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar';
 import * as imageLibrary from '@shared/api/imageLibrary';
-import { IMAGE_COLS } from './emojiData';
 import RenameDialog from './RenameDialog';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
+
+const IMAGE_DEFAULT_COLS = 4;
+const IMAGE_MIN_COLS = 4;
+const IMAGE_MAX_COLS = 20;
+const IMAGE_MIN_CELL_WIDTH = 68;
+const IMAGE_GAP_PX = 8;
+const IMAGE_HORIZONTAL_PADDING_PX = 16;
+
+const getImageGridCols = (width) => {
+  if (!width) return IMAGE_DEFAULT_COLS;
+  const availableWidth = Math.max(0, width - IMAGE_HORIZONTAL_PADDING_PX);
+  const rawCols = Math.floor((availableWidth + IMAGE_GAP_PX) / (IMAGE_MIN_CELL_WIDTH + IMAGE_GAP_PX));
+  return Math.max(IMAGE_MIN_COLS, Math.min(IMAGE_MAX_COLS, rawCols || IMAGE_DEFAULT_COLS));
+};
 
 async function readFileInChunks(file, chunkSize = 1024 * 1024) {
   const chunks = [];
@@ -47,9 +60,47 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
   const uploadTokenRef = useRef(0);
   const loadedRangeRef = useRef({ start: 0, end: 0 });
   const imageScrollerRef = useRef(null);
+  const gridMeasureRef = useRef(null);
+  const [contentWidth, setContentWidth] = useState(0);
+  const imageCols = useMemo(() => getImageGridCols(contentWidth), [contentWidth]);
   const [scrollerElement, setScrollerElement] = useState(null);
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
+
+  useLayoutEffect(() => {
+    const target = gridMeasureRef.current;
+    if (!target) return undefined;
+
+    let rafId = 0;
+    let observer = null;
+
+    const measure = () => {
+      rafId = requestAnimationFrame(() => {
+        const nextWidth = target.clientWidth || 0;
+        setContentWidth(prev => (prev === nextWidth ? prev : nextWidth));
+      });
+    };
+
+    measure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(measure);
+      observer.observe(target);
+    } else {
+      window.addEventListener('resize', measure);
+    }
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (observer) observer.disconnect();
+      else window.removeEventListener('resize', measure);
+    };
+  }, [imageTotal]);
+
+  useEffect(() => {
+    loadedRangeRef.current = { start: 0, end: 0 };
+  }, [imageCols]);
+
   const internalDragRef = useRef(false);
   const loadRequestRef = useRef(null);
   const handleDragMouseDown = useDragWithThreshold({
@@ -91,8 +142,8 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     if (imageLoading) return;
     
     const category = imageCategory === 'gifs' ? 'gifs' : 'images';
-    const rowStart = Math.floor(startIndex / IMAGE_COLS) * IMAGE_COLS;
-    const rowEnd = Math.ceil((endIndex + 1) / IMAGE_COLS) * IMAGE_COLS;
+    const rowStart = Math.floor(startIndex / imageCols) * imageCols;
+    const rowEnd = Math.ceil((endIndex + 1) / imageCols) * imageCols;
     
     if (rowStart >= loadedRangeRef.current.start && rowEnd <= loadedRangeRef.current.end) {
       return;
@@ -117,7 +168,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     } finally {
       setImageLoading(false);
     }
-  }, [imageCategory, imageLoading]);
+  }, [imageCategory, imageLoading, imageCols]);
 
   const scheduleLoadRange = useCallback((startIndex, endIndex) => {
     if (loadRequestRef.current) {
@@ -335,16 +386,16 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
 
   const imageRowCount = useMemo(() => {
     const total = searchQuery?.trim() ? filteredImageTotal : imageTotal;
-    return Math.ceil(total / IMAGE_COLS);
-  }, [imageTotal, filteredImageTotal, searchQuery]);
+    return Math.ceil(total / imageCols);
+  }, [imageTotal, filteredImageTotal, searchQuery, imageCols]);
 
   const renderImageRow = useCallback((rowIndex) => {
     const items = searchQuery?.trim() ? filteredImageItems : imageItems;
     const total = searchQuery?.trim() ? filteredImageTotal : imageTotal;
-    const startIdx = rowIndex * IMAGE_COLS;
+    const startIdx = rowIndex * imageCols;
     const rowItems = [];
     
-    for (let i = 0; i < IMAGE_COLS; i++) {
+    for (let i = 0; i < imageCols; i++) {
       const idx = startIdx + i;
       if (idx >= total) break;
       const item = items[idx];
@@ -352,11 +403,15 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     }
 
     if (!searchQuery?.trim() && rowItems.some(item => item.loading)) {
-      scheduleLoadRange(startIdx, startIdx + IMAGE_COLS - 1);
+      scheduleLoadRange(startIdx, startIdx + imageCols - 1);
     }
 
     return (
-      <div className="grid grid-cols-2 gap-2 px-2 py-1" data-no-drag>
+      <div
+        className="grid gap-2 px-2 py-1"
+        style={{ gridTemplateColumns: `repeat(${imageCols}, minmax(0, 1fr))` }}
+        data-no-drag
+      >
         {rowItems.map((item) => (
           <Tooltip
             content={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
@@ -368,7 +423,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
               onClick={() => handleImageClick(item)}
               onMouseDown={(e) => !item.loading && item.path && handleDragMouseDown(e, [item.path], item.path)}
               role="button"
-              className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-visible hover:ring-2 hover:ring-blue-400"
+              className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
             >
               <div className="absolute inset-0 rounded-lg overflow-hidden">
                 {item.loading ? (
@@ -383,49 +438,50 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
                     loading="lazy"
                   />
                 )}
-              </div>
 
-              {!item.loading && (
-                <div
-                  className="absolute top-1 right-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  data-drag-ignore="true"
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <Tooltip content={t('common.copy') || '复制'} placement="left" asChild>
-                    <button
-                      onClick={(e) => handleCopyImage(e, item)}
-                      className="w-5 h-5 rounded-full bg-black/50 hover:bg-green-500 text-white flex items-center justify-center"
-                    >
-                      <i className="ti ti-copy text-xs"></i>
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={t('common.rename') || '重命名'} placement="left" asChild>
-                    <button
-                      onClick={(e) => handleRenameStart(e, item)}
-                      className="w-5 h-5 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center"
-                    >
-                      <i className="ti ti-pencil text-xs"></i>
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={t('common.delete') || '删除'} placement="left" asChild>
-                    <button
-                      onClick={(e) => handleDeleteImage(e, item)}
-                      className="w-5 h-5 rounded-full bg-black/50 hover:bg-red-500 text-white flex items-center justify-center"
-                    >
-                      <i className="ti ti-x text-xs"></i>
-                    </button>
-                  </Tooltip>
-                </div>
-              )}
+                {!item.loading && (
+                  <div
+                    className="absolute inset-x-0.5 top-0.5 z-10 flex max-w-full flex-wrap justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    data-drag-ignore="true"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <Tooltip content={t('common.copy') || '复制'} placement="left" asChild>
+                      <button
+                        onClick={(e) => handleCopyImage(e, item)}
+                        className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-green-500 text-white flex items-center justify-center"
+                      >
+                        <i className="ti ti-copy text-xs"></i>
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={t('common.rename') || '重命名'} placement="left" asChild>
+                      <button
+                        onClick={(e) => handleRenameStart(e, item)}
+                        className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center"
+                      >
+                        <i className="ti ti-pencil text-xs"></i>
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={t('common.delete') || '删除'} placement="left" asChild>
+                      <button
+                        onClick={(e) => handleDeleteImage(e, item)}
+                        className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-red-500 text-white flex items-center justify-center"
+                      >
+                        <i className="ti ti-x text-xs"></i>
+                      </button>
+                    </Tooltip>
+                  </div>
+                )}
+              </div>
             </div>
           </Tooltip>
         ))}
       </div>
     );
-  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, scheduleLoadRange, handleImageClick, handleDragMouseDown, handleCopyImage, handleDeleteImage, handleRenameStart, t]);
+  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, imageCols, scheduleLoadRange, handleImageClick, handleDragMouseDown, handleCopyImage, handleDeleteImage, handleRenameStart, t]);
 
   return (
-    <div 
+    <div
+      ref={gridMeasureRef}
       className="h-full flex flex-col overflow-hidden relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -448,10 +504,11 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         ) : (
           <div className="flex-1 overflow-hidden custom-scrollbar-container">
             <Virtuoso
+              key={`${imageCategory}-${imageCols}-${searchQuery?.trim() || ''}`}
               ref={imageScrollerRef}
               totalCount={imageRowCount}
               itemContent={renderImageRow}
-              computeItemKey={(index) => `row-${imageCategory}-${searchQuery}-${index}`}
+              computeItemKey={(index) => `row-${imageCategory}-${imageCols}-${searchQuery}-${index}`}
               scrollerRef={scrollerRefCallback}
               overscan={3}
               className="h-full"
