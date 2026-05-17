@@ -85,7 +85,40 @@ export const favoritesStore = proxy({
   
   // 删除项
   removeItem(id) {
-    this.items = {}
+    this.removeItems([id])
+  },
+
+  removeItems(ids) {
+    const removeIdSet = new Set(ids.filter(Boolean))
+    if (!removeIdSet.size) {
+      return
+    }
+
+    const entries = Object.entries(this.items)
+      .map(([key, item]) => [parseInt(key, 10), item])
+      .filter(([, item]) => item)
+      .sort((a, b) => a[0] - b[0])
+
+    let removedCount = 0
+    const nextItems = {}
+    for (const [index, item] of entries) {
+      if (removeIdSet.has(item.id)) {
+        removedCount += 1
+        continue
+      }
+      nextItems[index - removedCount] = item
+    }
+
+    if (removedCount === 0) {
+      return
+    }
+
+    this.items = nextItems
+    this.totalCount = Math.max(0, this.totalCount - removedCount)
+
+    if (this.selectionAnchorIndex != null) {
+      this.selectionAnchorIndex = Math.max(0, this.selectionAnchorIndex - removedCount)
+    }
   },
   
   setFilter(value) {
@@ -335,10 +368,7 @@ export async function deleteFavorite(id) {
     if (!confirmed) return false
 
     await apiDeleteFavorite(id)
-    // 清空数据，触发重新加载
     favoritesStore.removeItem(id)
-    // 刷新数据
-    await refreshFavorites()
     return true
   } catch (err) {
     console.error('删除收藏项失败:', err)

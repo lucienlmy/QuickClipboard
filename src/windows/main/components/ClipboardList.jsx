@@ -30,6 +30,7 @@ const ClipboardList = forwardRef(({
   const settings = useSnapshot(settingsStore);
   const showShortcut = settings.showListShortcuts !== false && !clipSnap.filter && clipSnap.contentType === 'all';
   const showIndex = settings.showListIndex !== false;
+  const selectedIdSet = useMemo(() => new Set(clipSnap.selectedEntries.map(entry => entry.id)), [clipSnap.selectedEntries]);
   const itemsArray = useMemo(() => {
     return Array.from({
       length: clipSnap.totalCount
@@ -46,7 +47,9 @@ const ClipboardList = forwardRef(({
         };
       }
       return {
-        ...item,
+        item,
+        id: item.id,
+        is_pinned: item.is_pinned,
         _sortId: `${item.created_at}-${index}`
       };
     });
@@ -287,13 +290,13 @@ const ClipboardList = forwardRef(({
         return;
       }
       const item = itemsWithId[currentSelectedIndex];
-      if (item && !item._isPlaceholder) {
+      if (item?.item && !item._isPlaceholder) {
         try {
           const { pasteClipboardItem } = await import('@shared/api/clipboard');
-          await pasteClipboardItem(item.id, 'plain_text');
-          if (!getOneTimePasteEnabled() && settingsStore.pasteToTop && item.id && !item.is_pinned) {
+          await pasteClipboardItem(item.item.id, 'plain_text');
+          if (!getOneTimePasteEnabled() && settingsStore.pasteToTop && item.item.id && !item.item.is_pinned) {
             try {
-              await moveClipboardItemToTop(item.id);
+              await moveClipboardItemToTop(item.item.id);
             } finally {
               clipboardStore.items = {};
             }
@@ -344,8 +347,8 @@ const ClipboardList = forwardRef(({
           const item = itemsWithId[index];
           return item?.id || item?._sortId || `item-${index}`;
         }} itemContent={index => {
-          const item = itemsWithId[index];
-          if (!item || item._isPlaceholder) {
+          const entry = itemsWithId[index];
+          if (!entry || entry._isPlaceholder) {
             return isCardStyle ? <div style={getCardOuterStyle(index)}>
               <div className={heightClass}>
                 <div className="h-full rounded-lg border border-qc-border bg-qc-panel p-3 animate-pulse">
@@ -363,14 +366,15 @@ const ClipboardList = forwardRef(({
 
           const dragActive = Boolean(activeId);
           const animationDelay = settings.uiAnimationEnabled !== false ? Math.min(index * 20, 100) : 0;
+          const item = entry.item;
           return isCardStyle ? <div style={getCardOuterStyle(index)}>
             <div className={heightClass}>
               <ClipboardItem
                 item={item}
                 index={index}
-                sortId={item._sortId}
+                sortId={entry._sortId}
                 isSelected={!isMultiSelectMode && currentSelectedIndex === index}
-                isMultiSelected={clipSnap.hasSelectedId(item.id)}
+                isMultiSelected={selectedIdSet.has(item.id)}
                 isMultiSelectMode={isMultiSelectMode}
                 onHover={() => handleItemHover(index)}
                 onClick={handleItemClick}
@@ -385,9 +389,9 @@ const ClipboardList = forwardRef(({
             <ClipboardItem
               item={item}
               index={index}
-              sortId={item._sortId}
+              sortId={entry._sortId}
               isSelected={!isMultiSelectMode && currentSelectedIndex === index}
-              isMultiSelected={clipSnap.hasSelectedId(item.id)}
+              isMultiSelected={selectedIdSet.has(item.id)}
               isMultiSelectMode={isMultiSelectMode}
               onHover={() => handleItemHover(index)}
               onClick={handleItemClick}
@@ -410,7 +414,7 @@ const ClipboardList = forwardRef(({
         return (
           <div className={`${overlayClass} rounded-md border border-qc-border shadow-lg bg-qc-panel/70 backdrop-blur-md`}>
             <ClipboardItem
-              item={activeItem}
+              item={activeItem.item}
               index={activeIndex}
               sortId={activeItem._sortId}
               isDragActive={!isMultiSelectMode}

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 import { showConfirm } from '@shared/utils/dialog';
-import { clipboardStore, refreshClipboardHistory } from '@shared/store/clipboardStore';
+import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore, refreshFavorites } from '@shared/store/favoritesStore';
 import { groupsStore } from '@shared/store/groupsStore';
 import { settingsStore } from '@shared/store/settingsStore';
@@ -114,10 +114,10 @@ function MultiSelectActionBar({ activeTab }) {
     try {
       if (activeTab === 'clipboard') {
         await deleteClipboardItems(selectedIds);
-        await refreshClipboardHistory();
+        clipboardStore.removeItems(selectedIds);
       } else {
         await deleteFavoriteItems(selectedIds);
-        await refreshFavorites(groupsSnap.currentGroup);
+        favoritesStore.removeItems(selectedIds);
       }
       currentStore.exitMultiSelectMode();
       toast.success(t('common.deleted'), withToastConfig);

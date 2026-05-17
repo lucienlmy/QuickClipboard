@@ -84,7 +84,40 @@ export const clipboardStore = proxy({
   
   // 删除项
   removeItem(id) {
-    this.items = {}
+    this.removeItems([id])
+  },
+
+  removeItems(ids) {
+    const removeIdSet = new Set(ids.filter(Boolean))
+    if (!removeIdSet.size) {
+      return
+    }
+
+    const entries = Object.entries(this.items)
+      .map(([key, item]) => [parseInt(key, 10), item])
+      .filter(([, item]) => item)
+      .sort((a, b) => a[0] - b[0])
+
+    let removedCount = 0
+    const nextItems = {}
+    for (const [index, item] of entries) {
+      if (removeIdSet.has(item.id)) {
+        removedCount += 1
+        continue
+      }
+      nextItems[index - removedCount] = item
+    }
+
+    if (removedCount === 0) {
+      return
+    }
+
+    this.items = nextItems
+    this.totalCount = Math.max(0, this.totalCount - removedCount)
+
+    if (this.selectionAnchorIndex != null) {
+      this.selectionAnchorIndex = Math.max(0, this.selectionAnchorIndex - removedCount)
+    }
   },
   
   setFilter(value) {
@@ -316,7 +349,6 @@ export async function deleteClipboardItem(id) {
   try {
     await apiDeleteItem(id)
     clipboardStore.removeItem(id)
-    await refreshClipboardHistory()
     return true
   } catch (err) {
     console.error('删除剪贴板项失败:', err)

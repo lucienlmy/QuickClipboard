@@ -30,6 +30,7 @@ const FavoritesList = forwardRef(({
   const groupsSnap = useSnapshot(groupsStore);
   const settings = useSnapshot(settingsStore);
   const showIndex = settings.showListIndex !== false;
+  const selectedIdSet = useMemo(() => new Set(favSnap.selectedEntries.map(entry => entry.id)), [favSnap.selectedEntries]);
   const itemsArray = useMemo(() => {
     return Array.from({
       length: favSnap.totalCount
@@ -46,7 +47,9 @@ const FavoritesList = forwardRef(({
         };
       }
       return {
-        ...item,
+        item,
+        id: item.id,
+        is_pinned: item.is_pinned,
         _sortId: `${item.id}`
       };
     });
@@ -282,10 +285,10 @@ const FavoritesList = forwardRef(({
         return;
       }
       const item = itemsWithId[currentSelectedIndex];
-      if (item && !item._isPlaceholder) {
+      if (item?.item && !item._isPlaceholder) {
         try {
           const { pasteFavorite } = await import('@shared/api/favorites');
-          await pasteFavorite(item.id, 'plain_text');
+          await pasteFavorite(item.item.id, 'plain_text');
         } catch (error) {
           console.error('纯文本粘贴收藏失败:', error);
         }
@@ -332,8 +335,8 @@ const FavoritesList = forwardRef(({
           const item = itemsWithId[index];
           return item?.id || item?._sortId || `item-${index}`;
         }} itemContent={index => {
-          const item = itemsWithId[index];
-          if (!item || item._isPlaceholder) {
+          const entry = itemsWithId[index];
+          if (!entry || entry._isPlaceholder) {
             return isCardStyle ? <div style={getCardOuterStyle(index)}>
                 <div className={heightClass}>
                   <div className="h-full rounded-lg border border-qc-border bg-qc-panel p-3 animate-pulse">
@@ -349,14 +352,15 @@ const FavoritesList = forwardRef(({
               </div>;
           }
           const animationDelay = settings.uiAnimationEnabled !== false ? Math.min(index * 20, 100) : 0;
+          const item = entry.item;
           return isCardStyle ? <div style={getCardOuterStyle(index)}>
                 <div className={heightClass}>
                   <FavoriteItem
                     item={item}
                     index={index}
-                    sortId={item._sortId}
+                    sortId={entry._sortId}
                     isSelected={!isMultiSelectMode && currentSelectedIndex === index}
-                    isMultiSelected={favSnap.hasSelectedId(item.id)}
+                    isMultiSelected={selectedIdSet.has(item.id)}
                     isMultiSelectMode={isMultiSelectMode}
                     onHover={() => handleItemHover(index)}
                     onClick={handleItemClick}
@@ -370,9 +374,9 @@ const FavoritesList = forwardRef(({
                 <FavoriteItem
                   item={item}
                   index={index}
-                  sortId={item._sortId}
+                  sortId={entry._sortId}
                   isSelected={!isMultiSelectMode && currentSelectedIndex === index}
-                  isMultiSelected={favSnap.hasSelectedId(item.id)}
+                  isMultiSelected={selectedIdSet.has(item.id)}
                   isMultiSelectMode={isMultiSelectMode}
                   onHover={() => handleItemHover(index)}
                   onClick={handleItemClick}
@@ -394,7 +398,7 @@ const FavoritesList = forwardRef(({
           return (
             <div className={`${overlayClass} rounded-md border border-qc-border shadow-lg bg-qc-panel/70 backdrop-blur-md`}>
               <FavoriteItem
-                item={activeItem}
+                item={activeItem.item}
                 index={activeIndex}
                 sortId={activeItem._sortId}
                 isDragActive={!isMultiSelectMode}
