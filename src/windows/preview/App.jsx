@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
@@ -161,6 +161,7 @@ function App() {
   const [textContent, setTextContent] = useState('');
   const [htmlContent, setHtmlContent] = useState('');
   const [htmlPreferredSize, setHtmlPreferredSize] = useState(null);
+  const [textPreferredWidth, setTextPreferredWidth] = useState(null);
   const [textPreferredHeight, setTextPreferredHeight] = useState(null);
   const [imageUrl, setImageUrl] = useState('');
   const [imageLoadState, setImageLoadState] = useState(IMAGE_STATUS_IDLE);
@@ -189,6 +190,7 @@ function App() {
     setTextContent('');
     setHtmlContent('');
     setHtmlPreferredSize(null);
+    setTextPreferredWidth(null);
     setTextPreferredHeight(null);
     setImageUrl('');
     setImageLoadState(IMAGE_STATUS_IDLE);
@@ -322,6 +324,7 @@ function App() {
     setTextContent('');
     setHtmlContent('');
     setHtmlPreferredSize(null);
+    setTextPreferredWidth(null);
     setTextPreferredHeight(null);
     setImageUrl('');
     setImageLoadState(IMAGE_STATUS_IDLE);
@@ -351,6 +354,7 @@ function App() {
         setFormatKinds(nextFormatKinds);
         setPreviewMode(initialMode);
         setTextContent(item?.content || '');
+        setTextPreferredWidth(null);
         setTextPreferredHeight(estimateTextHeight(item?.content || ''));
         setHtmlPreferredSize(null);
         setHtmlContent(item?.html_content || '');
@@ -622,6 +626,18 @@ function App() {
   }, [supportedPreviewModes, previewMode]);
 
   useEffect(() => {
+    if (previewMode === MODE_TEXT) {
+      setTextPreferredWidth(null);
+      setTextPreferredHeight(estimateTextHeight(textContent));
+      return;
+    }
+
+    if (previewMode === MODE_HTML) {
+      setHtmlPreferredSize(null);
+    }
+  }, [previewMode, textContent]);
+
+  useEffect(() => {
     if (!previewData) {
       return;
     }
@@ -692,6 +708,7 @@ function App() {
 
   const boxSize = useMemo(() => {
     return resolveBoxSize(previewMode, workAreaLogical.height, workAreaLogical.width, {
+      textWidth: textPreferredWidth,
       textHeight: textPreferredHeight,
       imageWidth: imageDimensions?.width,
       imageHeight: imageDimensions?.height,
@@ -705,11 +722,29 @@ function App() {
     previewMode,
     workAreaLogical.height,
     workAreaLogical.width,
+    textPreferredWidth,
     textPreferredHeight,
     imageDimensions,
     htmlPreferredSize,
     filePreviewStats,
   ]);
+
+  const handleTextPreferredSizeChange = useCallback((size) => {
+    setTextPreferredWidth((prev) => {
+      const nextWidth = Number(size?.width);
+      if (!isFiniteNumber(nextWidth) || nextWidth <= 0) {
+        return prev;
+      }
+      return prev === nextWidth ? prev : nextWidth;
+    });
+    setTextPreferredHeight((prev) => {
+      const nextHeight = Number(size?.height);
+      if (!isFiniteNumber(nextHeight) || nextHeight <= 0) {
+        return prev;
+      }
+      return prev === nextHeight ? prev : nextHeight;
+    });
+  }, []);
 
   const displaySize = useMemo(() => {
     if (previewMode === MODE_IMAGE) {
@@ -983,7 +1018,7 @@ function App() {
                 content={textContent}
                 isDark={isDark}
                 isBackground={isBackground}
-                onPreferredHeightChange={setTextPreferredHeight}
+                onPreferredSizeChange={handleTextPreferredSizeChange}
               />
             )}
           </div>
