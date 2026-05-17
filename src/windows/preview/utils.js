@@ -20,10 +20,6 @@ export const IMAGE_SCALE_MAX = 5;
 export const IMAGE_SCALE_INDICATOR_DURATION = 1500;
 export const TEXT_MIN_HEIGHT = 46;
 export const TEXT_DEFAULT_HEIGHT = 46;
-export const TEXT_MIN_WIDTH = 120;
-export const TEXT_DEFAULT_WIDTH = 260;
-export const TEXT_WIDTH_BUFFER = 18;
-export const HTML_WIDTH_BUFFER = 18;
 export const IMAGE_STATUS_IDLE = 'idle';
 export const IMAGE_STATUS_LOADING = 'loading';
 export const IMAGE_STATUS_READY = 'ready';
@@ -188,10 +184,10 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
   if (mode === MODE_HTML) {
     const preferredWidth = Number(options.htmlWidth);
     const preferredHeight = Number(options.htmlHeight);
-    const maxWidth = clamp(
-      roundSize(workAreaHeight * 0.5, TEXT_DEFAULT_WIDTH),
-      TEXT_DEFAULT_WIDTH,
-      Math.max(TEXT_DEFAULT_WIDTH, workAreaWidth - 24),
+    const baseWidth = clamp(
+      roundSize(workAreaHeight * 0.5, 260),
+      260,
+      Math.max(260, workAreaWidth - 24),
     );
     const maxHeight = clamp(
       roundSize(workAreaHeight * (2 / 3), 300),
@@ -201,32 +197,25 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
 
     const width = isFiniteNumber(preferredWidth) && preferredWidth > 0
       ? Math.round(preferredWidth)
-      : TEXT_DEFAULT_WIDTH;
+      : baseWidth;
     const height = isFiniteNumber(preferredHeight) && preferredHeight > 0
       ? Math.round(preferredHeight)
       : TEXT_DEFAULT_HEIGHT;
 
     return {
-      width: clamp(width, TEXT_MIN_WIDTH, maxWidth),
+      width: clamp(width, 260, baseWidth),
       height: clamp(height, TEXT_MIN_HEIGHT, maxHeight),
     };
   }
 
-  const width = isFiniteNumber(Number(options.textWidth)) && Number(options.textWidth) > 0
-    ? Math.round(Number(options.textWidth))
-    : TEXT_DEFAULT_WIDTH;
+  const width = roundSize(workAreaHeight * 0.5, 260);
   const maxHeight = clamp(
     roundSize(workAreaHeight * (2 / 3), 300),
     300,
     Math.max(300, workAreaHeight - 24),
   );
-  const maxWidth = clamp(
-    roundSize(workAreaHeight * 0.5, TEXT_DEFAULT_WIDTH),
-    TEXT_DEFAULT_WIDTH,
-    Math.max(TEXT_DEFAULT_WIDTH, workAreaWidth - 24),
-  );
   const preferredHeight = Number(options.textHeight);
-  const finalWidth = clamp(width, TEXT_MIN_WIDTH, maxWidth);
+  const finalWidth = clamp(width, 260, Math.max(260, workAreaWidth - 24));
   const finalHeight = clamp(
     isFiniteNumber(preferredHeight) && preferredHeight > 0 ? Math.round(preferredHeight) : TEXT_DEFAULT_HEIGHT,
     TEXT_MIN_HEIGHT,
@@ -362,7 +351,7 @@ export function estimateTextHeight(text) {
   }
 
   const lines = text.split(/\r\n|\n|\r/).length;
-  const estimated = 18 + lines * 20;
+  const estimated = 22 + lines * 22;
   return Math.max(TEXT_MIN_HEIGHT, estimated);
 }
 

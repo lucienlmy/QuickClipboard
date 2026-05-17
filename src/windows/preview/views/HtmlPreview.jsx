@@ -1,7 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { sanitizeHTML } from '@shared/utils/htmlProcessor';
-import { HTML_WIDTH_BUFFER } from '../utils';
 
 const PLACEHOLDER_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeGxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZjBmMGYwIi8+PC9zdmc+';
 const ERROR_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeGxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZmZlYmVlIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiNjNjI4MjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7lpb3ml7bplK7mj5DmnKzmiqUgPC90ZXh0Pjwvc3ZnPg==';
@@ -124,7 +123,6 @@ const HtmlPreview = forwardRef(function HtmlPreview({ htmlContent, onPreferredSi
   const onPreferredSizeChangeRef = useRef(onPreferredSizeChange);
   const maxPreferredSizeRef = useRef({ width: 0, height: 0 });
   const measureTimerRef = useRef(0);
-  const observedWidthRef = useRef(0);
 
   useImperativeHandle(
     ref,
@@ -165,7 +163,7 @@ const HtmlPreview = forwardRef(function HtmlPreview({ htmlContent, onPreferredSi
         return;
       }
 
-      const nextWidth = Math.max(maxPreferredSizeRef.current.width, width + HTML_WIDTH_BUFFER);
+      const nextWidth = Math.max(maxPreferredSizeRef.current.width, width + 2);
       const nextHeight = height + 2;
       if (nextWidth === maxPreferredSizeRef.current.width && nextHeight === maxPreferredSizeRef.current.height) {
         return;
@@ -280,36 +278,11 @@ const HtmlPreview = forwardRef(function HtmlPreview({ htmlContent, onPreferredSi
     };
   }, []);
 
-  useEffect(() => {
-    const root = contentRef.current;
-    const container = scrollContainerRef.current;
-    if (!root || !container || typeof ResizeObserver === 'undefined') {
-      return undefined;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      const nextWidth = Math.round(
-        Number(entry?.contentRect?.width) || Number(container?.clientWidth) || 0,
-      );
-      if (nextWidth <= 0 || nextWidth === observedWidthRef.current) {
-        return;
-      }
-      observedWidthRef.current = nextWidth;
-      scheduleMeasure();
-    });
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [renderedHtml]);
-
   return (
     <div ref={scrollContainerRef} className="w-full h-full min-h-0 min-w-0 overflow-auto">
       <div
         ref={contentRef}
-        className="inline-block align-top min-h-full min-w-0 text-sm text-qc-fg leading-relaxed html-content"
+        className="w-full max-w-full min-w-0 text-sm text-qc-fg leading-relaxed html-content min-h-full"
         style={{
           wordBreak: 'break-word',
           overflowWrap: 'anywhere',
