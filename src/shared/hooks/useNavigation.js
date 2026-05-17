@@ -9,7 +9,6 @@ export function useNavigation({
 }) {
   const snap = useSnapshot(navigationStore)
   const lastHoverIndexRef = useRef(-1)
-  const hoverDebounceTimeoutRef = useRef(null)
   const keyboardNavigationTimeoutRef = useRef(null)
   const scrollTimeoutRef = useRef(null)
   const lastMousePositionRef = useRef({ x: 0, y: 0 })
@@ -85,34 +84,25 @@ export function useNavigation({
   }, [enabled, snap.currentSelectedIndex, items, onExecuteItem])
 
   const handleItemHover = useCallback((index) => {
-    if (snap.isScrolling) {
+    if (navigationStore.isScrolling) {
       return
     }
     
     // 如果索引没有变化，直接返回
-    if (index === lastHoverIndexRef.current) {
+    if (index === lastHoverIndexRef.current || navigationStore.currentSelectedIndex === index) {
       return
     }
     
     lastHoverIndexRef.current = index
-    
-    // 清除之前的防抖定时器
-    if (hoverDebounceTimeoutRef.current) {
-      clearTimeout(hoverDebounceTimeoutRef.current)
+
+    navigationStore.setKeyboardNavigation(false)
+    if (keyboardNavigationTimeoutRef.current) {
+      clearTimeout(keyboardNavigationTimeoutRef.current)
+      keyboardNavigationTimeoutRef.current = null
     }
     
-    // 使用防抖来减少频繁的更新操作
-    hoverDebounceTimeoutRef.current = setTimeout(() => {
-      navigationStore.setKeyboardNavigation(false)
-      if (keyboardNavigationTimeoutRef.current) {
-        clearTimeout(keyboardNavigationTimeoutRef.current)
-        keyboardNavigationTimeoutRef.current = null
-      }
-      
-      navigationStore.setSelectedIndex(index)
-      hoverDebounceTimeoutRef.current = null
-    }, 10)
-  }, [snap.isScrolling])
+    navigationStore.setSelectedIndex(index)
+  }, [])
 
   const handleScrollStart = useCallback(() => {
     navigationStore.setScrolling(true)
@@ -185,9 +175,6 @@ export function useNavigation({
   // 清理
   useEffect(() => {
     return () => {
-      if (hoverDebounceTimeoutRef.current) {
-        clearTimeout(hoverDebounceTimeoutRef.current)
-      }
       if (keyboardNavigationTimeoutRef.current) {
         clearTimeout(keyboardNavigationTimeoutRef.current)
       }

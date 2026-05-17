@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
@@ -872,4 +872,19 @@ function ClipboardItem({
 
   return itemNode;
 }
-export default ClipboardItem;
+
+function areClipboardItemPropsEqual(prevProps, nextProps) {
+  return prevProps.item === nextProps.item
+    && prevProps.index === nextProps.index
+    && prevProps.sortId === nextProps.sortId
+    && prevProps.isSelected === nextProps.isSelected
+    && prevProps.isMultiSelected === nextProps.isMultiSelected
+    && prevProps.isMultiSelectMode === nextProps.isMultiSelectMode
+    && prevProps.isDragActive === nextProps.isDragActive
+    && prevProps.isDraggable === nextProps.isDraggable
+    && prevProps.showShortcut === nextProps.showShortcut
+    && prevProps.showIndex === nextProps.showIndex
+    && prevProps.animationDelay === nextProps.animationDelay;
+}
+
+export default memo(ClipboardItem, areClipboardItemPropsEqual);

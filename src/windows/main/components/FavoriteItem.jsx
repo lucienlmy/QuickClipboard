@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { emit } from '@tauri-apps/api/event';
 import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
@@ -817,4 +817,18 @@ function FavoriteItem({
 
   return itemNode;
 }
-export default FavoriteItem;
+
+function areFavoriteItemPropsEqual(prevProps, nextProps) {
+  return prevProps.item === nextProps.item
+    && prevProps.index === nextProps.index
+    && prevProps.sortId === nextProps.sortId
+    && prevProps.isDraggable === nextProps.isDraggable
+    && prevProps.isSelected === nextProps.isSelected
+    && prevProps.isMultiSelected === nextProps.isMultiSelected
+    && prevProps.isMultiSelectMode === nextProps.isMultiSelectMode
+    && prevProps.isDragActive === nextProps.isDragActive
+    && prevProps.showIndex === nextProps.showIndex
+    && prevProps.animationDelay === nextProps.animationDelay;
+}
+
+export default memo(FavoriteItem, areFavoriteItemPropsEqual);
