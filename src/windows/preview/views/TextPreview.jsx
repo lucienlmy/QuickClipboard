@@ -57,12 +57,14 @@ const TextPreview = forwardRef(function TextPreview(
     isDark,
     isBackground,
     onPreferredHeightChange,
+    onScrollabilityChange,
   },
   ref,
 ) {
   const editorRootRef = useRef(null);
   const editorViewRef = useRef(null);
   const themeCompartmentRef = useRef(new Compartment());
+  const onScrollabilityChangeRef = useRef(onScrollabilityChange);
 
   useImperativeHandle(
     ref,
@@ -70,9 +72,20 @@ const TextPreview = forwardRef(function TextPreview(
       scrollBy(delta) {
         editorViewRef.current?.scrollDOM?.scrollBy({ top: delta, behavior: 'auto' });
       },
+      hasVerticalOverflow() {
+        const scrollDOM = editorViewRef.current?.scrollDOM;
+        if (!scrollDOM) {
+          return false;
+        }
+        return (scrollDOM.scrollHeight - scrollDOM.clientHeight) > 2;
+      },
     }),
     [],
   );
+
+  useEffect(() => {
+    onScrollabilityChangeRef.current = onScrollabilityChange;
+  }, [onScrollabilityChange]);
 
   useEffect(() => {
     const root = editorRootRef.current;
@@ -151,6 +164,58 @@ const TextPreview = forwardRef(function TextPreview(
 
     return () => clearTimeout(timer);
   }, [content, isDark, isBackground, onPreferredHeightChange]);
+
+  useEffect(() => {
+    const view = editorViewRef.current;
+    const scrollDOM = view?.scrollDOM;
+    if (!scrollDOM) {
+      onScrollabilityChangeRef.current?.(false);
+      return undefined;
+    }
+
+    let rafId = 0;
+    let observer = null;
+    let previousValue = null;
+
+    const measure = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const nextValue = (scrollDOM.scrollHeight - scrollDOM.clientHeight) > 2;
+        if (nextValue === previousValue) {
+          return;
+        }
+        previousValue = nextValue;
+        onScrollabilityChangeRef.current?.(nextValue);
+      });
+    };
+
+    measure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(measure);
+      observer.observe(scrollDOM);
+      const contentElement = scrollDOM.querySelector('.cm-content');
+      if (contentElement) {
+        observer.observe(contentElement);
+      }
+    } else {
+      window.addEventListener('resize', measure);
+    }
+
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      if (observer) {
+        observer.disconnect();
+      } else {
+        window.removeEventListener('resize', measure);
+      }
+    };
+  }, [content, isDark, isBackground]);
 
   return (
     <div className="h-full min-h-0 overflow-hidden">

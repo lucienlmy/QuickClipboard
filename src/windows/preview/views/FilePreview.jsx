@@ -229,10 +229,12 @@ const FilePreview = forwardRef(function FilePreview(
     files = [],
     stats = null,
     t,
+    onScrollabilityChange,
   },
   ref,
 ) {
   const scrollerElementRef = useRef(null);
+  const onScrollabilityChangeRef = useRef(onScrollabilityChange);
   const setScrollerElement = useCallback((element) => {
     scrollerElementRef.current = element || null;
   }, []);
@@ -243,9 +245,67 @@ const FilePreview = forwardRef(function FilePreview(
       scrollBy(delta) {
         scrollerElementRef.current?.scrollBy({ top: delta, behavior: 'auto' });
       },
+      hasVerticalOverflow() {
+        const element = scrollerElementRef.current;
+        if (!element) {
+          return false;
+        }
+        return (element.scrollHeight - element.clientHeight) > 2;
+      },
     }),
     [],
   );
+
+  useLayoutEffect(() => {
+    onScrollabilityChangeRef.current = onScrollabilityChange;
+  }, [onScrollabilityChange]);
+
+  useLayoutEffect(() => {
+    const element = scrollerElementRef.current;
+    if (!element) {
+      onScrollabilityChangeRef.current?.(false);
+      return undefined;
+    }
+
+    let rafId = 0;
+    let observer = null;
+    let previousValue = null;
+
+    const measure = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const nextValue = (element.scrollHeight - element.clientHeight) > 2;
+        if (nextValue === previousValue) {
+          return;
+        }
+        previousValue = nextValue;
+        onScrollabilityChangeRef.current?.(nextValue);
+      });
+    };
+
+    measure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(measure);
+      observer.observe(element);
+    } else {
+      window.addEventListener('resize', measure);
+    }
+
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      if (observer) {
+        observer.disconnect();
+      } else {
+        window.removeEventListener('resize', measure);
+      }
+    };
+  }, [files.length]);
 
   if (!Array.isArray(files) || files.length === 0) {
     return (

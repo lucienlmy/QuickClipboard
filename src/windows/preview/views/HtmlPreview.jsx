@@ -116,11 +116,19 @@ function resolveImageIdToAsset(imageId) {
   });
 }
 
-const HtmlPreview = forwardRef(function HtmlPreview({ htmlContent, onPreferredSizeChange }, ref) {
+const HtmlPreview = forwardRef(function HtmlPreview(
+  {
+    htmlContent,
+    onPreferredSizeChange,
+    onScrollabilityChange,
+  },
+  ref,
+) {
   const scrollContainerRef = useRef(null);
   const contentRef = useRef(null);
   const [renderedHtml, setRenderedHtml] = useState('');
   const onPreferredSizeChangeRef = useRef(onPreferredSizeChange);
+  const onScrollabilityChangeRef = useRef(onScrollabilityChange);
   const maxPreferredSizeRef = useRef({ width: 0, height: 0 });
   const measureTimerRef = useRef(0);
 
@@ -130,6 +138,13 @@ const HtmlPreview = forwardRef(function HtmlPreview({ htmlContent, onPreferredSi
       scrollBy(delta) {
         scrollContainerRef.current?.scrollBy({ top: delta, behavior: 'auto' });
       },
+      hasVerticalOverflow() {
+        const element = scrollContainerRef.current;
+        if (!element) {
+          return false;
+        }
+        return (element.scrollHeight - element.clientHeight) > 2;
+      },
     }),
     [],
   );
@@ -137,6 +152,10 @@ const HtmlPreview = forwardRef(function HtmlPreview({ htmlContent, onPreferredSi
   useEffect(() => {
     onPreferredSizeChangeRef.current = onPreferredSizeChange;
   }, [onPreferredSizeChange]);
+
+  useEffect(() => {
+    onScrollabilityChangeRef.current = onScrollabilityChange;
+  }, [onScrollabilityChange]);
 
   useEffect(() => {
     const html = typeof htmlContent === 'string' ? htmlContent : '';
@@ -277,6 +296,56 @@ const HtmlPreview = forwardRef(function HtmlPreview({ htmlContent, onPreferredSi
       }
     };
   }, []);
+
+  useEffect(() => {
+    const element = scrollContainerRef.current;
+    if (!element) {
+      onScrollabilityChangeRef.current?.(false);
+      return undefined;
+    }
+
+    let rafId = 0;
+    let observer = null;
+    let previousValue = null;
+
+    const measure = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const nextValue = (element.scrollHeight - element.clientHeight) > 2;
+        if (nextValue === previousValue) {
+          return;
+        }
+        previousValue = nextValue;
+        onScrollabilityChangeRef.current?.(nextValue);
+      });
+    };
+
+    measure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(measure);
+      observer.observe(element);
+      if (contentRef.current) {
+        observer.observe(contentRef.current);
+      }
+    } else {
+      window.addEventListener('resize', measure);
+    }
+
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      if (observer) {
+        observer.disconnect();
+      } else {
+        window.removeEventListener('resize', measure);
+      }
+    };
+  }, [renderedHtml]);
 
   return (
     <div ref={scrollContainerRef} className="w-full h-full min-h-0 min-w-0 overflow-auto">

@@ -296,6 +296,11 @@ function App() {
   const [imageDimensions, setImageDimensions] = useState(null);
   const [imageScale, setImageScale] = useState(1);
   const [showImageScaleIndicator, setShowImageScaleIndicator] = useState(false);
+  const [scrollability, setScrollability] = useState({
+    text: false,
+    html: false,
+    file: false,
+  });
   const [hasMousePosition, setHasMousePosition] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [mousePositionPhysical, setMousePositionPhysical] = useState({ x: 0, y: 0 });
@@ -325,6 +330,11 @@ function App() {
     setImageDimensions(null);
     setImageScale(1);
     setShowImageScaleIndicator(false);
+    setScrollability({
+      text: false,
+      html: false,
+      file: false,
+    });
     setHasMousePosition(false);
     setIsVisible(false);
     if (revealAnimationFrameRef.current) {
@@ -622,6 +632,14 @@ function App() {
       imageScaleIndicatorTimerRef.current = null;
     }
   }, [previewMode]);
+
+  useEffect(() => {
+    setScrollability({
+      text: false,
+      html: false,
+      file: false,
+    });
+  }, [currentRequestId, previewMode, previewItem?.id, previewItem?.item_id, previewItem?.favorite_id]);
 
   const showImageScaleIndicatorTemporarily = () => {
     setShowImageScaleIndicator(true);
@@ -1054,6 +1072,45 @@ function App() {
       targetHighlight: 'color-mix(in srgb, white 92%, transparent)',
     };
   }, [isBackground, isDark]);
+  const previewHintPrimaryStyle = useMemo(() => ({
+    ...previewHintStyle,
+    fontWeight: 600,
+    border: isBackground
+      ? '2px solid color-mix(in srgb, var(--bg-titlebar-text, #333333) 16%, transparent)'
+      : '1px solid color-mix(in srgb, var(--qc-fg) 16%, transparent)',
+    boxShadow: isBackground
+      ? '0 2px 8px rgba(0, 0, 0, 0.16)'
+      : '0 2px 10px rgba(0, 0, 0, 0.14)',
+  }), [isBackground, previewHintStyle]);
+  const previewHintSecondaryStyle = useMemo(() => ({
+    ...previewHintStyle,
+    opacity: 0.84,
+    border: isBackground
+      ? '1px solid color-mix(in srgb, var(--bg-titlebar-text, #333333) 10%, transparent)'
+      : '1px solid color-mix(in srgb, var(--qc-fg) 10%, transparent)',
+    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.10)',
+  }), [isBackground, previewHintStyle]);
+  const previewHintAccentStyle = useMemo(() => ({
+    ...previewHintStyle,
+    fontWeight: 700,
+    opacity: 0.98,
+    border: isBackground
+      ? '2px solid color-mix(in srgb, var(--qc-border-strong) 42%, transparent)'
+      : '1px solid color-mix(in srgb, var(--qc-border-strong) 56%, transparent)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.16)',
+  }), [isBackground, previewHintStyle]);
+  const previewHintVisibility = useMemo(() => {
+    const width = displaySize.width;
+    const isCompact = width < 420;
+    const isTight = width < 340;
+    const isVeryTight = width < 280;
+
+    return {
+      showFormatHint: !isCompact,
+      showSwitchHint: !isTight,
+      showActionHint: !isVeryTight,
+    };
+  }, [displaySize.width]);
 
   const relativeLeft = clamp(
     containerPosition.left - workAreaLogical.left,
@@ -1248,32 +1305,42 @@ function App() {
     );
   }
 
+  const renderPrimaryPreviewHint = (content) => (
+    <PreviewHint className="tracking-[0.01em]" style={previewHintPrimaryStyle}>
+      {content}
+    </PreviewHint>
+  );
+  const renderSecondaryPreviewHint = (content) => (
+    <PreviewHint className="text-[10.5px]" style={previewHintSecondaryStyle}>
+      {content}
+    </PreviewHint>
+  );
+  const renderAccentPreviewHint = (content) => (
+    <PreviewHint className="tracking-[0.01em]" style={previewHintAccentStyle}>
+      {content}
+    </PreviewHint>
+  );
   const renderPreviewHint = () => {
-    const showSwitchHint = supportedPreviewModes.length > 1;
+    const showSwitchHint = supportedPreviewModes.length > 1 && previewHintVisibility.showSwitchHint;
+    const formatHintNode = formatHintText && previewHintVisibility.showFormatHint
+      ? renderSecondaryPreviewHint(t('previewWindow.formatsHint', { formats: formatHintText }))
+      : null;
+    const switchHintNode = showSwitchHint
+      ? renderSecondaryPreviewHint(t('previewWindow.switchFormatHint'))
+      : null;
+    const showTextScrollHint = previewHintVisibility.showActionHint && scrollability.text;
+    const showHtmlScrollHint = previewHintVisibility.showActionHint && scrollability.html;
+    const showFileScrollHint = previewHintVisibility.showActionHint && scrollability.file;
 
     if (previewMode === MODE_IMAGE) {
       return (
         <div className="flex items-center gap-2">
-          <PreviewHint style={previewHintStyle}>
-            {t('previewWindow.currentFormatHint', { format: previewModeLabel })}
-          </PreviewHint>
-          {formatHintText && (
-            <PreviewHint style={previewHintStyle}>
-              {t('previewWindow.formatsHint', { formats: formatHintText })}
-            </PreviewHint>
-          )}
-          {showSwitchHint && (
-            <PreviewHint style={previewHintStyle}>
-              {t('previewWindow.switchFormatHint')}
-            </PreviewHint>
-          )}
-          <PreviewHint style={previewHintStyle}>
-            {t('previewWindow.imageHint')}
-          </PreviewHint>
+          {renderPrimaryPreviewHint(t('previewWindow.currentFormatHint', { format: previewModeLabel }))}
+          {formatHintNode}
+          {switchHintNode}
+          {previewHintVisibility.showActionHint && renderSecondaryPreviewHint(t('previewWindow.imageHint'))}
           {showImageScaleIndicator && (
-            <PreviewHint style={previewHintStyle}>
-              {imageScalePercent}
-            </PreviewHint>
+            renderAccentPreviewHint(imageScalePercent)
           )}
         </div>
       );
@@ -1282,44 +1349,31 @@ function App() {
     if (previewMode === MODE_FILE) {
       return (
         <div className="flex items-center gap-2">
-          <PreviewHint style={previewHintStyle}>
-            {t('previewWindow.currentFormatHint', { format: previewModeLabel })}
-          </PreviewHint>
-          {formatHintText && (
-            <PreviewHint style={previewHintStyle}>
-              {t('previewWindow.formatsHint', { formats: formatHintText })}
-            </PreviewHint>
-          )}
-          {showSwitchHint && (
-            <PreviewHint style={previewHintStyle}>
-              {t('previewWindow.switchFormatHint')}
-            </PreviewHint>
-          )}
-          <PreviewHint style={previewHintStyle}>
-            {t('previewWindow.fileHint', 'Ctrl+滚轮，滚动文件列表')}
-          </PreviewHint>
+          {renderPrimaryPreviewHint(t('previewWindow.currentFormatHint', { format: previewModeLabel }))}
+          {formatHintNode}
+          {switchHintNode}
+          {showFileScrollHint && renderSecondaryPreviewHint(t('previewWindow.fileHint', 'Ctrl+滚轮，滚动文件列表'))}
+        </div>
+      );
+    }
+
+    if (previewMode === MODE_HTML) {
+      return (
+        <div className="flex items-center gap-2">
+          {renderPrimaryPreviewHint(t('previewWindow.currentFormatHint', { format: previewModeLabel }))}
+          {formatHintNode}
+          {switchHintNode}
+          {showHtmlScrollHint && renderSecondaryPreviewHint(t('previewWindow.textHint'))}
         </div>
       );
     }
 
     return (
       <div className="flex items-center gap-2">
-        <PreviewHint style={previewHintStyle}>
-          {t('previewWindow.currentFormatHint', { format: previewModeLabel })}
-        </PreviewHint>
-        {formatHintText && (
-          <PreviewHint style={previewHintStyle}>
-            {t('previewWindow.formatsHint', { formats: formatHintText })}
-          </PreviewHint>
-        )}
-        {showSwitchHint && (
-          <PreviewHint style={previewHintStyle}>
-            {t('previewWindow.switchFormatHint')}
-          </PreviewHint>
-        )}
-        <PreviewHint style={previewHintStyle}>
-          {t('previewWindow.textHint')}
-        </PreviewHint>
+        {renderPrimaryPreviewHint(t('previewWindow.currentFormatHint', { format: previewModeLabel }))}
+        {formatHintNode}
+        {switchHintNode}
+        {showTextScrollHint && renderSecondaryPreviewHint(t('previewWindow.textHint'))}
       </div>
     );
   };
@@ -1459,6 +1513,11 @@ function App() {
                   ref={htmlPreviewRef}
                   htmlContent={htmlContent}
                   onPreferredSizeChange={setHtmlPreferredSize}
+                  onScrollabilityChange={(nextValue) => {
+                    setScrollability((current) => (current.html === nextValue
+                      ? current
+                      : { ...current, html: nextValue }));
+                  }}
                 />
               ) : (
                 <TextPreview
@@ -1467,6 +1526,11 @@ function App() {
                   isDark={isDark}
                   isBackground={isBackground}
                   onPreferredHeightChange={setTextPreferredHeight}
+                  onScrollabilityChange={(nextValue) => {
+                    setScrollability((current) => (current.text === nextValue
+                      ? current
+                      : { ...current, text: nextValue }));
+                  }}
                 />
               )}
             </div>
@@ -1500,6 +1564,11 @@ function App() {
                 files={filePreviewFiles}
                 stats={filePreviewStats}
                 t={t}
+                onScrollabilityChange={(nextValue) => {
+                  setScrollability((current) => (current.file === nextValue
+                    ? current
+                    : { ...current, file: nextValue }));
+                }}
               />
             </div>
           </div>
