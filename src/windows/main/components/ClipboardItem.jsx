@@ -212,6 +212,19 @@ function ClipboardItem({
   const canExternalDrag = externalDragPaths.length > 0;
   const dragZoneHalfWidth = '50%';
   const itemRootRef = useRef(null);
+  const getPreviewAnchorRect = useCallback(() => {
+    const rect = itemRootRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }, []);
   const closeHoverPreview = useCallback(() => {
     if (previewTimerRef.current) {
       clearTimeout(previewTimerRef.current);
@@ -225,11 +238,11 @@ function ClipboardItem({
       return;
     }
     previewTimerRef.current = setTimeout(() => {
-      showPreviewWindow(previewMode, 'clipboard', item.id).catch((error) => {
+      showPreviewWindow(previewMode, 'clipboard', item.id, getPreviewAnchorRect()).catch((error) => {
         console.error('显示预览失败:', error);
       });
     }, PREVIEW_HOVER_DELAY_MS);
-  }, [closeHoverPreview, item.id, previewEnabled, previewMode]);
+  }, [closeHoverPreview, getPreviewAnchorRect, item.id, previewEnabled, previewMode]);
 
   const handleExternalDragMouseDown = useDragWithThreshold({
     onDragStart: () => {

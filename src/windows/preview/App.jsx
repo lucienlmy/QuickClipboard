@@ -152,6 +152,135 @@ function orderPreviewModesByDisplayPriority(modes, displayPriorityOrder) {
   });
 }
 
+function isValidPreviewAnchorRect(rect) {
+  return rect
+    && isFiniteNumber(Number(rect.left))
+    && isFiniteNumber(Number(rect.top))
+    && isFiniteNumber(Number(rect.width))
+    && isFiniteNumber(Number(rect.height))
+    && Number(rect.width) > 0
+    && Number(rect.height) > 0;
+}
+
+function buildRectSideAnchors(rect) {
+  return [
+    {
+      side: 'left',
+      x: rect.left,
+      y: rect.top + (rect.height / 2),
+      normalX: -1,
+      normalY: 0,
+    },
+    {
+      side: 'right',
+      x: rect.left + rect.width,
+      y: rect.top + (rect.height / 2),
+      normalX: 1,
+      normalY: 0,
+    },
+    {
+      side: 'top',
+      x: rect.left + (rect.width / 2),
+      y: rect.top,
+      normalX: 0,
+      normalY: -1,
+    },
+    {
+      side: 'bottom',
+      x: rect.left + (rect.width / 2),
+      y: rect.top + rect.height,
+      normalX: 0,
+      normalY: 1,
+    },
+  ];
+}
+
+function isPointInsideRect(point, rect) {
+  return point.x > rect.left
+    && point.x < rect.left + rect.width
+    && point.y > rect.top
+    && point.y < rect.top + rect.height;
+}
+
+function segmentOverlapsRectInterior(start, end, rect, steps = 24) {
+  if (!rect || rect.width <= 0 || rect.height <= 0) {
+    return false;
+  }
+
+  const margin = 6;
+  const innerRect = {
+    left: rect.left + margin,
+    top: rect.top + margin,
+    width: Math.max(0, rect.width - (margin * 2)),
+    height: Math.max(0, rect.height - (margin * 2)),
+  };
+
+  if (innerRect.width <= 0 || innerRect.height <= 0) {
+    return false;
+  }
+
+  for (let index = 1; index < steps; index += 1) {
+    const t = index / steps;
+    const point = {
+      x: start.x + ((end.x - start.x) * t),
+      y: start.y + ((end.y - start.y) * t),
+    };
+    if (isPointInsideRect(point, innerRect)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function resolveBestRectConnection(sourceRect, targetRect) {
+  const sourceAnchors = buildRectSideAnchors(sourceRect);
+  const targetAnchors = buildRectSideAnchors(targetRect);
+  const candidates = [];
+
+  sourceAnchors.forEach((sourceAnchor) => {
+    targetAnchors.forEach((targetAnchor) => {
+      const start = { x: sourceAnchor.x, y: sourceAnchor.y };
+      const end = { x: targetAnchor.x, y: targetAnchor.y };
+      const deltaX = end.x - start.x;
+      const deltaY = end.y - start.y;
+      const distance = Math.hypot(deltaX, deltaY);
+      const crossesPreview = segmentOverlapsRectInterior(start, end, targetRect);
+      const outwardPenalty = (deltaX * sourceAnchor.normalX) + (deltaY * sourceAnchor.normalY) >= 0 ? 0 : 40;
+      const inwardPenalty = ((-deltaX) * targetAnchor.normalX) + ((-deltaY) * targetAnchor.normalY) >= 0 ? 0 : 40;
+      const handleDistance = clamp(distance * 0.22, 20, 64);
+      const control1 = {
+        x: start.x + (sourceAnchor.normalX * handleDistance),
+        y: start.y + (sourceAnchor.normalY * handleDistance),
+      };
+      const control2 = {
+        x: end.x + (targetAnchor.normalX * handleDistance),
+        y: end.y + (targetAnchor.normalY * handleDistance),
+      };
+      const connectorPath = [
+        `M ${start.x} ${start.y}`,
+        `C ${control1.x} ${control1.y}, ${control2.x} ${control2.y}, ${end.x} ${end.y}`,
+      ].join(' ');
+      const score = (crossesPreview ? 100000 : 0) + outwardPenalty + inwardPenalty + distance;
+
+      candidates.push({
+        connectorPath,
+        control1,
+        control2,
+        score,
+        sourceSide: sourceAnchor.side,
+        targetSide: targetAnchor.side,
+        sourceX: start.x,
+        sourceY: start.y,
+        targetX: end.x,
+        targetY: end.y,
+      });
+    });
+  });
+
+  return candidates.reduce((best, current) => (current.score < best.score ? current : best));
+}
+
 function App() {
   const { t } = useTranslation();
   const [previewData, setPreviewData] = useState(null);
@@ -171,6 +300,7 @@ function App() {
   const [isVisible, setIsVisible] = useState(false);
   const [mousePositionPhysical, setMousePositionPhysical] = useState({ x: 0, y: 0 });
   const revealedRequestIdRef = useRef(0);
+  const revealAnimationFrameRef = useRef(0);
   const textPreviewRef = useRef(null);
   const htmlPreviewRef = useRef(null);
   const filePreviewRef = useRef(null);
@@ -197,6 +327,10 @@ function App() {
     setShowImageScaleIndicator(false);
     setHasMousePosition(false);
     setIsVisible(false);
+    if (revealAnimationFrameRef.current) {
+      cancelAnimationFrame(revealAnimationFrameRef.current);
+      revealAnimationFrameRef.current = 0;
+    }
   };
 
   useEffect(() => {
@@ -442,6 +576,15 @@ function App() {
         .then(() => {
           if (!cancelled) {
             revealedRequestIdRef.current = currentRequestId;
+            if (revealAnimationFrameRef.current) {
+              cancelAnimationFrame(revealAnimationFrameRef.current);
+            }
+            revealAnimationFrameRef.current = requestAnimationFrame(() => {
+              revealAnimationFrameRef.current = 0;
+              if (!cancelled) {
+                setIsVisible(true);
+              }
+            });
           }
         })
         .catch((error) => {
@@ -452,6 +595,10 @@ function App() {
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
+      if (revealAnimationFrameRef.current) {
+        cancelAnimationFrame(revealAnimationFrameRef.current);
+        revealAnimationFrameRef.current = 0;
+      }
     };
   }, [currentRequestId, previewReady]);
 
@@ -525,23 +672,12 @@ function App() {
   }, [previewData]);
 
   useEffect(() => {
-    if (!previewData || !hasMousePosition) {
-      setIsVisible(false);
-      return;
+    setIsVisible(false);
+    if (revealAnimationFrameRef.current) {
+      cancelAnimationFrame(revealAnimationFrameRef.current);
+      revealAnimationFrameRef.current = 0;
     }
-
-    let rafId = 0;
-    rafId = requestAnimationFrame(() => {
-      setIsVisible(true);
-    });
-
-    return () => {
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-      }
-      setIsVisible(false);
-    };
-  }, [previewData, hasMousePosition]);
+  }, [currentRequestId]);
 
   useEffect(() => {
     if (!previewData) return;
@@ -760,6 +896,47 @@ function App() {
     }
     return containerPosition.left + displaySize.width <= mainWindowLogical.left;
   }, [containerPosition.left, displaySize.width, mainWindowLogical]);
+  const previewAnchorRectLogical = useMemo(() => {
+    if (!mainWindowLogical || !isValidPreviewAnchorRect(previewData?.item_rect)) {
+      return null;
+    }
+
+    return {
+      left: mainWindowLogical.left + Number(previewData.item_rect.left),
+      top: mainWindowLogical.top + Number(previewData.item_rect.top),
+      width: Number(previewData.item_rect.width),
+      height: Number(previewData.item_rect.height),
+    };
+  }, [mainWindowLogical, previewData]);
+  const visiblePreviewAnchorRectLogical = useMemo(() => {
+    if (!mainWindowLogical || !previewAnchorRectLogical) {
+      return null;
+    }
+
+    const visibleLeft = Math.max(previewAnchorRectLogical.left, mainWindowLogical.left);
+    const visibleTop = Math.max(previewAnchorRectLogical.top, mainWindowLogical.top);
+    const visibleRight = Math.min(
+      previewAnchorRectLogical.left + previewAnchorRectLogical.width,
+      mainWindowLogical.left + mainWindowLogical.width,
+    );
+    const visibleBottom = Math.min(
+      previewAnchorRectLogical.top + previewAnchorRectLogical.height,
+      mainWindowLogical.top + mainWindowLogical.height,
+    );
+    const visibleWidth = visibleRight - visibleLeft;
+    const visibleHeight = visibleBottom - visibleTop;
+
+    if (visibleWidth <= 0 || visibleHeight <= 0) {
+      return previewAnchorRectLogical;
+    }
+
+    return {
+      left: visibleLeft,
+      top: visibleTop,
+      width: visibleWidth,
+      height: visibleHeight,
+    };
+  }, [mainWindowLogical, previewAnchorRectLogical]);
 
   const imageScalePercent = useMemo(() => `${Math.round(imageScale * 100)}%`, [imageScale]);
   const previewModeLabel = useMemo(() => {
@@ -829,17 +1006,54 @@ function App() {
       border: '2px solid color-mix(in srgb, var(--qc-fg) 30%, transparent)',
       boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
     };
+  const previewConnectorColors = useMemo(() => {
+    if (isBackground) {
+      return {
+        line: isDark
+          ? 'color-mix(in srgb, white 60%, var(--qc-border-strong) 40%)'
+          : 'color-mix(in srgb, var(--bg-titlebar-text, #333333) 72%, var(--qc-border-strong) 28%)',
+        lineGlow: isDark
+          ? 'color-mix(in srgb, white 26%, transparent)'
+          : 'color-mix(in srgb, var(--bg-titlebar-text, #333333) 18%, transparent)',
+        sourceFill: isDark
+          ? 'color-mix(in srgb, white 74%, var(--qc-border-strong) 26%)'
+          : 'var(--bg-titlebar-text, #333333)',
+        sourceStroke: 'color-mix(in srgb, var(--qc-surface) 84%, transparent)',
+        sourceHighlight: 'color-mix(in srgb, white 78%, transparent)',
+        targetFill: isDark
+          ? 'color-mix(in srgb, white 82%, var(--qc-border-strong) 18%)'
+          : 'color-mix(in srgb, var(--qc-border-strong) 82%, var(--bg-titlebar-text, #333333) 18%)',
+        targetStroke: isDark
+          ? 'color-mix(in srgb, white 65%, var(--qc-border-strong) 35%)'
+          : 'var(--qc-border-strong)',
+        targetHighlight: 'color-mix(in srgb, white 82%, transparent)',
+      };
+    }
 
-  if (!previewData || !hasMousePosition) {
-    return (
-      <div className="preview-container fixed inset-0 overflow-hidden bg-transparent">
-        <div
-          className="preview-theme-anchor pointer-events-none absolute opacity-0"
-          style={{ width: 0, height: 0, overflow: 'hidden' }}
-        />
-      </div>
-    );
-  }
+    if (isDark) {
+      return {
+        line: 'color-mix(in srgb, white 56%, var(--qc-border-strong) 44%)',
+        lineGlow: 'color-mix(in srgb, white 24%, transparent)',
+        sourceFill: 'color-mix(in srgb, white 72%, var(--qc-border-strong) 28%)',
+        sourceStroke: 'color-mix(in srgb, var(--qc-surface) 82%, transparent)',
+        sourceHighlight: 'color-mix(in srgb, white 84%, transparent)',
+        targetFill: 'color-mix(in srgb, white 78%, var(--qc-border-strong) 22%)',
+        targetStroke: 'color-mix(in srgb, white 58%, var(--qc-border-strong) 42%)',
+        targetHighlight: 'color-mix(in srgb, white 88%, transparent)',
+      };
+    }
+
+    return {
+      line: 'color-mix(in srgb, var(--qc-border-strong) 88%, var(--qc-fg) 12%)',
+      lineGlow: 'color-mix(in srgb, var(--qc-border-strong) 20%, transparent)',
+      sourceFill: 'color-mix(in srgb, var(--qc-fg) 72%, var(--qc-border-strong) 28%)',
+      sourceStroke: 'color-mix(in srgb, white 76%, var(--qc-surface) 24%)',
+      sourceHighlight: 'color-mix(in srgb, white 88%, transparent)',
+      targetFill: 'color-mix(in srgb, var(--qc-border-strong) 90%, var(--qc-fg) 10%)',
+      targetStroke: 'var(--qc-border-strong)',
+      targetHighlight: 'color-mix(in srgb, white 92%, transparent)',
+    };
+  }, [isBackground, isDark]);
 
   const relativeLeft = clamp(
     containerPosition.left - workAreaLogical.left,
@@ -853,6 +1067,186 @@ function App() {
   );
   const previewHintTop = Math.max(0, relativeTop - 28);
   const previewHintMaxWidth = Math.max(240, viewportLogical.width - 24);
+  const previewConnectorCandidate = useMemo(() => {
+    if (!visiblePreviewAnchorRectLogical) {
+      return null;
+    }
+
+    const sourceRect = {
+      left: visiblePreviewAnchorRectLogical.left - workAreaLogical.left,
+      top: visiblePreviewAnchorRectLogical.top - workAreaLogical.top,
+      width: visiblePreviewAnchorRectLogical.width,
+      height: visiblePreviewAnchorRectLogical.height,
+    };
+    const targetRect = {
+      left: relativeLeft,
+      top: relativeTop,
+      width: displaySize.width,
+      height: displaySize.height,
+    };
+
+    return resolveBestRectConnection(sourceRect, targetRect);
+  }, [
+    displaySize.height,
+    displaySize.width,
+    relativeLeft,
+    relativeTop,
+    visiblePreviewAnchorRectLogical,
+    workAreaLogical.left,
+    workAreaLogical.top,
+  ]);
+  const previewEntranceStyle = useMemo(() => {
+    const targetWidth = Math.max(1, displaySize.width);
+    const targetHeight = Math.max(1, displaySize.height);
+    const minAnchorWidth = 14;
+    const maxAnchorWidth = Math.min(24, Math.max(minAnchorWidth, Math.round(targetWidth * 0.08)));
+
+    let anchorLeft = mousePositionLogical.x - workAreaLogical.left;
+    let anchorTop = mousePositionLogical.y - workAreaLogical.top;
+    let anchorWidth = maxAnchorWidth;
+    let anchorHeight = clamp(Math.round(Math.min(targetHeight, 56)), 36, Math.max(36, targetHeight));
+    let transformOrigin = isPreviewOnLeftOfMainWindow ? 'right center' : 'left center';
+
+    if (previewConnectorCandidate && visiblePreviewAnchorRectLogical) {
+      const itemLeft = visiblePreviewAnchorRectLogical.left - workAreaLogical.left;
+      const itemTop = visiblePreviewAnchorRectLogical.top - workAreaLogical.top;
+      const itemWidth = visiblePreviewAnchorRectLogical.width;
+      const itemHeight = visiblePreviewAnchorRectLogical.height;
+      const itemCenterX = itemLeft + (itemWidth / 2);
+      const itemCenterY = itemTop + (itemHeight / 2);
+
+      if (previewConnectorCandidate.targetSide === 'left' || previewConnectorCandidate.targetSide === 'right') {
+        anchorWidth = maxAnchorWidth;
+        anchorHeight = clamp(
+          Math.round(itemHeight * 0.82),
+          36,
+          Math.max(36, Math.min(targetHeight, Math.round(itemHeight + 18))),
+        );
+        anchorLeft = previewConnectorCandidate.targetSide === 'left'
+          ? relativeLeft
+          : relativeLeft + targetWidth - anchorWidth;
+        anchorTop = previewConnectorCandidate.targetY - (anchorHeight / 2);
+        transformOrigin = previewConnectorCandidate.targetSide === 'left' ? 'left center' : 'right center';
+      } else {
+        anchorWidth = clamp(
+          Math.round(itemWidth * 0.88),
+          52,
+          Math.max(52, Math.min(targetWidth, Math.round(itemWidth + 24))),
+        );
+        anchorHeight = clamp(Math.min(24, Math.round(targetHeight * 0.09)), 14, 24);
+        anchorLeft = previewConnectorCandidate.targetX - (anchorWidth / 2);
+        anchorTop = previewConnectorCandidate.targetSide === 'top'
+          ? relativeTop
+          : relativeTop + targetHeight - anchorHeight;
+        transformOrigin = previewConnectorCandidate.targetSide === 'top' ? 'center top' : 'center bottom';
+      }
+
+      anchorLeft = Number.isFinite(anchorLeft) ? anchorLeft : itemCenterX;
+      anchorTop = Number.isFinite(anchorTop) ? anchorTop : itemCenterY;
+    } else {
+      anchorLeft = isPreviewOnLeftOfMainWindow
+        ? relativeLeft + targetWidth - anchorWidth
+        : relativeLeft;
+      anchorTop = mousePositionLogical.y - workAreaLogical.top - anchorHeight / 2;
+    }
+
+    const clampedAnchorWidth = clamp(anchorWidth, minAnchorWidth, targetWidth);
+    const clampedAnchorHeight = clamp(anchorHeight, 24, targetHeight);
+    const clampedAnchorLeft = clamp(
+      anchorLeft,
+      0,
+      Math.max(0, viewportLogical.width - clampedAnchorWidth),
+    );
+    const clampedAnchorTop = clamp(
+      anchorTop,
+      0,
+      Math.max(0, viewportLogical.height - clampedAnchorHeight),
+    );
+
+    const targetRight = relativeLeft + targetWidth;
+    const targetBottom = relativeTop + targetHeight;
+    const anchorRight = clampedAnchorLeft + clampedAnchorWidth;
+    const anchorBottom = clampedAnchorTop + clampedAnchorHeight;
+    const targetCenterX = relativeLeft + targetWidth / 2;
+    const targetCenterY = relativeTop + targetHeight / 2;
+    const anchorCenterX = clampedAnchorLeft + clampedAnchorWidth / 2;
+    const anchorCenterY = clampedAnchorTop + clampedAnchorHeight / 2;
+    let startTranslateX = isPreviewOnLeftOfMainWindow
+      ? anchorRight - targetRight
+      : clampedAnchorLeft - relativeLeft;
+    let startTranslateY = anchorCenterY - targetCenterY;
+
+    if (previewConnectorCandidate?.targetSide === 'right') {
+      startTranslateX = anchorRight - targetRight;
+    } else if (previewConnectorCandidate?.targetSide === 'left') {
+      startTranslateX = clampedAnchorLeft - relativeLeft;
+    } else if (previewConnectorCandidate?.targetSide === 'top') {
+      startTranslateX = anchorCenterX - targetCenterX;
+      startTranslateY = clampedAnchorTop - relativeTop;
+    } else if (previewConnectorCandidate?.targetSide === 'bottom') {
+      startTranslateX = anchorCenterX - targetCenterX;
+      startTranslateY = anchorBottom - targetBottom;
+    }
+
+    const startScaleX = clamp(clampedAnchorWidth / targetWidth, 0.08, 1);
+    const startScaleY = clamp(clampedAnchorHeight / targetHeight, 0.12, 1);
+
+    return {
+      opacity: isVisible ? 1 : 0,
+      transform: isVisible
+        ? 'translate(0px, 0px) scale(1, 1)'
+        : `translate(${startTranslateX}px, ${startTranslateY}px) scale(${startScaleX}, ${startScaleY})`,
+      transformOrigin,
+      transition: [
+        'transform 190ms cubic-bezier(0.22, 1, 0.36, 1)',
+        'opacity 130ms ease-out',
+      ].join(', '),
+      willChange: 'transform, opacity',
+    };
+  }, [
+    displaySize.height,
+    displaySize.width,
+    isPreviewOnLeftOfMainWindow,
+    isVisible,
+    mousePositionLogical.x,
+    mousePositionLogical.y,
+    previewConnectorCandidate,
+    relativeLeft,
+    relativeTop,
+    visiblePreviewAnchorRectLogical,
+    viewportLogical.height,
+    viewportLogical.width,
+    workAreaLogical.left,
+    workAreaLogical.top,
+  ]);
+  const previewConnectorData = useMemo(() => {
+    if (!previewConnectorCandidate) {
+      return null;
+    }
+
+    return {
+      connectorPath: previewConnectorCandidate.connectorPath,
+      sourceX: previewConnectorCandidate.sourceX,
+      sourceY: previewConnectorCandidate.sourceY,
+      targetX: previewConnectorCandidate.targetX,
+      targetY: previewConnectorCandidate.targetY,
+      endpointRadius: 3.5,
+      strokeWidth: 2.25,
+    };
+  }, [
+    previewConnectorCandidate,
+  ]);
+
+  if (!previewData || !hasMousePosition) {
+    return (
+      <div className="preview-container fixed inset-0 overflow-hidden bg-transparent">
+        <div
+          className="preview-theme-anchor pointer-events-none absolute opacity-0"
+          style={{ width: 0, height: 0, overflow: 'hidden' }}
+        />
+      </div>
+    );
+  }
 
   const renderPreviewHint = () => {
     const showSwitchHint = supportedPreviewModes.length > 1;
@@ -946,7 +1340,7 @@ function App() {
           top: `${previewHintTop}px`,
           maxWidth: `${previewHintMaxWidth}px`,
           opacity: isVisible ? 1 : 0,
-          transition: 'opacity 90ms ease-out',
+          transition: 'opacity 120ms ease-out',
         }}
       >
         <div className={`flex ${isPreviewOnLeftOfMainWindow ? 'justify-end' : 'justify-start'}`}>
@@ -954,65 +1348,160 @@ function App() {
         </div>
       </div>
 
+      {previewConnectorData && (
+        <svg
+          className="absolute inset-0 z-10 pointer-events-none overflow-visible"
+          width={viewportLogical.width}
+          height={viewportLogical.height}
+          viewBox={`0 0 ${viewportLogical.width} ${viewportLogical.height}`}
+          style={{
+            opacity: isVisible ? 1 : 0,
+            transition: 'opacity 140ms ease-out',
+            filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12))',
+          }}
+        >
+          <path
+            d={previewConnectorData.connectorPath}
+            fill="none"
+            stroke={previewConnectorColors.lineGlow}
+            strokeWidth={previewConnectorData.strokeWidth + 1.1}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.55"
+          />
+          <path
+            d={previewConnectorData.connectorPath}
+            fill="none"
+            stroke="color-mix(in srgb, white 28%, transparent)"
+            strokeWidth={previewConnectorData.strokeWidth + 0.3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.22"
+          />
+          <path
+            d={previewConnectorData.connectorPath}
+            fill="none"
+            stroke={previewConnectorColors.line}
+            strokeWidth={previewConnectorData.strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle
+            cx={previewConnectorData.sourceX}
+            cy={previewConnectorData.sourceY}
+            r={previewConnectorData.endpointRadius + 1.2}
+            fill={previewConnectorColors.lineGlow}
+            opacity="0.62"
+          />
+          <circle
+            cx={previewConnectorData.sourceX}
+            cy={previewConnectorData.sourceY}
+            r={previewConnectorData.endpointRadius}
+            fill={previewConnectorColors.sourceFill}
+            stroke={previewConnectorColors.sourceStroke}
+            strokeWidth="1"
+          />
+          <circle
+            cx={previewConnectorData.sourceX - 0.8}
+            cy={previewConnectorData.sourceY - 0.8}
+            r={Math.max(1.1, previewConnectorData.endpointRadius * 0.42)}
+            fill={previewConnectorColors.sourceHighlight}
+            opacity="0.78"
+          />
+          <circle
+            cx={previewConnectorData.targetX}
+            cy={previewConnectorData.targetY}
+            r={previewConnectorData.endpointRadius + 1.2}
+            fill={previewConnectorColors.lineGlow}
+            opacity="0.66"
+          />
+          <circle
+            cx={previewConnectorData.targetX}
+            cy={previewConnectorData.targetY}
+            r={previewConnectorData.endpointRadius}
+            fill={previewConnectorColors.targetFill}
+            stroke={previewConnectorColors.targetStroke}
+            strokeWidth="0.5"
+          />
+          <circle
+            cx={previewConnectorData.targetX - 0.8}
+            cy={previewConnectorData.targetY - 0.8}
+            r={Math.max(1.1, previewConnectorData.endpointRadius * 0.42)}
+            fill={previewConnectorColors.targetHighlight}
+            opacity="0.82"
+          />
+        </svg>
+      )}
+
       {(previewMode === MODE_TEXT || previewMode === MODE_HTML) && (
         <div
-          className="absolute border border-qc-border-strong overflow-hidden"
+          className="absolute overflow-visible"
           style={{
             width: `${boxSize.width}px`,
             height: `${boxSize.height}px`,
             left: `${relativeLeft}px`,
             top: `${relativeTop}px`,
-            opacity: isVisible ? 1 : 0,
-            transition: 'opacity 90ms ease-out',
-            borderRadius: '8px',
-            backgroundColor: textContainerBackgroundColor,
-            boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
+            ...previewEntranceStyle,
           }}
         >
-          {blurredBackgroundLayerStyle && <div style={blurredBackgroundLayerStyle} />}
-          <div className="relative z-10 w-full h-full overflow-hidden">
-            {previewMode === MODE_HTML ? (
-              <HtmlPreview
-                ref={htmlPreviewRef}
-                htmlContent={htmlContent}
-                onPreferredSizeChange={setHtmlPreferredSize}
-              />
-            ) : (
-              <TextPreview
-                ref={textPreviewRef}
-                content={textContent}
-                isDark={isDark}
-                isBackground={isBackground}
-                onPreferredHeightChange={setTextPreferredHeight}
-              />
-            )}
+          <div
+            className="relative z-10 w-full h-full border border-qc-border-strong overflow-hidden"
+            style={{
+              borderRadius: '8px',
+              backgroundColor: textContainerBackgroundColor,
+              boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            {blurredBackgroundLayerStyle && <div style={blurredBackgroundLayerStyle} />}
+            <div className="relative z-10 w-full h-full overflow-hidden">
+              {previewMode === MODE_HTML ? (
+                <HtmlPreview
+                  ref={htmlPreviewRef}
+                  htmlContent={htmlContent}
+                  onPreferredSizeChange={setHtmlPreferredSize}
+                />
+              ) : (
+                <TextPreview
+                  ref={textPreviewRef}
+                  content={textContent}
+                  isDark={isDark}
+                  isBackground={isBackground}
+                  onPreferredHeightChange={setTextPreferredHeight}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {previewMode === MODE_FILE && (
         <div
-          className="absolute border border-qc-border-strong overflow-hidden"
+          className="absolute overflow-visible"
           style={{
             width: `${boxSize.width}px`,
             height: `${boxSize.height}px`,
             left: `${relativeLeft}px`,
             top: `${relativeTop}px`,
-            opacity: isVisible ? 1 : 0,
-            transition: 'opacity 90ms ease-out',
-            borderRadius: '8px',
-            backgroundColor: textContainerBackgroundColor,
-            boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
+            ...previewEntranceStyle,
           }}
         >
-          {blurredBackgroundLayerStyle && <div style={blurredBackgroundLayerStyle} />}
-          <div className="relative z-10 w-full h-full overflow-hidden">
-            <FilePreview
-              ref={filePreviewRef}
-              files={filePreviewFiles}
-              stats={filePreviewStats}
-              t={t}
-            />
+          <div
+            className="relative z-10 w-full h-full border border-qc-border-strong overflow-hidden"
+            style={{
+              borderRadius: '8px',
+              backgroundColor: textContainerBackgroundColor,
+              boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            {blurredBackgroundLayerStyle && <div style={blurredBackgroundLayerStyle} />}
+            <div className="relative z-10 w-full h-full overflow-hidden">
+              <FilePreview
+                ref={filePreviewRef}
+                files={filePreviewFiles}
+                stats={filePreviewStats}
+                t={t}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -1021,30 +1510,37 @@ function App() {
         <div
           className="absolute overflow-visible pointer-events-none"
           style={{
-            width: `${boxSize.width}px`,
-            height: `${boxSize.height}px`,
+            width: `${displaySize.width}px`,
+            height: `${displaySize.height}px`,
             left: `${relativeLeft}px`,
             top: `${relativeTop}px`,
-            transform: `scale(${imageScale})`,
-            transformOrigin: 'left top',
-            opacity: isVisible ? 1 : 0,
-            transition: 'opacity 90ms ease-out',
+            ...previewEntranceStyle,
           }}
         >
-          <ImagePreview
-            imageUrl={imageUrl}
-            imageLoadState={imageLoadState}
-            onLoad={(event) => {
-              const { naturalWidth, naturalHeight } = event.currentTarget;
-              if (naturalWidth > 0 && naturalHeight > 0) {
-                setImageDimensions({ width: naturalWidth, height: naturalHeight });
-              }
-              setImageLoadState(IMAGE_STATUS_READY);
+          <div
+            className="relative z-10 overflow-visible"
+            style={{
+              width: `${boxSize.width}px`,
+              height: `${boxSize.height}px`,
+              transform: `scale(${imageScale})`,
+              transformOrigin: 'left top',
             }}
-            onError={() => {
-              setImageLoadState(IMAGE_STATUS_ERROR);
-            }}
-          />
+          >
+            <ImagePreview
+              imageUrl={imageUrl}
+              imageLoadState={imageLoadState}
+              onLoad={(event) => {
+                const { naturalWidth, naturalHeight } = event.currentTarget;
+                if (naturalWidth > 0 && naturalHeight > 0) {
+                  setImageDimensions({ width: naturalWidth, height: naturalHeight });
+                }
+                setImageLoadState(IMAGE_STATUS_READY);
+              }}
+              onError={() => {
+                setImageLoadState(IMAGE_STATUS_ERROR);
+              }}
+            />
+          </div>
         </div>
       )}
     </div>

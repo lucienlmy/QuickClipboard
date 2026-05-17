@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 use serde::Serialize;
+use serde::Deserialize;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -21,6 +22,15 @@ static PREVIEW_HIDE_WATCHDOG_VERSION: AtomicU64 = AtomicU64::new(0);
 static PREVIEW_SUPPRESSED: AtomicBool = AtomicBool::new(false);
 static PREVIEW_DATA: Lazy<Mutex<Option<PreviewWindowData>>> = Lazy::new(|| Mutex::new(None));
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewAnchorRect {
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct PreviewWindowData {
     pub mode: String,
@@ -37,6 +47,7 @@ pub struct PreviewWindowData {
     pub main_window_y: i32,
     pub main_window_width: u32,
     pub main_window_height: u32,
+    pub item_rect: Option<PreviewAnchorRect>,
     pub request_id: u64,
 }
 
@@ -203,6 +214,7 @@ pub async fn show_preview_window(
     mode: String,
     source: String,
     item_id: String,
+    item_rect: Option<PreviewAnchorRect>,
 ) -> Result<(), String> {
     if PREVIEW_SUPPRESSED.load(Ordering::SeqCst) {
         return Ok(());
@@ -254,6 +266,7 @@ pub async fn show_preview_window(
         main_window_y,
         main_window_width,
         main_window_height,
+        item_rect,
         request_id,
     };
 

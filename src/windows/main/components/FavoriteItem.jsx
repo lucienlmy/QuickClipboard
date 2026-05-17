@@ -180,17 +180,30 @@ function FavoriteItem({
     }
     closePreviewWindow().catch(() => { });
   }, []);
+  const getPreviewAnchorRect = useCallback(() => {
+    const rect = itemRootRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }, []);
   const scheduleHoverPreview = useCallback(() => {
     closeHoverPreview();
     if (!previewMode || !previewEnabled) {
       return;
     }
     previewTimerRef.current = setTimeout(() => {
-      showPreviewWindow(previewMode, 'favorite', item.id).catch((error) => {
+      showPreviewWindow(previewMode, 'favorite', item.id, getPreviewAnchorRect()).catch((error) => {
         console.error('显示预览失败:', error);
       });
     }, PREVIEW_HOVER_DELAY_MS);
-  }, [closeHoverPreview, item.id, previewEnabled, previewMode]);
+  }, [closeHoverPreview, getPreviewAnchorRect, item.id, previewEnabled, previewMode]);
 
   const handleExternalDragMouseDown = useDragWithThreshold({
     onDragStart: () => {
