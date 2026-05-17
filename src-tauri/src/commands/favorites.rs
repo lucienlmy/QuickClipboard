@@ -38,6 +38,12 @@ fn check_and_fill_file_exists(item: &mut FavoriteItem) {
     }
 }
 
+pub fn hydrate_favorite_item_for_ui(item: &mut FavoriteItem) {
+    if item.content_type == "file" || item.content_type == "image" {
+        check_and_fill_file_exists(item);
+    }
+}
+
 fn resolve_stored_path(stored_path: &str) -> String {
     crate::services::resolve_stored_path(stored_path)
 }
@@ -109,9 +115,7 @@ pub fn get_favorite_item_by_id_cmd(id: String, max_length: Option<usize>) -> Res
     let mut item = get_favorite_by_id_with_limit(&id, max_length)?
         .ok_or_else(|| format!("收藏项不存在: {}", id))?;
 
-    if item.content_type == "file" || item.content_type == "image" {
-        check_and_fill_file_exists(&mut item);
-    }
+    hydrate_favorite_item_for_ui(&mut item);
 
     Ok(item)
 }

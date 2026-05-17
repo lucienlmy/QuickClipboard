@@ -119,8 +119,15 @@ export async function moveClipboardItemById(fromId, toId) {
 // 添加到常用文本
 export async function addToFavorites(id) {
   try {
-    await invoke('add_clipboard_to_favorites', { id })
-    await invoke('emit_quick_texts_updated')
+    const result = await invoke('add_clipboard_to_favorites', { id })
+    const favoriteItem = await getFavoriteItemById(result.id)
+    await invoke('emit_quick_texts_updated', {
+      payload: {
+        kind: 'created',
+        item: favoriteItem,
+        insert_index: 0,
+      },
+    })
     return true
   } catch (error) {
     console.error('添加到常用文本失败:', error)
@@ -202,7 +209,11 @@ export async function updateClipboardItem(id, content, htmlContent = undefined) 
     params.htmlContent = htmlContent
   }
   await invoke('update_clipboard_item_cmd', params)
-  await invoke('emit_clipboard_updated')
+  await invoke('emit_clipboard_updated', {
+    payload: {
+      kind: 'updated',
+    },
+  })
 }
 
 // 获取单个收藏项
@@ -216,8 +227,15 @@ export async function getFavoriteItemById(id, maxLength = null) {
 
 // 添加剪贴板项到收藏
 export async function addClipboardToFavorites(id, groupName) {
-  await invoke('add_clipboard_to_favorites', { id, groupName })
-  await invoke('emit_quick_texts_updated')
+  const result = await invoke('add_clipboard_to_favorites', { id, groupName })
+  const favoriteItem = await getFavoriteItemById(result.id)
+  await invoke('emit_quick_texts_updated', {
+    payload: {
+      kind: 'created',
+      item: favoriteItem,
+      insert_index: 0,
+    },
+  })
 }
 
 
@@ -247,6 +265,10 @@ export async function syncClipboardItemToLanSync(clipboardId) {
 // 切换剪贴板项置顶状态
 export async function togglePinClipboardItem(id) {
   const isPinned = await invoke('toggle_pin_clipboard_item', { id })
-  await invoke('emit_clipboard_updated')
+  await invoke('emit_clipboard_updated', {
+    payload: {
+      kind: 'updated',
+    },
+  })
   return isPinned
 }

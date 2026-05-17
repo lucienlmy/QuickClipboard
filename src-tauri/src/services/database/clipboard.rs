@@ -347,6 +347,20 @@ pub fn get_clipboard_count() -> Result<i64, String> {
     })
 }
 
+pub fn get_clipboard_item_position(id: i64) -> Result<Option<i64>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id FROM clipboard ORDER BY is_pinned DESC, item_order DESC, updated_at DESC",
+        )?;
+
+        let ids = stmt
+            .query_map([], |row| row.get::<_, i64>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ids.iter().position(|item_id| *item_id == id).map(|index| index as i64))
+    })
+}
+
 // 根据ID获取剪贴板项（完整内容，不截断）
 pub fn get_clipboard_item_by_id(id: i64) -> Result<Option<ClipboardItem>, String> {
     get_clipboard_item_by_id_with_limit(id, None)

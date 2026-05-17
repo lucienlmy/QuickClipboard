@@ -1,6 +1,7 @@
 use super::capture::ClipboardContent;
 use super::processor::process_content;
 use super::storage::store_clipboard_item;
+use crate::commands::window::{emit_clipboard_updated_event, ClipboardUpdatedEventPayload};
 use clipboard_rs::{
     ClipboardContent as RsClipboardContent, ClipboardHandler, ClipboardWatcher,
     ClipboardWatcherContext,
@@ -329,6 +330,30 @@ fn process_clipboard_change_once() {
             Ok(processed) => match store_clipboard_item(processed) {
                 Ok(id) => {
                     any_stored = true;
+                    match crate::services::database::get_clipboard_item_by_id(id) {
+                        Ok(Some(mut item)) => {
+                            crate::commands::clipboard::hydrate_clipboard_item_for_ui(&mut item);
+                            let insert_index = crate::services::database::get_clipboard_item_position(id)
+                                .ok()
+                                .flatten();
+                            let total_count = crate::services::database::get_clipboard_count().ok();
+                            let _ = emit_clipboard_updated(ClipboardUpdatedEventPayload {
+                                kind: "created".to_string(),
+                                item: Some(item.clone()),
+                                insert_index,
+                                total_count,
+                            });
+                        }
+                        _ => {
+                            let _ = emit_clipboard_updated(ClipboardUpdatedEventPayload {
+                                kind: "unknown".to_string(),
+                                item: None,
+                                insert_index: None,
+                                total_count: None,
+                            });
+                        }
+                    }
+
                     tauri::async_runtime::spawn(async move {
                         let item = tokio::task::spawn_blocking(move || {
                             crate::services::database::get_clipboard_item_by_id(id)
@@ -378,7 +403,6 @@ fn process_clipboard_change_once() {
     }
 
     if any_stored {
-        let _ = emit_clipboard_updated();
         crate::AppSounds::play_copy_on_success();
     }
 }
@@ -424,7 +448,7 @@ pub fn get_app_handle() -> Option<tauri::AppHandle> {
     APP_HANDLE.lock().clone()
 }
 
-fn emit_clipboard_updated() -> Result<(), String> {
+fn emit_clipboard_updated(payload: ClipboardUpdatedEventPayload) -> Result<(), String> {
     let app_handle = APP_HANDLE.lock();
     let handle = app_handle.as_ref().ok_or("应用未初始化")?;
 
@@ -432,10 +456,7 @@ fn emit_clipboard_updated() -> Result<(), String> {
         let _ = crate::windows::tray::native_menu::update_native_menu(handle);
     }
 
-    use tauri::Emitter;
-    handle
-        .emit("clipboard-updated", ())
-        .map_err(|e| e.to_string())
+    emit_clipboard_updated_event(handle, Some(payload))
 }
 
 // 预设哈希缓存（文本类型）

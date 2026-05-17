@@ -24,7 +24,14 @@ export async function getFavoritesTotalCount(groupName = null) {
 // 添加收藏
 export async function addFavorite(title, content, groupName = '全部') {
   const result = await invoke('add_quick_text', { title, content, groupName })
-  await invoke('emit_quick_texts_updated')
+  const item = await invoke('get_favorite_item_by_id_cmd', { id: result.id })
+  await invoke('emit_quick_texts_updated', {
+    payload: {
+      kind: 'created',
+      item,
+      insert_index: 0,
+    },
+  })
   return result
 }
 
@@ -35,7 +42,11 @@ export async function updateFavorite(id, title, content, groupName, htmlContent 
     params.htmlContent = htmlContent
   }
   const result = await invoke('update_quick_text', params)
-  await invoke('emit_quick_texts_updated')
+  await invoke('emit_quick_texts_updated', {
+    payload: {
+      kind: 'updated',
+    },
+  })
   return result
 }
 

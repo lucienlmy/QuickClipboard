@@ -1,4 +1,55 @@
+use crate::services::database::{ClipboardItem, FavoriteItem};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, WebviewWindow, Manager};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ClipboardUpdatedEventPayload {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item: Option<ClipboardItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub insert_index: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct FavoriteUpdatedEventPayload {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item: Option<FavoriteItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub insert_index: Option<i64>,
+}
+
+pub fn emit_clipboard_updated_event(
+    app: &AppHandle,
+    payload: Option<ClipboardUpdatedEventPayload>,
+) -> Result<(), String> {
+    use tauri::Emitter;
+    app.emit("clipboard-updated", payload.unwrap_or(ClipboardUpdatedEventPayload {
+        kind: "unknown".to_string(),
+        item: None,
+        insert_index: None,
+        total_count: None,
+    }))
+    .map_err(|e| format!("发射剪贴板更新事件失败: {}", e))
+}
+
+pub fn emit_quick_texts_updated_event(
+    app: &AppHandle,
+    payload: Option<FavoriteUpdatedEventPayload>,
+) -> Result<(), String> {
+    use tauri::Emitter;
+    app.emit("quick-texts-updated", payload.unwrap_or(FavoriteUpdatedEventPayload {
+        kind: "unknown".to_string(),
+        item: None,
+        insert_index: None,
+    }))
+    .map_err(|e| format!("发射收藏列表更新事件失败: {}", e))
+}
 
 #[tauri::command]
 pub fn start_custom_drag(window: WebviewWindow, mouse_screen_x: i32, mouse_screen_y: i32) -> Result<(), String> {
@@ -111,18 +162,20 @@ pub async fn open_text_editor_window(
 
 // 剪贴板更新事件
 #[tauri::command]
-pub fn emit_clipboard_updated(app: AppHandle) -> Result<(), String> {
-    use tauri::Emitter;
-    app.emit("clipboard-updated", ())
-        .map_err(|e| format!("发射剪贴板更新事件失败: {}", e))
+pub fn emit_clipboard_updated(
+    app: AppHandle,
+    payload: Option<ClipboardUpdatedEventPayload>,
+) -> Result<(), String> {
+    emit_clipboard_updated_event(&app, payload)
 }
 
 // 收藏列表更新事件
 #[tauri::command]
-pub fn emit_quick_texts_updated(app: AppHandle) -> Result<(), String> {
-    use tauri::Emitter;
-    app.emit("quick-texts-updated", ())
-        .map_err(|e| format!("发射收藏列表更新事件失败: {}", e))
+pub fn emit_quick_texts_updated(
+    app: AppHandle,
+    payload: Option<FavoriteUpdatedEventPayload>,
+) -> Result<(), String> {
+    emit_quick_texts_updated_event(&app, payload)
 }
 
 // 刷新所有窗口
@@ -149,5 +202,4 @@ pub fn get_update_banner_state() -> Option<crate::windows::updater_window::Updat
 pub async fn open_cached_update_window(app: AppHandle) -> Result<bool, String> {
     crate::windows::updater_window::open_cached_update_window(&app).await
 }
-
 

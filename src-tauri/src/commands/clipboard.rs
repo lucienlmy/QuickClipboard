@@ -36,6 +36,12 @@ fn check_and_fill_file_exists(item: &mut ClipboardItem) {
     }
 }
 
+pub fn hydrate_clipboard_item_for_ui(item: &mut ClipboardItem) {
+    if item.content_type == "file" || item.content_type == "image" {
+        check_and_fill_file_exists(item);
+    }
+}
+
 // 路径解析函数
 fn resolve_stored_path(stored_path: &str) -> String {
     crate::services::resolve_stored_path(stored_path)
@@ -245,9 +251,7 @@ pub fn get_clipboard_item_by_id_cmd(id: i64, max_length: Option<usize>) -> Resul
     let mut item = get_clipboard_item_by_id_with_limit(id, max_length)?
         .ok_or_else(|| format!("剪贴板项不存在: {}", id))?;
 
-    if item.content_type == "file" || item.content_type == "image" {
-        check_and_fill_file_exists(&mut item);
-    }
+    hydrate_clipboard_item_for_ui(&mut item);
 
     Ok(item)
 }
