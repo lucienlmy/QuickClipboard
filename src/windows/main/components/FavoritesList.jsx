@@ -70,10 +70,9 @@ const FavoritesList = forwardRef(({
     
     try {
       await moveFavoriteItem(fromItem.id, toItem.id);
+      favoritesStore.moveLoadedItem(oldIndex, newIndex);
     } catch (error) {
       console.error('移动收藏项失败:', error);
-    } finally {
-      favoritesStore.items = {};
     }
   };
 

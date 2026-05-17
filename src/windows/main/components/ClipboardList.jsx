@@ -67,11 +67,10 @@ const ClipboardList = forwardRef(({
     try {
       if (fromItem?.id && toItem?.id) {
         await moveClipboardItemById(fromItem.id, toItem.id);
+        clipboardStore.moveLoadedItem(oldIndex, newIndex);
       }
     } catch (error) {
       console.error('移动剪贴板项失败:', error);
-    } finally {
-      clipboardStore.items = {};
     }
   };
 

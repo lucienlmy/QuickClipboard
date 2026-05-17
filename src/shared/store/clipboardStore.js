@@ -119,6 +119,64 @@ export const clipboardStore = proxy({
       this.selectionAnchorIndex = Math.max(0, this.selectionAnchorIndex - removedCount)
     }
   },
+
+  moveLoadedItem(fromIndex, toIndex) {
+    if (fromIndex === toIndex) {
+      return true
+    }
+
+    const start = Math.min(fromIndex, toIndex)
+    const end = Math.max(fromIndex, toIndex)
+    const rangeItems = []
+
+    for (let index = start; index <= end; index += 1) {
+      if (!this.hasItem(index)) {
+        return false
+      }
+      rangeItems.push(this.items[index])
+    }
+
+    const movedItem = rangeItems[fromIndex - start]
+    if (!movedItem) {
+      return false
+    }
+
+    rangeItems.splice(fromIndex - start, 1)
+    rangeItems.splice(toIndex - start, 0, movedItem)
+
+    rangeItems.forEach((item, offset) => {
+      this.items[start + offset] = item
+    })
+
+    if (this.selectionAnchorIndex != null && this.selectionAnchorIndex >= start && this.selectionAnchorIndex <= end) {
+      if (this.selectionAnchorIndex === fromIndex) {
+        this.selectionAnchorIndex = toIndex
+      } else if (fromIndex < toIndex && this.selectionAnchorIndex > fromIndex && this.selectionAnchorIndex <= toIndex) {
+        this.selectionAnchorIndex -= 1
+      } else if (fromIndex > toIndex && this.selectionAnchorIndex >= toIndex && this.selectionAnchorIndex < fromIndex) {
+        this.selectionAnchorIndex += 1
+      }
+    }
+
+    if (this.selectedEntries.length > 0) {
+      this.selectedEntries = this.selectedEntries
+        .map(entry => {
+          if (entry.index === fromIndex) {
+            return { ...entry, index: toIndex }
+          }
+          if (fromIndex < toIndex && entry.index > fromIndex && entry.index <= toIndex) {
+            return { ...entry, index: entry.index - 1 }
+          }
+          if (fromIndex > toIndex && entry.index >= toIndex && entry.index < fromIndex) {
+            return { ...entry, index: entry.index + 1 }
+          }
+          return entry
+        })
+        .sort((a, b) => a.index - b.index)
+    }
+
+    return true
+  },
   
   setFilter(value) {
     if (this.filter !== value) {
