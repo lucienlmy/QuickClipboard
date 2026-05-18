@@ -18,6 +18,7 @@ import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgr
 import { getUpdateBannerState } from '@shared/api/settings';
 import { promptDisableWinVHotkeyIfNeeded } from '@shared/api/system';
 import { toggleWindowPin } from '@shared/services/titleBarActions';
+import { getVisibleMainTabs, isMainTabVisible } from '@shared/constants/tabVisibility';
 import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
@@ -42,6 +43,7 @@ function App() {
     darkThemeStyle,
     backgroundImagePath
   } = settings;
+  const visibleTabs = getVisibleMainTabs(settings.visibleOptionalTabs);
   const {
     effectiveTheme,
     isDark,
@@ -69,6 +71,12 @@ function App() {
   useEffect(() => {
     chatStore.init();
   }, []);
+
+  useEffect(() => {
+    if (!isMainTabVisible(activeTab, settings.visibleOptionalTabs)) {
+      setActiveTab('clipboard');
+    }
+  }, [activeTab, settings.visibleOptionalTabs]);
 
   useEffect(() => {
     let mounted = true;
@@ -307,7 +315,7 @@ function App() {
   };
   const handleTabLeft = () => {
     setActiveTab(currentTab => {
-      const tabs = ['clipboard', 'favorites', 'emoji', 'chat'];
+      const tabs = visibleTabs;
       const currentIndex = tabs.indexOf(currentTab);
       if (currentIndex === -1) return tabs[tabs.length - 1];
       return tabs[currentIndex === 0 ? tabs.length - 1 : currentIndex - 1];
@@ -315,7 +323,7 @@ function App() {
   };
   const handleTabRight = () => {
     setActiveTab(currentTab => {
-      const tabs = ['clipboard', 'favorites', 'emoji', 'chat'];
+      const tabs = visibleTabs;
       const currentIndex = tabs.indexOf(currentTab);
       if (currentIndex === -1) return tabs[0];
       return tabs[currentIndex === tabs.length - 1 ? 0 : currentIndex + 1];
@@ -349,6 +357,9 @@ function App() {
 
   // 切换到上一个分组
   const handlePreviousGroup = () => {
+    if (!isMainTabVisible('favorites', settings.visibleOptionalTabs)) {
+      return;
+    }
     if (activeTab !== 'favorites') {
       setActiveTab('favorites');
     }
@@ -366,6 +377,9 @@ function App() {
 
   // 切换到下一个分组
   const handleNextGroup = () => {
+    if (!isMainTabVisible('favorites', settings.visibleOptionalTabs)) {
+      return;
+    }
     if (activeTab !== 'favorites') {
       setActiveTab('favorites');
     }

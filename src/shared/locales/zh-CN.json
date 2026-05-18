@@ -381,6 +381,8 @@
       "backgroundImageSet": "背景图片已设置",
       "backgroundImageCleared": "背景图片已清除",
       "backgroundImageError": "设置背景图片失败",
+      "visibleTabs": "显示标签页",
+      "visibleTabsDesc": "控制标签栏中显示哪些可选页面，关闭后对应标签页将不再显示",
       "clipboardAnimation": "启用剪贴板显示/隐藏动画",
       "clipboardAnimationDesc": "开启或关闭剪贴板窗口的显示和隐藏动画效果",
       "uiAnimation": "启用界面动效",

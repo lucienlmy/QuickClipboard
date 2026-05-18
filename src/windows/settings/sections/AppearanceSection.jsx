@@ -9,6 +9,8 @@ import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Slider from '@shared/components/ui/Slider';
 import SegmentedControl from '@shared/components/ui/SegmentedControl';
+import MultiSegmentedControl from '@shared/components/ui/MultiSegmentedControl';
+import { normalizeVisibleOptionalTabs, OPTIONAL_TAB_OPTIONS } from '@shared/constants/tabVisibility';
 import ThemeOption from '../components/ThemeOption';
 function AppearanceSection({
   settings,
@@ -43,6 +45,11 @@ function AppearanceSection({
     ? Number(settings.superBackgroundBlurScale)
     : 1;
   const blurPercent = Math.round(blurScale * 100);
+  const visibleOptionalTabs = normalizeVisibleOptionalTabs(settings.visibleOptionalTabs);
+  const tabVisibilityOptions = OPTIONAL_TAB_OPTIONS.map(option => ({
+    value: option.id,
+    label: t(option.labelKey) || option.fallbackLabel
+  }));
   const handleSelectBackgroundImage = async () => {
     try {
       const selected = await open({
@@ -190,6 +197,20 @@ function AppearanceSection({
                 { value: 'right', label: t('settings.clipboard.positionRight') }
               ]}
               className="max-w-md"
+            />
+          </SettingItem>
+
+          <SettingItem
+            label={t('settings.appearance.visibleTabs') || '显示标签页'}
+            description={t('settings.appearance.visibleTabsDesc') || '控制标签栏中显示哪些可选页面'}
+          >
+            <MultiSegmentedControl
+              values={visibleOptionalTabs}
+              onChange={value => onSettingChange('visibleOptionalTabs', value)}
+              options={tabVisibilityOptions}
+              wrap
+              columns={3}
+              className="w-full max-w-md"
             />
           </SettingItem>
 

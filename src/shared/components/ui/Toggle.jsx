@@ -48,7 +48,7 @@ function Toggle({
       onChange(newChecked);
     }
   };
-  return <div className="relative">
+  return <div className="relative flex h-6 items-center">
       <button
         type="button"
         role="switch"

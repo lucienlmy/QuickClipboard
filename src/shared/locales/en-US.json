@@ -389,6 +389,8 @@
       "backgroundImageSet": "Background image set",
       "backgroundImageCleared": "Background image cleared",
       "backgroundImageError": "Failed to set background image",
+      "visibleTabs": "Visible Tabs",
+      "visibleTabsDesc": "Choose which optional pages are shown in the tab bar. Disabled tabs will be hidden.",
       "clipboardAnimation": "Enable Clipboard Show/Hide Animation",
       "clipboardAnimationDesc": "Enable or disable animation effects for clipboard window show and hide",
       "uiAnimation": "Enable UI Animations",

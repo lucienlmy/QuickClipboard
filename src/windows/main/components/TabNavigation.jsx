@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { chatStore } from '@shared/store/chatStore';
+import { normalizeVisibleOptionalTabs } from '@shared/constants/tabVisibility';
 import TabButton from './TabButton';
 import FilterButton from './FilterButton';
 import GroupsPopup from './GroupsPopup';
@@ -68,6 +69,7 @@ function TabNavigation({
   const settings = useSnapshot(settingsStore);
   const chat = useSnapshot(chatStore);
   const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
+  const visibleOptionalTabs = normalizeVisibleOptionalTabs(settings.visibleOptionalTabs);
   const isSidebarLayout = navigationMode === 'sidebar';
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isGroupsPanelOpen, setIsGroupsPanelOpen] = useState(false);
@@ -98,7 +100,7 @@ function TabNavigation({
   const chatDropdownRef = useRef(null);
   const filterCollapseTimerRef = useRef(null);
 
-  const tabs = [{
+  const allTabs = [{
     id: 'clipboard',
     label: t('clipboard.title') || '剪贴板',
     icon: 'ti ti-clipboard-text'
@@ -115,6 +117,13 @@ function TabNavigation({
     label: t('chat.title'),
     icon: 'ti ti-message-circle'
   }];
+  const tabs = allTabs.filter(tab => tab.id === 'clipboard' || visibleOptionalTabs.includes(tab.id));
+  const horizontalTabAreaMinPercent = 28;
+  const horizontalTabAreaMaxPercent = 50;
+  const horizontalTabAreaPercent = allTabs.length <= 1
+    ? horizontalTabAreaMaxPercent
+    : horizontalTabAreaMinPercent + (tabs.length - 1) * ((horizontalTabAreaMaxPercent - horizontalTabAreaMinPercent) / (allTabs.length - 1));
+  const horizontalRightAreaPercent = 100 - horizontalTabAreaPercent;
 
   const emojiModes = [{
     id: 'emoji',
@@ -156,6 +165,7 @@ function TabNavigation({
   const isFilterAutoExpanded = collapsedVisibleFilterCount >= 5;
   const expandableFilters = filters.slice(collapsedVisibleFilterCount);
   const useFloatingExpandedFilters = !isFilterAutoExpanded && collapsedVisibleFilterCount <= 2 && expandableFilters.length > 0;
+  const shouldStretchHorizontalFilters = !isSidebarLayout && !useFloatingExpandedFilters;
   const shouldExpandFilters = isFilterAutoExpanded || isFilterExpanded;
   const shouldHideGroupButton = !useFloatingExpandedFilters && !isFilterAutoExpanded && shouldExpandFilters;
   const expandedExtraWidth = expandableFilters.length > 0
@@ -231,10 +241,13 @@ function TabNavigation({
     }
 
     updateTabIndicator();
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setTabAnimationKey(prev => prev + 1);
     }, 300);
-  }, [updateTabIndicator, isSidebarLayout]);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [updateTabIndicator, isSidebarLayout, tabs.length, horizontalTabAreaPercent]);
 
   useEffect(() => {
     if (!isSidebarLayout) {
@@ -244,7 +257,7 @@ function TabNavigation({
 
   useEffect(() => {
     updateFilterIndicator();
-  }, [updateFilterIndicator, activeTab]);
+  }, [updateFilterIndicator, activeTab, tabs.length, horizontalRightAreaPercent, collapsedVisibleFilterCount, shouldExpandFilters]);
 
   useEffect(() => {
     if (activeTab === 'emoji') {
@@ -260,10 +273,13 @@ function TabNavigation({
 
   useEffect(() => {
     updateEmojiModeIndicator();
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setEmojiModeAnimationKey(prev => prev + 1);
     }, 300);
-  }, [updateEmojiModeIndicator]);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [updateEmojiModeIndicator, tabs.length, horizontalRightAreaPercent]);
 
   useEffect(() => {
     setIsFilterExpanded(false);
@@ -646,7 +662,12 @@ function TabNavigation({
       : 'border-b border-qc-border'
   }`}>
     <div className={isSidebarLayout ? 'flex h-full min-h-0 flex-col' : 'flex items-stretch h-9 whitespace-nowrap'}>
-      <div className={isSidebarLayout ? 'flex flex-col gap-1 p-2 pb-1' : 'flex-1 flex items-center px-2 relative'}>
+      <div
+        className={isSidebarLayout ? 'flex flex-col gap-1 p-2 pb-1' : 'flex items-center px-2 relative min-w-0'}
+        style={!isSidebarLayout ? {
+          flex: `0 0 calc(${horizontalTabAreaPercent}% - 1px)`
+        } : undefined}
+      >
         <div className={isSidebarLayout ? 'flex flex-col gap-1 w-full' : 'flex items-center justify-center gap-1 w-full relative'}>
           {!isSidebarLayout && (
             <div className={`absolute rounded-lg pointer-events-none ${uiAnimationEnabled ? 'transition-all duration-300 ease-out' : ''}`} style={{
@@ -683,7 +704,13 @@ function TabNavigation({
         />
       )}
 
-      <div ref={rightAreaRef} className={isSidebarLayout ? 'tab-navigation-right flex-1 flex items-end px-2 pb-2 relative min-w-0' : 'tab-navigation-right flex-1 flex items-center pl-1 pr-1 relative min-w-0'}>
+      <div
+        ref={rightAreaRef}
+        className={isSidebarLayout ? 'tab-navigation-right flex-1 flex items-end px-2 pb-2 relative min-w-0' : 'tab-navigation-right flex items-center pl-1 pr-1 relative min-w-0'}
+        style={!isSidebarLayout ? {
+          flex: `0 0 calc(${horizontalRightAreaPercent}% - 1px)`
+        } : undefined}
+      >
         {activeTab === 'chat' ? (
           <div ref={chatDropdownRef} className="relative w-full min-w-0" data-no-drag>
             <button
@@ -743,8 +770,8 @@ function TabNavigation({
             activeTab === 'emoji' || isFilterAutoExpanded
               ? 'w-full justify-center'
               : useFloatingExpandedFilters || isGroupsPanelOpen
-                ? 'ml-auto overflow-visible'
-                : 'ml-auto overflow-hidden'
+                ? 'w-full overflow-visible'
+                : 'w-full overflow-hidden'
           }`}
           onMouseLeave={activeTab === 'emoji' ? undefined : handleFilterAreaMouseLeave}
         >
@@ -785,23 +812,24 @@ function TabNavigation({
               : (
                 <>
                   {isFilterAutoExpanded ? (
-                    <div className="flex items-center justify-evenly flex-1" onMouseEnter={handleFilterAreaMouseEnter}>
+                    <div className="flex items-center gap-1 flex-1 min-w-0" onMouseEnter={handleFilterAreaMouseEnter}>
                       {filters.map(filter => (
                         <FilterButton
                           key={filter.id}
                           id={filter.id}
                           label={filter.label}
-                            icon={filter.icon}
-                            isActive={contentFilter === filter.id}
-                            onClick={onFilterChange}
-                            buttonRef={el => {
-                              filtersRef.current[filter.id] = el;
-                            }}
+                          icon={filter.icon}
+                          isActive={contentFilter === filter.id}
+                          onClick={onFilterChange}
+                          stretch={shouldStretchHorizontalFilters}
+                          buttonRef={el => {
+                            filtersRef.current[filter.id] = el;
+                          }}
                         />
                       ))}
                     </div>
                   ) : (
-                    <div className="relative flex items-center gap-1" onMouseEnter={handleFilterAreaMouseEnter}>
+                    <div className="relative flex items-center gap-1 flex-1 min-w-0" onMouseEnter={handleFilterAreaMouseEnter}>
                       {filters.slice(0, collapsedVisibleFilterCount).map(filter => (
                         <FilterButton
                           key={filter.id}
@@ -810,6 +838,7 @@ function TabNavigation({
                           icon={filter.icon}
                           isActive={contentFilter === filter.id}
                           onClick={onFilterChange}
+                          stretch={shouldStretchHorizontalFilters}
                           buttonRef={el => {
                             filtersRef.current[filter.id] = el;
                           }}
@@ -844,7 +873,7 @@ function TabNavigation({
                         </div>
                       ) : (
                         <div
-                          className={`flex items-center gap-1 overflow-hidden shrink-0 ${uiAnimationEnabled ? 'transition-all duration-300 ease-out' : ''}`}
+                          className={`flex items-center gap-1 overflow-hidden shrink-0 min-w-0 ${uiAnimationEnabled ? 'transition-all duration-300 ease-out' : ''}`}
                           style={{
                             width: shouldExpandFilters ? `${expandedExtraWidth}px` : '0px',
                             opacity: shouldExpandFilters ? 1 : 0,
@@ -859,6 +888,7 @@ function TabNavigation({
                               icon={filter.icon}
                               isActive={contentFilter === filter.id}
                               onClick={onFilterChange}
+                              stretch={false}
                               buttonRef={el => {
                                 filtersRef.current[filter.id] = el;
                               }}

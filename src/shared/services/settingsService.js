@@ -26,6 +26,7 @@ export const defaultSettings = {
   // 外观设置
   theme: 'light',
   darkThemeStyle: 'classic',
+  visibleOptionalTabs: ['favorites', 'emoji', 'chat'],
   opacity: 0.9,
   backgroundImagePath: '',
   superBackgroundBlurScale: 1,
