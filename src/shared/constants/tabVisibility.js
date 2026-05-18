@@ -4,6 +4,8 @@ export const OPTIONAL_TAB_OPTIONS = [
   { id: 'chat', labelKey: 'chat.title', fallbackLabel: '聊天' }
 ]
 
+export const MAIN_TAB_ORDER = ['clipboard', ...OPTIONAL_TAB_OPTIONS.map(option => option.id)]
+
 export const DEFAULT_VISIBLE_OPTIONAL_TABS = OPTIONAL_TAB_OPTIONS.map(option => option.id)
 
 export function normalizeVisibleOptionalTabs(value) {
@@ -21,7 +23,11 @@ export function normalizeVisibleOptionalTabs(value) {
 }
 
 export function getVisibleMainTabs(visibleOptionalTabs) {
-  return ['clipboard', ...normalizeVisibleOptionalTabs(visibleOptionalTabs)]
+  const visibleOptionalTabSet = new Set(normalizeVisibleOptionalTabs(visibleOptionalTabs))
+
+  return MAIN_TAB_ORDER.filter(tabId => (
+    tabId === 'clipboard' || visibleOptionalTabSet.has(tabId)
+  ))
 }
 
 export function isMainTabVisible(tabId, visibleOptionalTabs) {
