@@ -115,6 +115,17 @@ export async function setupClipboardEventListener() {
       refreshFavorites(groupsStore.currentGroup).catch(() => {})
     })
     unlisteners.push(unlisten3)
+
+    const unlisten4 = await listen('main-window-refresh-needed', (event) => {
+      const payload = event.payload || {}
+      if (payload.clipboard) {
+        refreshClipboardHistory().catch(() => {})
+      }
+      if (payload.favorites) {
+        refreshFavorites(groupsStore.currentGroup).catch(() => {})
+      }
+    })
+    unlisteners.push(unlisten4)
   } catch (error) {
     console.error('设置事件监听失败:', error)
   }

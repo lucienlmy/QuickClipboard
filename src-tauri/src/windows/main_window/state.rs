@@ -28,6 +28,8 @@ pub struct MainWindowState {
     pub snap_position: Option<(i32, i32)>,
     pub snap_monitor_id: Option<String>,
     pub snap_ratio: Option<f64>,
+    pub clipboard_refresh_pending: bool,
+    pub favorites_refresh_pending: bool,
 }
 
 impl Default for MainWindowState {
@@ -42,6 +44,8 @@ impl Default for MainWindowState {
             snap_position: None,
             snap_monitor_id: None,
             snap_ratio: None,
+            clipboard_refresh_pending: false,
+            favorites_refresh_pending: false,
         }
     }
 }
@@ -55,6 +59,11 @@ pub fn get_window_state() -> MainWindowState {
 
 pub fn set_window_state(state: WindowState) {
     WINDOW_STATE.write().state = state;
+}
+
+pub fn is_main_window_visible_for_updates() -> bool {
+    let state = WINDOW_STATE.read();
+    state.state == WindowState::Visible && !state.is_hidden
 }
 
 pub fn set_dragging(is_dragging: bool) {
@@ -77,6 +86,25 @@ pub fn set_snap_edge(
 
 pub fn set_hidden(is_hidden: bool) {
     WINDOW_STATE.write().is_hidden = is_hidden;
+}
+
+pub fn mark_clipboard_refresh_pending() {
+    WINDOW_STATE.write().clipboard_refresh_pending = true;
+}
+
+pub fn mark_favorites_refresh_pending() {
+    WINDOW_STATE.write().favorites_refresh_pending = true;
+}
+
+pub fn take_pending_refresh_flags() -> (bool, bool) {
+    let mut state = WINDOW_STATE.write();
+    let flags = (
+        state.clipboard_refresh_pending,
+        state.favorites_refresh_pending,
+    );
+    state.clipboard_refresh_pending = false;
+    state.favorites_refresh_pending = false;
+    flags
 }
 
 pub fn is_snapped() -> bool {

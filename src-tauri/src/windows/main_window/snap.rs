@@ -703,6 +703,7 @@ pub fn show_snapped_window(window: &WebviewWindow) -> Result<(), String> {
         let _ = window.show();
     }
     let _ = window.emit("edge-snap-show", ());
+    let _ = crate::commands::window::emit_main_window_refresh_needed_event(&window.app_handle());
     
     // 根据动画配置决定是否使用过渡
     if settings.clipboard_animation_enabled {

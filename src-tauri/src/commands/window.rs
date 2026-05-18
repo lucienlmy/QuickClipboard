@@ -24,11 +24,23 @@ pub struct FavoriteUpdatedEventPayload {
     pub insert_index: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct MainWindowRefreshNeededPayload {
+    pub clipboard: bool,
+    pub favorites: bool,
+}
+
 pub fn emit_clipboard_updated_event(
     app: &AppHandle,
     payload: Option<ClipboardUpdatedEventPayload>,
 ) -> Result<(), String> {
     use tauri::Emitter;
+    if !crate::windows::main_window::is_main_window_visible_for_updates() {
+        crate::windows::main_window::mark_clipboard_refresh_pending();
+        return Ok(());
+    }
+
     app.emit("clipboard-updated", payload.unwrap_or(ClipboardUpdatedEventPayload {
         kind: "unknown".to_string(),
         item: None,
@@ -43,12 +55,35 @@ pub fn emit_quick_texts_updated_event(
     payload: Option<FavoriteUpdatedEventPayload>,
 ) -> Result<(), String> {
     use tauri::Emitter;
+    if !crate::windows::main_window::is_main_window_visible_for_updates() {
+        crate::windows::main_window::mark_favorites_refresh_pending();
+        return Ok(());
+    }
+
     app.emit("quick-texts-updated", payload.unwrap_or(FavoriteUpdatedEventPayload {
         kind: "unknown".to_string(),
         item: None,
         insert_index: None,
     }))
     .map_err(|e| format!("发射收藏列表更新事件失败: {}", e))
+}
+
+pub fn emit_main_window_refresh_needed_event(app: &AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+
+    let (clipboard, favorites) = crate::windows::main_window::take_pending_refresh_flags();
+    if !clipboard && !favorites {
+        return Ok(());
+    }
+
+    app.emit(
+        "main-window-refresh-needed",
+        MainWindowRefreshNeededPayload {
+            clipboard,
+            favorites,
+        },
+    )
+    .map_err(|e| format!("发射主窗口刷新请求事件失败: {}", e))
 }
 
 #[tauri::command]
@@ -202,4 +237,3 @@ pub fn get_update_banner_state() -> Option<crate::windows::updater_window::Updat
 pub async fn open_cached_update_window(app: AppHandle) -> Result<bool, String> {
     crate::windows::updater_window::open_cached_update_window(&app).await
 }
-

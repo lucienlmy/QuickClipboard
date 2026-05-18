@@ -158,6 +158,7 @@ fn show_normal_window(window: &WebviewWindow) {
     if !was_visible {
         use tauri::Emitter;
         let _ = window.emit("window-show-animation", ());
+        let _ = crate::commands::window::emit_main_window_refresh_needed_event(&window.app_handle());
     }
 
     set_window_state(WindowState::Visible);
