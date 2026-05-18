@@ -134,6 +134,10 @@ function ClipboardSection({
         <SettingItem label={t('settings.clipboard.pasteShortcutMode')} description={t('settings.clipboard.pasteShortcutModeDesc')}>
           <Select value={settings.pasteShortcutMode || 'ctrl_v'} onChange={value => onSettingChange('pasteShortcutMode', value)} options={pasteShortcutModeOptions} className="w-48" />
         </SettingItem>
+
+        <SettingItem label={t('settings.clipboard.modifierClickMultiSelect')} description={t('settings.clipboard.modifierClickMultiSelectDesc')}>
+          <Toggle checked={settings.modifierClickMultiSelect !== false} onChange={checked => onSettingChange('modifierClickMultiSelect', checked)} />
+        </SettingItem>
       </SettingsSection>
     </>;
 }

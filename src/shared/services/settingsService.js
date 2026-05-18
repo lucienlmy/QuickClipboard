@@ -81,6 +81,7 @@ export const defaultSettings = {
   autoFocusSearch: false,
   pasteWithFormat: true,
   pasteShortcutMode: 'ctrl_v',
+  modifierClickMultiSelect: true,
   pasteToTop: false,
   showListShortcuts: true,
   showListIndex: true,

@@ -187,6 +187,10 @@ const ClipboardList = forwardRef(({
   }, []);
 
   const handleItemClick = useCallback(async (item, index, event) => {
+    if (settings.modifierClickMultiSelect === false) {
+      return false;
+    }
+
     const isCtrlLikePressed = Boolean(event?.ctrlKey || event?.metaKey);
     const isShiftPressed = Boolean(event?.shiftKey);
 
@@ -233,7 +237,7 @@ const ClipboardList = forwardRef(({
     });
     clipboardStore.setSelectionAnchorIndex(index);
     return true;
-  }, [buildSelectionEntries, clipSnap.selectionAnchorIndex, currentSelectedIndex, ensureRangeLoaded, isMultiSelectMode]);
+  }, [buildSelectionEntries, clipSnap.selectionAnchorIndex, currentSelectedIndex, ensureRangeLoaded, isMultiSelectMode, settings.modifierClickMultiSelect]);
 
   const handleRangeChanged = useCallback(({
     startIndex,

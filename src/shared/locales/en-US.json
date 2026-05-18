@@ -628,6 +628,8 @@
       "showSourceIconDesc": "Display the source application icon at the index position",
       "pasteShortcutMode": "Paste Shortcut Mode",
       "pasteShortcutModeDesc": "Shift+Insert is more stable, Ctrl+V has wider compatibility",
+      "modifierClickMultiSelect": "Modifier Click Multi-Select",
+      "modifierClickMultiSelectDesc": "When disabled, Ctrl-click or Shift-click on list items will not enter multi-select mode automatically",
       "pasteShortcutShiftInsert": "Shift+Insert",
       "pasteShortcutCtrlV": "Ctrl+V (Recommended)",
       "contentFilterTitle": "Content Filter",

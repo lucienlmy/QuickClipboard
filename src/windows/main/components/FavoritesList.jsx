@@ -182,6 +182,10 @@ const FavoritesList = forwardRef(({
   }, []);
 
   const handleItemClick = useCallback(async (item, index, event) => {
+    if (settings.modifierClickMultiSelect === false) {
+      return false;
+    }
+
     const isCtrlLikePressed = Boolean(event?.ctrlKey || event?.metaKey);
     const isShiftPressed = Boolean(event?.shiftKey);
 
@@ -228,7 +232,7 @@ const FavoritesList = forwardRef(({
     });
     favoritesStore.setSelectionAnchorIndex(index);
     return true;
-  }, [buildSelectionEntries, currentSelectedIndex, ensureRangeLoaded, favSnap.selectionAnchorIndex, isMultiSelectMode]);
+  }, [buildSelectionEntries, currentSelectedIndex, ensureRangeLoaded, favSnap.selectionAnchorIndex, isMultiSelectMode, settings.modifierClickMultiSelect]);
 
   const handleRangeChanged = useCallback(({
     startIndex,
