@@ -1,5 +1,6 @@
 // 导入
 import { initSettings as initSettingsFunc } from './settingsStore'
+import { initOneTimePasteEnabled } from '@shared/services/oneTimePaste'
 
 // 导出所有 stores
 export { 
@@ -32,5 +33,6 @@ export { chatStore } from './chatStore'
 // 初始化所有 stores
 export async function initStores() {
   await initSettingsFunc()
+  await initOneTimePasteEnabled()
 }
 

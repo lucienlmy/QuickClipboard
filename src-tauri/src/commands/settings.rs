@@ -3,6 +3,8 @@ use crate::services::settings::storage::SettingsStorage;
 use tauri::Manager;
 use serde_json::Value;
 
+const ONE_TIME_PASTE_STORE_KEY: &str = "tool.one_time_paste_enabled";
+
 fn handle_disable_edge_hide(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let state = crate::windows::main_window::get_window_state();
@@ -388,5 +390,16 @@ pub fn restart_as_admin(app: tauri::AppHandle) -> Result<(), String> {
     } else {
         Err("请求管理员权限失败，用户取消了UAC提示".to_string())
     }
+}
+
+#[tauri::command]
+pub fn get_one_time_paste_enabled() -> bool {
+    crate::services::store::get::<bool>(ONE_TIME_PASTE_STORE_KEY).unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn set_one_time_paste_enabled(enabled: bool) -> Result<bool, String> {
+    crate::services::store::set(ONE_TIME_PASTE_STORE_KEY, &enabled)?;
+    Ok(enabled)
 }
 

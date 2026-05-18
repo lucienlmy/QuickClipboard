@@ -210,6 +210,8 @@ pub fn run() {
                 commands::save_window_position,
                 commands::save_window_size,
                 commands::save_quickpaste_window_size,
+                commands::get_one_time_paste_enabled,
+                commands::set_one_time_paste_enabled,
                 commands::dm_get_current_storage_path,
                 commands::dm_get_default_storage_path,
                 commands::dm_check_target_has_data,

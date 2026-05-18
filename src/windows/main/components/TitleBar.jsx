@@ -21,8 +21,7 @@ import { toast, TOAST_SIZES, TOAST_POSITIONS } from '@shared/store/toastStore';
 import {
   getOneTimePasteEnabled,
   toggleOneTimePasteEnabled,
-  getOneTimePasteEventName,
-  getOneTimePasteStorageKey
+  getOneTimePasteEventName
 } from '@shared/services/oneTimePaste';
 import { normalizeDisplayPriorityValue } from '@shared/utils/displayFormatPriority';
 import logoIcon from '@/assets/icon1024.png';
@@ -92,18 +91,11 @@ const TitleBar = forwardRef(({
     const syncState = () => {
       setOneTimePasteEnabledState(getOneTimePasteEnabled());
     };
-    const handleStorage = (event) => {
-      if (event.key === getOneTimePasteStorageKey()) {
-        syncState();
-      }
-    };
 
     const eventName = getOneTimePasteEventName();
     window.addEventListener(eventName, syncState);
-    window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener(eventName, syncState);
-      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -319,7 +311,11 @@ const TitleBar = forwardRef(({
         }
         break;
       case 'menu-paste-one-time':
-        setOneTimePasteEnabledState(toggleOneTimePasteEnabled());
+        try {
+          setOneTimePasteEnabledState(await toggleOneTimePasteEnabled());
+        } catch (error) {
+          console.error('切换一次性粘贴失败:', error);
+        }
         break;
       case 'menu-clear-clipboard-history':
         try {

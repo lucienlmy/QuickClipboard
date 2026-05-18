@@ -84,3 +84,11 @@ export async function getUpdateBannerState() {
   return await invoke('get_update_banner_state')
 }
 
+export async function getOneTimePasteEnabledFromStore() {
+  return await invoke('get_one_time_paste_enabled')
+}
+
+export async function setOneTimePasteEnabledToStore(enabled) {
+  return await invoke('set_one_time_paste_enabled', { enabled })
+}
+
