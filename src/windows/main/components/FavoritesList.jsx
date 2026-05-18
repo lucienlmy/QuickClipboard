@@ -13,6 +13,8 @@ import { moveFavoriteItem, closePreviewWindow } from '@shared/api';
 import FavoriteItem from './FavoriteItem';
 
 const SCROLL_DEBOUNCE_DELAY = 50;
+const LIST_PRELOAD_PADDING = 20;
+const LIST_VIEWPORT_PADDING = 120;
 
 const FavoritesList = forwardRef(({
   onScrollStateChange
@@ -160,8 +162,8 @@ const FavoritesList = forwardRef(({
       return;
     }
 
-    const loadStart = Math.max(0, startIndex - 10);
-    const loadEnd = Math.min(favSnap.totalCount - 1, endIndex + 10);
+    const loadStart = Math.max(0, startIndex - LIST_PRELOAD_PADDING);
+    const loadEnd = Math.min(favSnap.totalCount - 1, endIndex + LIST_PRELOAD_PADDING);
     await loadFavoritesRange(loadStart, loadEnd, groupsSnap.currentGroup);
   }, [favSnap.totalCount, groupsSnap.currentGroup]);
 
@@ -253,8 +255,8 @@ const FavoritesList = forwardRef(({
         }
       }
       if (rangeStart !== -1) {
-        const loadStart = Math.max(0, rangeStart - 50);
-        const loadEnd = Math.min(favSnap.totalCount - 1, rangeEnd + 50);
+        const loadStart = Math.max(0, rangeStart - LIST_PRELOAD_PADDING);
+        const loadEnd = Math.min(favSnap.totalCount - 1, rangeEnd + LIST_PRELOAD_PADDING);
         loadFavoritesRange(loadStart, loadEnd, groupsSnap.currentGroup);
       }
     }, SCROLL_DEBOUNCE_DELAY);
@@ -269,7 +271,11 @@ const FavoritesList = forwardRef(({
         endIndex
       } = currentRangeRef.current;
       if (startIndex >= 0 && endIndex >= startIndex && endIndex < favSnap.totalCount) {
-        loadFavoritesRange(Math.max(0, startIndex - 50), Math.min(favSnap.totalCount - 1, endIndex + 50), groupsSnap.currentGroup);
+        loadFavoritesRange(
+          Math.max(0, startIndex - LIST_PRELOAD_PADDING),
+          Math.min(favSnap.totalCount - 1, endIndex + LIST_PRELOAD_PADDING),
+          groupsSnap.currentGroup,
+        );
       } else {
         loadFavoritesRange(0, Math.min(49, favSnap.totalCount - 1), groupsSnap.currentGroup);
       }
@@ -328,8 +334,8 @@ const FavoritesList = forwardRef(({
             atTop
           });
         }} rangeChanged={handleRangeChanged} increaseViewportBy={{
-          top: 400,
-          bottom: 400
+          top: LIST_VIEWPORT_PADDING,
+          bottom: LIST_VIEWPORT_PADDING
         }} defaultItemHeight={defaultHeight} computeItemKey={index => {
           const item = itemsWithId[index];
           return item?.id || item?._sortId || `item-${index}`;

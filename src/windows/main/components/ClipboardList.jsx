@@ -13,6 +13,8 @@ import { getOneTimePasteEnabled } from '@shared/services/oneTimePaste';
 import ClipboardItem from './ClipboardItem';
 
 const SCROLL_DEBOUNCE_DELAY = 50;
+const LIST_PRELOAD_PADDING = 20;
+const LIST_VIEWPORT_PADDING = 120;
 
 const ClipboardList = forwardRef(({
   onScrollStateChange
@@ -165,8 +167,8 @@ const ClipboardList = forwardRef(({
       return;
     }
 
-    const loadStart = Math.max(0, startIndex - 10);
-    const loadEnd = Math.min(clipSnap.totalCount - 1, endIndex + 10);
+    const loadStart = Math.max(0, startIndex - LIST_PRELOAD_PADDING);
+    const loadEnd = Math.min(clipSnap.totalCount - 1, endIndex + LIST_PRELOAD_PADDING);
     await loadClipboardRange(loadStart, loadEnd);
   }, [clipSnap.totalCount]);
 
@@ -258,8 +260,8 @@ const ClipboardList = forwardRef(({
         }
       }
       if (rangeStart !== -1) {
-        const loadStart = Math.max(0, rangeStart - 50);
-        const loadEnd = Math.min(clipSnap.totalCount - 1, rangeEnd + 50);
+        const loadStart = Math.max(0, rangeStart - LIST_PRELOAD_PADDING);
+        const loadEnd = Math.min(clipSnap.totalCount - 1, rangeEnd + LIST_PRELOAD_PADDING);
         loadClipboardRange(loadStart, loadEnd);
       }
     }, SCROLL_DEBOUNCE_DELAY);
@@ -274,7 +276,10 @@ const ClipboardList = forwardRef(({
         endIndex
       } = currentRangeRef.current;
       if (startIndex >= 0 && endIndex >= startIndex && endIndex < clipSnap.totalCount) {
-        loadClipboardRange(Math.max(0, startIndex - 50), Math.min(clipSnap.totalCount - 1, endIndex + 50));
+        loadClipboardRange(
+          Math.max(0, startIndex - LIST_PRELOAD_PADDING),
+          Math.min(clipSnap.totalCount - 1, endIndex + LIST_PRELOAD_PADDING),
+        );
       } else {
         loadClipboardRange(0, Math.min(49, clipSnap.totalCount - 1));
       }
@@ -340,8 +345,8 @@ const ClipboardList = forwardRef(({
             atTop
           });
         }} rangeChanged={handleRangeChanged} increaseViewportBy={{
-          top: 400,
-          bottom: 400
+          top: LIST_VIEWPORT_PADDING,
+          bottom: LIST_VIEWPORT_PADDING
         }} defaultItemHeight={defaultHeight} computeItemKey={index => {
           const item = itemsWithId[index];
           return item?.id || item?._sortId || `item-${index}`;

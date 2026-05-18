@@ -37,80 +37,109 @@ function ImageContent({ item }) {
   const [fileName, setFileName] = useState(null);
   const [imageDimensions, setImageDimensions] = useState(null);
   const imagePathRef = useRef(null);
+  const imageElementRef = useRef(null);
 
   useEffect(() => {
-    loadImage();
-  }, [item.id, item.content, item.image_id]);
+    let disposed = false;
 
-  const loadImage = async () => {
-    try {
-      setLoading(true);
-      setError(false);
-      setImageSrc(null);
-      setFileExists(true);
-      setIsOversized(false);
-      setFileSize(null);
-      setFileName(null);
-      setImageDimensions(null);
+    const loadImage = async () => {
+      try {
+        setLoading(true);
+        setError(false);
+        setImageSrc(null);
+        setFileExists(true);
+        setIsOversized(false);
+        setFileSize(null);
+        setFileName(null);
+        setImageDimensions(null);
 
-      if (item.content?.startsWith('data:image/')) {
-        setImageSrc(item.content);
-        return;
-      }
-
-      if (item.content?.startsWith('files:')) {
-        const filesData = JSON.parse(item.content.substring(6));
-        if (filesData.files && filesData.files.length > 0) {
-          const file = filesData.files[0];
-          const exists = file.exists !== false;
-          const actualPath = file.actual_path || file.path;
-          const size = file.size || 0;
-          const name = file.name || actualPath.split(/[/\\]/).pop();
-
-          imagePathRef.current = actualPath;
-          setFileExists(exists);
-          setFileSize(size);
-          setFileName(name);
-
-          if (exists) {
-            const imgWidth = file.width || 0;
-            const imgHeight = file.height || 0;
-            const isSizeOversized = size > maxSizeBytes;
-            const isDimensionOversized = (imgWidth > maxWidth || imgHeight > maxHeight) && imgWidth > 0 && imgHeight > 0;
-
-            if (imgWidth > 0 && imgHeight > 0) {
-              setImageDimensions({ width: imgWidth, height: imgHeight });
-            }
-
-            if (isSizeOversized || isDimensionOversized) {
-              setIsOversized(true);
-            } else {
-              const assetUrl = convertFileSrc(actualPath, 'asset');
-              setImageSrc(assetUrl);
-            }
+        if (item.content?.startsWith('data:image/')) {
+          if (!disposed) {
+            setImageSrc(item.content);
           }
           return;
         }
-      }
-      const imageId = parseFirstImageId(item.image_id);
-      if (imageId) {
-        const dataDir = await invoke('get_data_directory');
-        const normalizedDataDir = String(dataDir).replace(/\\/g, '/');
-        const filePath = `${normalizedDataDir}/clipboard_images/${imageId}.png`;
-        imagePathRef.current = filePath;
-        setFileName(`${imageId}.png`);
-        setImageSrc(convertFileSrc(filePath, 'asset'));
-        return;
-      }
 
-      setError(true);
-    } catch (err) {
-      console.error('加载图片失败:', err);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (item.content?.startsWith('files:')) {
+          const filesData = JSON.parse(item.content.substring(6));
+          if (filesData.files && filesData.files.length > 0) {
+            const file = filesData.files[0];
+            const exists = file.exists !== false;
+            const actualPath = file.actual_path || file.path;
+            const size = file.size || 0;
+            const name = file.name || actualPath.split(/[/\\]/).pop();
+
+            imagePathRef.current = actualPath;
+            if (disposed) {
+              return;
+            }
+
+            setFileExists(exists);
+            setFileSize(size);
+            setFileName(name);
+
+            if (exists) {
+              const imgWidth = file.width || 0;
+              const imgHeight = file.height || 0;
+              const isSizeOversized = size > maxSizeBytes;
+              const isDimensionOversized = (imgWidth > maxWidth || imgHeight > maxHeight) && imgWidth > 0 && imgHeight > 0;
+
+              if (imgWidth > 0 && imgHeight > 0) {
+                setImageDimensions({ width: imgWidth, height: imgHeight });
+              }
+
+              if (isSizeOversized || isDimensionOversized) {
+                setIsOversized(true);
+              } else {
+                const assetUrl = convertFileSrc(actualPath, 'asset');
+                setImageSrc(assetUrl);
+              }
+            }
+            return;
+          }
+        }
+
+        const imageId = parseFirstImageId(item.image_id);
+        if (imageId) {
+          const dataDir = await invoke('get_data_directory');
+          if (disposed) {
+            return;
+          }
+
+          const normalizedDataDir = String(dataDir).replace(/\\/g, '/');
+          const filePath = `${normalizedDataDir}/clipboard_images/${imageId}.png`;
+          imagePathRef.current = filePath;
+          setFileName(`${imageId}.png`);
+          setImageSrc(convertFileSrc(filePath, 'asset'));
+          return;
+        }
+
+        if (!disposed) {
+          setError(true);
+        }
+      } catch (err) {
+        if (!disposed) {
+          console.error('加载图片失败:', err);
+          setError(true);
+        }
+      } finally {
+        if (!disposed) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadImage();
+
+    return () => {
+      disposed = true;
+      imagePathRef.current = null;
+      if (imageElementRef.current) {
+        // 主动断开图片资源引用，尽量让 WebView 更早释放解码缓存。
+        imageElementRef.current.src = '';
+      }
+    };
+  }, [item.id, item.content, item.image_id]);
 
   if (loading) {
     return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-qc-panel-2 rounded flex items-center justify-center overflow-hidden`}>
@@ -232,6 +261,7 @@ function ImageContent({ item }) {
       style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
     >
       <img
+        ref={imageElementRef}
         src={imageSrc}
         alt="剪贴板图片"
         className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`}

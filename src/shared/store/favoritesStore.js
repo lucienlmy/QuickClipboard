@@ -18,8 +18,8 @@ listen('favorite-paste-count-updated', (event) => {
   }
 })
 
-const CACHE_WINDOW_SIZE = 200  
-const CACHE_BUFFER = 100     
+const CACHE_WINDOW_SIZE = 120
+const CACHE_BUFFER = 40
 
 // 收藏 Store
 export const favoritesStore = proxy({
@@ -41,11 +41,12 @@ export const favoritesStore = proxy({
     items.forEach((item, offset) => {
       this.items[startIndex + offset] = item
     })
+    this.trimCache()
   },
   
   updateViewRange(startIndex, endIndex) {
     const prev = this.currentViewRange
-    if (Math.abs(prev.start - startIndex) > 30 || Math.abs(prev.end - endIndex) > 30) {
+    if (Math.abs(prev.start - startIndex) > 10 || Math.abs(prev.end - endIndex) > 10) {
       this.currentViewRange = { start: startIndex, end: endIndex }
       this.trimCache()
     }
