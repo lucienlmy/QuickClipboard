@@ -73,6 +73,7 @@ pub fn hide_quickpaste_window(app: &AppHandle) -> Result<(), String> {
         let _ = window.hide();
     }
     set_visible(false);
+    crate::services::memory::schedule_cleanup_after_main_window_hide();
     Ok(())
 }
 

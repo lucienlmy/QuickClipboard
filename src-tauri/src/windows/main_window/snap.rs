@@ -562,6 +562,7 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     save_snap_layout(resolved.edge, ratio, Some(resolved.monitor_id));
     
     super::state::set_window_state(super::state::WindowState::Hidden);
+    crate::services::memory::schedule_cleanup_after_main_window_hide();
     
     crate::input_monitor::disable_mouse_monitoring();
     crate::input_monitor::disable_navigation_keys();

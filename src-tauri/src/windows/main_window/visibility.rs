@@ -218,6 +218,7 @@ fn hide_normal_window(window: &WebviewWindow) {
 
     let _ = window.hide();
     set_window_state(WindowState::Hidden);
+    crate::services::memory::schedule_cleanup_after_main_window_hide();
 
     crate::input_monitor::disable_mouse_monitoring();
     crate::input_monitor::disable_navigation_keys();

@@ -22,7 +22,7 @@ pub fn create_text_editor_window(
         url = format!("{}&group={}", url, group);
     }
     
-    let _editor_window = tauri::WebviewWindowBuilder::new(
+    let editor_window = tauri::WebviewWindowBuilder::new(
         app,
         &window_label,
         tauri::WebviewUrl::App(url.into()),
@@ -42,6 +42,18 @@ pub fn create_text_editor_window(
     .drag_and_drop(false)
     .build()
     .map_err(|e| format!("创建文本编辑器窗口失败: {}", e))?;
+
+    let editor_window_for_events = editor_window.clone();
+    editor_window.on_window_event(move |event| match event {
+        tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
+            crate::services::memory::schedule_cleanup_after_main_window_hide();
+        }
+        _ => {
+            if editor_window_for_events.is_minimized().unwrap_or(false) {
+                crate::services::memory::schedule_cleanup_after_main_window_hide();
+            }
+        }
+    });
 
     Ok(window_label)
 }
