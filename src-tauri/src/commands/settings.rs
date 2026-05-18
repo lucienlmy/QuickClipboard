@@ -38,6 +38,11 @@ pub fn reload_settings() -> Result<AppSettings, String> {
 #[tauri::command]
 pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result<(), String> {
     let old_settings = get_settings();
+    if settings.settings_migration_version.is_none()
+        || settings.settings_migration_version < old_settings.settings_migration_version
+    {
+        settings.settings_migration_version = old_settings.settings_migration_version;
+    }
     let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
     let edge_hide_changed = old_settings.edge_hide_enabled != settings.edge_hide_enabled;
     let quickpaste_enabled_changed = old_settings.quickpaste_enabled != settings.quickpaste_enabled;

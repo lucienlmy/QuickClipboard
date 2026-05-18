@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub const SETTINGS_MIGRATION_VERSION_V1: u32 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AppSettings {
@@ -30,6 +32,8 @@ pub struct AppSettings {
     pub image_preview: bool,
     pub text_preview: bool,
     pub file_preview: bool,
+    #[serde(default)]
+    pub settings_migration_version: Option<u32>,
     pub display_priority_order: String,
 
     // 音效设置
@@ -215,9 +219,10 @@ impl Default for AppSettings {
             clipboard_monitor: true,
             ignore_duplicates: true,
             save_images: true,
-            image_preview: false,
-            text_preview: false,
-            file_preview: false,
+            image_preview: true,
+            text_preview: true,
+            file_preview: true,
+            settings_migration_version: Some(SETTINGS_MIGRATION_VERSION_V1),
             display_priority_order: "text,html,image".to_string(),
 
             sound_enabled: true,

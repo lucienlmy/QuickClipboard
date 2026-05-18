@@ -1,9 +1,24 @@
-use super::model::AppSettings;
+use super::model::{AppSettings, SETTINGS_MIGRATION_VERSION_V1};
 use std::{env, fs, path::PathBuf};
 
 pub struct SettingsStorage;
 
 impl SettingsStorage {
+    fn migrate_settings(settings: &mut AppSettings) -> bool {
+        let mut migrated = false;
+        let migration_version = settings.settings_migration_version.unwrap_or(0);
+
+        if migration_version < SETTINGS_MIGRATION_VERSION_V1 {
+            settings.image_preview = true;
+            settings.text_preview = true;
+            settings.file_preview = true;
+            settings.settings_migration_version = Some(SETTINGS_MIGRATION_VERSION_V1);
+            migrated = true;
+        }
+
+        migrated
+    }
+
     fn is_portable_mode() -> bool {
         if crate::services::is_portable_build() {
             return true;
@@ -44,9 +59,15 @@ impl SettingsStorage {
 
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
         let mut settings: AppSettings = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        let migrated = Self::migrate_settings(&mut settings);
+        let mut normalized = false;
         
         if settings.number_shortcuts_modifier.contains("Alt") {
             settings.number_shortcuts_modifier = "Ctrl".to_string();
+            normalized = true;
+        }
+
+        if migrated || normalized {
             let _ = Self::save(&settings);
         }
         
