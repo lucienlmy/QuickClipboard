@@ -580,6 +580,8 @@
       "textPreviewDesc": "鼠标悬停文本项目时显示更多内容",
       "filePreview": "文件预览",
       "filePreviewDesc": "鼠标悬停文件项目时显示完整文件列表",
+      "previewOptions": "预览开关",
+      "previewOptionsDesc": "设置图片、文本和文件项目的悬停预览",
       "displayPriority": "展示优先级",
       "displayPriorityDesc": "控制多格式内容在列表中的展示优先级",
       "displayPriorityTextHtmlImage": "纯文本 > HTML > 图片",

@@ -5,6 +5,7 @@ import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
 import Input from '@shared/components/ui/Input';
 import Textarea from '@shared/components/ui/Textarea';
+import MultiSegmentedControl from '@shared/components/ui/MultiSegmentedControl';
 function ClipboardSection({
   settings,
   onSettingChange
@@ -45,6 +46,29 @@ function ClipboardSection({
     value: 'image,html,text',
     label: t('settings.clipboard.displayPriorityImageHtmlText')
   }];
+  const previewOptionValues = [
+    settings.imagePreview !== false ? 'imagePreview' : null,
+    settings.textPreview !== false ? 'textPreview' : null,
+    settings.filePreview !== false ? 'filePreview' : null
+  ].filter(Boolean);
+  const previewOptions = [{
+    value: 'imagePreview',
+    label: t('settings.clipboard.imagePreview')
+  }, {
+    value: 'textPreview',
+    label: t('settings.clipboard.textPreview')
+  }, {
+    value: 'filePreview',
+    label: t('settings.clipboard.filePreview')
+  }];
+  const handlePreviewOptionsChange = nextValues => {
+    const nextPreviewValues = Array.isArray(nextValues) ? nextValues : [];
+    onSettingChange({
+      imagePreview: nextPreviewValues.includes('imagePreview'),
+      textPreview: nextPreviewValues.includes('textPreview'),
+      filePreview: nextPreviewValues.includes('filePreview')
+    });
+  };
   return <>
       <SettingsSection title={t('settings.clipboard.title')} description={t('settings.clipboard.description')}>
         <SettingItem label={t('settings.clipboard.monitor')} description={t('settings.clipboard.monitorDesc')}>
@@ -55,16 +79,15 @@ function ClipboardSection({
           <Toggle checked={settings.saveImages} onChange={checked => onSettingChange('saveImages', checked)} />
         </SettingItem>
 
-        <SettingItem label={t('settings.clipboard.imagePreview')} description={t('settings.clipboard.imagePreviewDesc')}>
-          <Toggle checked={settings.imagePreview} onChange={checked => onSettingChange('imagePreview', checked)} />
-        </SettingItem>
-
-        <SettingItem label={t('settings.clipboard.textPreview')} description={t('settings.clipboard.textPreviewDesc')}>
-          <Toggle checked={settings.textPreview} onChange={checked => onSettingChange('textPreview', checked)} />
-        </SettingItem>
-
-        <SettingItem label={t('settings.clipboard.filePreview')} description={t('settings.clipboard.filePreviewDesc')}>
-          <Toggle checked={settings.filePreview !== false} onChange={checked => onSettingChange('filePreview', checked)} />
+        <SettingItem label={t('settings.clipboard.previewOptions')} description={t('settings.clipboard.previewOptionsDesc')}>
+          <MultiSegmentedControl
+            values={previewOptionValues}
+            onChange={handlePreviewOptionsChange}
+            options={previewOptions}
+            wrap
+            columns={3}
+            className="w-full max-w-md"
+          />
         </SettingItem>
 
         <SettingItem label={t('settings.clipboard.displayPriority')} description={t('settings.clipboard.displayPriorityDesc')}>

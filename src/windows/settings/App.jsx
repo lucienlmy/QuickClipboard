@@ -112,6 +112,11 @@ function App() {
     }
   }, [isBackground, backgroundImagePath]);
   const handleSettingChange = async (key, value) => {
+    if (key && typeof key === 'object' && !Array.isArray(key)) {
+      await settingsStore.saveSettings(key);
+      return;
+    }
+
     await settingsStore.saveSetting(key, value);
   };
   const renderSection = () => {

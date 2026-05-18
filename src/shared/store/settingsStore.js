@@ -23,7 +23,7 @@ export const settingsStore = proxy({
     
     // 更新所有设置到 store
     Object.keys(settings).forEach(key => {
-      if (key in this && key !== 'loadSettings' && key !== 'saveSetting' && key !== 'saveAllSettings' && key !== 'updateSettings') {
+      if (key in this && key !== 'loadSettings' && key !== 'saveSetting' && key !== 'saveSettings' && key !== 'saveAllSettings' && key !== 'updateSettings') {
         this[key] = settings[key]
       }
     })
@@ -41,6 +41,16 @@ export const settingsStore = proxy({
     
     return result
   },
+
+  // 批量保存多个设置项
+  async saveSettings(updates, options = {}) {
+    this.updateSettings(updates)
+
+    const currentSettings = this.getAllSettings()
+    const result = await saveSettingsToBackend(currentSettings, options)
+
+    return result
+  },
   
   // 保存所有设置
   async saveAllSettings() {
@@ -51,7 +61,7 @@ export const settingsStore = proxy({
   // 批量更新设置（不保存）
   updateSettings(updates) {
     Object.keys(updates).forEach(key => {
-      if (key in this && key !== 'loadSettings' && key !== 'saveSetting' && key !== 'saveAllSettings' && key !== 'updateSettings' && key !== 'getAllSettings') {
+      if (key in this && key !== 'loadSettings' && key !== 'saveSetting' && key !== 'saveSettings' && key !== 'saveAllSettings' && key !== 'updateSettings' && key !== 'getAllSettings') {
         this[key] = updates[key]
       }
     })

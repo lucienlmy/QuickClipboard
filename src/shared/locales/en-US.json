@@ -588,6 +588,8 @@
       "textPreviewDesc": "Show more content when hovering text items",
       "filePreview": "File Preview",
       "filePreviewDesc": "Show the full file list when hovering file items",
+      "previewOptions": "Preview Options",
+      "previewOptionsDesc": "Set hover previews for image, text, and file items",
       "displayPriority": "Display Priority",
       "displayPriorityDesc": "Control list display priority for multi-format content",
       "displayPriorityTextHtmlImage": "Plain Text > HTML > Image",

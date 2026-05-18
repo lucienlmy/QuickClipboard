@@ -9,9 +9,15 @@ function MultiSegmentedControl({
   className = ''
 }) {
   const activeValues = Array.isArray(values) ? values : []
-  const containerClass = wrap
-    ? 'flex flex-wrap gap-2'
-    : 'inline-flex w-fit gap-2'
+  const useGridLayout = wrap && Number.isInteger(columns) && columns > 1
+  const containerClass = useGridLayout
+    ? 'grid gap-2'
+    : wrap
+      ? 'flex flex-wrap gap-2'
+      : 'inline-flex w-fit gap-2'
+  const containerStyle = useGridLayout
+    ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+    : undefined
 
   const getItemClasses = optionValue => {
     const isActive = activeValues.includes(optionValue)
@@ -37,7 +43,7 @@ function MultiSegmentedControl({
   }
 
   return (
-    <div className={`${containerClass} ${className}`}>
+    <div className={`${containerClass} ${className}`} style={containerStyle}>
       {options.map(option => {
         const isActive = activeValues.includes(option.value)
 
