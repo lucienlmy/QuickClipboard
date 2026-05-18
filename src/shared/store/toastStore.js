@@ -20,7 +20,7 @@ export const TOAST_SIZES = {
 // Toast 状态管理
 export const toastStore = proxy({
   toasts: [],
-  
+
   // 添加 toast
   addToast(message, type = 'info', duration = 3000, position = TOAST_POSITIONS.TOP_RIGHT, size = TOAST_SIZES.MEDIUM) {
     const id = Date.now() + Math.random()
@@ -32,30 +32,23 @@ export const toastStore = proxy({
       position, // 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
       size // 'extra-small' | 'small' | 'medium' | 'large' | 'extra-large'
     }
-    
-    this.toasts.push(toast)
-    
-    // 自动移除
-    if (duration > 0) {
-      setTimeout(() => {
-        this.removeToast(id)
-      }, duration)
-    }
-    
+
+    toastStore.toasts.push(toast)
+
     return id
   },
-  
+
   // 移除 toast
   removeToast(id) {
-    const index = this.toasts.findIndex(t => t.id === id)
+    const index = toastStore.toasts.findIndex(t => t.id === id)
     if (index > -1) {
-      this.toasts.splice(index, 1)
+      toastStore.toasts.splice(index, 1)
     }
   },
-  
+
   // 清除所有 toast
   clearAll() {
-    this.toasts = []
+    toastStore.toasts = []
   }
 })
 
