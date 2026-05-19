@@ -7,6 +7,8 @@ use windows::Win32::Foundation::HWND;
 
 const BOUNDARY_MARGIN: i32 = 0;
 static IS_DRAGGING_ACTIVE: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "windows")]
+static INSTALLED_WNDPROC_HWND: AtomicIsize = AtomicIsize::new(0);
 
 #[cfg(target_os = "windows")]
 mod platform {
@@ -28,7 +30,7 @@ mod platform {
         once_cell::sync::Lazy::new(|| parking_lot::Mutex::new((0, 0)));
 
     pub unsafe fn install_wndproc(hwnd: HWND) {
-        let old = SetWindowLongPtrW(hwnd, GWLP_WNDPROC, window_proc as isize);
+        let old = SetWindowLongPtrW(hwnd, GWLP_WNDPROC, window_proc as *const () as isize);
         ORIGINAL_WNDPROC_PTR.store(old, Ordering::SeqCst);
     }
 
@@ -97,6 +99,14 @@ mod platform {
 
 #[cfg(target_os = "windows")]
 pub fn start_drag(window: &WebviewWindow, _: i32, _: i32) -> Result<(), String> {
+    if IS_DRAGGING_ACTIVE
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        eprintln!("窗口拖拽已在进行中，忽略重复启动请求");
+        return Ok(());
+    }
+
     clear_snap_if_needed();
     super::state::set_dragging(true);
 
@@ -119,9 +129,21 @@ pub fn start_drag(window: &WebviewWindow, _: i32, _: i32) -> Result<(), String> 
 
     if let Ok(hwnd) = window.hwnd() {
         unsafe {
+            let hwnd_value = hwnd.0 as isize;
+            let previous_hwnd = INSTALLED_WNDPROC_HWND.swap(hwnd_value, Ordering::SeqCst);
+            if previous_hwnd != 0 && previous_hwnd != hwnd_value {
+                eprintln!(
+                    "检测到残留拖拽窗口过程句柄，旧句柄: {}, 新句柄: {}",
+                    previous_hwnd,
+                    hwnd_value
+                );
+            }
             platform::install_wndproc(HWND(hwnd.0 as *mut _));
-            IS_DRAGGING_ACTIVE.store(true, Ordering::SeqCst);
         }
+    } else {
+        IS_DRAGGING_ACTIVE.store(false, Ordering::SeqCst);
+        super::state::set_dragging(false);
+        return Err("获取窗口句柄失败，无法启动拖拽".to_string());
     }
 
     let win1 = window.clone();
@@ -138,11 +160,25 @@ pub fn start_drag(window: &WebviewWindow, _: i32, _: i32) -> Result<(), String> 
 
 #[cfg(target_os = "windows")]
 pub fn stop_drag(window: &WebviewWindow) -> Result<(), String> {
-    IS_DRAGGING_ACTIVE.store(false, Ordering::SeqCst);
+    let was_dragging = IS_DRAGGING_ACTIVE.swap(false, Ordering::SeqCst);
     super::state::set_dragging(false);
 
     if let Ok(hwnd) = window.hwnd() {
         unsafe { platform::restore_wndproc(HWND(hwnd.0 as *mut _)); }
+        let hwnd_value = hwnd.0 as isize;
+        let installed_hwnd = INSTALLED_WNDPROC_HWND.swap(0, Ordering::SeqCst);
+        if installed_hwnd != 0 && installed_hwnd != hwnd_value {
+            eprintln!(
+                "拖拽结束时窗口句柄不匹配，已安装句柄: {}, 当前句柄: {}",
+                installed_hwnd,
+                hwnd_value
+            );
+        }
+    } else {
+        let installed_hwnd = INSTALLED_WNDPROC_HWND.swap(0, Ordering::SeqCst);
+        if installed_hwnd != 0 {
+            eprintln!("拖拽结束时无法获取窗口句柄，残留句柄: {}", installed_hwnd);
+        }
     }
 
     platform::BOUND_LEFT.store(0, Ordering::SeqCst);
@@ -151,7 +187,9 @@ pub fn stop_drag(window: &WebviewWindow) -> Result<(), String> {
     platform::BOUND_BOTTOM.store(0, Ordering::SeqCst);
     platform::MONITORS.lock().clear();
 
-    delayed_check_snap(window);
+    if was_dragging {
+        delayed_check_snap(window);
+    }
     Ok(())
 }
 
