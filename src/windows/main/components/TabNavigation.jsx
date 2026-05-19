@@ -543,7 +543,7 @@ function TabNavigation({
                                     : 'justify-center gap-0 px-0 w-10'
                                 } ${
                                   isActive
-                                    ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+                                    ? 'qc-active-icon-button bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md hover:bg-[var(--qc-accent)]'
                                     : 'text-qc-fg-muted hover:bg-qc-hover'
                                 }`}
                               >
@@ -595,12 +595,12 @@ function TabNavigation({
                       sidebarShowLabel
                         ? `justify-start gap-2 px-3 w-full ${
                             isGroupsPanelOpen
-                              ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+                              ? 'qc-active-icon-button bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md hover:bg-[var(--qc-accent)]'
                               : 'text-qc-fg-muted hover:bg-qc-hover'
                           }`
                         : `justify-start gap-2 px-3 w-10 overflow-hidden ${
                             isGroupsPanelOpen
-                              ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+                              ? 'qc-active-icon-button bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md hover:bg-[var(--qc-accent)]'
                               : 'text-qc-fg-muted hover:bg-qc-hover'
                           }`
                     }`}
@@ -677,7 +677,7 @@ function TabNavigation({
               top: '50%',
               transform: 'translateY(-50%)'
             }}>
-              <div key={`tab-bounce-${tabAnimationKey}`} className={`w-full h-full rounded-lg bg-blue-500 ${uiAnimationEnabled ? 'animate-button-bounce' : ''}`} />
+              <div key={`tab-bounce-${tabAnimationKey}`} className={`w-full h-full rounded-lg bg-[var(--qc-accent)] ${uiAnimationEnabled ? 'animate-button-bounce' : ''}`} />
             </div>
           )}
           {tabs.map((tab, index) => (
@@ -747,7 +747,7 @@ function TabNavigation({
                           setIsChatDeviceDropdownOpen(false);
                         }}
                         className={`w-full h-8 px-2 text-left text-xs flex items-center gap-2 ${
-                          isCurrent ? 'bg-blue-500 text-white' : 'text-qc-fg hover:bg-qc-hover'
+                          isCurrent ? 'qc-active-icon-button bg-[var(--qc-accent)] text-[var(--qc-accent-fg)]' : 'text-qc-fg hover:bg-qc-hover'
                         }`}
                         title={getChatDeviceTooltip(d)}
                       >
@@ -766,12 +766,10 @@ function TabNavigation({
           </div>
         ) : (
         <div
-          className={`flex min-w-0 max-w-full items-center gap-1 relative ${
+          className={`flex min-w-0 max-w-full items-center gap-1 relative overflow-visible ${
             activeTab === 'emoji' || isFilterAutoExpanded
               ? 'w-full justify-center'
-              : useFloatingExpandedFilters || isGroupsPanelOpen
-                ? 'w-full overflow-visible'
-                : 'w-full overflow-hidden'
+              : 'w-full'
           }`}
           onMouseLeave={activeTab === 'emoji' ? undefined : handleFilterAreaMouseLeave}
         >
@@ -783,7 +781,7 @@ function TabNavigation({
               top: '50%',
               transform: 'translateY(-50%)'
             }}>
-              <div key={activeTab === 'emoji' ? `emoji-mode-bounce-${emojiModeAnimationKey}` : `filter-bounce-${filterAnimationKey}`} className={`w-full h-full rounded-lg bg-blue-500 ${uiAnimationEnabled ? 'animate-button-bounce' : ''}`} />
+              <div key={activeTab === 'emoji' ? `emoji-mode-bounce-${emojiModeAnimationKey}` : `filter-bounce-${filterAnimationKey}`} className={`w-full h-full rounded-lg bg-[var(--qc-accent)] ${uiAnimationEnabled ? 'animate-button-bounce' : ''}`} />
             </div>
           )}
           {activeTab === 'emoji'
@@ -794,7 +792,7 @@ function TabNavigation({
                       onClick={() => handleEmojiModeChange(mode.id)}
                       className={`relative z-10 flex items-center justify-center w-full h-full rounded-lg focus:outline-none ${uiAnimationEnabled ? 'hover:scale-105' : ''} ${
                         emojiMode === mode.id
-                          ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+                          ? 'qc-active-icon-button bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md hover:bg-[var(--qc-accent)]'
                           : 'text-qc-fg-muted hover:bg-qc-hover'
                       }`}
                       style={uiAnimationEnabled ? {

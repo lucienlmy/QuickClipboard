@@ -45,7 +45,7 @@ function SidebarButton({
           focus:outline-none
           ${uiAnimationEnabled ? 'active:scale-[0.98] animate-slide-in-left-fast' : ''}
           ${isActive 
-            ? `bg-blue-500 text-white shadow-md ${uiAnimationEnabled ? 'scale-[1.02] animate-button-bounce' : ''}` 
+            ? `qc-active-icon-button bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md ${uiAnimationEnabled ? 'scale-[1.02] animate-button-bounce' : ''}` 
             : `text-qc-fg-muted hover:bg-qc-hover hover:shadow-sm ${uiAnimationEnabled ? 'hover:scale-[1.01] hover:translate-x-0.5' : ''}`}
         `} style={uiAnimationEnabled ? {
       animationDelay: `${index * 25}ms`,

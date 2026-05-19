@@ -33,7 +33,7 @@ function SegmentedControl({
         row === lastRow && col === 0 ? 'rounded-bl-lg' : '',
         index === lastIndex ? 'rounded-br-lg' : '',
         value === optionValue
-          ? '!bg-[var(--qc-accent)] hover:!bg-[var(--qc-accent-hover)] !text-white'
+          ? 'qc-accent-button !bg-[var(--qc-accent)] hover:!bg-[var(--qc-accent-hover)] !text-[var(--qc-accent-fg)]'
           : 'bg-transparent text-qc-fg hover:bg-qc-hover'
       ].filter(Boolean).join(' ');
     }
@@ -45,7 +45,7 @@ function SegmentedControl({
       index === options.length - 1 ? 'rounded-r-lg' : '',
       index !== 0 ? 'border-l border-qc-border' : '',
       value === optionValue
-        ? '!bg-[var(--qc-accent)] hover:!bg-[var(--qc-accent-hover)] !text-white'
+        ? 'qc-accent-button !bg-[var(--qc-accent)] hover:!bg-[var(--qc-accent-hover)] !text-[var(--qc-accent-fg)]'
         : 'bg-transparent text-qc-fg hover:bg-qc-hover'
     ].filter(Boolean).join(' ');
   };
@@ -68,4 +68,3 @@ function SegmentedControl({
 }
 
 export default SegmentedControl;
-

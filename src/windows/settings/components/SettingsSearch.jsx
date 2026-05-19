@@ -177,12 +177,12 @@ function SettingsSearch({ onNavigate, className = '' }) {
           onKeyDown={handleKeyDown}
           ref={inputRef}
           placeholder={t('settings.searchPlaceholder')}
-          className="relative z-0 w-full pl-10 pr-10 py-2 text-sm border border-qc-border rounded-lg bg-qc-panel text-qc-fg placeholder:text-qc-fg-subtle focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+          className="relative z-0 w-full h-10 pl-10 pr-10 text-sm border border-qc-border rounded-lg bg-qc-panel text-qc-fg placeholder:text-qc-fg-subtle focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
         />
         {searchQuery && (
           <button
             onClick={clearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-qc-fg-subtle hover:text-qc-fg-muted z-10"
+            className="absolute top-0 right-0 h-10 w-10 inline-flex items-center justify-center text-qc-fg-subtle hover:text-qc-fg-muted z-10"
           >
             <i className="ti ti-x text-sm"></i>
           </button>

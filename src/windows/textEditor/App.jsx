@@ -40,7 +40,7 @@ function extractPlainTextFromHtml(html) {
 function App() {
   const { t } = useTranslation();
   const { theme } = useSnapshot(settingsStore);
-  const { isDark, effectiveTheme, darkThemeStyle, isBackground } = useTheme();
+  const { isDark, effectiveTheme, lightThemeStyle, darkThemeStyle, isBackground } = useTheme();
   const groupsSnap = useSnapshot(groupsStore);
   useSettingsSync();
 
@@ -81,7 +81,7 @@ function App() {
 
   useEffect(() => {
     applyThemeToBody(theme, 'text-editor');
-  }, [theme, darkThemeStyle, effectiveTheme]);
+  }, [theme, lightThemeStyle, darkThemeStyle, effectiveTheme]);
 
   useEffect(() => {
     if (isBackground && settingsStore.backgroundImagePath) {

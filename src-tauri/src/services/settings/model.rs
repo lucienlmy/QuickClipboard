@@ -17,6 +17,7 @@ pub struct AppSettings {
     pub history_limit: u64,
     pub language: String,
     pub theme: String,
+    pub light_theme_style: String,
     pub dark_theme_style: String,
     pub visible_optional_tabs: Vec<String>,
     pub opacity: f64,
@@ -203,6 +204,7 @@ impl Default for AppSettings {
             history_limit: 100,
             language: "zh-CN".to_string(),
             theme: "light".to_string(),
+            light_theme_style: "modern".to_string(),
             dark_theme_style: "classic".to_string(),
             visible_optional_tabs: vec![
                 "favorites".to_string(),

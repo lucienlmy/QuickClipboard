@@ -28,6 +28,7 @@ function App() {
   const snap = useSnapshot(settingsStore);
   const {
     theme,
+    lightThemeStyle,
     darkThemeStyle,
     backgroundImagePath
   } = snap;
@@ -97,7 +98,7 @@ function App() {
   // 应用主题到body
   useEffect(() => {
     applyThemeToBody(theme, 'settings');
-  }, [theme, darkThemeStyle, effectiveTheme]);
+  }, [theme, lightThemeStyle, darkThemeStyle, effectiveTheme]);
 
   // 应用背景图片（仅在背景主题时）
   useEffect(() => {

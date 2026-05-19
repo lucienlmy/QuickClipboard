@@ -8,11 +8,15 @@ function TabBar({ tabs, activeTab, onTabChange, className = '' }) {
           <button
             key={tab.id}
             type="button"
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`h-10 px-4 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium rounded-lg transition-all duration-200 ${
               isActive
-                ? 'bg-blue-500 text-white shadow-md'
+                ? 'qc-accent-button shadow-md'
                 : 'text-qc-fg-muted hover:bg-qc-hover hover:shadow-sm'
             }`}
+            style={isActive ? {
+              backgroundColor: 'var(--qc-accent)',
+              color: 'var(--qc-accent-fg)'
+            } : undefined}
             onClick={() => onTabChange(tab.id)}
           >
             {tab.label}

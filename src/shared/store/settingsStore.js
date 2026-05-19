@@ -82,6 +82,11 @@ export const settingsStore = proxy({
   setTheme(theme) {
     this.saveSetting('theme', theme)
   },
+
+  // 亮色主题风格设置
+  setLightThemeStyle(style) {
+    this.saveSetting('lightThemeStyle', style)
+  },
   
   // 暗色主题风格设置
   setDarkThemeStyle(style) {

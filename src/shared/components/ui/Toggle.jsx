@@ -5,7 +5,8 @@ import { settingsStore } from '@shared/store/settingsStore';
 function Toggle({
   checked,
   onChange,
-  disabled = false
+  disabled = false,
+  contained = false
 }) {
   const settings = useSnapshot(settingsStore);
   const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
@@ -48,6 +49,17 @@ function Toggle({
       onChange(newChecked);
     }
   };
+  const trackBackgroundColor = checked
+    ? (contained
+      ? 'var(--qc-toggle-track-contained-on, rgba(255, 255, 255, 0.28))'
+      : 'var(--qc-toggle-track-on, #3b82f6)')
+    : 'var(--qc-toggle-track-off, var(--qc-panel-2))';
+  const trackBorderColor = checked && contained
+    ? 'rgba(255, 255, 255, 0.36)'
+    : 'var(--qc-border)';
+  const thumbBackgroundColor = checked && contained
+    ? 'var(--qc-accent-fg, #ffffff)'
+    : 'var(--qc-toggle-thumb, var(--qc-surface))';
   return <div className="relative flex h-6 items-center">
       <button
         type="button"
@@ -58,9 +70,8 @@ function Toggle({
         onKeyDown={handleKeyDown}
         className={`w-11 h-6 rounded-full relative overflow-visible transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-qc-border ${uiAnimationEnabled ? 'hover:scale-105 active:scale-95' : ''}`}
         style={{
-          backgroundColor: checked
-            ? 'var(--qc-toggle-track-on, #3b82f6)'
-            : 'var(--qc-toggle-track-off, var(--qc-panel-2))'
+          backgroundColor: trackBackgroundColor,
+          borderColor: trackBorderColor
         }}
       >
         <span
@@ -73,10 +84,10 @@ function Toggle({
             style={uiAnimationEnabled ? {
               '--toggle-start': checked ? '2px' : '22px',
               '--toggle-end': checked ? '22px' : '2px',
-              backgroundColor: 'var(--qc-toggle-thumb, var(--qc-surface))'
+              backgroundColor: thumbBackgroundColor
             } : {
               transform: checked ? 'translateX(22px)' : 'translateX(2px)',
-              backgroundColor: 'var(--qc-toggle-thumb, var(--qc-surface))'
+              backgroundColor: thumbBackgroundColor
             }}
           />
         </span>

@@ -311,7 +311,7 @@ function App() {
   const filePreviewRef = useRef(null);
   const imageScaleIndicatorTimerRef = useRef(null);
   const settings = useSnapshot(settingsStore);
-  const { theme, darkThemeStyle, backgroundImagePath } = settings;
+  const { theme, lightThemeStyle, darkThemeStyle, backgroundImagePath } = settings;
   const { effectiveTheme, isDark, isBackground } = useTheme();
   useSettingsSync();
 
@@ -431,7 +431,7 @@ function App() {
 
   useEffect(() => {
     applyThemeToBody(theme || defaultSettings.theme, 'preview');
-  }, [theme, darkThemeStyle, effectiveTheme]);
+  }, [theme, lightThemeStyle, darkThemeStyle, effectiveTheme]);
 
   useEffect(() => {
     if (isBackground && backgroundImagePath) {

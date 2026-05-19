@@ -31,7 +31,7 @@ function FilterButton({
             focus:outline-none
             ${uiAnimationEnabled ? 'active:scale-95 hover:scale-105' : ''}
             ${isActive
-              ? 'bg-blue-500 text-white shadow-md hover:bg-blue-500'
+              ? 'qc-active-icon-button bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md hover:bg-[var(--qc-accent)]'
               : 'text-qc-fg-muted hover:bg-qc-hover'}
           `}
           style={uiAnimationEnabled ? {

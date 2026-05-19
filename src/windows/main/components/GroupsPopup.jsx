@@ -12,7 +12,7 @@ import { showConfirm, showError } from '@shared/utils/dialog';
 import GroupModal from './GroupModal';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
-const ACTIVE_ICON_BUTTON_CLASS = 'bg-blue-500 bg-dynamic-primary text-white hover:bg-blue-600';
+const ACTIVE_ICON_BUTTON_CLASS = 'bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] hover:bg-[var(--qc-accent)]';
 const SIDEBAR_GROUP_PANEL_WIDTH = 184;
 const SIDEBAR_GROUP_PANEL_COLLAPSED_WIDTH = 56;
 
@@ -47,7 +47,7 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t, com
         compact ? 'justify-center gap-0 px-1.5 py-1' : 'gap-1.5 px-2 py-1'
       } ${
         isActive
-          ? 'bg-blue-500 text-white'
+          ? 'bg-[var(--qc-accent)] text-[var(--qc-accent-fg)]'
           : 'text-qc-fg hover:bg-qc-hover'
       } ${isDragging ? 'shadow-lg rounded bg-qc-panel' : ''}`}>
         {!compact && (
@@ -87,7 +87,7 @@ const SortableGroupItem = ({ group, isActive, onSelect, onEdit, onDelete, t, com
               className={`w-5 h-5 flex items-center justify-center rounded-md transition-all ${
                 isActive
                   ? 'bg-qc-border hover:bg-qc-border-strong text-white'
-                  : 'bg-qc-panel/90 hover:bg-blue-100 text-qc-fg hover:text-blue-600'
+                  : 'bg-qc-panel/90 hover:bg-qc-hover text-qc-fg hover:text-[var(--qc-accent)]'
               }`}
             >
               <i className="ti ti-edit" style={{ fontSize: 10 }}></i>
@@ -476,7 +476,7 @@ const GroupsPopup = forwardRef(({
           compactMode ? 'justify-center gap-0 px-1.5 py-1' : 'gap-1.5 px-2 py-1'
         } ${
           groups.currentGroup === group.name
-            ? 'bg-blue-500 text-white'
+            ? 'bg-[var(--qc-accent)] text-[var(--qc-accent-fg)]'
             : 'text-qc-fg hover:bg-qc-hover'
         }`}>
           {!compactMode && (
@@ -700,7 +700,7 @@ const GroupsPopup = forwardRef(({
                 >
                   <div className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all ${
                     groups.currentGroup === group.name
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-[var(--qc-accent)] text-[var(--qc-accent-fg)]'
                       : 'text-qc-fg hover:bg-qc-hover'
                   }`}>
 

@@ -56,7 +56,7 @@ function unloadBackgroundThemeCSS() {
 }
 
 export function useTheme() {
-  const { theme, darkThemeStyle, backgroundImagePath, superBackgroundBlurScale, systemIsDark } = useSnapshot(settingsStore)
+  const { theme, lightThemeStyle, darkThemeStyle, backgroundImagePath, superBackgroundBlurScale, systemIsDark } = useSnapshot(settingsStore)
 
   // 背景主题 CSS 注入
   useEffect(() => {
@@ -67,7 +67,7 @@ export function useTheme() {
       unloadBackgroundThemeCSS()
       syncSuperBackgroundBlurScale(superBackgroundBlurScale, false)
     }
-  }, [theme, darkThemeStyle, superBackgroundBlurScale, systemIsDark])
+  }, [theme, lightThemeStyle, darkThemeStyle, superBackgroundBlurScale, systemIsDark])
 
   // 计算实际应用的主题
   const effectiveTheme = getEffectiveTheme(theme, systemIsDark)
@@ -84,6 +84,7 @@ export function useTheme() {
     isDark,
     isBackground,
     backgroundImagePath,
+    lightThemeStyle,
     darkThemeStyle
   }
 }
@@ -93,10 +94,19 @@ export function applyThemeToBody(theme, windowName = '') {
 
   const body = document.body
   const effectiveTheme = getEffectiveTheme(theme)
+  const lightThemeStyle = settingsStore.lightThemeStyle
   const darkThemeStyle = settingsStore.darkThemeStyle
 
   // 移除所有主题类
-  body.classList.remove('theme-light', 'theme-dark', 'theme-background', 'has-dynamic-titlebar', 'theme-dark-classic')
+  body.classList.remove(
+    'theme-light',
+    'theme-dark',
+    'theme-background',
+    'has-dynamic-titlebar',
+    'theme-light-wireframe',
+    'theme-dark-classic',
+    'theme-dark-sketch'
+  )
 
   // 添加窗口专属类名（防止多窗口CSS冲突）
   if (windowName) {
@@ -111,9 +121,14 @@ export function applyThemeToBody(theme, windowName = '') {
     body.classList.add('theme-dark')
     if (darkThemeStyle === 'classic') {
       body.classList.add('theme-dark-classic')
+    } else if (darkThemeStyle === 'sketch') {
+      body.classList.add('theme-dark-sketch')
     }
   } else {
     body.classList.add('theme-light')
+    if (lightThemeStyle === 'wireframe') {
+      body.classList.add('theme-light-wireframe')
+    }
   }
 
   if (theme !== 'background') {

@@ -27,7 +27,7 @@ function MultiSegmentedControl({
       'flex items-center justify-between gap-3',
       'cursor-pointer select-none',
       isActive
-        ? 'border-[color-mix(in_srgb,var(--qc-accent)_45%,var(--qc-border))] bg-qc-bg shadow-sm'
+        ? 'border-[var(--qc-accent)] bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md'
         : 'border-qc-border bg-transparent hover:bg-qc-hover'
     ].filter(Boolean).join(' ')
   }
@@ -62,7 +62,7 @@ function MultiSegmentedControl({
               }
             }}
           >
-            <span className="truncate text-sm font-medium text-qc-fg">
+            <span className={`truncate text-sm font-medium ${isActive ? 'text-[var(--qc-accent-fg)]' : 'text-qc-fg'}`}>
               {option.label}
             </span>
             <div
@@ -73,6 +73,7 @@ function MultiSegmentedControl({
             >
               <Toggle
                 checked={isActive}
+                contained={isActive}
                 onChange={() => handleToggle(option.value)}
               />
             </div>

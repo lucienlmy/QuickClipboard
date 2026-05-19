@@ -109,7 +109,7 @@ function ShortcutInput({
       <div className="flex items-center gap-2">
         <div className="relative">
           <input type="text" value={isListening ? t('settings.shortcuts.listening') : formatShortcutForDisplay(value || '')} onClick={() => setIsListening(true)} onKeyDown={handleKeyDown} onBlur={() => setIsListening(false)} readOnly placeholder={t('settings.shortcuts.clickToSet')} className={`
-              px-3 py-2 pr-8 w-48 text-sm border rounded-lg
+              h-10 px-3 pr-8 w-72 text-sm border rounded-lg
               bg-qc-panel
               focus:outline-none cursor-pointer
               transition-all duration-200
@@ -137,7 +137,7 @@ function ShortcutInput({
         
         {onReset && (
           <Tooltip content={t('settings.common.reset')} placement="top" asChild>
-            <button onClick={onReset} className="p-2 rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors">
+            <button onClick={onReset} className="h-10 w-10 inline-flex items-center justify-center rounded-lg hover:bg-qc-hover text-qc-fg-muted transition-colors">
               <i className="ti ti-refresh w-4 h-4"></i>
             </button>
           </Tooltip>

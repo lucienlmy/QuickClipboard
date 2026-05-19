@@ -38,18 +38,18 @@ function ThemeOption({
   };
   return <div className="relative w-full">
       <button onClick={handleClick} className={`
-          w-full flex flex-col items-center gap-2 p-3 rounded-lg border-2 
+          theme-option-button w-full flex flex-col items-center gap-2 p-3 rounded-lg border-2 
           overflow-visible
           focus:outline-none
           ${uiAnimationEnabled ? 'transition-all duration-300 active:scale-95' : ''}
           ${isActive 
-            ? `border-blue-500 bg-qc-active shadow-lg shadow-blue-500/30 ${uiAnimationEnabled ? 'scale-105' : ''}` 
+            ? `is-active border-[var(--qc-accent)] bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] shadow-md ${uiAnimationEnabled ? 'scale-105' : ''}` 
             : `border-qc-border hover:border-qc-border-strong ${uiAnimationEnabled ? 'hover:scale-102 hover:shadow-md' : ''}`}
         `}>
         <div key={animationKey} className={`w-full h-16 rounded-md shadow-sm ${isActive && uiAnimationEnabled ? 'animate-theme-bounce' : ''}`} style={{
         background: option.preview
       }} />
-        <span className="text-xs font-medium text-qc-fg-muted">
+        <span className={`text-xs font-medium ${isActive ? 'text-[var(--qc-accent-fg)]' : 'text-qc-fg-muted'}`}>
           {option.label}
         </span>
       </button>

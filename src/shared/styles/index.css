@@ -2,6 +2,7 @@
 @import './customScrollbar.css';
 @import './animations.css';
 @import './dark-theme.css';
+@import './wireframe-theme.css';
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -32,10 +33,11 @@ body {
   /* accent (for slider/radio/etc.) */
   --qc-accent: #3b82f6;
   --qc-accent-hover: #2563eb;
+  --qc-accent-fg: #ffffff;
 
   /* controls */
   --qc-toggle-track-off: var(--qc-panel-2);
-  --qc-toggle-track-on: #3b82f6;
+  --qc-toggle-track-on: var(--qc-accent);
   --qc-toggle-thumb: var(--qc-surface);
 
   /* 当前主题别名（给 bg-theme-100 / text-theme-200 这种用） */
@@ -71,9 +73,10 @@ body.theme-dark {
 
   --qc-accent: #3b82f6;
   --qc-accent-hover: #2563eb;
+  --qc-accent-fg: #ffffff;
 
   --qc-toggle-track-off: var(--qc-panel-2);
-  --qc-toggle-track-on: #3b82f6;
+  --qc-toggle-track-on: var(--qc-accent);
   --qc-toggle-thumb: var(--qc-surface);
 
   --theme-100: var(--qc-surface);
@@ -146,13 +149,8 @@ body.dragging-cursor * {
 }
 
 .settings-tab-bar button {
-  background-color: transparent;
   border: none;
   padding: 0.5rem 1rem;
-}
-
-.settings-tab-bar button.bg-blue-500 {
-  background-color: rgb(59, 130, 246);
 }
 
 input, select {

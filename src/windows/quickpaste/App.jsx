@@ -35,7 +35,7 @@ function QuickPasteWindow() {
   const clipSnap = useSnapshot(clipboardStore);
   const favSnap = useSnapshot(favoritesStore);
   const settings = useSnapshot(settingsStore);
-  const { theme, effectiveTheme, isDark, darkThemeStyle } = useTheme();
+  const { theme, effectiveTheme, isDark, lightThemeStyle, darkThemeStyle } = useTheme();
   useSettingsSync();
 
   const isClipboardTab = navSnap.activeTab === 'clipboard';
@@ -126,7 +126,7 @@ function QuickPasteWindow() {
   }, []);
   useEffect(() => {
     applyThemeToBody(theme, 'quickpaste');
-  }, [theme, darkThemeStyle, effectiveTheme]);
+  }, [theme, lightThemeStyle, darkThemeStyle, effectiveTheme]);
 
   // 窗口隐藏时执行粘贴
   useEffect(() => {

@@ -21,6 +21,7 @@ function AppearanceSection({
   } = useTranslation();
   const {
     theme,
+    lightThemeStyle,
     darkThemeStyle,
     backgroundImagePath
   } = useSnapshot(settingsStore);
@@ -92,6 +93,49 @@ function AppearanceSection({
           </div>
         </div>
 
+        {(theme === 'light' || theme === 'auto') && <div className="animate-slide-in-left-fast">
+            <label className="block text-sm font-medium text-qc-fg mb-3">
+              {t('settings.appearance.lightThemeStyle') || '亮色风格'}
+            </label>
+            <p className="text-xs text-qc-fg-muted mb-4">
+              {t('settings.appearance.lightThemeStyleDesc') || '选择亮色主题的显示风格'}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => onSettingChange('lightThemeStyle', 'modern')} className={`
+                  theme-style-option flex flex-col items-start gap-2 p-4 rounded-lg border-2
+                  transition-all duration-300
+                  focus:outline-none active:scale-95
+                  ${lightThemeStyle === 'modern' ? 'is-active border-[var(--qc-accent)] bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] scale-102 shadow-md' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
+                `}>
+                <div className="w-full">
+                  <div className={`text-sm font-semibold mb-1 ${lightThemeStyle === 'modern' ? 'text-[var(--qc-accent-fg)]' : 'text-qc-fg'}`}>
+                    {t('settings.appearance.lightThemeModern') || '现代风格'}
+                  </div>
+                  <div className={`text-xs ${lightThemeStyle === 'modern' ? 'text-[var(--qc-accent-fg)] opacity-80' : 'text-qc-fg-muted'}`}>
+                    {t('settings.appearance.lightThemeModernDesc') || '当前默认的简洁明亮主题'}
+                  </div>
+                </div>
+              </button>
+
+              <button onClick={() => onSettingChange('lightThemeStyle', 'wireframe')} className={`
+                  theme-style-option flex flex-col items-start gap-2 p-4 rounded-lg border-2
+                  transition-all duration-300
+                  focus:outline-none active:scale-95
+                  ${lightThemeStyle === 'wireframe' ? 'is-active border-[var(--qc-accent)] bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] scale-102 shadow-md' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
+                `}>
+                <div className="w-full">
+                  <div className={`text-sm font-semibold mb-1 ${lightThemeStyle === 'wireframe' ? 'text-[var(--qc-accent-fg)]' : 'text-qc-fg'}`}>
+                    {t('settings.appearance.lightThemeWireframe') || '线框风格'}
+                  </div>
+                  <div className={`text-xs ${lightThemeStyle === 'wireframe' ? 'text-[var(--qc-accent-fg)] opacity-80' : 'text-qc-fg-muted'}`}>
+                    {t('settings.appearance.lightThemeWireframeDesc') || '高对比边框与硬阴影的亮色线框主题'}
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>}
+
         {(theme === 'dark' || theme === 'auto') && <div className="animate-slide-in-left-fast">
             <label className="block text-sm font-medium text-qc-fg mb-3">
               {t('settings.appearance.darkThemeStyle') || '暗色风格'}
@@ -100,35 +144,51 @@ function AppearanceSection({
               {t('settings.appearance.darkThemeStyleDesc') || '选择暗色主题的显示风格'}
             </p>
             
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button onClick={() => onSettingChange('darkThemeStyle', 'modern')} className={`
-                  flex flex-col items-start gap-2 p-4 rounded-lg border-2 
+                  theme-style-option flex flex-col items-start gap-2 p-4 rounded-lg border-2 
                   transition-all duration-300 
                   focus:outline-none active:scale-95
-                  ${darkThemeStyle === 'modern' ? 'border-blue-500 bg-qc-active scale-102 shadow-lg shadow-blue-500/20' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
+                  ${darkThemeStyle === 'modern' ? 'is-active border-[var(--qc-accent)] bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] scale-102 shadow-md' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
                 `}>
                 <div className="w-full">
-                  <div className="text-sm font-semibold text-qc-fg mb-1">
+                  <div className={`text-sm font-semibold mb-1 ${darkThemeStyle === 'modern' ? 'text-[var(--qc-accent-fg)]' : 'text-qc-fg'}`}>
                     {t('settings.appearance.darkThemeModern') || '现代风格'}
                   </div>
-                  <div className="text-xs text-qc-fg-muted">
+                  <div className={`text-xs ${darkThemeStyle === 'modern' ? 'text-[var(--qc-accent-fg)] opacity-80' : 'text-qc-fg-muted'}`}>
                     {t('settings.appearance.darkThemeModernDesc') || '色彩丰富的现代暗色主题'}
                   </div>
                 </div>
               </button>
 
               <button onClick={() => onSettingChange('darkThemeStyle', 'classic')} className={`
-                  flex flex-col items-start gap-2 p-4 rounded-lg border-2 
+                  theme-style-option flex flex-col items-start gap-2 p-4 rounded-lg border-2 
                   transition-all duration-300 
                   focus:outline-none active:scale-95
-                  ${darkThemeStyle === 'classic' ? 'border-blue-500 bg-qc-active scale-102 shadow-lg shadow-blue-500/20' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
+                  ${darkThemeStyle === 'classic' ? 'is-active border-[var(--qc-accent)] bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] scale-102 shadow-md' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
                 `}>
                 <div className="w-full">
-                  <div className="text-sm font-semibold text-qc-fg mb-1">
+                  <div className={`text-sm font-semibold mb-1 ${darkThemeStyle === 'classic' ? 'text-[var(--qc-accent-fg)]' : 'text-qc-fg'}`}>
                     {t('settings.appearance.darkThemeClassic') || '经典风格'}
                   </div>
-                  <div className="text-xs text-qc-fg-muted">
+                  <div className={`text-xs ${darkThemeStyle === 'classic' ? 'text-[var(--qc-accent-fg)] opacity-80' : 'text-qc-fg-muted'}`}>
                     {t('settings.appearance.darkThemeClassicDesc') || '低调优雅的灰色暗色主题'}
+                  </div>
+                </div>
+              </button>
+
+              <button onClick={() => onSettingChange('darkThemeStyle', 'sketch')} className={`
+                  theme-style-option flex flex-col items-start gap-2 p-4 rounded-lg border-2 
+                  transition-all duration-300 
+                  focus:outline-none active:scale-95
+                  ${darkThemeStyle === 'sketch' ? 'is-active border-[var(--qc-accent)] bg-[var(--qc-accent)] text-[var(--qc-accent-fg)] scale-102 shadow-md' : 'border-qc-border hover:border-qc-border-strong hover:scale-101 hover:shadow-md'}
+                `}>
+                <div className="w-full">
+                  <div className={`text-sm font-semibold mb-1 ${darkThemeStyle === 'sketch' ? 'text-[var(--qc-accent-fg)]' : 'text-qc-fg'}`}>
+                    {t('settings.appearance.darkThemeSketch') || '线框风格'}
+                  </div>
+                  <div className={`text-xs ${darkThemeStyle === 'sketch' ? 'text-[var(--qc-accent-fg)] opacity-80' : 'text-qc-fg-muted'}`}>
+                    {t('settings.appearance.darkThemeSketchDesc') || '高对比边框与硬阴影的复古线框暗色主题'}
                   </div>
                 </div>
               </button>
