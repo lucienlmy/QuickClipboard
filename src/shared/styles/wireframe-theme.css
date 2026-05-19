@@ -505,6 +505,177 @@ body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(.
     var(--paper-noise);
 }
 
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-shell {
+  border: 2px solid var(--qc-border-strong);
+  border-radius: var(--sketch-radius-lg) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent),
+    var(--paper-fibers),
+    var(--paper-noise),
+    var(--qc-surface);
+  box-shadow: var(--wf-container-shadow);
+  position: relative;
+  isolation: isolate;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-shell::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1px solid var(--wf-before-border);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.9;
+  transform: rotate(-0.8deg) skew(-0.25deg);
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(
+  .text-editor-titlebar,
+  .text-editor-toolbar,
+  .text-editor-statusbar
+) {
+  background:
+    linear-gradient(183deg, rgba(255,255,255,0.15), rgba(255,255,255,0.03)),
+    var(--wf-panel-gradient),
+    var(--paper-noise) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  position: relative;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-toolbar,
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-statusbar,
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-pane-header {
+  border-color: transparent !important;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-workspace {
+  background-image:
+    repeating-linear-gradient(0deg, var(--wf-grid-h) 0px, var(--wf-grid-h) 1px, transparent 1px, transparent 12px),
+    repeating-linear-gradient(90deg, var(--wf-grid-v) 0px, var(--wf-grid-v) 1px, transparent 1px, transparent 12px),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.025), transparent 70%);
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-mode-switch {
+  border-radius: var(--sketch-radius-sm) !important;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-input {
+  min-width: 9rem;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(
+  .text-editor-editor-shell,
+  .text-editor-pane,
+  .text-editor-preview-shell
+) {
+  border: 2px solid var(--qc-border-strong);
+  border-radius: var(--sketch-radius) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent),
+    var(--paper-fibers),
+    var(--paper-noise),
+    color-mix(in srgb, var(--qc-surface) 96%, transparent);
+  box-shadow: var(--wf-panel-shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-editor-shell {
+  padding: 5px 5px 5px 7px;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-pane-header {
+  background:
+    linear-gradient(183deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03)),
+    var(--paper-noise),
+    color-mix(in srgb, var(--qc-panel) 90%, transparent) !important;
+  position: relative;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-codemirror .cm-editor {
+  background: transparent !important;
+  height: 100%;
+  border-radius: calc(var(--sketch-radius-sm) - 2px);
+  overflow: hidden;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-codemirror .cm-scroller,
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-preview-shell {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), transparent),
+    var(--paper-fibers),
+    var(--paper-noise),
+    color-mix(in srgb, var(--qc-surface) 98%, transparent) !important;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-codemirror .cm-gutters {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent),
+    var(--paper-noise),
+    color-mix(in srgb, var(--qc-panel) 90%, transparent) !important;
+  border-right: none !important;
+  position: relative;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-codemirror .cm-content {
+  padding: 18px 18px 18px 14px !important;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-codemirror .cm-activeLine {
+  border: 1px dashed color-mix(in srgb, var(--qc-accent) 55%, transparent);
+  box-shadow: 2px 3px 0 rgba(0,0,0,0.08);
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-codemirror .cm-activeLineGutter {
+  border-right: 1px dashed color-mix(in srgb, var(--qc-accent) 45%, transparent);
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(
+  .text-editor-titlebar,
+  .text-editor-toolbar,
+  .text-editor-statusbar,
+  .text-editor-pane-header
+)::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--qc-border-strong) 72%, transparent) 0 10px,
+      transparent 10px 15px,
+      color-mix(in srgb, var(--qc-border) 60%, transparent) 15px 22px,
+      transparent 22px 28px
+    );
+  opacity: 0.85;
+  transform: rotate(-0.18deg) scaleY(0.9);
+  pointer-events: none;
+}
+
+body.window-text-editor:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .text-editor-codemirror .cm-gutters::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  right: -1px;
+  width: 3px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--qc-border-strong) 68%, transparent) 0 8px,
+      transparent 8px 12px,
+      color-mix(in srgb, var(--qc-border) 58%, transparent) 12px 18px,
+      transparent 18px 23px
+    );
+  opacity: 0.82;
+  transform: rotate(0.45deg) scaleX(0.9);
+  pointer-events: none;
+}
+
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) *:focus-visible {
   outline: 3px dashed var(--qc-accent);
   outline-offset: 3px;

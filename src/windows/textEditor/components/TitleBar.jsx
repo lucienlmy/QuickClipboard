@@ -19,7 +19,7 @@ function TitleBar({
   const handleClose = () => {
     window.close();
   };
-  return <div className="h-12 flex items-center justify-between px-4 bg-qc-surface/80 border-b border-qc-border backdrop-blur-sm" data-tauri-drag-region>
+  return <div className="text-editor-titlebar h-12 flex items-center justify-between px-4 bg-qc-surface/80 border-b border-qc-border backdrop-blur-sm" data-tauri-drag-region>
       <div className="flex items-center gap-2 flex-1 min-w-0 pointer-events-none">
         <i className="ti ti-edit text-qc-fg flex-shrink-0" style={{
         fontSize: 18

@@ -133,22 +133,22 @@ function HtmlEditor({
   }, [isDark]);
 
   return (
-    <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
-      <div className="h-full min-h-0 min-w-0 flex">
-        <section className="w-1/2 min-w-0 min-h-0 flex flex-col border-r border-qc-border">
-          <header className="h-9 px-3 flex items-center text-xs font-medium text-qc-fg-muted border-b border-qc-border bg-qc-surface/80">
+    <div className="text-editor-workspace flex-1 min-h-0 min-w-0 overflow-hidden p-3">
+      <div className="text-editor-html-layout h-full min-h-0 min-w-0 flex gap-3">
+        <section className="text-editor-pane w-1/2 min-w-0 min-h-0 flex flex-col">
+          <header className="text-editor-pane-header h-9 px-3 flex items-center text-xs font-medium text-qc-fg-muted border-b border-qc-border bg-qc-surface/80">
             {t('textEditor.htmlSource', 'HTML 源码')}
           </header>
-          <div className="flex-1 min-h-0 min-w-0">
-            <div ref={editorRef} className="h-full w-full" />
+          <div className="text-editor-editor-shell flex-1 min-h-0 min-w-0">
+            <div ref={editorRef} className="text-editor-codemirror h-full w-full" />
           </div>
         </section>
 
-        <section className="w-1/2 min-w-0 min-h-0 flex flex-col">
-          <header className="h-9 px-3 flex items-center text-xs font-medium text-qc-fg-muted border-b border-qc-border bg-qc-surface/80">
+        <section className="text-editor-pane w-1/2 min-w-0 min-h-0 flex flex-col">
+          <header className="text-editor-pane-header h-9 px-3 flex items-center text-xs font-medium text-qc-fg-muted border-b border-qc-border bg-qc-surface/80">
             {t('textEditor.htmlPreview', '预览')}
           </header>
-          <div className="flex-1 min-h-0 min-w-0 bg-qc-surface">
+          <div className="text-editor-preview-shell flex-1 min-h-0 min-w-0 bg-qc-surface">
             <HtmlPreview htmlContent={content || ''} />
           </div>
         </section>

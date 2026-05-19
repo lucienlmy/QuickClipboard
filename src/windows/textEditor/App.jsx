@@ -261,10 +261,7 @@ function App() {
     <div className={outerContainerClasses} style={{
       padding: '5px'
     }}>
-      <div className={containerClasses} style={{
-        borderRadius: '8px',
-        boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)'
-      }}>
+      <div className={`${containerClasses} text-editor-shell`}>
         <TitleBar title={title} hasChanges={hasChanges} />
 
         <EditorToolbar

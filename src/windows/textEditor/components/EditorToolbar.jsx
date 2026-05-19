@@ -52,7 +52,7 @@ function EditorToolbar({
   `.trim().replace(/\s+/g, ' ');
 
   return (
-    <div className="min-h-12 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-qc-border bg-qc-surface/80 backdrop-blur-sm">
+    <div className="text-editor-toolbar min-h-12 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-qc-border bg-qc-surface/80 backdrop-blur-sm">
       <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
         {showTitle ? (
           <>
@@ -65,7 +65,7 @@ function EditorToolbar({
                 value={title}
                 onChange={(e) => onTitleChange(e.target.value)}
                 placeholder={t('textEditor.titlePlaceholder')}
-                className="min-w-32 max-w-48 h-8 px-2 text-sm rounded border border-qc-border bg-qc-surface text-qc-fg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-editor-input min-w-32 max-w-48 h-8 px-2 text-sm rounded border border-qc-border bg-qc-surface text-qc-fg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -77,7 +77,7 @@ function EditorToolbar({
                 <select
                   value={selectedGroup}
                   onChange={(e) => onGroupChange(e.target.value)}
-                  className="h-8 px-2 text-sm rounded border border-qc-border bg-qc-surface text-qc-fg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-editor-input h-8 px-2 text-sm rounded border border-qc-border bg-qc-surface text-qc-fg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {groups.map((group) => (
                     <option key={group.name} value={group.name}>
@@ -97,7 +97,7 @@ function EditorToolbar({
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {showModeSwitch && (
-          <div className="flex items-center rounded border border-qc-border bg-qc-surface overflow-hidden">
+          <div className="text-editor-mode-switch flex items-center rounded border border-qc-border bg-qc-surface overflow-hidden">
             <button
               className={`${modeButtonClasses} ${editMode === 'text' ? 'bg-blue-500 text-white border-blue-500' : 'text-qc-fg hover:bg-qc-hover'}`}
               onClick={() => onEditModeChange?.('text')}

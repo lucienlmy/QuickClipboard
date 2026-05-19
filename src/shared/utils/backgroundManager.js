@@ -416,7 +416,11 @@ export async function applyBackgroundImage(options) {
       }
     } else {
       // 清除背景图
-      container.style.backgroundImage = ''
+      container.style.removeProperty('background-image')
+      container.style.removeProperty('background-size')
+      container.style.removeProperty('background-position')
+      container.style.removeProperty('background-repeat')
+      container.style.removeProperty('background-color')
       removeTitleBarColors()
     }
   } catch (error) {
@@ -429,10 +433,11 @@ export function clearBackgroundImage(containerSelector) {
   try {
     const container = document.querySelector(containerSelector)
     if (container) {
-      container.style.backgroundImage = ''
-      container.style.backgroundSize = ''
-      container.style.backgroundPosition = ''
-      container.style.backgroundRepeat = ''
+      container.style.removeProperty('background-image')
+      container.style.removeProperty('background-size')
+      container.style.removeProperty('background-position')
+      container.style.removeProperty('background-repeat')
+      container.style.removeProperty('background-color')
     }
     removeTitleBarColors()
   } catch (error) {

@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -C \"c:/脚本/小软件/QuickClipboard\" diff src/shared/styles/wireframe-theme.css)"
-    ]
-  }
-}

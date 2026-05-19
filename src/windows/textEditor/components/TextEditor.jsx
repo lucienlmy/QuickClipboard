@@ -136,8 +136,10 @@ function TextEditor({
       effects: themeCompartment.current.reconfigure([getCustomTheme(isDark)])
     });
   }, [isDark]);
-  return <div className="flex-1 overflow-hidden">
-      <div ref={editorRef} className="h-full w-full" />
+  return <div className="text-editor-workspace flex-1 overflow-hidden p-3">
+      <div className="text-editor-editor-shell h-full w-full overflow-hidden">
+        <div ref={editorRef} className="text-editor-codemirror h-full w-full" />
+      </div>
     </div>;
 }
 export default TextEditor;
