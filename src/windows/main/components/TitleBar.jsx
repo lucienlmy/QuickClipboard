@@ -247,7 +247,8 @@ const TitleBar = forwardRef(({
     const result = await showContextMenuFromEvent(event, menuItems, {
       theme: settingsStore.theme,
       lightThemeStyle: settingsStore.lightThemeStyle,
-      darkThemeStyle: settingsStore.darkThemeStyle
+      darkThemeStyle: settingsStore.darkThemeStyle,
+      uiAnimationEnabled: settingsStore.uiAnimationEnabled,
     });
     if (!result) {
       return;

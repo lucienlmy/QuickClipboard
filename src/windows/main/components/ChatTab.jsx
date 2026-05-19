@@ -358,7 +358,8 @@ function ChatTab() {
       const action = await showContextMenuFromEvent(event, menuItems, {
         theme: settings.theme,
         lightThemeStyle: settings.lightThemeStyle,
-        darkThemeStyle: settings.darkThemeStyle
+        darkThemeStyle: settings.darkThemeStyle,
+        uiAnimationEnabled: settings.uiAnimationEnabled,
       });
       if (!action) return;
       const pickFolder = action === 'pick-folder';
@@ -453,7 +454,8 @@ function ChatTab() {
     const action = await showContextMenuFromEvent(event, menuItems, {
       theme: settings.theme,
       lightThemeStyle: settings.lightThemeStyle,
-      darkThemeStyle: settings.darkThemeStyle
+      darkThemeStyle: settings.darkThemeStyle,
+      uiAnimationEnabled: settings.uiAnimationEnabled,
     });
 
     if (action === 'send-hotkey-enter') {

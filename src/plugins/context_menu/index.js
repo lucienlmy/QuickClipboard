@@ -27,6 +27,7 @@ export async function showContextMenu(options) {
             theme: options.theme || null,
             lightThemeStyle: options.lightThemeStyle || null,
             darkThemeStyle: options.darkThemeStyle || null,
+            uiAnimationEnabled: options.uiAnimationEnabled !== false,
         });
 
         return result;

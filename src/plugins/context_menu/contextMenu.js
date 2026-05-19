@@ -27,12 +27,14 @@ function applyTheme(options = {}) {
     const theme = options?.theme ?? null;
     const lightThemeStyle = options?.light_theme_style ?? null;
     const darkThemeStyle = options?.dark_theme_style ?? null;
+    const uiAnimationEnabled = options?.ui_animation_enabled !== false;
     currentThemeSetting = theme;
     const isDark = theme === 'dark' || (theme !== 'light' && systemThemeMediaQuery.matches);
     document.body.classList.toggle('dark-theme', isDark);
     document.body.classList.toggle('dark-classic', isDark && darkThemeStyle === 'classic');
     document.body.classList.toggle('theme-light-wireframe', !isDark && lightThemeStyle === 'wireframe');
     document.body.classList.toggle('theme-dark-sketch', isDark && darkThemeStyle === 'sketch');
+    document.body.classList.toggle('no-ui-animations', !uiAnimationEnabled);
 }
 
 systemThemeMediaQuery.addEventListener('change', e => {

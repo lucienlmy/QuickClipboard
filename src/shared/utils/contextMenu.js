@@ -474,6 +474,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
     theme: settingsStore.theme,
     lightThemeStyle: settingsStore.lightThemeStyle,
     darkThemeStyle: settingsStore.darkThemeStyle,
+    uiAnimationEnabled: settingsStore.uiAnimationEnabled,
   })
   if (!result) return
 
@@ -622,6 +623,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     theme: settingsStore.theme,
     lightThemeStyle: settingsStore.lightThemeStyle,
     darkThemeStyle: settingsStore.darkThemeStyle,
+    uiAnimationEnabled: settingsStore.uiAnimationEnabled,
   })
   if (!result) return
 

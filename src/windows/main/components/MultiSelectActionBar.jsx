@@ -152,6 +152,7 @@ function MultiSelectActionBar({ activeTab }) {
       theme: settingsSnap.theme,
       lightThemeStyle: settingsSnap.lightThemeStyle,
       darkThemeStyle: settingsSnap.darkThemeStyle,
+      uiAnimationEnabled: settingsSnap.uiAnimationEnabled,
     });
 
     if (!result || !result.startsWith(actionPrefix)) {

@@ -32,12 +32,13 @@ pub async fn show_context_menu(
     theme: Option<String>,
     light_theme_style: Option<String>,
     dark_theme_style: Option<String>,
+    ui_animation_enabled: Option<bool>,
 ) -> Result<Option<String>, String> {
     let _ = crate::windows::pin_image_window::close_image_preview(app.clone());
     let _ = crate::windows::preview_window::close_preview_window(app.clone());
     
     show_menu(app, ContextMenuOptions {
-        items, x, y, cursor_x: 0, cursor_y: 0, width, theme, light_theme_style, dark_theme_style, session_id: 0,
+        items, x, y, cursor_x: 0, cursor_y: 0, width, theme, light_theme_style, dark_theme_style, ui_animation_enabled, session_id: 0,
         monitor_x: 0.0, monitor_y: 0.0, monitor_width: 0.0, monitor_height: 0.0,
         is_tray_menu: false, force_focus: false,
     }).await
