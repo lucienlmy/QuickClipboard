@@ -22,6 +22,19 @@ function AppFilterSection({
   const [availableApps, setAvailableApps] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [appIconMap, setAppIconMap] = useState(new Map());
+  const optionCardClass = 'app-filter-option-card p-4 border-2 border-qc-border rounded-lg hover:bg-qc-hover transition-colors peer-checked:border-[var(--qc-accent)] peer-checked:bg-[var(--qc-active)]';
+  const infoBannerClass = 'mt-4 p-4 rounded-lg border bg-qc-active/60 border-qc-border';
+  const infoIconClass = 'mt-0.5 text-[var(--qc-accent)]';
+  const subtleInfoTitleClass = 'text-sm font-medium text-qc-fg';
+  const subtleInfoBodyClass = 'text-xs text-qc-fg-muted mt-1';
+  const iconBadgeBaseClass = 'p-2 rounded-lg';
+  const blacklistIconBadgeClass = `${iconBadgeBaseClass} bg-[color-mix(in_srgb,var(--qc-accent)_12%,var(--qc-surface))] text-[var(--qc-accent)]`;
+  const whitelistIconBadgeClass = `${iconBadgeBaseClass} bg-[color-mix(in_srgb,var(--qc-accent)_12%,var(--qc-surface))] text-[var(--qc-accent)]`;
+  const clipboardOnlyIconBadgeClass = `${iconBadgeBaseClass} bg-[color-mix(in_srgb,var(--qc-accent)_12%,var(--qc-surface))] text-[var(--qc-accent)]`;
+  const globalDisableIconBadgeClass = `${iconBadgeBaseClass} bg-[color-mix(in_srgb,var(--qc-accent)_12%,var(--qc-surface))] text-[var(--qc-accent)]`;
+  const listItemClass = 'flex items-center gap-2 p-2 bg-qc-panel rounded hover:bg-qc-hover transition-colors';
+  const removeButtonClass = 'p-1 rounded hover:bg-qc-hover text-qc-fg-muted hover:text-[var(--qc-accent)] transition-colors flex-shrink-0';
+  const addAvailableButtonClass = 'w-full flex items-center gap-2 p-2 bg-qc-panel rounded hover:bg-qc-hover hover:border-qc-border-strong transition-colors text-left border border-transparent';
 
   useEffect(() => {
     if (settings.appFilterList && Array.isArray(settings.appFilterList)) {
@@ -117,16 +130,16 @@ function AppFilterSection({
         </SettingItem>
 
         {settings.appFilterEnabled && (
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className={infoBannerClass}>
             <div className="flex items-start gap-2">
-              <div className="text-blue-600 mt-0.5">
+              <div className={infoIconClass}>
                 <i className="ti ti-info-circle w-5 h-5"></i>
               </div>
               <div>
-                <div className="text-sm font-medium text-blue-900">
+                <div className={subtleInfoTitleClass}>
                   {t('settings.appFilter.statusTitle')}
                 </div>
-                <div className="text-xs text-blue-700 mt-1">
+                <div className={subtleInfoBodyClass}>
                   {settings.appFilterMode === 'blacklist'
                     ? t('settings.appFilter.statusBlacklist', {
                       count: appList.length
@@ -145,9 +158,9 @@ function AppFilterSection({
         <div className="flex gap-4">
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterMode" value="blacklist" checked={settings.appFilterMode === 'blacklist'} onChange={e => onSettingChange('appFilterMode', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
+            <div className={optionCardClass}>
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-100 text-red-600">
+                <div className={blacklistIconBadgeClass}>
                   <i className="ti ti-ban w-5 h-5"></i>
                 </div>
                 <div>
@@ -164,9 +177,9 @@ function AppFilterSection({
 
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterMode" value="whitelist" checked={settings.appFilterMode === 'whitelist'} onChange={e => onSettingChange('appFilterMode', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
+            <div className={optionCardClass}>
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-100 text-green-600">
+                <div className={whitelistIconBadgeClass}>
                   <i className="ti ti-check w-5 h-5"></i>
                 </div>
                 <div>
@@ -187,9 +200,9 @@ function AppFilterSection({
         <div className="flex gap-4">
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterEffect" value="clipboard_only" checked={(settings.appFilterEffect || 'clipboard_only') === 'clipboard_only'} onChange={e => onSettingChange('appFilterEffect', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
+            <div className={optionCardClass}>
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                <div className={clipboardOnlyIconBadgeClass}>
                   <i className="ti ti-clipboard w-5 h-5"></i>
                 </div>
                 <div>
@@ -206,9 +219,9 @@ function AppFilterSection({
 
           <label className="flex-1 cursor-pointer">
             <input type="radio" name="filterEffect" value="global_disable" checked={settings.appFilterEffect === 'global_disable'} onChange={e => onSettingChange('appFilterEffect', e.target.value)} className="sr-only peer" />
-            <div className="p-4 border-2 border-qc-border rounded-lg peer-checked:border-blue-500 peer-checked:bg-qc-active hover:bg-qc-hover transition-colors">
+            <div className={optionCardClass}>
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+                <div className={globalDisableIconBadgeClass}>
                   <i className="ti ti-shield-off w-5 h-5"></i>
                 </div>
                 <div>
@@ -245,18 +258,18 @@ function AppFilterSection({
                 {t('settings.common.clear')}
               </Button>
             </div>
-            <div className="h-80 overflow-hidden border border-qc-border rounded-lg p-3">
+            <div className="app-filter-list-panel h-80 overflow-hidden border border-qc-border rounded-lg p-3">
               {appList.length === 0 ? <div className="text-sm text-qc-fg-muted text-center py-8">
                 {t('settings.appFilter.noApps')}
               </div> : <Virtuoso totalCount={appList.length} computeItemKey={index => appList[index] || `app-${index}`} itemContent={index => {
                 const app = appList[index];
                 return <div className={index === 0 ? '' : 'mt-2'}>
-                  <div className="flex items-center gap-2 p-2 bg-qc-panel rounded hover:bg-qc-hover transition-colors">
+                  <div className={`app-filter-list-item ${listItemClass}`}>
                     {appIconMap.get(app) && <img src={appIconMap.get(app)} alt="" className="w-4 h-4 flex-shrink-0" />}
                     <span className="text-sm text-qc-fg truncate flex-1">
                       {app}
                     </span>
-                    <button onClick={() => handleRemoveApp(index)} className="p-1 rounded hover:bg-red-100 text-red-600 transition-colors flex-shrink-0">
+                    <button onClick={() => handleRemoveApp(index)} className={removeButtonClass}>
                       <i className="ti ti-x w-4 h-4"></i>
                     </button>
                   </div>
@@ -274,14 +287,14 @@ function AppFilterSection({
                 {t('settings.common.refresh')}
               </Button>
             </div>
-            <div className="h-80 overflow-hidden border border-qc-border rounded-lg p-3">
+            <div className="app-filter-list-panel h-80 overflow-hidden border border-qc-border rounded-lg p-3">
               {availableApps.length === 0 ? <div className="text-sm text-qc-fg-muted text-center py-8">
                 {t('settings.appFilter.clickRefresh')}
               </div> : <Virtuoso totalCount={availableApps.length} computeItemKey={index => availableApps[index]?.process || `avail-${index}`} itemContent={index => {
                 const app = availableApps[index];
                 if (!app) return null;
                 return <div className={index === 0 ? '' : 'mt-2'}>
-                  <button onClick={() => handleAddAvailableApp(app)} className="w-full flex items-center gap-2 p-2 bg-qc-panel rounded hover:bg-blue-50 hover:border-blue-500 transition-colors text-left">
+                  <button onClick={() => handleAddAvailableApp(app)} className={`app-filter-list-item ${addAvailableButtonClass}`}>
                     {app.icon && <img src={app.icon} alt="" className="w-4 h-4 flex-shrink-0" />}
                     <span className="text-sm text-qc-fg truncate flex-1">
                       {app.process}
@@ -294,7 +307,7 @@ function AppFilterSection({
           </div>
         </div>
 
-        <div className="mt-4 p-4 bg-qc-panel rounded-lg">
+        <div className="app-filter-tip-panel mt-4 p-4 bg-qc-panel rounded-lg">
           <div className="flex items-start gap-2 text-sm text-qc-fg-muted">
             <i className="ti ti-bulb w-5 h-5 mt-0.5 flex-shrink-0"></i>
             <div className="space-y-1">

@@ -1306,17 +1306,17 @@ function App() {
   }
 
   const renderPrimaryPreviewHint = (content) => (
-    <PreviewHint className="tracking-[0.01em]" style={previewHintPrimaryStyle}>
+    <PreviewHint className="preview-hint-primary tracking-[0.01em]" style={previewHintPrimaryStyle}>
       {content}
     </PreviewHint>
   );
   const renderSecondaryPreviewHint = (content) => (
-    <PreviewHint className="text-[10.5px]" style={previewHintSecondaryStyle}>
+    <PreviewHint className="preview-hint-secondary text-[10.5px]" style={previewHintSecondaryStyle}>
       {content}
     </PreviewHint>
   );
   const renderAccentPreviewHint = (content) => (
-    <PreviewHint className="tracking-[0.01em]" style={previewHintAccentStyle}>
+    <PreviewHint className="preview-hint-accent tracking-[0.01em]" style={previewHintAccentStyle}>
       {content}
     </PreviewHint>
   );
@@ -1499,7 +1499,7 @@ function App() {
           }}
         >
           <div
-            className="relative z-10 w-full h-full border border-qc-border-strong overflow-hidden"
+            className="preview-surface preview-text-surface relative z-10 w-full h-full border border-qc-border-strong overflow-hidden"
             style={{
               borderRadius: '8px',
               backgroundColor: textContainerBackgroundColor,
@@ -1550,7 +1550,7 @@ function App() {
           }}
         >
           <div
-            className="relative z-10 w-full h-full border border-qc-border-strong overflow-hidden"
+            className="preview-surface preview-file-surface relative z-10 w-full h-full border border-qc-border-strong overflow-hidden"
             style={{
               borderRadius: '8px',
               backgroundColor: textContainerBackgroundColor,
@@ -1587,7 +1587,7 @@ function App() {
           }}
         >
           <div
-            className="relative z-10 overflow-visible"
+            className="preview-image-stage relative z-10 overflow-visible"
             style={{
               width: `${boxSize.width}px`,
               height: `${boxSize.height}px`,

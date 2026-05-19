@@ -5,7 +5,7 @@ function ImagePreview({ imageUrl, imageLoadState, onLoad, onError }) {
         <img
           src={imageUrl}
           alt="图片预览"
-          className="w-full h-full object-contain select-none pointer-events-none block"
+          className="preview-image-content w-full h-full object-contain select-none pointer-events-none block"
           onLoad={onLoad}
           onError={onError}
           style={{
@@ -14,7 +14,7 @@ function ImagePreview({ imageUrl, imageLoadState, onLoad, onError }) {
           }}
         />
       ) : imageLoadState === 'error' ? (
-        <div className="text-xs text-qc-fg-muted bg-qc-panel/80 rounded px-2 py-1 inline-block">
+        <div className="preview-image-error text-xs text-qc-fg-muted bg-qc-panel/80 rounded px-2 py-1 inline-block">
           图片不可用
         </div>
       ) : (

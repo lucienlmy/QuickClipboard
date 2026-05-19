@@ -25,6 +25,7 @@ export async function showContextMenu(options) {
             y: Math.round(screenY),
             width: options.width || null,
             theme: options.theme || null,
+            lightThemeStyle: options.lightThemeStyle || null,
             darkThemeStyle: options.darkThemeStyle || null,
         });
 

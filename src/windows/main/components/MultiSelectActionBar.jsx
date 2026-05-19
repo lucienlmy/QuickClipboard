@@ -150,6 +150,7 @@ function MultiSelectActionBar({ activeTab }) {
 
     const result = await showContextMenuFromEvent(event, menuItems, {
       theme: settingsSnap.theme,
+      lightThemeStyle: settingsSnap.lightThemeStyle,
       darkThemeStyle: settingsSnap.darkThemeStyle,
     });
 

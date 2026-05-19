@@ -164,7 +164,7 @@ const FilePreviewList = forwardRef(function FilePreviewList(props, ref) {
 function FileTableHeader({ t }) {
   return (
     <div
-      className={`grid ${FILE_GRID_TEMPLATE} gap-2 border-b border-qc-border/70 bg-qc-panel/90 px-3 py-2 text-[11px] font-medium tracking-wide text-qc-fg-subtle backdrop-blur-md`}
+      className={`preview-file-table-header grid ${FILE_GRID_TEMPLATE} gap-2 border-b border-qc-border/70 bg-qc-panel/90 px-3 py-2 text-[11px] font-medium tracking-wide text-qc-fg-subtle backdrop-blur-md`}
       style={{ minWidth: `${FILE_ROW_MIN_WIDTH}px` }}
     >
       <div className="min-w-0 flex items-center justify-center text-center">
@@ -322,7 +322,7 @@ const FilePreview = forwardRef(function FilePreview(
   const defaultItemHeight = 86;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="preview-file-content flex h-full min-h-0 flex-col overflow-hidden">
       <style>{`
         @keyframes qc-preview-file-marquee {
           0% {
@@ -343,18 +343,18 @@ const FilePreview = forwardRef(function FilePreview(
         }
       `}</style>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-qc-border/70 bg-qc-panel/80 px-4 py-3 backdrop-blur-md">
+      <div className="preview-file-summary flex flex-wrap items-center justify-between gap-2 border-b border-qc-border/70 bg-qc-panel/80 px-4 py-3 backdrop-blur-md">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
+          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
             {t('previewWindow.fileSummaryCount', '共 {{count}} 项', { count: fileCount })}
           </div>
-          <div className="rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
+          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
             {t('previewWindow.fileSummarySize', '总大小 {{size}}', { size: formatFileSize(totalSize) })}
           </div>
-          <div className="rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
+          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
             {t('previewWindow.fileSummaryDirectory', '目录 {{count}}', { count: directoryCount })}
           </div>
-          <div className="rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
+          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
             {t('previewWindow.fileSummaryMissing', '缺失 {{count}}', { count: missingCount })}
           </div>
         </div>
@@ -395,7 +395,7 @@ const FilePreview = forwardRef(function FilePreview(
             return (
               <div className="w-full pb-2" style={{ minWidth: `${FILE_ROW_MIN_WIDTH}px` }}>
                 <div
-                  className={`grid ${FILE_GRID_TEMPLATE} gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                  className={`preview-file-row grid ${FILE_GRID_TEMPLATE} gap-2 rounded-lg border px-3 py-2 transition-colors ${
                     file?.exists === false
                       ? 'border-qc-border bg-qc-active/20'
                       : 'border-qc-border bg-qc-panel/65 hover:bg-qc-hover/70'
@@ -404,7 +404,7 @@ const FilePreview = forwardRef(function FilePreview(
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center justify-center gap-2 text-center">
                       <span
-                        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-qc-border bg-qc-surface/80 text-qc-fg-subtle ${
+                        className={`preview-file-icon-shell flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-qc-border bg-qc-surface/80 text-qc-fg-subtle ${
                           file?.exists === false ? 'opacity-70' : ''
                         }`}
                       >
@@ -433,7 +433,7 @@ const FilePreview = forwardRef(function FilePreview(
                   </div>
 
                   <div className="min-w-0 flex items-start justify-center">
-                    <span className="inline-flex max-w-full items-center rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-xs font-medium text-qc-fg-subtle">
+                    <span className="preview-file-type-chip inline-flex max-w-full items-center rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-xs font-medium text-qc-fg-subtle">
                       {typeLabel}
                     </span>
                   </div>
@@ -457,7 +457,7 @@ const FilePreview = forwardRef(function FilePreview(
 
                   <div className="flex flex-col items-center justify-center gap-1 text-center">
                     <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-4 ${
+                      className={`preview-file-status-chip inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-4 ${
                         file?.exists === false
                           ? 'border-qc-border bg-qc-active/20 text-qc-fg'
                           : 'border-qc-border bg-qc-panel/80 text-qc-fg-subtle'

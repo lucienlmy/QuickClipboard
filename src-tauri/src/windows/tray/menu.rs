@@ -260,6 +260,7 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
         cursor_y: logical_y,
         width: Some(200),
         theme: Some(theme),
+        light_theme_style: Some(settings.light_theme_style),
         dark_theme_style: Some(settings.dark_theme_style),
         session_id: 0,
         monitor_x: 0.0,

@@ -5,25 +5,8 @@ function SettingsSection({
   children,
   className = ''
 }) {
-  const headerStyle = {
-    display: 'inline-flex',
-    padding: '12px',
-    backgroundColor: 'var(--qc-panel)',
-    border: '1px solid var(--qc-border)',
-    borderBottom: 'none',
-    borderRadius: '12px 12px 0 0',
-    marginBottom: '-1px',
-  };
-
-  const contentStyle = {
-    padding: '20px',
-    backgroundColor: 'var(--qc-panel)',
-    border: '1px solid var(--qc-border)',
-    borderRadius: '0 12px 12px 12px',
-  };
-
   return <div className={`settings-section mb-6 ${className}`}>
-    <div className="settings-section-header flex-wrap items-baseline gap-x-3 gap-y-1" style={headerStyle}>
+    <div className="settings-section-header inline-flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-3 bg-qc-panel border border-qc-border border-b-0 rounded-t-xl -mb-px">
       <h2 className="text-lg font-semibold text-qc-fg">
         {title}
       </h2>
@@ -33,7 +16,7 @@ function SettingsSection({
         </span>
       )}
     </div>
-    <div className="settings-section-content" style={contentStyle}>
+    <div className="settings-section-content px-5 py-5 bg-qc-panel border border-qc-border rounded-tr-xl rounded-br-xl rounded-bl-xl">
       {children}
     </div>
   </div>;

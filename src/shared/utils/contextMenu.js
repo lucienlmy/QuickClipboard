@@ -470,7 +470,11 @@ export async function showClipboardItemContextMenu(event, item, index) {
   )
 
   // 显示菜单并处理结果
-  const result = await showContextMenuFromEvent(event, menuItems, { theme: settingsStore.theme, darkThemeStyle: settingsStore.darkThemeStyle })
+  const result = await showContextMenuFromEvent(event, menuItems, {
+    theme: settingsStore.theme,
+    lightThemeStyle: settingsStore.lightThemeStyle,
+    darkThemeStyle: settingsStore.darkThemeStyle,
+  })
   if (!result) return
 
   try {
@@ -614,7 +618,11 @@ export async function showFavoriteItemContextMenu(event, item, index) {
     createMenuItem('delete-item', i18n.t('contextMenu.delete'), { icon: 'ti ti-trash' })
   )
 
-  const result = await showContextMenuFromEvent(event, menuItems, { theme: settingsStore.theme, darkThemeStyle: settingsStore.darkThemeStyle })
+  const result = await showContextMenuFromEvent(event, menuItems, {
+    theme: settingsStore.theme,
+    lightThemeStyle: settingsStore.lightThemeStyle,
+    darkThemeStyle: settingsStore.darkThemeStyle,
+  })
   if (!result) return
 
   try {

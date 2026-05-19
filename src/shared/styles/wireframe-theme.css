@@ -213,6 +213,18 @@ body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
 .settings-sidebar,
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.settings-section-header,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.settings-section-content,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.app-filter-option-card,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.app-filter-list-panel,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.app-filter-list-item,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.app-filter-tip-panel,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
 .tab-navigation {
   border: 2px solid var(--qc-border-strong);
   border-radius: var(--sketch-radius);
@@ -238,6 +250,18 @@ body.theme-dark.theme-dark-sketch
 body.theme-dark.theme-dark-sketch
 .settings-sidebar,
 body.theme-dark.theme-dark-sketch
+.settings-section-header,
+body.theme-dark.theme-dark-sketch
+.settings-section-content,
+body.theme-dark.theme-dark-sketch
+.app-filter-option-card,
+body.theme-dark.theme-dark-sketch
+.app-filter-list-panel,
+body.theme-dark.theme-dark-sketch
+.app-filter-list-item,
+body.theme-dark.theme-dark-sketch
+.app-filter-tip-panel,
+body.theme-dark.theme-dark-sketch
 .tab-navigation {
   background-color: var(--qc-panel);
   background-image:
@@ -248,6 +272,202 @@ body.theme-dark.theme-dark-sketch
     ),
     var(--paper-noise);
   box-shadow: 5px 6px 0 rgba(0, 0, 0, 0.32);
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.settings-section-header {
+  position: relative;
+  z-index: 1;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.settings-section-content {
+  position: relative;
+  margin-top: -2px;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-surface,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-hint,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-summary,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-table-header,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-row,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-chip,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-type-chip,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-status-chip,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-icon-shell,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-image-error {
+  border-color: var(--qc-border-strong) !important;
+  border-radius: var(--sketch-radius) !important;
+  background-image: var(--paper-noise);
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-surface {
+  border-width: 2px !important;
+  box-shadow:
+    6px 7px 0 rgba(0, 0, 0, 0.14),
+    10px 11px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-dark.theme-dark-sketch
+.preview-surface {
+  box-shadow:
+    6px 7px 0 rgba(0, 0, 0, 0.34),
+    10px 11px 0 rgba(0, 0, 0, 0.14) !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-summary,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-table-header {
+  background-color: color-mix(in srgb, var(--qc-panel) 92%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-row {
+  border-width: 2px !important;
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+body.theme-dark.theme-dark-sketch
+.preview-file-row {
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.24);
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-chip,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-type-chip,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-status-chip {
+  background-color: color-mix(in srgb, var(--qc-panel) 88%, transparent) !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-status-chip {
+  border-radius: 999px !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-file-icon-shell {
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.08);
+}
+
+body.theme-dark.theme-dark-sketch
+.preview-file-icon-shell {
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.2);
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-image-stage {
+  padding: 8px;
+  border: 2px solid var(--qc-border-strong);
+  border-radius: var(--sketch-radius) !important;
+  background-image: var(--paper-noise);
+  background-color: color-mix(in srgb, var(--qc-panel) 78%, transparent);
+  box-shadow:
+    6px 7px 0 rgba(0, 0, 0, 0.14),
+    10px 11px 0 rgba(0, 0, 0, 0.04);
+}
+
+body.theme-dark.theme-dark-sketch
+.preview-image-stage {
+  box-shadow:
+    6px 7px 0 rgba(0, 0, 0, 0.34),
+    10px 11px 0 rgba(0, 0, 0, 0.14);
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-image-content {
+  filter: drop-shadow(3px 4px 0 rgba(0, 0, 0, 0.18)) !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-hint {
+  border-width: 2px !important;
+  border-color: var(--qc-border-strong) !important;
+  border-radius: var(--sketch-radius) !important;
+  background-image: var(--paper-noise) !important;
+  background-color: color-mix(in srgb, var(--qc-panel) 92%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.12) !important;
+}
+
+body.theme-dark.theme-dark-sketch
+.preview-hint {
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.28) !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-hint-primary {
+  font-weight: 700 !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-hint-secondary {
+  opacity: 0.88 !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.preview-hint-accent {
+  background-color: var(--wireframe-active-fill) !important;
+  background-image: none !important;
+  border-color: var(--qc-accent) !important;
+  color: var(--qc-accent-fg) !important;
+  box-shadow:
+    0 0 0 2px var(--wireframe-active-glow),
+    3px 3px 0 var(--wireframe-active-shadow) !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.app-filter-option-card,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+.app-filter-list-item {
+  box-shadow: 4px 5px 0 rgba(0, 0, 0, 0.1);
+}
+
+body.theme-dark.theme-dark-sketch
+.app-filter-option-card,
+body.theme-dark.theme-dark-sketch
+.app-filter-list-item {
+  box-shadow: 4px 5px 0 rgba(0, 0, 0, 0.28);
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+input.peer:checked + .app-filter-option-card {
+  background-color: var(--wireframe-active-fill) !important;
+  background-image: none !important;
+  border-color: var(--qc-accent) !important;
+  color: var(--qc-accent-fg) !important;
+  box-shadow:
+    0 0 0 2px var(--wireframe-active-glow),
+    3px 3px 0 var(--wireframe-active-shadow) !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+input.peer:checked + .app-filter-option-card .font-medium,
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+input.peer:checked + .app-filter-option-card .text-xs {
+  color: var(--qc-accent-fg) !important;
+}
+
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)
+input.peer:checked + .app-filter-option-card [class*="bg-\\[color-mix"] {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  color: var(--qc-accent-fg) !important;
 }
 
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch)

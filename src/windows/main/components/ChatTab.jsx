@@ -357,6 +357,7 @@ function ChatTab() {
       ];
       const action = await showContextMenuFromEvent(event, menuItems, {
         theme: settings.theme,
+        lightThemeStyle: settings.lightThemeStyle,
         darkThemeStyle: settings.darkThemeStyle
       });
       if (!action) return;
@@ -451,6 +452,7 @@ function ChatTab() {
 
     const action = await showContextMenuFromEvent(event, menuItems, {
       theme: settings.theme,
+      lightThemeStyle: settings.lightThemeStyle,
       darkThemeStyle: settings.darkThemeStyle
     });
 
