@@ -4,6 +4,7 @@ use tauri::Manager;
 use std::fs;
 
 mod commands;
+pub mod maintenance;
 mod security;
 mod services;
 mod startup_diagnostics;
