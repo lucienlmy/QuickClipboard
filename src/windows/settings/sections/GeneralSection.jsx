@@ -171,6 +171,10 @@ function GeneralSection({
         <Toggle checked={settings.runAsAdmin} onChange={handleRunAsAdminChange} disabled={runAsAdminLoading} />
       </SettingItem>
 
+      <SettingItem label={t('settings.general.tooltipsEnabled')} description={t('settings.general.tooltipsEnabledDesc')}>
+        <Toggle checked={settings.tooltipsEnabled} onChange={checked => onSettingChange('tooltipsEnabled', checked)} />
+      </SettingItem>
+
       <SettingItem label={t('settings.general.startupNotification')} description={t('settings.general.startupNotificationDesc')}>
         <Toggle checked={settings.showStartupNotification} onChange={checked => onSettingChange('showStartupNotification', checked)} />
       </SettingItem>

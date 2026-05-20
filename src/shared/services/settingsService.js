@@ -24,6 +24,7 @@ export const defaultSettings = {
   language: 'zh-CN',
   
   // 外观设置
+  tooltipsEnabled: true,
   theme: 'light',
   lightThemeStyle: 'modern',
   darkThemeStyle: 'classic',

@@ -357,6 +357,8 @@
       "autoLowMemoryIdleMinutesDesc": "Automatically enter low memory mode when no window interaction occurs for the selected duration",
       "autoExitLowMemoryMode": "Auto Exit Low Memory Mode",
       "autoExitLowMemoryModeDesc": "Automatically exit low memory mode when showing the clipboard or taking a screenshot in low memory mode",
+      "tooltipsEnabled": "Show Tooltips",
+      "tooltipsEnabledDesc": "Show hints when hovering or focusing on elements",
       "historyLimit": "History Limit",
       "historyLimitDesc": "Maximum number of clipboard history items to save",
       "minutes": "min",

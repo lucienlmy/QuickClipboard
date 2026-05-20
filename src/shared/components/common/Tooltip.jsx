@@ -1,5 +1,7 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useSnapshot } from 'valtio';
+import { settingsStore } from '@shared/store/settingsStore';
 
 function mergeRefs(...refs) {
   return (node) => {
@@ -61,11 +63,16 @@ export default function Tooltip({
   forceOpen,
   children,
 }) {
+  const settings = useSnapshot(settingsStore);
+
   const tooltipId = useId();
   const triggerRef = useRef(null);
   const tooltipRef = useRef(null);
   const openTimerRef = useRef(0);
   const closeTimerRef = useRef(0);
+
+  const globallyDisabled = !settings.tooltipsEnabled;
+  const isDisabled = disabled || globallyDisabled;
 
   const [open, setOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -89,7 +96,7 @@ export default function Tooltip({
 
   const scheduleOpen = useCallback(() => {
     if (typeof forceOpen === 'boolean') return;
-    if (disabled || !content) return;
+    if (isDisabled || !content) return;
     if (open) return;
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
@@ -105,7 +112,7 @@ export default function Tooltip({
         });
       });
     }, openDelay);
-  }, [content, disabled, open, openDelay, forceOpen]);
+  }, [content, isDisabled, open, openDelay, forceOpen]);
 
   const scheduleClose = useCallback(() => {
     if (typeof forceOpen === 'boolean') return;
@@ -158,6 +165,14 @@ export default function Tooltip({
       setIsAnimating(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (isDisabled && open) {
+      clearTimers();
+      setIsAnimating(false);
+      setOpen(false);
+    }
+  }, [isDisabled, open, clearTimers]);
 
   const computePosition = useCallback(() => {
     const trigger = triggerRef.current;
