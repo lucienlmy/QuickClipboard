@@ -292,7 +292,8 @@ body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(
 }
 
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .preview-surface {
-  border-width: 2px !important;
+  border-width: 1px !important;
+  outline: 1px solid var(--qc-border-strong);
   box-shadow: var(--wf-surface-shadow) !important;
 }
 
