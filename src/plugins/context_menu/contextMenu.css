@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+
 * {
     margin: 0;
     padding: 0;
@@ -46,7 +48,7 @@ body.dark-theme.dark-classic {
 }
 
 body.theme-light-wireframe {
-    font-family: "Patrick Hand", "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-family: "ZCOOL KuaiLe", "Segoe UI", "Microsoft YaHei", sans-serif;
     --cm-fg: #1d1813;
     --cm-fg-muted: #65584b;
     --cm-surface: #f8f2e8;
@@ -80,7 +82,7 @@ body.theme-light-wireframe {
 }
 
 body.dark-theme.theme-dark-sketch {
-    font-family: "Patrick Hand", "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-family: "ZCOOL KuaiLe", "Segoe UI", "Microsoft YaHei", sans-serif;
     --cm-fg: #f5f1e8;
     --cm-fg-muted: #c8bfb3;
     --cm-surface: #121417;

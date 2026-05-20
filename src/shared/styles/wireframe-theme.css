@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+
 body.theme-light.theme-light-wireframe {
   --qc-fg: #1d1813;
   --qc-fg-muted: #65584b;
@@ -171,9 +173,10 @@ body.theme-dark.theme-dark-sketch {
   --wf-bg-end: #1a1f27;
 }
 
-body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) {
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch),
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) #root {
   color: var(--qc-fg);
-  font-family: "Patrick Hand", "Segoe UI", "Microsoft YaHei", sans-serif !important;
+  font-family: "ZCOOL KuaiLe", "Segoe UI", "Microsoft YaHei", sans-serif !important;
   letter-spacing: 0.02em;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
