@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
-
 body.theme-light.theme-light-wireframe {
   --qc-fg: #1d1813;
   --qc-fg-muted: #65584b;
@@ -174,7 +172,7 @@ body.theme-dark.theme-dark-sketch {
 }
 
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch),
-body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) #root {
+body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch){
   color: var(--qc-fg);
   font-family: "ZCOOL KuaiLe", "Segoe UI", "Microsoft YaHei", sans-serif !important;
   letter-spacing: 0.02em;
@@ -275,13 +273,11 @@ body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .settings-section-header {
   position: relative;
   z-index: 1;
-  transform: rotate(-0.15deg);
 }
 
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .settings-section-content {
   position: relative;
   margin-top: -2px;
-  transform: rotate(0.12deg);
 }
 
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(
@@ -440,7 +436,7 @@ body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) butto
 
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) button:hover {
   border-color: var(--qc-accent);
-  transform: translate(-1px, -1px) rotate(-0.2deg);
+  transform: translate(-1px, -1px);
 }
 
 body:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) button:hover::before {

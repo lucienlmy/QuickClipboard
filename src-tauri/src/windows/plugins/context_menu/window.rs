@@ -73,6 +73,16 @@ pub struct ContextMenuOptions {
     pub dark_theme_style: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ui_animation_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_font_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_font_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_font_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_font_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_font_family: Option<String>,
     pub session_id: u64,
     #[serde(default)]
     pub monitor_x: f64,

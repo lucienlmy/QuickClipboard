@@ -406,7 +406,22 @@
       "uiAnimation": "Enable UI Animations",
       "uiAnimationDesc": "Enable or disable UI animations (tab slider, hover float, list insert, panel show, etc.)",
       "cardSpacing": "Card Spacing",
-      "cardSpacingDesc": "Spacing between items in card style (px)"
+      "cardSpacingDesc": "Spacing between items in card style (px)",
+      "customFont": "Font",
+      "customFontDesc": "Override all theme default fonts with a custom font",
+      "customFontEnable": "Enable Custom Font",
+      "customFontEnableDesc": "When enabled, all theme fonts will be overridden by your custom font",
+      "customFontSource": "Font Source",
+      "customFontSourceFile": "Local File",
+      "customFontSourceUrl": "Online URL",
+      "customFontUrlLabel": "Font CSS URL",
+      "selectFontFile": "Select Font File",
+      "changeFontFile": "Change Font File",
+      "clearFontFile": "Clear Font File",
+      "restoreDefaultFont": "Restore Default Font",
+      "customFontFamilyLabel": "Font Family Name",
+      "customFontFamilyPlaceholder": "e.g. ZCOOL KuaiLe",
+      "customFontFamilyHint": "Google Fonts URLs are auto-detected. For other URLs, enter the @font-face family name manually"
     },
     "shortcuts": {
       "title": "Shortcuts",

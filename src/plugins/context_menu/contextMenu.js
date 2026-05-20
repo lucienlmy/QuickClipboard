@@ -35,6 +35,38 @@ function applyTheme(options = {}) {
     document.body.classList.toggle('theme-light-wireframe', !isDark && lightThemeStyle === 'wireframe');
     document.body.classList.toggle('theme-dark-sketch', isDark && darkThemeStyle === 'sketch');
     document.body.classList.toggle('no-ui-animations', !uiAnimationEnabled);
+    applyCustomFont(options);
+}
+
+let customFontStyleEl = null
+
+function applyCustomFont(options = {}) {
+    const enabled = options?.custom_font_enabled === true
+    const type = options?.custom_font_type || 'file'
+    const url = options?.custom_font_url || ''
+    const family = type === 'file' ? 'CustomFont' : (options?.custom_font_family || 'CustomFont')
+
+    if (customFontStyleEl) {
+        document.head.removeChild(customFontStyleEl)
+        customFontStyleEl = null
+    }
+    const existingLink = document.getElementById('custom-font-link')
+    if (existingLink) document.head.removeChild(existingLink)
+
+    if (!enabled) return
+
+    if (type === 'url' && url && family) {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        link.id = 'custom-font-link'
+        document.head.appendChild(link)
+    }
+
+    customFontStyleEl = document.createElement('style')
+    customFontStyleEl.id = 'custom-font-override'
+    customFontStyleEl.textContent = `*{font-family:"${family}","Segoe UI","Microsoft YaHei",sans-serif!important}`
+    document.head.appendChild(customFontStyleEl)
 }
 
 systemThemeMediaQuery.addEventListener('change', e => {

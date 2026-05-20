@@ -13,9 +13,12 @@ export const settingsStore = proxy({
   footerLeftRatio: 0.5,
   
   // 系统主题状态
-  systemIsDark: typeof window !== 'undefined' && window.matchMedia 
-    ? window.matchMedia('(prefers-color-scheme: dark)').matches 
+  systemIsDark: typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)').matches
     : false,
+
+  // 自定义字体加载状态
+  customFontStatus: 'idle',
   
   // 加载设置
   async loadSettings() {

@@ -398,7 +398,22 @@
       "uiAnimation": "启用界面动效",
       "uiAnimationDesc": "开启或关闭界面动效（如标签栏滑块、悬停浮动、列表插入、面板显示等动画）",
       "cardSpacing": "卡片间距",
-      "cardSpacingDesc": "卡片风格下项目之间的间距（px）"
+      "cardSpacingDesc": "卡片风格下项目之间的间距（px）",
+      "customFont": "字体",
+      "customFontDesc": "使用自定义字体覆盖所有主题的默认字体",
+      "customFontEnable": "启用自定义字体",
+      "customFontEnableDesc": "开启后将使用自定义字体覆盖所有主题的默认字体",
+      "customFontSource": "字体来源",
+      "customFontSourceFile": "本地文件",
+      "customFontSourceUrl": "在线链接",
+      "customFontUrlLabel": "字体 CSS 链接",
+      "selectFontFile": "选择字体文件",
+      "changeFontFile": "更换字体文件",
+      "clearFontFile": "清除字体文件",
+      "restoreDefaultFont": "恢复默认字体",
+      "customFontFamilyLabel": "字体名称",
+      "customFontFamilyPlaceholder": "例如: ZCOOL KuaiLe",
+      "customFontFamilyHint": "Google Fonts 链接会自动解析，其他链接请手动填写 @font-face 定义的字体名称"
     },
     "shortcuts": {
       "tabs": {

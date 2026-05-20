@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { settingsStore } from '@shared/store/settingsStore';
 document.addEventListener('contextmenu', event => event.preventDefault());
 // 显示右键菜单
 export async function showContextMenu(options) {
@@ -28,6 +29,11 @@ export async function showContextMenu(options) {
             lightThemeStyle: options.lightThemeStyle || null,
             darkThemeStyle: options.darkThemeStyle || null,
             uiAnimationEnabled: options.uiAnimationEnabled !== false,
+            customFontEnabled: settingsStore.customFontEnabled || null,
+            customFontType: settingsStore.customFontType || null,
+            customFontPath: settingsStore.customFontPath || null,
+            customFontUrl: settingsStore.customFontUrl || null,
+            customFontFamily: settingsStore.customFontFamily || null,
         });
 
         return result;

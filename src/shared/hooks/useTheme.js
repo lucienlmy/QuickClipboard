@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
 import backgroundThemeCss from '../styles/theme-background.css?inline'
+import { useCustomFont } from './useCustomFont'
 
 // 系统主题媒体查询
 let systemThemeMediaQuery = null
@@ -77,6 +78,8 @@ export function useTheme() {
 
   // 判断是否为背景主题
   const isBackground = theme === 'background'
+
+  useCustomFont()
 
   return {
     theme,
