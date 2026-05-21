@@ -38,16 +38,17 @@ pub fn paste_merged_items(items: &[ClipboardItem], app: &tauri::AppHandle) -> Re
     apply_merge_payload(&payload, true)?;
 
     crate::services::mark_paste_operation();
-    std::thread::sleep(std::time::Duration::from_millis(50));
-    simulate_paste()?;
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    crate::AppSounds::play_paste_on_success();
 
     if !crate::get_window_state().is_pinned {
         if let Some(window) = crate::get_main_window(app) {
             crate::hide_main_window(&window);
         }
     }
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    simulate_paste()?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    crate::AppSounds::play_paste_on_success();
 
     Ok(())
 }

@@ -157,6 +157,13 @@ pub async fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result
         _ => None,
     };
 
+    // 先隐藏窗口，让用户感知粘贴是即时的
+    if !crate::get_window_state().is_pinned {
+        if let Some(window) = crate::get_main_window(&app) {
+            crate::hide_main_window(&window);
+        }
+    }
+
     let params_for_task = params;
     tokio::task::spawn_blocking(move || -> Result<(), String> {
         // 根据参数类型处理粘贴
@@ -206,12 +213,6 @@ pub async fn paste_content(params: PasteParams, app: tauri::AppHandle) -> Result
     })
     .await
     .map_err(|e| format!("粘贴任务执行失败: {}", e))??;
-
-    if !crate::get_window_state().is_pinned {
-        if let Some(window) = crate::get_main_window(&app) {
-            crate::hide_main_window(&window);
-        }
-    }
 
     Ok(())
 }
@@ -412,33 +413,37 @@ pub async fn merge_paste_clipboard_items(ids: Vec<i64>, app: tauri::AppHandle) -
 
 // 直接粘贴文本
 #[tauri::command]
-pub fn paste_text_direct(text: String, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn paste_text_direct(text: String, app: tauri::AppHandle) -> Result<(), String> {
     use crate::services::paste::paste_handler::paste_text_direct as do_paste;
-    
-    do_paste(&text)?;
-    
+
     if !crate::get_window_state().is_pinned {
         if let Some(window) = crate::get_main_window(&app) {
             crate::hide_main_window(&window);
         }
     }
-    
+
+    tokio::task::spawn_blocking(move || do_paste(&text))
+        .await
+        .map_err(|e| format!("粘贴文本任务执行失败: {}", e))??;
+
     Ok(())
 }
 
 // 粘贴图片文件
 #[tauri::command]
-pub fn paste_image_file(file_path: String, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn paste_image_file(file_path: String, app: tauri::AppHandle) -> Result<(), String> {
     use crate::services::paste::paste_handler::paste_image_file as do_paste;
-    
-    do_paste(&file_path)?;
 
     if !crate::get_window_state().is_pinned {
         if let Some(window) = crate::get_main_window(&app) {
             crate::hide_main_window(&window);
         }
     }
-    
+
+    tokio::task::spawn_blocking(move || do_paste(&file_path))
+        .await
+        .map_err(|e| format!("粘贴图片任务执行失败: {}", e))??;
+
     Ok(())
 }
 
