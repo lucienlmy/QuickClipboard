@@ -3,8 +3,8 @@ use crate::services::system::input_monitor::get_modifier_keys_state;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, 
-    KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MENU, VK_CONTROL, VK_V,
+    GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT,
+    KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MENU, VK_CONTROL, VK_SHIFT, VK_V,
 };
 
 #[cfg(target_os = "windows")]
@@ -34,8 +34,8 @@ pub fn release_modifier_keys() -> Result<(), String> {
     let mut enigo = Enigo::new(&Settings::default())
         .map_err(|e| format!("创建键盘模拟器失败: {}", e))?;
     
-    let (ctrl, shift, alt, win) = get_modifier_keys_state();
-    
+    let (ctrl, alt, shift, win) = get_modifier_keys_state();
+
     // 释放 Alt 键
     if alt {
         enigo.key(Key::Alt, Direction::Release)
@@ -103,16 +103,55 @@ pub fn simulate_paste() -> Result<(), String> {
 // Shift+Insert 粘贴
 #[cfg(target_os = "windows")]
 fn simulate_paste_shift_insert() -> Result<(), String> {
+    let ctrl = is_key_pressed(VK_CONTROL.0);
+    let alt = is_key_pressed(VK_MENU.0);
+    let shift = is_key_pressed(VK_SHIFT.0);
+    let lwin = is_key_pressed(0x5B);
+    let rwin = is_key_pressed(0x5C);
+
+    // 释放会干扰 Shift+Insert 的修饰键
+    if alt {
+        for _ in 0..20 {
+            if !is_key_pressed(VK_MENU.0) { break; }
+            send_key(VK_MENU.0, true);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+    if ctrl {
+        send_key(VK_CONTROL.0, true);
+    }
+    if lwin {
+        send_key(0x5B, true);
+    }
+    if rwin {
+        send_key(0x5C, true);
+    }
+
+    if ctrl || alt || lwin || rwin {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+
     let mut enigo = Enigo::new(&Settings::default())
         .map_err(|e| format!("创建键盘模拟器失败: {}", e))?;
 
-    enigo.key(Key::Shift, Direction::Press)
-        .map_err(|e| format!("按下Shift失败: {}", e))?;
+    if !shift {
+        enigo.key(Key::Shift, Direction::Press)
+            .map_err(|e| format!("按下Shift失败: {}", e))?;
+    }
+
     enigo.key(Key::Other(0x2D), Direction::Click)
         .map_err(|e| format!("按下Insert失败: {}", e))?;
-    enigo.key(Key::Shift, Direction::Release)
-        .map_err(|e| format!("释放Shift失败: {}", e))?;
-    
+
+    if !shift {
+        enigo.key(Key::Shift, Direction::Release)
+            .map_err(|e| format!("释放Shift失败: {}", e))?;
+    }
+
+    if ctrl {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        send_key(VK_CONTROL.0, false);
+    }
+
     Ok(())
 }
 
