@@ -1,4 +1,4 @@
-<h1 align="center">🧩 QuickClipboard</h1>
+<h1 align="center">QuickClipboard</h1>
 
 <p align="center">
   <strong>重新定义你的复制粘贴体验</strong><br>
@@ -36,29 +36,29 @@
 
 | 模块                  | 功能                                                                                                                |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 📋 剪贴板管理          | 全类型记录（文本 / HTML / 图片 / 文件） · 智能去重 · 搜索筛选 · 虚拟列表 · 拖拽排序 / 置顶 · SQLite 持久化          |
-| 👁 内容预览            | 悬停预览文本 / HTML / 图片 / 文件列表 · Ctrl+滚轮滚动 / 缩放 · 多格式内容切换预览                                   |
-| ⚡ 快速粘贴            | 列表粘贴 · 数字快捷键 1-9 粘贴 · 纯文本 / 带格式粘贴 · 合并复制 / 合并粘贴 · 一次性粘贴 · 便捷粘贴窗口 · Win+V 支持 |
-| ⭐ 收藏与分组          | 收藏常用内容 · 自定义分组 / 图标 / 颜色 · 分组排序 · 批量移动到分组 · 快捷键切换分组                                |
-| 😀 Emoji / 符号 / 图库 | Emoji 大全 · 符号大全 · 自定义图片 / GIF 图库 · 最近使用 · 拖拽 / 点击即用                                          |
-| 🖼 贴图到屏幕          | 桌面置顶贴图 · GPU 加速渲染 · 拖拽缩放 / 置顶 · 复制 / 另存为 · 截图后直接贴图                                      |
-| ✂️ 内置截图            | 普通截图 · 快速截屏 / 快速贴图 / 快速 OCR · 多屏支持 · 长截图 · 自动选区 · 屏幕取色 · 标注编辑                      |
-| 🔎 OCR 识别            | 图片 OCR · 截图 OCR · 一键提取并复制文字                                                                            |
-| 🌐 局域网同步          | 剪贴板同步（文本 / 图片） · 服务端 / 客户端模式 · 配对码 / 二维码连接 · 接收后写入剪贴板 · 自动重连                 |
-| 💬 局域网聊天与传输    | 局域网聊天 · 文件 / 文件夹发送 · 在线设备列表 · 接收确认 · 传输进度提示                                             |
-| 🧲 边缘吸附与窗口      | 屏幕边缘自动隐藏 · 跟随光标唤出 · 窗口置顶 · 记忆位置 / 尺寸 · 标题栏方向切换                                       |
-| 🎨 个性化              | 跟随系统 / 明暗主题 / 超级背景 · 多套主题风格 · 自定义背景 / 模糊 · 自定义字体 · 动画开关                           |
-| 🪶 低内存模式          | 自动或手动切换轻量模式 · 即时恢复完整界面 · 告别内存焦虑（低占用模式占用仅~10MB）                                   |
-| 📉 专项后台优化        | 进入后台自动清理内存占用 · 暂停前端更新 · 降低系统资源占用（后台时内存占用~50MB）                                   |
-| 💾 数据管理            | ZIP 导入导出 · 备份恢复 · 自定义存储路径 · 数据迁移 / 合并 · 清空历史 · 便携模式                                    |
-| 🧾 应用过滤            | 黑白名单机制 · 仅过滤剪贴板监听 · 前台全局禁用模式 · 进程级规则                                                     |
-| 🔧 系统集成            | 托盘常驻 · 开机自启动 · 自动更新 · 管理员权限运行 · 启动通知                                                        |
+| 剪贴板管理          | 全类型记录（文本 / HTML / 图片 / 文件） · 智能去重 · 搜索筛选 · 虚拟列表 · 拖拽排序 / 置顶 · SQLite 持久化          |
+| 内容预览            | 悬停预览文本 / HTML / 图片 / 文件列表 · Ctrl+滚轮滚动 / 缩放 · 多格式内容切换预览                                   |
+| 快速粘贴            | 列表粘贴 · 数字快捷键 1-9 粘贴 · 纯文本 / 带格式粘贴 · 合并复制 / 合并粘贴 · 一次性粘贴 · 便捷粘贴窗口 · Win+V 支持 |
+| 收藏与分组          | 收藏常用内容 · 自定义分组 / 图标 / 颜色 · 分组排序 · 批量移动到分组 · 快捷键切换分组                                |
+| Emoji / 符号 / 图库 | Emoji 大全 · 符号大全 · 自定义图片 / GIF 图库 · 最近使用 · 拖拽 / 点击即用                                          |
+| 贴图到屏幕          | 桌面置顶贴图 · GPU 加速渲染 · 拖拽缩放 / 置顶 · 复制 / 另存为 · 截图后直接贴图                                      |
+| 内置截图            | 普通截图 · 快速截屏 / 快速贴图 / 快速 OCR · 多屏支持 · 长截图 · 自动选区 · 屏幕取色 · 标注编辑                      |
+| OCR 识别            | 图片 OCR · 截图 OCR · 一键提取并复制文字                                                                            |
+| 局域网同步          | 剪贴板同步（文本 / 图片） · 服务端 / 客户端模式 · 配对码 / 二维码连接 · 接收后写入剪贴板 · 自动重连                 |
+| 局域网聊天与传输    | 局域网聊天 · 文件 / 文件夹发送 · 在线设备列表 · 接收确认 · 传输进度提示                                             |
+| 边缘吸附与窗口      | 屏幕边缘自动隐藏 · 跟随光标唤出 · 窗口置顶 · 记忆位置 / 尺寸 · 标题栏方向切换                                       |
+| 个性化              | 跟随系统 / 明暗主题 / 超级背景 · 多套主题风格 · 自定义背景 / 模糊 · 自定义字体 · 动画开关                           |
+| 低内存模式          | 自动或手动切换轻量模式 · 即时恢复完整界面 · 告别内存焦虑（低占用模式占用仅~10MB）                                   |
+| 专项后台优化        | 进入后台自动清理内存占用 · 暂停前端更新 · 降低系统资源占用（后台时内存占用~50MB）                                   |
+| 数据管理            | ZIP 导入导出 · 备份恢复 · 自定义存储路径 · 数据迁移 / 合并 · 清空历史 · 便携模式                                    |
+| 应用过滤            | 黑白名单机制 · 仅过滤剪贴板监听 · 前台全局禁用模式 · 进程级规则                                                     |
+| 系统集成            | 托盘常驻 · 开机自启动 · 自动更新 · 管理员权限运行 · 启动通知                                                        |
 
 ---
 
-## 🖼 界面预览
+## 界面预览
 
-## 🖼 界面预览
+## 界面预览
 
 <div align="center">
 
@@ -141,25 +141,25 @@
 
 ---
 
-## 💻 系统要求
+## 系统要求
 
-- 🪟 Windows 10 / 11 (x64)  
+- Windows 10 / 11 (x64)  
 
 ---
 
-## 📦 下载方式（v0.3.2）
+## 下载方式（v0.3.2）
 
 | 类型                                                      |                       说明 |                                                        下载量                                                        | 链接                                                                                                                                                                                            |
 | --------------------------------------------------------- | -------------------------: | :------------------------------------------------------------------------------------------------------------------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🧰 NSIS 安装包**<br>`QuickClipboard_0.3.2_x64-setup.exe` | 推荐安装方式，支持自动卸载 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.3.2_x64-setup.exe?label=) | [![下载 NSIS](https://img.shields.io/badge/⬇_下载-NSIS安装包-blue?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.2/QuickClipboard_0.3.2_x64-setup.exe) |
-| **💼 绿色版**<br>`QuickClipboard_0.3.2.exe`                |       免安装，双击即可使用 |      ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.3.2.exe?label=)      | [![下载绿色版](https://img.shields.io/badge/⬇_下载-绿色版-orange?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.2/QuickClipboard_0.3.2.exe)            |
-| **📁 便携版**<br>`QuickClipboard_0.3.2_portable.exe`       |      更适合放U盘或移动使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.3.2_portable.exe?label=)  | [![下载便携版](https://img.shields.io/badge/⬇_下载-便携版-green?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.2/QuickClipboard_0.3.2_portable.exe)    |
-| **📱 安卓版**<br>`QuickClipboard_Android_v1.0.3.apk`       |    适用于 Android 设备安装 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_Android_v1.0.3.apk?label=)  | [![下载安卓版](https://img.shields.io/badge/⬇_下载-安卓版-success?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.0/QuickClipboard_Android_v1.0.3.apk)  |
-| **🌐 网盘下载**                                            |    GitHub 较慢时的备用渠道 |                                                          —                                                           | [![网盘下载](https://img.shields.io/badge/🌐_网盘下载-点击进入-red?style=for-the-badge)](https://www.123912.com/s/A9Ckjv-Vu75v?pwd=UhWA#)                                                        |
+| **NSIS 安装包**<br>`QuickClipboard_0.3.2_x64-setup.exe` | 推荐安装方式，支持自动卸载 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.3.2_x64-setup.exe?label=) | [![下载 NSIS](https://img.shields.io/badge/下载-NSIS安装包-blue?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.2/QuickClipboard_0.3.2_x64-setup.exe) |
+| **绿色版**<br>`QuickClipboard_0.3.2.exe`                |       免安装，双击即可使用 |      ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.3.2.exe?label=)      | [![下载绿色版](https://img.shields.io/badge/下载-绿色版-orange?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.2/QuickClipboard_0.3.2.exe)            |
+| **便携版**<br>`QuickClipboard_0.3.2_portable.exe`       |      更适合放U盘或移动使用 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_0.3.2_portable.exe?label=)  | [![下载便携版](https://img.shields.io/badge/下载-便携版-green?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.2/QuickClipboard_0.3.2_portable.exe)    |
+| **安卓版**<br>`QuickClipboard_Android_v1.0.3.apk`       |    适用于 Android 设备安装 | ![下载量](https://img.shields.io/github/downloads/mosheng1/QuickClipboard/QuickClipboard_Android_v1.0.3.apk?label=)  | [![下载安卓版](https://img.shields.io/badge/下载-安卓版-success?style=for-the-badge)](https://github.com/mosheng1/QuickClipboard/releases/download/v0.3.0/QuickClipboard_Android_v1.0.3.apk)  |
+| **网盘下载**                                            |    GitHub 较慢时的备用渠道 |                                                          —                                                           | [![网盘下载](https://img.shields.io/badge/网盘下载-点击进入-red?style=for-the-badge)](https://www.123912.com/s/A9Ckjv-Vu75v?pwd=UhWA#)                                                        |
 
 ---
 
-## 🌐 官方网站 · 🎬 视频教程 · 💬 社群交流
+## 官方网站 · 视频教程 · 社群交流
 
 <div align="center">
 
@@ -225,7 +225,7 @@
 
 ---
 
-## 💖 支持与赞助
+## 支持与赞助
 
 <div align="center">
   <p>如果你觉得这个项目有帮助，欢迎 Star、Fork 或通过赞赏支持开发。</p>
@@ -235,7 +235,7 @@
 
 ---
 
-## 🛠 开发与构建
+## 开发与构建
 
 ### 环境依赖
 
@@ -262,7 +262,7 @@ npm run tauri:dev:community
 npm run tauri:build:community
 ```
 
-### ⚠️ 关于私有组件
+### 关于私有组件
 
 本项目的**官方发布版**包含以下私有插件（不在开源范围内）：
 
@@ -271,7 +271,7 @@ npm run tauri:build:community
 
 ---
 
-## 📜 许可证
+## 许可证
 
  本项目基于 [Apache License 2.0](LICENSE) 开源。
 
