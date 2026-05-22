@@ -60,14 +60,8 @@ impl SettingsStorage {
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
         let mut settings: AppSettings = serde_json::from_str(&content).map_err(|e| e.to_string())?;
         let migrated = Self::migrate_settings(&mut settings);
-        let mut normalized = false;
-        
-        if settings.number_shortcuts_modifier.contains("Alt") {
-            settings.number_shortcuts_modifier = "Ctrl".to_string();
-            normalized = true;
-        }
 
-        if migrated || normalized {
+        if migrated {
             let _ = Self::save(&settings);
         }
         

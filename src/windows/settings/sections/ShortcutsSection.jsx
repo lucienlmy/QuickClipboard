@@ -108,7 +108,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
               <ShortcutInput value={settings.toggleLowMemoryModeShortcut} onChange={value => handleShortcutChange('toggleLowMemoryModeShortcut', value)} onReset={() => handleShortcutChange('toggleLowMemoryModeShortcut', '')} hasError={hasErrorStatus('toggleLowMemoryModeShortcut', 'toggle_low_memory_mode')} errorMessage={getErrorMessage('toggleLowMemoryModeShortcut', 'toggle_low_memory_mode')} />
             </SettingItem>
             <SettingItem label={t('settings.shortcuts.pastePlainText')} description={t('settings.shortcuts.pastePlainTextDesc')}>
-              <ShortcutComboInput value={settings.pastePlainTextShortcut} onChange={value => handleShortcutChange('pastePlainTextShortcut', value)} modifierOptions={['Ctrl', 'Shift']} fixedModifiers={['Ctrl']} disabledKeys={['V', 'C', 'X', 'A', 'Z', 'Y']} hasError={hasErrorStatus('pastePlainTextShortcut', 'paste_plain_text')} errorMessage={getErrorMessage('pastePlainTextShortcut', 'paste_plain_text')} />
+              <ShortcutComboInput value={settings.pastePlainTextShortcut} onChange={value => handleShortcutChange('pastePlainTextShortcut', value)} modifierOptions={['Ctrl', 'Shift', 'Alt']} disabledKeys={['C', 'X', 'A', 'Z', 'Y']} hasError={hasErrorStatus('pastePlainTextShortcut', 'paste_plain_text')} errorMessage={getErrorMessage('pastePlainTextShortcut', 'paste_plain_text')} />
             </SettingItem>
           </SettingsSection>
         );
@@ -248,7 +248,7 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
                 <Toggle checked={settings.numberShortcuts} onChange={checked => onSettingChange('numberShortcuts', checked)} />
               </SettingItem>
               <SettingItem label={t('settings.shortcuts.numberModifier')} description={t('settings.shortcuts.numberModifierDesc')}>
-                <ShortcutComboInput value={settings.numberShortcutsModifier} onChange={value => onSettingChange('numberShortcutsModifier', value)} modifierOptions={['Ctrl', 'Shift']} fixedKeyOptions={numberKeyTypeOptions} />
+                <ShortcutComboInput value={settings.numberShortcutsModifier} onChange={value => onSettingChange('numberShortcutsModifier', value)} modifierOptions={['Ctrl', 'Shift', 'Alt']} fixedKeyOptions={numberKeyTypeOptions} />
               </SettingItem>
               {hasBackendError('number_shortcuts') && (
                 <div className="px-4 py-2 text-sm text-amber-600 bg-amber-50 rounded-md">

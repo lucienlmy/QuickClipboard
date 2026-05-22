@@ -4,7 +4,8 @@ use crate::services::system::input_monitor::get_modifier_keys_state;
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT,
-    KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MENU, VK_CONTROL, VK_SHIFT, VK_V,
+    KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VK_INSERT, VK_MENU,
+    VK_CONTROL, VK_SHIFT, VK_V,
 };
 
 #[cfg(target_os = "windows")]
@@ -21,6 +22,27 @@ fn send_key(vk: u16, up: bool) {
                 wVk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY(vk),
                 wScan: 0,
                 dwFlags: if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) },
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+    unsafe { SendInput(&[input], std::mem::size_of::<INPUT>() as i32); }
+}
+
+#[cfg(target_os = "windows")]
+fn send_key_ex(vk: u16, up: bool, extended: bool) {
+    let mut flags = if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) };
+    if extended {
+        flags |= KEYEVENTF_EXTENDEDKEY;
+    }
+    let input = INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY(vk),
+                wScan: 0,
+                dwFlags: flags,
                 time: 0,
                 dwExtraInfo: 0,
             },
@@ -64,26 +86,115 @@ pub fn release_modifier_keys() -> Result<(), String> {
 }
 
 #[cfg(target_os = "windows")]
-struct KeyGuard {
-    vk: u16,
-    should_release: bool,
-}
+use std::sync::Mutex;
 
 #[cfg(target_os = "windows")]
-impl KeyGuard {
-    fn new(vk: u16, press: bool) -> Self {
-        if press {
-            send_key(vk, false);
-        }
-        Self { vk, should_release: press }
+static CURRENT_TRIGGER_KEY: Mutex<Option<u16>> = Mutex::new(None);
+
+#[cfg(target_os = "windows")]
+pub fn set_trigger_key_from_shortcut(shortcut: &str) {
+    if let Some(vk) = parse_shortcut_key_vk(shortcut) {
+        *CURRENT_TRIGGER_KEY.lock().unwrap() = Some(vk);
     }
 }
 
 #[cfg(target_os = "windows")]
-impl Drop for KeyGuard {
-    fn drop(&mut self) {
-        if self.should_release {
-            send_key(self.vk, true);
+pub fn set_trigger_key_raw(vk: u16) {
+    *CURRENT_TRIGGER_KEY.lock().unwrap() = Some(vk);
+}
+
+#[cfg(target_os = "windows")]
+fn take_trigger_key() -> Option<u16> {
+    CURRENT_TRIGGER_KEY.lock().unwrap().take()
+}
+
+// 从快捷键字符串解析非修饰键虚拟键码
+#[cfg(target_os = "windows")]
+fn parse_shortcut_key_vk(shortcut: &str) -> Option<u16> {
+    let key = shortcut
+        .split('+')
+        .last()?
+        .trim();
+    if key.is_empty() {
+        return None;
+    }
+    if key.len() == 1 {
+        let ch = key.chars().next()?;
+        if ch.is_ascii_uppercase() {
+            return Some(ch as u16);
+        }
+        if ch.is_ascii_digit() {
+            return Some(ch as u16);
+        }
+        return None;
+    }
+    match key.to_uppercase().as_str() {
+        "INSERT" => Some(0x2D),
+        other => {
+            if let Some(num) = other.strip_prefix("F").and_then(|n| n.parse::<u16>().ok()) {
+                if (1..=24).contains(&num) {
+                    return Some(0x6F + num);
+                }
+            }
+            None
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct ModifierState {
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    lwin: bool,
+    rwin: bool,
+}
+
+#[cfg(target_os = "windows")]
+impl ModifierState {
+    fn record() -> Self {
+        Self {
+            ctrl: is_key_pressed(VK_CONTROL.0),
+            shift: is_key_pressed(VK_SHIFT.0),
+            alt: is_key_pressed(VK_MENU.0),
+            lwin: is_key_pressed(0x5B),
+            rwin: is_key_pressed(0x5C),
+        }
+    }
+
+    fn release_all(&self) {
+        if self.ctrl {
+            send_key(VK_CONTROL.0, true);
+        }
+        if self.shift {
+            send_key(VK_SHIFT.0, true);
+        }
+        if self.lwin {
+            send_key(0x5B, true);
+        }
+        if self.rwin {
+            send_key(0x5C, true);
+        }
+        if self.ctrl || self.shift || self.lwin || self.rwin {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
+    fn restore(&self) {
+        if self.ctrl {
+            send_key(VK_CONTROL.0, false);
+        }
+        if self.shift {
+            send_key(VK_SHIFT.0, false);
+        }
+        if self.alt {
+            send_key(VK_MENU.0, false);
+        }
+        if self.lwin {
+            send_key(0x5B, false);
+        }
+        if self.rwin {
+            send_key(0x5C, false);
         }
     }
 }
@@ -100,93 +211,47 @@ pub fn simulate_paste() -> Result<(), String> {
     }
 }
 
-// Shift+Insert 粘贴
+// Shift+Insert 粘贴：记录修饰键 → 全部释放 → 纯净粘贴 → 恢复用户仍按住的键
 #[cfg(target_os = "windows")]
 fn simulate_paste_shift_insert() -> Result<(), String> {
-    let ctrl = is_key_pressed(VK_CONTROL.0);
-    let alt = is_key_pressed(VK_MENU.0);
-    let shift = is_key_pressed(VK_SHIFT.0);
-    let lwin = is_key_pressed(0x5B);
-    let rwin = is_key_pressed(0x5C);
-
-    // 释放会干扰 Shift+Insert 的修饰键
-    if alt {
-        for _ in 0..20 {
-            if !is_key_pressed(VK_MENU.0) { break; }
-            send_key(VK_MENU.0, true);
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
+    let mods = ModifierState::record();
+    mods.release_all();
+    if let Some(vk) = take_trigger_key() {
+        send_key(vk, true);
     }
-    if ctrl {
-        send_key(VK_CONTROL.0, true);
-    }
-    if lwin {
-        send_key(0x5B, true);
-    }
-    if rwin {
-        send_key(0x5C, true);
+    if mods.alt {
+        send_key(VK_MENU.0, true);
     }
 
-    if ctrl || alt || lwin || rwin {
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
+    send_key(VK_SHIFT.0, false);
+    send_key_ex(VK_INSERT.0, false, true);
+    std::thread::sleep(std::time::Duration::from_millis(8));
+    send_key_ex(VK_INSERT.0, true, true);
+    send_key(VK_SHIFT.0, true);
 
-    let mut enigo = Enigo::new(&Settings::default())
-        .map_err(|e| format!("创建键盘模拟器失败: {}", e))?;
-
-    if !shift {
-        enigo.key(Key::Shift, Direction::Press)
-            .map_err(|e| format!("按下Shift失败: {}", e))?;
-    }
-
-    enigo.key(Key::Other(0x2D), Direction::Click)
-        .map_err(|e| format!("按下Insert失败: {}", e))?;
-
-    if !shift {
-        enigo.key(Key::Shift, Direction::Release)
-            .map_err(|e| format!("释放Shift失败: {}", e))?;
-    }
-
-    if ctrl {
-        std::thread::sleep(std::time::Duration::from_millis(5));
-        send_key(VK_CONTROL.0, false);
-    }
-
+    mods.restore();
     Ok(())
 }
 
-// Ctrl+V 粘贴
+// Ctrl+V 粘贴：记录修饰键 → 全部释放 → 纯净粘贴 → 恢复用户仍按住的键
 #[cfg(target_os = "windows")]
 fn simulate_paste_ctrl_v() -> Result<(), String> {
-    let user_alt = is_key_pressed(VK_MENU.0);
-    
-    if user_alt {
-        // 持续释放 Alt
-        for _ in 0..20 {
-            if !is_key_pressed(VK_MENU.0) {
-                break;
-            }
-            send_key(VK_MENU.0, true);
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
+    let mods = ModifierState::record();
+    mods.release_all();
+    if let Some(vk) = take_trigger_key() {
+        send_key(vk, true);
     }
-    
-    // 发送 Ctrl+V
-    let user_ctrl = is_key_pressed(VK_CONTROL.0);
-    let _ctrl_guard = KeyGuard::new(VK_CONTROL.0, !user_ctrl);
-    
+    if mods.alt {
+        send_key(VK_MENU.0, true);
+    }
+    send_key(VK_CONTROL.0, false);
+
     send_key(VK_V.0, false);
     std::thread::sleep(std::time::Duration::from_millis(8));
     send_key(VK_V.0, true);
-    
-    drop(_ctrl_guard);
+    send_key(VK_CONTROL.0, true);
 
-    if user_alt {
-        send_key(VK_MENU.0, false);
-        send_key(VK_CONTROL.0, false);
-        send_key(VK_CONTROL.0, true);
-    }
-    
+    mods.restore();
     Ok(())
 }
 

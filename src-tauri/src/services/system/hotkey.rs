@@ -451,6 +451,7 @@ pub fn register_paste_plain_text_hotkey(shortcut_str: &str) -> Result<(), String
 
     let shortcut = parse_shortcut(shortcut_str)?;
     let key_id = "paste_plain_text".to_string();
+    let shortcut_owned = shortcut_str.to_string();
 
     app.global_shortcut()
         .on_shortcut(shortcut, move |app, _shortcut, event| {
@@ -468,7 +469,10 @@ pub fn register_paste_plain_text_hotkey(shortcut_str: &str) -> Result<(), String
                         });
                     } else if is_key_active(&key_id) {
                         // 重复按下
-                        std::thread::spawn(|| {
+                        let shortcut = shortcut_owned.clone();
+                        std::thread::spawn(move || {
+                            use crate::services::paste::keyboard::set_trigger_key_from_shortcut;
+                            set_trigger_key_from_shortcut(&shortcut);
                             let _ = simulate_paste_only();
                         });
                     }
@@ -493,6 +497,9 @@ fn handle_paste_plain_text_press(app: &AppHandle) -> Result<(), String> {
     use crate::services::database::{query_clipboard_items, get_clipboard_item_by_id, QueryParams};
     use crate::services::paste::paste_handler::paste_clipboard_item_with_format;
     use crate::services::paste::PasteAction;
+    use crate::services::paste::keyboard::set_trigger_key_from_shortcut;
+
+    set_trigger_key_from_shortcut(&crate::get_settings().paste_plain_text_shortcut);
 
     let state = crate::get_window_state();
     let is_window_visible = state.state == crate::WindowState::Visible && !state.is_hidden;
@@ -569,6 +576,12 @@ pub fn register_number_shortcuts(modifier: &str) -> Result<(), String> {
                                 }
                             } else if is_key_active(&key_id) {
                                 // 重复按下
+                                let vk = if is_f_key {
+                                    0x70 + index as u16
+                                } else {
+                                    0x31 + index as u16
+                                };
+                                crate::services::paste::keyboard::set_trigger_key_raw(vk);
                                 let _ = simulate_paste_only();
                             }
                         }
@@ -629,6 +642,17 @@ pub fn unregister_number_shortcuts() {
 fn handle_number_shortcut_press(index: usize) -> Result<(), String> {
     use crate::services::database::{query_clipboard_items, get_clipboard_item_by_id, QueryParams};
     use crate::services::paste::paste_handler::paste_clipboard_item_with_update;
+    use crate::services::paste::keyboard;
+
+    // 设置触发键虚拟键码，确保 simulate_paste 能释放正确的按键
+    let settings = crate::get_settings();
+    let is_f_key = settings.number_shortcuts_modifier.ends_with('F');
+    let vk = if is_f_key {
+        0x70 + index as u16 // F1-F9
+    } else {
+        0x31 + index as u16 // '1'-'9'
+    };
+    keyboard::set_trigger_key_raw(vk);
 
     let items = query_clipboard_items(QueryParams {
         offset: 0,
