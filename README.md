@@ -22,6 +22,10 @@
   </a>
 </div>
 
+<div align="center">
+  <b>简体中文</b> · <a href="i18n/README.en.md">English</a> · <a href="i18n/README.zh-TW.md">繁體中文</a> · <a href="i18n/README.ja.md">日本語</a> · <a href="i18n/README.ko.md">한국어</a>
+</div>
+
 ---
 
 ## 简介
@@ -55,8 +59,6 @@
 | 系统集成            | 托盘常驻 · 开机自启动 · 自动更新 · 管理员权限运行 · 启动通知                                                        |
 
 ---
-
-## 界面预览
 
 ## 界面预览
 
