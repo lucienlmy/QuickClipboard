@@ -348,7 +348,7 @@ pub fn webdav_list_history_records(device_id: &str) -> Result<Vec<CloudRecord>, 
                     image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
                     char_count, created_at, updated_at
              FROM clipboard
-             ORDER BY updated_at ASC, id ASC",
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -384,30 +384,142 @@ pub fn webdav_list_history_records(device_id: &str) -> Result<Vec<CloudRecord>, 
     })
 }
 
-pub fn webdav_upsert_history_records(records: &[CloudRecord]) -> Result<(), String> {
-    for record in records {
-        if record.uuid.trim().is_empty() {
-            continue;
-        }
-        let lan_record = lan_sync_core::ClipboardRecord {
-            uuid: record.uuid.clone(),
-            source_device_id: record.source_device_id.clone(),
-            is_remote: true,
-            content: record.content.clone(),
-            html_content: record.html_content.clone(),
-            content_type: record.content_type.clone(),
-            image_id: record.image_id.clone(),
-            source_app: record.source_app.clone(),
-            source_icon_hash: record.source_icon_hash.clone(),
-            char_count: record.char_count,
-            raw_formats: Vec::new(),
-            created_at: record.created_at,
-            updated_at: record.updated_at,
-        };
-        insert_remote_clipboard_record(&lan_record)?;
+pub fn webdav_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    if records.is_empty() {
+        return Ok(Vec::new());
     }
-    Ok(())
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        let mut changed = Vec::new();
+
+        for record in records {
+            if record.uuid.trim().is_empty() {
+                continue;
+            }
+
+            let existing = tx
+                .query_row(
+                    "SELECT COALESCE(source_device_id, ''), updated_at, content, html_content, content_type,
+                            image_id, item_order, paste_count, source_app, source_icon_hash, char_count, created_at
+                     FROM clipboard WHERE uuid = ?1 LIMIT 1",
+                    params![record.uuid],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, String>(2)?,
+                            row.get::<_, Option<String>>(3)?,
+                            row.get::<_, String>(4)?,
+                            row.get::<_, Option<String>>(5)?,
+                            row.get::<_, i64>(6)?,
+                            row.get::<_, i64>(7)?,
+                            row.get::<_, Option<String>>(8)?,
+                            row.get::<_, Option<String>>(9)?,
+                            row.get::<_, Option<i64>>(10)?,
+                            row.get::<_, i64>(11)?,
+                        ))
+                    },
+                )
+                .optional()?;
+
+            if let Some((
+                source_device_id,
+                updated_at,
+                content,
+                html_content,
+                content_type,
+                image_id,
+                item_order,
+                paste_count,
+                source_app,
+                source_icon_hash,
+                char_count,
+                created_at,
+            )) = existing {
+                let same = source_device_id == record.source_device_id
+                    && updated_at == record.updated_at
+                    && content == record.content
+                    && html_content == record.html_content
+                    && content_type == record.content_type
+                    && image_id == record.image_id
+                    && item_order == record.item_order
+                    && paste_count == record.paste_count
+                    && source_app == record.source_app
+                    && source_icon_hash == record.source_icon_hash
+                    && char_count == record.char_count
+                    && created_at == record.created_at;
+
+                if updated_at > record.updated_at || same {
+                    continue;
+                }
+
+                tx.execute(
+                    "UPDATE clipboard SET
+                        source_device_id = ?1,
+                        is_remote = 1,
+                        content = ?2,
+                        html_content = ?3,
+                        content_type = ?4,
+                        image_id = ?5,
+                        item_order = ?6,
+                        paste_count = ?7,
+                        source_app = ?8,
+                        source_icon_hash = ?9,
+                        char_count = ?10,
+                        created_at = ?11,
+                        updated_at = ?12
+                     WHERE uuid = ?13",
+                    params![
+                        record.source_device_id,
+                        record.content,
+                        record.html_content,
+                        record.content_type,
+                        record.image_id,
+                        record.item_order,
+                        record.paste_count,
+                        record.source_app,
+                        record.source_icon_hash,
+                        record.char_count,
+                        record.created_at,
+                        record.updated_at,
+                        record.uuid,
+                    ],
+                )?;
+                changed.push(record.clone());
+                continue;
+            }
+
+            tx.execute(
+                "INSERT INTO clipboard (
+                    uuid, source_device_id, is_remote, content, html_content, content_type,
+                    image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
+                    char_count, created_at, updated_at
+                 ) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10, ?11, ?12, ?13)",
+                params![
+                    record.uuid,
+                    record.source_device_id,
+                    record.content,
+                    record.html_content,
+                    record.content_type,
+                    record.image_id,
+                    record.item_order,
+                    record.paste_count,
+                    record.source_app,
+                    record.source_icon_hash,
+                    record.char_count,
+                    record.created_at,
+                    record.updated_at,
+                ],
+            )?;
+            changed.push(record.clone());
+        }
+
+        tx.commit()?;
+        Ok(changed)
+    })
 }
+
 
 // 获取剪贴板总数
 pub fn get_clipboard_count() -> Result<i64, String> {

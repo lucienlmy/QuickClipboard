@@ -16,13 +16,18 @@ pub async fn download_all(
     if settings.webdav_sync_clipboard {
         match download_collection(client, SyncCollection::History, device_id, include_own_device).await {
             Ok(records) => {
-                let count = records.len() as u32;
-                if count > 0 {
-                    crate::services::database::webdav_upsert_history_records(&records)?;
-                }
-                download_images(client, &records).await?;
+                let changed = if records.is_empty() {
+                    Vec::new()
+                } else {
+                    crate::services::database::webdav_upsert_history_records(&records)?
+                };
+                download_images(client, &changed).await?;
+                let count = changed.len() as u32;
                 report.pulled += count;
                 report.pulled_clipboard = count;
+                report
+                    .pulled_items
+                    .extend(changed.iter().map(|record| record.report_item("clipboard")));
             }
             Err(e) => report.errors.push(format!("剪贴板历史拉取失败: {}", e)),
         }
@@ -31,21 +36,36 @@ pub async fn download_all(
     if settings.webdav_sync_favorites {
         match download_collection(client, SyncCollection::Favorites, device_id, include_own_device).await {
             Ok(records) => {
-                let count = records.len() as u32;
-                if count > 0 {
-                    crate::services::database::webdav_upsert_favorite_records(&records)?;
-                }
-                download_images(client, &records).await?;
+                let changed = if records.is_empty() {
+                    Vec::new()
+                } else {
+                    crate::services::database::webdav_upsert_favorite_records(&records)?
+                };
+                download_images(client, &changed).await?;
+                let count = changed.len() as u32;
                 report.pulled += count;
                 report.pulled_favorites = count;
+                report
+                    .pulled_items
+                    .extend(changed.iter().map(|record| record.report_item("favorites")));
             }
             Err(e) => report.errors.push(format!("收藏拉取失败: {}", e)),
         }
 
         match super::groups_sync::download_groups(client, device_id, include_own_device).await {
-            Ok(count) => {
+            Ok(groups) => {
+                let count = groups.len() as u32;
                 report.pulled += count;
                 report.pulled_groups = count;
+                report.pulled_items.extend(groups.into_iter().map(|group| {
+                    super::types::SyncReportItem {
+                        category: "groups".to_string(),
+                        id: group.name.clone(),
+                        summary: group.name,
+                        source_device_id: group.source_device_id,
+                        updated_at: group.updated_at,
+                    }
+                }));
             }
             Err(e) => report.errors.push(format!("分组拉取失败: {}", e)),
         }
@@ -86,6 +106,12 @@ async fn download_collection(
         }
     }
 
+    out.sort_by(|a, b| {
+        b.item_order
+            .cmp(&a.item_order)
+            .then_with(|| b.updated_at.cmp(&a.updated_at))
+            .then_with(|| a.uuid.cmp(&b.uuid))
+    });
     Ok(out)
 }
 

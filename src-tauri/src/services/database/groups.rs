@@ -1,7 +1,7 @@
 use super::models::GroupInfo;
 use super::connection::with_connection;
 use crate::services::webdav_sync::types::CloudGroup;
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use chrono;
 
 // 获取所有分组
@@ -32,23 +32,72 @@ pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
     })
 }
 
-pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<(), String> {
+pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, String> {
     if groups.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     with_connection(|conn| {
         let tx = conn.unchecked_transaction()?;
+        let mut changed = Vec::new();
+
         for group in groups {
+            let existing = tx
+                .query_row(
+                    "SELECT icon, color, order_index, COALESCE(source_device_id, ''), created_at, updated_at
+                     FROM groups WHERE name = ?1 LIMIT 1",
+                    params![group.name],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, i32>(2)?,
+                            row.get::<_, String>(3)?,
+                            row.get::<_, i64>(4)?,
+                            row.get::<_, i64>(5)?,
+                        ))
+                    },
+                )
+                .optional()?;
+
+            if let Some((icon, color, order, source_device_id, created_at, updated_at)) = existing {
+                let same = icon == group.icon
+                    && color == group.color
+                    && order == group.order
+                    && source_device_id == group.source_device_id
+                    && created_at == group.created_at
+                    && updated_at == group.updated_at;
+
+                if updated_at > group.updated_at || same {
+                    continue;
+                }
+
+                tx.execute(
+                    "UPDATE groups SET
+                        icon = ?1,
+                        color = ?2,
+                        order_index = ?3,
+                        source_device_id = ?4,
+                        created_at = ?5,
+                        updated_at = ?6
+                     WHERE name = ?7",
+                    params![
+                        group.icon,
+                        group.color,
+                        group.order,
+                        group.source_device_id,
+                        group.created_at,
+                        group.updated_at,
+                        group.name,
+                    ],
+                )?;
+                changed.push(group.clone());
+                continue;
+            }
+
             tx.execute(
                 "INSERT INTO groups (name, icon, color, order_index, source_device_id, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                 ON CONFLICT(name) DO UPDATE SET
-                    icon = excluded.icon,
-                    color = excluded.color,
-                    order_index = excluded.order_index,
-                    source_device_id = excluded.source_device_id,
-                    updated_at = excluded.updated_at",
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     group.name,
                     group.icon,
@@ -59,8 +108,11 @@ pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<(), String> {
                     group.updated_at,
                 ],
             )?;
+            changed.push(group.clone());
         }
-        tx.commit()
+
+        tx.commit()?;
+        Ok(changed)
     })
 }
 

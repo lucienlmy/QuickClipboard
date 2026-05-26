@@ -11,10 +11,15 @@ pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncRe
 
     if settings.webdav_sync_clipboard {
         let history_records = crate::services::database::webdav_list_history_records(device_id)?;
+        let items = history_records
+            .iter()
+            .map(|record| record.report_item("clipboard"))
+            .collect::<Vec<_>>();
         match upload_collection(client, SyncCollection::History, history_records).await {
             Ok(count) => {
                 report.pushed += count;
                 report.pushed_clipboard = count;
+                report.pushed_items.extend(items);
             }
             Err(e) => report.errors.push(format!("剪贴板历史推送失败: {}", e)),
         }
@@ -22,18 +27,33 @@ pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncRe
 
     if settings.webdav_sync_favorites {
         let favorite_records = crate::services::database::webdav_list_favorite_records(device_id)?;
+        let items = favorite_records
+            .iter()
+            .map(|record| record.report_item("favorites"))
+            .collect::<Vec<_>>();
         match upload_collection(client, SyncCollection::Favorites, favorite_records).await {
             Ok(count) => {
                 report.pushed += count;
                 report.pushed_favorites = count;
+                report.pushed_items.extend(items);
             }
             Err(e) => report.errors.push(format!("收藏推送失败: {}", e)),
         }
 
         match super::groups_sync::upload_groups(client, device_id).await {
-            Ok(count) => {
+            Ok(groups) => {
+                let count = groups.len() as u32;
                 report.pushed += count;
                 report.pushed_groups = count;
+                report.pushed_items.extend(groups.into_iter().map(|group| {
+                    super::types::SyncReportItem {
+                        category: "groups".to_string(),
+                        id: group.name.clone(),
+                        summary: group.name,
+                        source_device_id: group.source_device_id,
+                        updated_at: group.updated_at,
+                    }
+                }));
             }
             Err(e) => report.errors.push(format!("分组推送失败: {}", e)),
         }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::types::{CloudGroup, GroupList};
 use super::webdav_client::WebdavClient;
 
-pub async fn upload_groups(client: &WebdavClient, device_id: &str) -> Result<u32, String> {
+pub async fn upload_groups(client: &WebdavClient, device_id: &str) -> Result<Vec<CloudGroup>, String> {
     let mut remote = client
         .get_json::<GroupList>("groups/groups.json")
         .await?
@@ -12,31 +12,32 @@ pub async fn upload_groups(client: &WebdavClient, device_id: &str) -> Result<u32
         .into_iter()
         .map(|group| (group.name.clone(), group))
         .collect::<HashMap<_, _>>();
+    let mut changed = Vec::new();
 
     for mut group in crate::services::database::webdav_list_groups(device_id)? {
         group.source_device_id = device_id.to_string();
         match remote.get(&group.name) {
             Some(existing) if existing.updated_at >= group.updated_at => {}
             _ => {
-                remote.insert(group.name.clone(), group);
+                remote.insert(group.name.clone(), group.clone());
+                changed.push(group);
             }
         }
     }
 
     let mut groups = remote.into_values().collect::<Vec<_>>();
     groups.sort_by_key(|g| (g.order, g.name.clone()));
-    let count = groups.len() as u32;
     client.put_json("groups/groups.json", &GroupList { groups }).await?;
-    Ok(count)
+    Ok(changed)
 }
 
 pub async fn download_groups(
     client: &WebdavClient,
     device_id: &str,
     include_own_device: bool,
-) -> Result<u32, String> {
+) -> Result<Vec<CloudGroup>, String> {
     let Some(remote) = client.get_json::<GroupList>("groups/groups.json").await? else {
-        return Ok(0);
+        return Ok(Vec::new());
     };
 
     let groups = remote
@@ -44,9 +45,5 @@ pub async fn download_groups(
         .into_iter()
         .filter(|group| include_own_device || group.source_device_id != device_id)
         .collect::<Vec<CloudGroup>>();
-    let count = groups.len() as u32;
-    if count > 0 {
-        crate::services::database::webdav_save_groups(&groups)?;
-    }
-    Ok(count)
+    crate::services::database::webdav_save_groups(&groups)
 }

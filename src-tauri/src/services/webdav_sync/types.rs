@@ -31,6 +31,43 @@ pub struct SyncReport {
     pub pulled_clipboard: u32,
     pub pulled_favorites: u32,
     pub pulled_groups: u32,
+    pub pushed_items: Vec<SyncReportItem>,
+    pub pulled_items: Vec<SyncReportItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncReportItem {
+    pub category: String,
+    pub id: String,
+    pub summary: String,
+    pub source_device_id: String,
+    pub updated_at: i64,
+}
+
+impl CloudRecord {
+    pub fn report_item(&self, category: &str) -> SyncReportItem {
+        SyncReportItem {
+            category: category.to_string(),
+            id: self.uuid.clone(),
+            summary: summarize_record(self),
+            source_device_id: self.source_device_id.clone(),
+            updated_at: self.updated_at,
+        }
+    }
+}
+
+fn summarize_record(record: &CloudRecord) -> String {
+    let raw = if !record.title.trim().is_empty() {
+        record.title.trim()
+    } else {
+        record.content.trim()
+    };
+
+    let mut summary = raw.chars().take(40).collect::<String>();
+    if raw.chars().count() > 40 {
+        summary.push('…');
+    }
+    summary
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

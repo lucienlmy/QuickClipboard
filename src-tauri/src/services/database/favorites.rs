@@ -44,7 +44,7 @@ pub fn webdav_list_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>,
             "SELECT id, COALESCE(source_device_id, ''), title, content, html_content, content_type,
                     image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
              FROM favorites
-             ORDER BY updated_at ASC, id ASC",
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -76,33 +76,116 @@ pub fn webdav_list_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>,
     })
 }
 
-pub fn webdav_upsert_favorite_records(records: &[CloudRecord]) -> Result<(), String> {
+pub fn webdav_upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
     if records.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     with_connection(|conn| {
         let tx = conn.unchecked_transaction()?;
+        let mut changed = Vec::new();
+
         for record in records {
             if record.uuid.trim().is_empty() {
                 continue;
             }
+
+            let existing = tx
+                .query_row(
+                    "SELECT COALESCE(source_device_id, ''), title, content, html_content, content_type,
+                            image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+                     FROM favorites WHERE id = ?1 LIMIT 1",
+                    params![record.uuid],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                            row.get::<_, Option<String>>(3)?,
+                            row.get::<_, String>(4)?,
+                            row.get::<_, Option<String>>(5)?,
+                            row.get::<_, String>(6)?,
+                            row.get::<_, i64>(7)?,
+                            row.get::<_, i64>(8)?,
+                            row.get::<_, Option<i64>>(9)?,
+                            row.get::<_, i64>(10)?,
+                            row.get::<_, i64>(11)?,
+                        ))
+                    },
+                )
+                .optional()?;
+
+            if let Some((
+                source_device_id,
+                title,
+                content,
+                html_content,
+                content_type,
+                image_id,
+                group_name,
+                item_order,
+                paste_count,
+                char_count,
+                created_at,
+                updated_at,
+            )) = existing {
+                let same = source_device_id == record.source_device_id
+                    && title == record.title
+                    && content == record.content
+                    && html_content == record.html_content
+                    && content_type == record.content_type
+                    && image_id == record.image_id
+                    && group_name == record.group_name
+                    && item_order == record.item_order
+                    && paste_count == record.paste_count
+                    && char_count == record.char_count
+                    && created_at == record.created_at
+                    && updated_at == record.updated_at;
+
+                if updated_at > record.updated_at || same {
+                    continue;
+                }
+
+                tx.execute(
+                    "UPDATE favorites SET
+                        source_device_id = ?1,
+                        title = ?2,
+                        content = ?3,
+                        html_content = ?4,
+                        content_type = ?5,
+                        image_id = ?6,
+                        group_name = ?7,
+                        item_order = ?8,
+                        paste_count = ?9,
+                        char_count = ?10,
+                        created_at = ?11,
+                        updated_at = ?12
+                     WHERE id = ?13",
+                    params![
+                        record.source_device_id,
+                        record.title,
+                        record.content,
+                        record.html_content,
+                        record.content_type,
+                        record.image_id,
+                        record.group_name,
+                        record.item_order,
+                        record.paste_count,
+                        record.char_count,
+                        record.created_at,
+                        record.updated_at,
+                        record.uuid,
+                    ],
+                )?;
+                changed.push(record.clone());
+                continue;
+            }
+
             tx.execute(
                 "INSERT INTO favorites (
                     id, source_device_id, title, content, html_content, content_type,
                     image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
-                 ON CONFLICT(id) DO UPDATE SET
-                    source_device_id = excluded.source_device_id,
-                    title = excluded.title,
-                    content = excluded.content,
-                    html_content = excluded.html_content,
-                    content_type = excluded.content_type,
-                    image_id = excluded.image_id,
-                    group_name = excluded.group_name,
-                    paste_count = excluded.paste_count,
-                    char_count = excluded.char_count,
-                    updated_at = excluded.updated_at",
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     record.uuid,
                     record.source_device_id,
@@ -119,8 +202,11 @@ pub fn webdav_upsert_favorite_records(records: &[CloudRecord]) -> Result<(), Str
                     record.updated_at,
                 ],
             )?;
+            changed.push(record.clone());
         }
-        tx.commit()
+
+        tx.commit()?;
+        Ok(changed)
     })
 }
 

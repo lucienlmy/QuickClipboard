@@ -2,21 +2,39 @@
 function SettingItem({
   label,
   description,
-  children
+  children,
+  stacked = false
 }) {
   const anchor = typeof label === 'string' ? encodeURIComponent(label) : '';
-  return <div className="flex items-center justify-between py-3.5 border-b border-qc-border last:border-0" data-setting-anchor={anchor}>
-      <div className="flex-1 pr-6">
-        <label className="block text-sm font-medium text-qc-fg">
-          {label}
-        </label>
-        {description && <p className="mt-0.5 text-xs text-qc-fg-muted leading-relaxed">
-            {description}
-          </p>}
+  const labelBlock = (
+    <>
+      <label className="block text-sm font-medium text-qc-fg">
+        {label}
+      </label>
+      {description && (
+        <p className="mt-0.5 text-xs text-qc-fg-muted leading-relaxed">
+          {description}
+        </p>
+      )}
+    </>
+  );
+
+  if (stacked) {
+    return (
+      <div className="flex flex-col gap-3 py-3.5 border-b border-qc-border last:border-0" data-setting-anchor={anchor}>
+        <div>{labelBlock}</div>
+        <div className="min-w-0 w-full">{children}</div>
       </div>
-      <div className="flex-shrink-0">
-        {children}
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between py-3.5 border-b border-qc-border last:border-0" data-setting-anchor={anchor}>
+      <div className="flex-1 pr-6 min-w-0">
+        {labelBlock}
       </div>
-    </div>;
+      <div className="flex-shrink-0">{children}</div>
+    </div>
+  );
 }
 export default SettingItem;
