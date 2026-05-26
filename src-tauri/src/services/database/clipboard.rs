@@ -3,7 +3,7 @@ use super::connection::{with_connection, MAX_CONTENT_LENGTH};
 use crate::services::webdav_sync::types::CloudRecord;
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use chrono;
 use uuid::Uuid;
 
@@ -381,6 +381,61 @@ pub fn webdav_list_history_records(device_id: &str) -> Result<Vec<CloudRecord>, 
         })?;
 
         Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_list_own_history_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type,
+                    image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
+                    char_count, created_at, updated_at
+             FROM clipboard
+             WHERE source_device_id IS NULL OR source_device_id = '' OR source_device_id = ?1
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map(params![device_id], |row| {
+            let id: i64 = row.get(0)?;
+            let uuid_opt: Option<String> = row.get(1)?;
+            let uuid = uuid_opt.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| id.to_string());
+
+            Ok(CloudRecord {
+                uuid,
+                source_device_id: device_id.to_string(),
+                is_remote: row.get::<_, i64>(3)? != 0,
+                content: row.get(4)?,
+                html_content: row.get(5)?,
+                content_type: row.get(6)?,
+                image_id: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(10)?,
+                source_app: row.get(11)?,
+                source_icon_hash: row.get(12)?,
+                char_count: row.get(13)?,
+                title: String::new(),
+                group_name: "全部".to_string(),
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_history_record_states() -> Result<HashMap<String, i64>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT uuid, updated_at FROM clipboard WHERE uuid IS NOT NULL AND uuid != ''",
+        )?;
+        let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))?;
+        let mut states = HashMap::new();
+        for row in rows {
+            let (uuid, updated_at) = row?;
+            states.insert(uuid, updated_at);
+        }
+        Ok(states)
     })
 }
 

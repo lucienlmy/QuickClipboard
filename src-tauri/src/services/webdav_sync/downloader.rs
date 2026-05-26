@@ -1,8 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use super::chunk_manager::load_chunk;
 use super::index_manager::load_index;
-use super::types::{CloudRecord, SyncCollection, SyncReport};
+use super::types::{CloudRecord, SyncCollection, SyncIndexEntry, SyncReport};
 use super::webdav_client::WebdavClient;
 
 pub async fn download_all(
@@ -14,7 +14,16 @@ pub async fn download_all(
     let settings = crate::services::get_settings();
 
     if settings.webdav_sync_clipboard {
-        match download_collection(client, SyncCollection::History, device_id, include_own_device).await {
+        let local_states = crate::services::database::webdav_history_record_states()?;
+        match download_collection(
+            client,
+            SyncCollection::History,
+            device_id,
+            include_own_device,
+            &local_states,
+        )
+        .await
+        {
             Ok(records) => {
                 let changed = if records.is_empty() {
                     Vec::new()
@@ -34,7 +43,16 @@ pub async fn download_all(
     }
 
     if settings.webdav_sync_favorites {
-        match download_collection(client, SyncCollection::Favorites, device_id, include_own_device).await {
+        let local_states = crate::services::database::webdav_favorite_record_states()?;
+        match download_collection(
+            client,
+            SyncCollection::Favorites,
+            device_id,
+            include_own_device,
+            &local_states,
+        )
+        .await
+        {
             Ok(records) => {
                 let changed = if records.is_empty() {
                     Vec::new()
@@ -79,16 +97,36 @@ async fn download_collection(
     collection: SyncCollection,
     device_id: &str,
     include_own_device: bool,
+    local_states: &HashMap<String, i64>,
 ) -> Result<Vec<CloudRecord>, String> {
     let index = load_index(client, collection).await?;
     if index.entries.is_empty() {
         return Ok(Vec::new());
     }
 
-    let mut chunk_ids = index
-        .entries
+    let mut selected_entries = HashMap::<String, SyncIndexEntry>::new();
+    for (uuid, entry) in index.entries {
+        if !include_own_device && entry.source_device_id == device_id {
+            continue;
+        }
+
+        if !include_own_device {
+            if let Some(local_updated_at) = local_states.get(&uuid) {
+                if *local_updated_at >= entry.updated_at {
+                    continue;
+                }
+            }
+        }
+
+        selected_entries.insert(uuid, entry);
+    }
+
+    if selected_entries.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut chunk_ids = selected_entries
         .values()
-        .filter(|entry| include_own_device || entry.source_device_id != device_id)
         .map(|entry| entry.chunk)
         .collect::<HashSet<_>>()
         .into_iter()
@@ -98,8 +136,17 @@ async fn download_collection(
     let mut out = Vec::new();
     for chunk_id in chunk_ids {
         let chunk = load_chunk(client, collection, chunk_id).await?;
-        for record in chunk.records.into_values() {
+        for (uuid, record) in chunk.records {
+            let Some(entry) = selected_entries.get(&uuid) else {
+                continue;
+            };
+            if entry.chunk != chunk_id {
+                continue;
+            }
             if !include_own_device && record.source_device_id == device_id {
+                continue;
+            }
+            if record.updated_at < entry.updated_at {
                 continue;
             }
             out.push(record);

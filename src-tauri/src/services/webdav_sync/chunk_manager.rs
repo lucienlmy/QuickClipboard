@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use super::types::{CloudRecord, RecordChunk, SyncCollection, CHUNK_RECORD_LIMIT};
+use super::types::{RecordChunk, SyncCollection};
 use super::webdav_client::WebdavClient;
 
 pub fn chunk_path(collection: SyncCollection, chunk: u32) -> String {
@@ -25,21 +23,4 @@ pub async fn save_chunk(
     data: &RecordChunk,
 ) -> Result<(), String> {
     client.put_json(&chunk_path(collection, chunk), data).await
-}
-
-pub fn build_chunks(records: Vec<CloudRecord>) -> Vec<RecordChunk> {
-    if records.is_empty() {
-        return Vec::new();
-    }
-
-    records
-        .chunks(CHUNK_RECORD_LIMIT)
-        .map(|items| RecordChunk {
-            records: items
-                .iter()
-                .cloned()
-                .map(|record| (record.uuid.clone(), record))
-                .collect::<HashMap<_, _>>(),
-        })
-        .collect()
 }

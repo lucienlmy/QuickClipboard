@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::models::{ClipboardDataSeed, FavoriteItem, PaginatedResult, FavoritesQueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
 use crate::services::webdav_sync::types::CloudRecord;
@@ -73,6 +75,54 @@ pub fn webdav_list_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>,
         })?;
 
         Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_list_own_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, content, html_content, content_type,
+                    image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+             FROM favorites
+             WHERE source_device_id IS NULL OR source_device_id = '' OR source_device_id = ?1
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map(params![device_id], |row| {
+            Ok(CloudRecord {
+                uuid: row.get(0)?,
+                source_device_id: device_id.to_string(),
+                is_remote: false,
+                title: row.get(1)?,
+                content: row.get(2)?,
+                html_content: row.get(3)?,
+                content_type: row.get(4)?,
+                image_id: row.get(5)?,
+                group_name: row.get(6)?,
+                item_order: row.get(7)?,
+                paste_count: row.get(8)?,
+                char_count: row.get(9)?,
+                source_app: None,
+                source_icon_hash: None,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_favorite_record_states() -> Result<HashMap<String, i64>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare("SELECT id, updated_at FROM favorites")?;
+        let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))?;
+        let mut states = HashMap::new();
+        for row in rows {
+            let (id, updated_at) = row?;
+            states.insert(id, updated_at);
+        }
+        Ok(states)
     })
 }
 

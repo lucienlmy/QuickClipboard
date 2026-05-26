@@ -1,41 +1,42 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use super::chunk_manager::{build_chunks, save_chunk};
-use super::index_manager::save_index;
-use super::types::{CloudRecord, SyncCollection, SyncIndex, SyncIndexEntry, SyncReport};
+use super::chunk_manager::{load_chunk, save_chunk};
+use super::index_manager::{load_index, save_index};
+use super::types::{CloudRecord, RecordChunk, SyncCollection, SyncIndexEntry, SyncReport, CHUNK_RECORD_LIMIT};
 use super::webdav_client::WebdavClient;
 
 pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncReport, String> {
     let mut report = SyncReport::default();
     let settings = crate::services::get_settings();
+    let mut uploaded_records = Vec::new();
 
     if settings.webdav_sync_clipboard {
-        let history_records = crate::services::database::webdav_list_history_records(device_id)?;
-        let items = history_records
-            .iter()
-            .map(|record| record.report_item("clipboard"))
-            .collect::<Vec<_>>();
-        match upload_collection(client, SyncCollection::History, history_records).await {
-            Ok(count) => {
+        let history_records = crate::services::database::webdav_list_own_history_records(device_id)?;
+        match upload_collection_incremental(client, SyncCollection::History, history_records, device_id).await {
+            Ok(records) => {
+                let count = records.len() as u32;
                 report.pushed += count;
                 report.pushed_clipboard = count;
-                report.pushed_items.extend(items);
+                report
+                    .pushed_items
+                    .extend(records.iter().map(|record| record.report_item("clipboard")));
+                uploaded_records.extend(records);
             }
             Err(e) => report.errors.push(format!("剪贴板历史推送失败: {}", e)),
         }
     }
 
     if settings.webdav_sync_favorites {
-        let favorite_records = crate::services::database::webdav_list_favorite_records(device_id)?;
-        let items = favorite_records
-            .iter()
-            .map(|record| record.report_item("favorites"))
-            .collect::<Vec<_>>();
-        match upload_collection(client, SyncCollection::Favorites, favorite_records).await {
-            Ok(count) => {
+        let favorite_records = crate::services::database::webdav_list_own_favorite_records(device_id)?;
+        match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records, device_id).await {
+            Ok(records) => {
+                let count = records.len() as u32;
                 report.pushed += count;
                 report.pushed_favorites = count;
-                report.pushed_items.extend(items);
+                report
+                    .pushed_items
+                    .extend(records.iter().map(|record| record.report_item("favorites")));
+                uploaded_records.extend(records);
             }
             Err(e) => report.errors.push(format!("收藏推送失败: {}", e)),
         }
@@ -59,23 +60,47 @@ pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncRe
         }
     }
 
-    upload_images(client).await.map_err(|e| format!("上传图片失败: {}", e))?;
+    upload_images(client, &uploaded_records)
+        .await
+        .map_err(|e| format!("上传图片失败: {}", e))?;
 
     Ok(report)
 }
 
-async fn upload_collection(
+async fn upload_collection_incremental(
     client: &WebdavClient,
     collection: SyncCollection,
     records: Vec<CloudRecord>,
-) -> Result<u32, String> {
-    let chunks = build_chunks(records);
-    let mut index = SyncIndex::default();
-    index.next_chunk = chunks.len() as u32;
+    device_id: &str,
+) -> Result<Vec<CloudRecord>, String> {
+    let mut index = load_index(client, collection).await?;
+    let mut changed = Vec::new();
+    let mut existing_by_chunk: HashMap<u32, Vec<CloudRecord>> = HashMap::new();
+    let mut new_records = Vec::new();
 
-    for (chunk_id, chunk) in chunks.iter().enumerate() {
-        let chunk_id = chunk_id as u32;
-        for record in chunk.records.values() {
+    for record in records {
+        let needs_upload = match index.entries.get(&record.uuid) {
+            Some(entry) if entry.source_device_id != device_id => false,
+            Some(entry) => entry.updated_at < record.updated_at,
+            None => true,
+        };
+
+        if !needs_upload {
+            continue;
+        }
+
+        if let Some(entry) = index.entries.get(&record.uuid) {
+            existing_by_chunk.entry(entry.chunk).or_default().push(record.clone());
+        } else {
+            new_records.push(record.clone());
+        }
+        changed.push(record);
+    }
+
+    for (chunk_id, records) in existing_by_chunk {
+        let mut chunk = load_chunk(client, collection, chunk_id).await?;
+        for record in records {
+            chunk.records.insert(record.uuid.clone(), record.clone());
             index.entries.insert(
                 record.uuid.clone(),
                 SyncIndexEntry {
@@ -85,20 +110,52 @@ async fn upload_collection(
                 },
             );
         }
-        save_chunk(client, collection, chunk_id, chunk).await?;
+        save_chunk(client, collection, chunk_id, &chunk).await?;
     }
 
-    let count = index.entries.len() as u32;
-    save_index(client, collection, &index).await?;
-    Ok(count)
+    let mut new_records_by_chunk = Vec::<(u32, Vec<CloudRecord>)>::new();
+    let mut current_chunk_id = index.next_chunk;
+    let mut current_chunk_records = Vec::new();
+    for record in new_records {
+        current_chunk_records.push(record);
+        if current_chunk_records.len() >= CHUNK_RECORD_LIMIT {
+            new_records_by_chunk.push((current_chunk_id, current_chunk_records));
+            current_chunk_id = current_chunk_id.saturating_add(1);
+            current_chunk_records = Vec::new();
+        }
+    }
+    if !current_chunk_records.is_empty() {
+        new_records_by_chunk.push((current_chunk_id, current_chunk_records));
+        current_chunk_id = current_chunk_id.saturating_add(1);
+    }
+
+    for (chunk_id, records) in new_records_by_chunk {
+        let mut chunk = RecordChunk::default();
+        for record in records {
+            chunk.records.insert(record.uuid.clone(), record.clone());
+            index.entries.insert(
+                record.uuid.clone(),
+                SyncIndexEntry {
+                    chunk: chunk_id,
+                    updated_at: record.updated_at,
+                    source_device_id: record.source_device_id.clone(),
+                },
+            );
+        }
+        save_chunk(client, collection, chunk_id, &chunk).await?;
+    }
+    index.next_chunk = current_chunk_id;
+
+    if !changed.is_empty() {
+        save_index(client, collection, &index).await?;
+    }
+
+    Ok(changed)
 }
 
-async fn upload_images(client: &WebdavClient) -> Result<(), String> {
+async fn upload_images(client: &WebdavClient, records: &[CloudRecord]) -> Result<(), String> {
     let mut image_ids = HashSet::new();
-    for record in crate::services::database::webdav_list_history_records("")? {
-        collect_image_ids(&mut image_ids, record.image_id.as_deref());
-    }
-    for record in crate::services::database::webdav_list_favorite_records("")? {
+    for record in records {
         collect_image_ids(&mut image_ids, record.image_id.as_deref());
     }
 
