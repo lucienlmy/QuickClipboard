@@ -1,5 +1,6 @@
 use super::models::{ClipboardDataItem, ClipboardDataSeed, ClipboardItem, PaginatedResult, QueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
+use crate::services::webdav_sync::types::CloudRecord;
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use std::collections::HashSet;
@@ -338,6 +339,74 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
         
         Ok(PaginatedResult::new(total_count, result_items, params.offset, params.limit))
     })
+}
+
+pub fn webdav_list_history_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type,
+                    image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
+                    char_count, created_at, updated_at
+             FROM clipboard
+             ORDER BY updated_at ASC, id ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let uuid_opt: Option<String> = row.get(1)?;
+            let uuid = uuid_opt.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| id.to_string());
+            let source_device_id = row
+                .get::<_, Option<String>>(2)?
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| device_id.to_string());
+
+            Ok(CloudRecord {
+                uuid,
+                source_device_id,
+                is_remote: row.get::<_, i64>(3)? != 0,
+                content: row.get(4)?,
+                html_content: row.get(5)?,
+                content_type: row.get(6)?,
+                image_id: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(10)?,
+                source_app: row.get(11)?,
+                source_icon_hash: row.get(12)?,
+                char_count: row.get(13)?,
+                title: String::new(),
+                group_name: "全部".to_string(),
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_upsert_history_records(records: &[CloudRecord]) -> Result<(), String> {
+    for record in records {
+        if record.uuid.trim().is_empty() {
+            continue;
+        }
+        let lan_record = lan_sync_core::ClipboardRecord {
+            uuid: record.uuid.clone(),
+            source_device_id: record.source_device_id.clone(),
+            is_remote: true,
+            content: record.content.clone(),
+            html_content: record.html_content.clone(),
+            content_type: record.content_type.clone(),
+            image_id: record.image_id.clone(),
+            source_app: record.source_app.clone(),
+            source_icon_hash: record.source_icon_hash.clone(),
+            char_count: record.char_count,
+            raw_formats: Vec::new(),
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        };
+        insert_remote_clipboard_record(&lan_record)?;
+    }
+    Ok(())
 }
 
 // 获取剪贴板总数

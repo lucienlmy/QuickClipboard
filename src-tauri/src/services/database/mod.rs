@@ -10,3 +10,27 @@ pub use clipboard::*;
 pub use favorites::*;
 pub use groups::*;
 
+pub fn webdav_local_sync_signature() -> Result<String, String> {
+    connection::with_connection(|conn| {
+        let clipboard: (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), COALESCE(MAX(updated_at), 0) FROM clipboard",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let favorites: (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), COALESCE(MAX(updated_at), 0) FROM favorites",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let groups: (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), COALESCE(MAX(updated_at), 0) FROM groups",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        Ok(format!(
+            "c:{}:{};f:{}:{};g:{}:{}",
+            clipboard.0, clipboard.1, favorites.0, favorites.1, groups.0, groups.1
+        ))
+    })
+}
+

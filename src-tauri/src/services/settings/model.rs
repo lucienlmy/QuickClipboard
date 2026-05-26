@@ -177,6 +177,19 @@ pub struct AppSettings {
     #[serde(alias = "use_custom_storage")]
     pub use_custom_storage: bool,
 
+    // WebDAV Sync 设置
+    pub webdav_enabled: bool,
+    pub webdav_url: String,
+    pub webdav_username: String,
+    pub webdav_password: String,
+    pub webdav_root_path: String,
+    pub webdav_auto_push: bool,
+    pub webdav_push_delay_secs: u64,
+    pub webdav_auto_pull: bool,
+    pub webdav_pull_interval_secs: u64,
+    pub webdav_sync_clipboard: bool,
+    pub webdav_sync_favorites: bool,
+
     // LAN Sync 设置
     pub lan_sync_enabled: bool,
     #[serde(default)]
@@ -352,6 +365,18 @@ impl Default for AppSettings {
 
             custom_storage_path: None,
             use_custom_storage: false,
+
+            webdav_enabled: false,
+            webdav_url: String::new(),
+            webdav_username: String::new(),
+            webdav_password: String::new(),
+            webdav_root_path: "quickclipboard".to_string(),
+            webdav_auto_push: false,
+            webdav_push_delay_secs: 10,
+            webdav_auto_pull: false,
+            webdav_pull_interval_secs: 30,
+            webdav_sync_clipboard: true,
+            webdav_sync_favorites: true,
 
             lan_sync_enabled: false,
             lan_sync_auto_start: false,

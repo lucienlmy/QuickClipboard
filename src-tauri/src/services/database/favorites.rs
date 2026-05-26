@@ -1,5 +1,6 @@
 use super::models::{ClipboardDataSeed, FavoriteItem, PaginatedResult, FavoritesQueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
+use crate::services::webdav_sync::types::CloudRecord;
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use chrono;
@@ -35,6 +36,92 @@ pub fn update_missing_favorite_char_counts(items: Vec<(String, String, String)>)
             Ok(())
         });
     });
+}
+
+pub fn webdav_list_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, COALESCE(source_device_id, ''), title, content, html_content, content_type,
+                    image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+             FROM favorites
+             ORDER BY updated_at ASC, id ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let source_device_id = row
+                .get::<_, String>(1)?
+                .trim()
+                .to_string();
+            Ok(CloudRecord {
+                uuid: row.get(0)?,
+                source_device_id: if source_device_id.is_empty() { device_id.to_string() } else { source_device_id },
+                is_remote: false,
+                title: row.get(2)?,
+                content: row.get(3)?,
+                html_content: row.get(4)?,
+                content_type: row.get(5)?,
+                image_id: row.get(6)?,
+                group_name: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(9)?,
+                char_count: row.get(10)?,
+                source_app: None,
+                source_icon_hash: None,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_upsert_favorite_records(records: &[CloudRecord]) -> Result<(), String> {
+    if records.is_empty() {
+        return Ok(());
+    }
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        for record in records {
+            if record.uuid.trim().is_empty() {
+                continue;
+            }
+            tx.execute(
+                "INSERT INTO favorites (
+                    id, source_device_id, title, content, html_content, content_type,
+                    image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                 ON CONFLICT(id) DO UPDATE SET
+                    source_device_id = excluded.source_device_id,
+                    title = excluded.title,
+                    content = excluded.content,
+                    html_content = excluded.html_content,
+                    content_type = excluded.content_type,
+                    image_id = excluded.image_id,
+                    group_name = excluded.group_name,
+                    paste_count = excluded.paste_count,
+                    char_count = excluded.char_count,
+                    updated_at = excluded.updated_at",
+                params![
+                    record.uuid,
+                    record.source_device_id,
+                    record.title,
+                    record.content,
+                    record.html_content,
+                    record.content_type,
+                    record.image_id,
+                    record.group_name,
+                    record.item_order,
+                    record.paste_count,
+                    record.char_count,
+                    record.created_at,
+                    record.updated_at,
+                ],
+            )?;
+        }
+        tx.commit()
+    })
 }
 
 // 分页查询收藏列表

@@ -1,7 +1,68 @@
 use super::models::GroupInfo;
 use super::connection::with_connection;
+use crate::services::webdav_sync::types::CloudGroup;
 use rusqlite::params;
 use chrono;
+
+// 获取所有分组
+pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT g.name, g.icon, g.color, g.order_index, COALESCE(g.source_device_id, ''),
+                    g.created_at, g.updated_at, COUNT(f.id) AS item_count
+             FROM groups g
+             LEFT JOIN favorites f ON f.group_name = g.name
+             GROUP BY g.name, g.icon, g.color, g.order_index, g.source_device_id, g.created_at, g.updated_at
+             HAVING item_count > 0
+             ORDER BY g.order_index, g.name",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let source_device_id = row.get::<_, String>(4)?.trim().to_string();
+            Ok(CloudGroup {
+                name: row.get(0)?,
+                icon: row.get(1)?,
+                color: row.get(2)?,
+                order: row.get(3)?,
+                source_device_id: if source_device_id.is_empty() { device_id.to_string() } else { source_device_id },
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })?;
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<(), String> {
+    if groups.is_empty() {
+        return Ok(());
+    }
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        for group in groups {
+            tx.execute(
+                "INSERT INTO groups (name, icon, color, order_index, source_device_id, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                 ON CONFLICT(name) DO UPDATE SET
+                    icon = excluded.icon,
+                    color = excluded.color,
+                    order_index = excluded.order_index,
+                    source_device_id = excluded.source_device_id,
+                    updated_at = excluded.updated_at",
+                params![
+                    group.name,
+                    group.icon,
+                    group.color,
+                    group.order,
+                    group.source_device_id,
+                    group.created_at,
+                    group.updated_at,
+                ],
+            )?;
+        }
+        tx.commit()
+    })
+}
 
 // 获取所有分组
 pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {

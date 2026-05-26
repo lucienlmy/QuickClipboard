@@ -275,6 +275,13 @@ pub fn run() {
                 commands::lan_chat_drop_proxy_show,
                 commands::lan_chat_drop_proxy_hide,
                 commands::lan_chat_drop_proxy_dispose,
+                commands::webdav_test_connection,
+                commands::webdav_upload,
+                commands::webdav_download,
+                commands::webdav_download_all,
+                commands::webdav_get_status,
+                commands::webdav_start_scheduler,
+                commands::webdav_stop_scheduler,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
@@ -412,6 +419,10 @@ pub fn run() {
                     if let Ok(json) = serde_json::to_value(&settings) {
                         screenshot_suite::config::update_config(json);
                     }
+                }
+
+                if settings.webdav_enabled {
+                    services::webdav_sync::start_scheduler();
                 }
 
                 if settings.clipboard_monitor {

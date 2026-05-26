@@ -39,6 +39,10 @@ export const navigationItems = [{
   icon: "ti ti-wifi",
   labelKey: 'settings.sections.lanSync'
 }, {
+  id: 'webdav',
+  icon: "ti ti-cloud-upload",
+  labelKey: 'settings.sections.webdav'
+}, {
   id: 'dataManagement',
   icon: "ti ti-database",
   labelKey: 'settings.sections.dataManagement'

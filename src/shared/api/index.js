@@ -9,4 +9,5 @@ export * from './sound'
 export * from './dataManagement'
 export * from './previewWindow'
 export * from './chat'
+export * from './webdavSync'
 

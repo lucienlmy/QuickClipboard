@@ -168,6 +168,19 @@ export const defaultSettings = {
   customStoragePath: null,
   useCustomStorage: false,
 
+  // WebDAV Sync 设置
+  webdavEnabled: false,
+  webdavUrl: '',
+  webdavUsername: '',
+  webdavPassword: '',
+  webdavRootPath: 'quickclipboard',
+  webdavAutoPush: false,
+  webdavPushDelaySecs: 10,
+  webdavAutoPull: false,
+  webdavPullIntervalSecs: 30,
+  webdavSyncClipboard: true,
+  webdavSyncFavorites: true,
+
   // LAN Sync 设置
   lanSyncEnabled: false,
   lanSyncAutoStart: false,
