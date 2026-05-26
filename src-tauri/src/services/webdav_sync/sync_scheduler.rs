@@ -29,7 +29,7 @@ pub fn start() {
 
     tauri::async_runtime::spawn(async move {
         let mut seconds_since_pull: u64 = 0;
-        let mut last_uploaded_signature = String::new();
+        let mut last_uploaded_signature = crate::services::database::WebdavLocalSyncSignature::default();
         loop {
             if STOP_FLAG.load(Ordering::SeqCst) {
                 break;
@@ -44,9 +44,12 @@ pub fn start() {
             if settings.webdav_auto_push {
                 let delay = settings.webdav_push_delay_secs.max(1);
                 if seconds_since_pull % delay == 0 {
-                    if let Ok(signature) = crate::services::database::webdav_local_sync_signature() {
-                        if signature != last_uploaded_signature {
-                            if super::upload().await.is_ok() {
+                    if let Ok(signature) = crate::services::database::webdav_local_sync_parts_signature() {
+                        let upload_clipboard = signature.clipboard != last_uploaded_signature.clipboard;
+                        let upload_favorites = signature.favorites != last_uploaded_signature.favorites;
+                        let upload_groups = signature.groups != last_uploaded_signature.groups;
+                        if upload_clipboard || upload_favorites || upload_groups {
+                            if super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await.is_ok() {
                                 last_uploaded_signature = signature;
                             }
                         }

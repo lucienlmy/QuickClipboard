@@ -25,8 +25,13 @@ pub async fn upload_groups(client: &WebdavClient, device_id: &str) -> Result<Vec
         }
     }
 
+    if changed.is_empty() {
+        return Ok(changed);
+    }
+
     let mut groups = remote.into_values().collect::<Vec<_>>();
     groups.sort_by_key(|g| (g.order, g.name.clone()));
+    client.ensure_groups_dir().await?;
     client.put_json("groups/groups.json", &GroupList { groups }).await?;
     Ok(changed)
 }

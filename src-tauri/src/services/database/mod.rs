@@ -10,7 +10,7 @@ pub use clipboard::*;
 pub use favorites::*;
 pub use groups::*;
 
-pub fn webdav_local_sync_signature() -> Result<String, String> {
+pub fn webdav_local_sync_parts_signature() -> Result<WebdavLocalSyncSignature, String> {
     connection::with_connection(|conn| {
         let clipboard: (i64, i64) = conn.query_row(
             "SELECT COUNT(*), COALESCE(MAX(updated_at), 0) FROM clipboard",
@@ -27,10 +27,18 @@ pub fn webdav_local_sync_signature() -> Result<String, String> {
             [],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
-        Ok(format!(
-            "c:{}:{};f:{}:{};g:{}:{}",
-            clipboard.0, clipboard.1, favorites.0, favorites.1, groups.0, groups.1
-        ))
+        Ok(WebdavLocalSyncSignature {
+            clipboard: format!("{}:{}", clipboard.0, clipboard.1),
+            favorites: format!("{}:{}", favorites.0, favorites.1),
+            groups: format!("{}:{}", groups.0, groups.1),
+        })
     })
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct WebdavLocalSyncSignature {
+    pub clipboard: String,
+    pub favorites: String,
+    pub groups: String,
 }
 

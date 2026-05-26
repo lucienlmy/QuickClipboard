@@ -2,7 +2,7 @@ use reqwest::{Client, Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use super::types::WebdavConfig;
+use super::types::{SyncCollection, WebdavConfig};
 
 #[derive(Clone)]
 pub struct WebdavClient {
@@ -41,8 +41,20 @@ impl WebdavClient {
         Ok(())
     }
 
-    pub async fn ensure_dirs(&self) -> Result<(), String> {
-        self.test_connection().await
+    pub async fn ensure_collection_dirs(&self, collection: SyncCollection) -> Result<(), String> {
+        self.mkcol("").await?;
+        self.mkcol(collection.dir()).await?;
+        self.mkcol(&format!("{}/chunks", collection.dir())).await
+    }
+
+    pub async fn ensure_groups_dir(&self) -> Result<(), String> {
+        self.mkcol("").await?;
+        self.mkcol("groups").await
+    }
+
+    pub async fn ensure_files_dir(&self) -> Result<(), String> {
+        self.mkcol("").await?;
+        self.mkcol("files").await
     }
 
     pub async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, String> {

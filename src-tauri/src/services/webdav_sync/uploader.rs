@@ -6,11 +6,21 @@ use super::types::{CloudRecord, RecordChunk, SyncCollection, SyncIndexEntry, Syn
 use super::webdav_client::WebdavClient;
 
 pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncReport, String> {
+    upload_parts(client, device_id, true, true, true).await
+}
+
+pub async fn upload_parts(
+    client: &WebdavClient,
+    device_id: &str,
+    upload_clipboard: bool,
+    upload_favorites: bool,
+    upload_groups: bool,
+) -> Result<SyncReport, String> {
     let mut report = SyncReport::default();
     let settings = crate::services::get_settings();
     let mut uploaded_records = Vec::new();
 
-    if settings.webdav_sync_clipboard {
+    if settings.webdav_sync_clipboard && upload_clipboard {
         let history_records = crate::services::database::webdav_list_own_history_records(device_id)?;
         match upload_collection_incremental(client, SyncCollection::History, history_records, device_id).await {
             Ok(records) => {
@@ -26,37 +36,41 @@ pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncRe
         }
     }
 
-    if settings.webdav_sync_favorites {
-        let favorite_records = crate::services::database::webdav_list_own_favorite_records(device_id)?;
-        match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records, device_id).await {
-            Ok(records) => {
-                let count = records.len() as u32;
-                report.pushed += count;
-                report.pushed_favorites = count;
-                report
-                    .pushed_items
-                    .extend(records.iter().map(|record| record.report_item("favorites")));
-                uploaded_records.extend(records);
+    if settings.webdav_sync_favorites && (upload_favorites || upload_groups) {
+        if upload_favorites {
+            let favorite_records = crate::services::database::webdav_list_own_favorite_records(device_id)?;
+            match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records, device_id).await {
+                Ok(records) => {
+                    let count = records.len() as u32;
+                    report.pushed += count;
+                    report.pushed_favorites = count;
+                    report
+                        .pushed_items
+                        .extend(records.iter().map(|record| record.report_item("favorites")));
+                    uploaded_records.extend(records);
+                }
+                Err(e) => report.errors.push(format!("收藏推送失败: {}", e)),
             }
-            Err(e) => report.errors.push(format!("收藏推送失败: {}", e)),
         }
 
-        match super::groups_sync::upload_groups(client, device_id).await {
-            Ok(groups) => {
-                let count = groups.len() as u32;
-                report.pushed += count;
-                report.pushed_groups = count;
-                report.pushed_items.extend(groups.into_iter().map(|group| {
-                    super::types::SyncReportItem {
-                        category: "groups".to_string(),
-                        id: group.name.clone(),
-                        summary: group.name,
-                        source_device_id: group.source_device_id,
-                        updated_at: group.updated_at,
-                    }
-                }));
+        if upload_groups {
+            match super::groups_sync::upload_groups(client, device_id).await {
+                Ok(groups) => {
+                    let count = groups.len() as u32;
+                    report.pushed += count;
+                    report.pushed_groups = count;
+                    report.pushed_items.extend(groups.into_iter().map(|group| {
+                        super::types::SyncReportItem {
+                            category: "groups".to_string(),
+                            id: group.name.clone(),
+                            summary: group.name,
+                            source_device_id: group.source_device_id,
+                            updated_at: group.updated_at,
+                        }
+                    }));
+                }
+                Err(e) => report.errors.push(format!("分组推送失败: {}", e)),
             }
-            Err(e) => report.errors.push(format!("分组推送失败: {}", e)),
         }
     }
 
@@ -98,6 +112,7 @@ async fn upload_collection_incremental(
     }
 
     for (chunk_id, records) in existing_by_chunk {
+        client.ensure_collection_dirs(collection).await?;
         let mut chunk = load_chunk(client, collection, chunk_id).await?;
         for record in records {
             chunk.records.insert(record.uuid.clone(), record.clone());
@@ -127,6 +142,10 @@ async fn upload_collection_incremental(
     if !current_chunk_records.is_empty() {
         new_records_by_chunk.push((current_chunk_id, current_chunk_records));
         current_chunk_id = current_chunk_id.saturating_add(1);
+    }
+
+    if !new_records_by_chunk.is_empty() {
+        client.ensure_collection_dirs(collection).await?;
     }
 
     for (chunk_id, records) in new_records_by_chunk {
@@ -162,6 +181,8 @@ async fn upload_images(client: &WebdavClient, records: &[CloudRecord]) -> Result
     if image_ids.is_empty() {
         return Ok(());
     }
+
+    client.ensure_files_dir().await?;
 
     let data_dir = crate::services::get_data_directory()?;
     let images_dir = data_dir.join("clipboard_images");

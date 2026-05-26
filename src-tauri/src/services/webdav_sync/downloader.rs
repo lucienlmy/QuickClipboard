@@ -171,6 +171,8 @@ async fn download_images(client: &WebdavClient, records: &[CloudRecord]) -> Resu
         return Ok(());
     }
 
+    client.ensure_files_dir().await?;
+
     let data_dir = crate::services::get_data_directory()?;
     let images_dir = data_dir.join("clipboard_images");
     std::fs::create_dir_all(&images_dir).map_err(|e| e.to_string())?;

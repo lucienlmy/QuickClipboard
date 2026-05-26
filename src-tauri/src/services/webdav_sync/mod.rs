@@ -20,16 +20,20 @@ pub async fn test_connection() -> Result<(), String> {
 
 pub async fn upload() -> Result<SyncReport, String> {
     let client = build_client()?;
-    client.ensure_dirs().await?;
     let device_id = crate::services::lan_sync::device_id();
     uploader::upload_all(&client, &device_id).await
 }
 
 pub async fn download(include_own_device: bool) -> Result<SyncReport, String> {
     let client = build_client()?;
-    client.ensure_dirs().await?;
     let device_id = crate::services::lan_sync::device_id();
     downloader::download_all(&client, &device_id, include_own_device).await
+}
+
+pub async fn upload_parts(upload_clipboard: bool, upload_favorites: bool, upload_groups: bool) -> Result<SyncReport, String> {
+    let client = build_client()?;
+    let device_id = crate::services::lan_sync::device_id();
+    uploader::upload_parts(&client, &device_id, upload_clipboard, upload_favorites, upload_groups).await
 }
 
 pub fn status() -> WebdavStatus {
