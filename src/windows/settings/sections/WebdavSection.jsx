@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { useTranslation } from 'react-i18next';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
@@ -10,6 +11,7 @@ import { toast } from '@shared/store/toastStore';
 import {
   downloadAllWebdav,
   downloadWebdav,
+  getWebdavLastReport,
   startWebdavScheduler,
   stopWebdavScheduler,
   testWebdavConnection,
@@ -20,6 +22,32 @@ function WebdavSection({ settings, onSettingChange }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState('');
   const [lastReport, setLastReport] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getWebdavLastReport()
+      .then(report => {
+        if (!mounted || !report?.result || !report?.mode) return;
+        setLastReport({ actionId: `${report.automatic ? 'auto' : 'manual'}-${report.mode}`, mode: report.mode, result: report.result, time: Date.now(), automatic: Boolean(report.automatic) });
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const unlistenPromise = listen('webdav-sync-report', event => {
+      const payload = event.payload || {};
+      if (!payload.result || !payload.mode) return;
+      setLastReport({ actionId: `auto-${payload.mode}`, mode: payload.mode, result: payload.result, time: Date.now(), automatic: true });
+    });
+
+    return () => {
+      unlistenPromise.then(unlisten => unlisten()).catch(() => {});
+    };
+  }, []);
 
   const update = async (key, value) => {
     await onSettingChange(key, value);
@@ -81,7 +109,10 @@ function WebdavSection({ settings, onSettingChange }) {
     return (
       <div className="mt-3 rounded-xl border border-qc-border bg-qc-surface/60 p-3 text-sm text-qc-fg">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <span className="font-medium">{t('settings.webdav.lastSyncDetail')}</span>
+          <span className="font-medium">
+            {t('settings.webdav.lastSyncDetail')}
+            {lastReport.automatic ? ` · ${t('settings.webdav.autoSyncSource')}` : ''}
+          </span>
           <span className="text-xs text-qc-fg-muted">{formatReport(result, lastReport.mode)}</span>
         </div>
         {total === 0 ? (

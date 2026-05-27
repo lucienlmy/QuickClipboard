@@ -280,6 +280,7 @@ pub fn run() {
                 commands::webdav_download,
                 commands::webdav_download_all,
                 commands::webdav_get_status,
+                commands::webdav_get_last_report,
                 commands::webdav_start_scheduler,
                 commands::webdav_stop_scheduler,
                 windows::plugins::context_menu::commands::show_context_menu,
@@ -408,6 +409,7 @@ pub fn run() {
                 quickpaste::init_quickpaste_state();
                 let _ = quickpaste::init_quickpaste_window(&app.handle());
                 set_clipboard_app_handle(app.handle().clone());
+                services::webdav_sync::sync_scheduler::set_app_handle(app.handle().clone());
 
                 windows::pin_image_window::init_pin_image_window();
                 #[cfg(feature = "gpu-image-viewer")]

@@ -21,13 +21,15 @@ pub async fn test_connection() -> Result<(), String> {
 pub async fn upload() -> Result<SyncReport, String> {
     let client = build_client()?;
     let device_id = crate::services::lan_sync::device_id();
-    uploader::upload_all(&client, &device_id).await
+    let report = uploader::upload_all(&client, &device_id).await?;
+    Ok(sync_scheduler::store_manual_report("push", report))
 }
 
 pub async fn download(include_own_device: bool) -> Result<SyncReport, String> {
     let client = build_client()?;
     let device_id = crate::services::lan_sync::device_id();
-    downloader::download_all(&client, &device_id, include_own_device).await
+    let report = downloader::download_all(&client, &device_id, include_own_device).await?;
+    Ok(sync_scheduler::store_manual_report("pull", report))
 }
 
 pub async fn upload_parts(upload_clipboard: bool, upload_favorites: bool, upload_groups: bool) -> Result<SyncReport, String> {

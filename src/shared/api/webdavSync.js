@@ -20,6 +20,10 @@ export async function getWebdavStatus() {
   return await invoke('webdav_get_status');
 }
 
+export async function getWebdavLastReport() {
+  return await invoke('webdav_get_last_report');
+}
+
 export async function startWebdavScheduler() {
   return await invoke('webdav_start_scheduler');
 }

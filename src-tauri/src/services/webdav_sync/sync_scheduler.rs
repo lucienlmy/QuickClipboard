@@ -1,13 +1,37 @@
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+use tauri::{AppHandle, Emitter};
 
-use super::types::WebdavStatus;
+use super::types::{SyncReport, WebdavStatus};
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static STOP_FLAG: AtomicBool = AtomicBool::new(false);
 static START_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
+static LAST_REPORT: Lazy<Mutex<Option<WebdavSyncReportEvent>>> = Lazy::new(|| Mutex::new(None));
+
+#[derive(Clone, Serialize)]
+pub struct WebdavSyncReportEvent {
+    pub mode: &'static str,
+    pub result: SyncReport,
+    pub automatic: bool,
+}
+
+pub fn set_app_handle(app_handle: AppHandle) {
+    *APP_HANDLE.lock() = Some(app_handle);
+}
+
+pub fn get_last_report() -> Option<WebdavSyncReportEvent> {
+    LAST_REPORT.lock().clone()
+}
+
+pub fn store_manual_report(mode: &'static str, result: SyncReport) -> SyncReport {
+    store_report(mode, result.clone(), false);
+    result
+}
 
 pub fn is_running() -> bool {
     RUNNING.load(Ordering::SeqCst)
@@ -49,8 +73,9 @@ pub fn start() {
                         let upload_favorites = signature.favorites != last_uploaded_signature.favorites;
                         let upload_groups = signature.groups != last_uploaded_signature.groups;
                         if upload_clipboard || upload_favorites || upload_groups {
-                            if super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await.is_ok() {
+                            if let Ok(report) = super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await {
                                 last_uploaded_signature = signature;
+                                store_report("push", report, true);
                             }
                         }
                     }
@@ -60,7 +85,9 @@ pub fn start() {
             if settings.webdav_auto_pull {
                 let interval = settings.webdav_pull_interval_secs.max(10);
                 if seconds_since_pull % interval == 0 {
-                    let _ = super::download(false).await;
+                    if let Ok(report) = super::download(false).await {
+                        store_report("pull", report, true);
+                    }
                 }
             }
 
@@ -80,4 +107,14 @@ pub fn status() -> WebdavStatus {
         auto_pull: settings.webdav_auto_pull,
         running: is_running(),
     }
+}
+
+fn store_report(mode: &'static str, result: SyncReport, automatic: bool) {
+    let event = WebdavSyncReportEvent { mode, result, automatic };
+    *LAST_REPORT.lock() = Some(event.clone());
+
+    let Some(app_handle) = APP_HANDLE.lock().clone() else {
+        return;
+    };
+    let _ = app_handle.emit("webdav-sync-report", event);
 }

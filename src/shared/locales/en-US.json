@@ -364,6 +364,7 @@
       "pullComplete": "Pull complete",
       "syncResultDetail": "{{total}} total, clipboard {{clipboard}}, favorites {{favorites}}, groups {{groups}}",
       "lastSyncDetail": "Last sync details",
+      "autoSyncSource": "Auto sync",
       "noChanges": "No changes to sync",
       "moreItems": "{{count}} more items hidden",
       "category": {

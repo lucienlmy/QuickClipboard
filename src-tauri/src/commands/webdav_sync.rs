@@ -26,6 +26,11 @@ pub fn webdav_get_status() -> Result<services::webdav_sync::WebdavStatus, String
 }
 
 #[tauri::command]
+pub fn webdav_get_last_report() -> Result<Option<services::webdav_sync::sync_scheduler::WebdavSyncReportEvent>, String> {
+    Ok(services::webdav_sync::sync_scheduler::get_last_report())
+}
+
+#[tauri::command]
 pub fn webdav_start_scheduler() -> Result<(), String> {
     services::webdav_sync::start_scheduler();
     Ok(())

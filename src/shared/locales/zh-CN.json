@@ -356,6 +356,7 @@
       "pullComplete": "拉取完成",
       "syncResultDetail": "共 {{total}} 条，剪贴板 {{clipboard}} 条，收藏 {{favorites}} 条，分组 {{groups}} 个",
       "lastSyncDetail": "最近一次同步详情",
+      "autoSyncSource": "自动同步",
       "noChanges": "没有需要同步的变更",
       "moreItems": "还有 {{count}} 条未显示",
       "category": {
