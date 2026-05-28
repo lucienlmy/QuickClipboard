@@ -505,7 +505,7 @@ pub fn webdav_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<Clou
                     && char_count == record.char_count
                     && created_at == record.created_at;
 
-                if updated_at > record.updated_at || same {
+                if updated_at >= record.updated_at || same {
                     continue;
                 }
 
@@ -1038,11 +1038,11 @@ fn reorder_items(conn: &rusqlite::Connection, from_idx: usize, to_idx: usize, it
 
     if from_idx < to_idx {
         for i in (from_idx + 1)..=to_idx {
-            tx.execute("UPDATE clipboard SET item_order = item_order + 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE clipboard SET item_order = item_order + 1, updated_at = ?1 WHERE id = ?2", params![now, items[i].0])?;
         }
     } else {
         for i in to_idx..from_idx {
-            tx.execute("UPDATE clipboard SET item_order = item_order - 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE clipboard SET item_order = item_order - 1, updated_at = ?1 WHERE id = ?2", params![now, items[i].0])?;
         }
     }
     tx.execute("UPDATE clipboard SET item_order = ?1, updated_at = ?2 WHERE id = ?3", params![target_order, now, moved_id])?;

@@ -65,7 +65,7 @@ pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, Stri
                     && created_at == group.created_at
                     && updated_at == group.updated_at;
 
-                if updated_at > group.updated_at || same {
+                if updated_at >= group.updated_at || same {
                     continue;
                 }
 
