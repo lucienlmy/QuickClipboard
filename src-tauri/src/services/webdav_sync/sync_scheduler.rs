@@ -110,11 +110,33 @@ pub fn status() -> WebdavStatus {
 }
 
 fn store_report(mode: &'static str, result: SyncReport, automatic: bool) {
+    let should_refresh_main_window = mode == "pull"
+        && (result.pulled_clipboard > 0 || result.pulled_favorites > 0 || result.pulled_groups > 0);
     let event = WebdavSyncReportEvent { mode, result, automatic };
     *LAST_REPORT.lock() = Some(event.clone());
 
     let Some(app_handle) = APP_HANDLE.lock().clone() else {
         return;
     };
+    if should_refresh_main_window {
+        emit_main_window_refresh(&app_handle, &event.result);
+    }
     let _ = app_handle.emit("webdav-sync-report", event);
+}
+
+fn emit_main_window_refresh(app_handle: &AppHandle, report: &SyncReport) {
+    if report.pulled_clipboard > 0 {
+        crate::windows::main_window::mark_clipboard_refresh_pending();
+    }
+    if report.pulled_favorites > 0 {
+        crate::windows::main_window::mark_favorites_refresh_pending();
+    }
+    if report.pulled_groups > 0 {
+        crate::windows::main_window::mark_groups_refresh_pending();
+        crate::windows::main_window::mark_favorites_refresh_pending();
+    }
+
+    if crate::windows::main_window::is_main_window_visible_for_updates() {
+        let _ = crate::commands::window::emit_main_window_refresh_needed_event(app_handle);
+    }
 }
