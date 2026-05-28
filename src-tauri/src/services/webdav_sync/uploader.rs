@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::chunk_manager::{load_chunk, save_chunk};
 use super::index_manager::{load_index, save_index};
@@ -111,8 +111,67 @@ async fn upload_collection_incremental(
         changed.push(record);
     }
 
-    for (chunk_id, records) in existing_by_chunk {
+    let mut new_records_by_chunk = Vec::<(u32, Vec<CloudRecord>)>::new();
+    let mut chunk_counts = chunk_record_counts(&index.entries);
+    let fillable_chunk_ids = chunk_counts
+        .iter()
+        .filter_map(|(chunk_id, count)| {
+            if *count < CHUNK_RECORD_LIMIT {
+                Some(*chunk_id)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    let mut fillable_index = 0usize;
+    let next_available_chunk = chunk_counts
+        .keys()
+        .next_back()
+        .copied()
+        .map(|chunk_id| chunk_id.saturating_add(1))
+        .unwrap_or(0);
+    let mut current_chunk_id = index.next_chunk.max(next_available_chunk);
+    let mut current_chunk_records = Vec::new();
+
+    for record in new_records {
+        let fillable_chunk_id = loop {
+            let Some(chunk_id) = fillable_chunk_ids.get(fillable_index).copied() else {
+                break None;
+            };
+            let count = chunk_counts.get(&chunk_id).copied().unwrap_or(0);
+            if count < CHUNK_RECORD_LIMIT {
+                break Some(chunk_id);
+            }
+            fillable_index += 1;
+        };
+
+        if let Some(chunk_id) = fillable_chunk_id {
+            existing_by_chunk.entry(chunk_id).or_default().push(record);
+            *chunk_counts.entry(chunk_id).or_default() += 1;
+            continue;
+        }
+
+        current_chunk_records.push(record);
+        if current_chunk_records.len() >= CHUNK_RECORD_LIMIT {
+            let count = current_chunk_records.len();
+            new_records_by_chunk.push((current_chunk_id, current_chunk_records));
+            chunk_counts.insert(current_chunk_id, count);
+            current_chunk_id = current_chunk_id.saturating_add(1);
+            current_chunk_records = Vec::new();
+        }
+    }
+    if !current_chunk_records.is_empty() {
+        let count = current_chunk_records.len();
+        new_records_by_chunk.push((current_chunk_id, current_chunk_records));
+        chunk_counts.insert(current_chunk_id, count);
+        current_chunk_id = current_chunk_id.saturating_add(1);
+    }
+
+    if !existing_by_chunk.is_empty() || !new_records_by_chunk.is_empty() {
         client.ensure_collection_dirs(collection).await?;
+    }
+
+    for (chunk_id, records) in existing_by_chunk {
         let mut chunk = load_chunk(client, collection, chunk_id).await?;
         for record in records {
             chunk.records.insert(record.uuid.clone(), record.clone());
@@ -126,26 +185,6 @@ async fn upload_collection_incremental(
             );
         }
         save_chunk(client, collection, chunk_id, &chunk).await?;
-    }
-
-    let mut new_records_by_chunk = Vec::<(u32, Vec<CloudRecord>)>::new();
-    let mut current_chunk_id = index.next_chunk;
-    let mut current_chunk_records = Vec::new();
-    for record in new_records {
-        current_chunk_records.push(record);
-        if current_chunk_records.len() >= CHUNK_RECORD_LIMIT {
-            new_records_by_chunk.push((current_chunk_id, current_chunk_records));
-            current_chunk_id = current_chunk_id.saturating_add(1);
-            current_chunk_records = Vec::new();
-        }
-    }
-    if !current_chunk_records.is_empty() {
-        new_records_by_chunk.push((current_chunk_id, current_chunk_records));
-        current_chunk_id = current_chunk_id.saturating_add(1);
-    }
-
-    if !new_records_by_chunk.is_empty() {
-        client.ensure_collection_dirs(collection).await?;
     }
 
     for (chunk_id, records) in new_records_by_chunk {
@@ -170,6 +209,14 @@ async fn upload_collection_incremental(
     }
 
     Ok(changed)
+}
+
+fn chunk_record_counts(index_entries: &HashMap<String, SyncIndexEntry>) -> BTreeMap<u32, usize> {
+    let mut counts = BTreeMap::new();
+    for entry in index_entries.values() {
+        *counts.entry(entry.chunk).or_default() += 1;
+    }
+    counts
 }
 
 async fn upload_images(client: &WebdavClient, records: &[CloudRecord]) -> Result<(), String> {
