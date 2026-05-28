@@ -24,6 +24,9 @@ function SettingsSearch({ onNavigate, className = '' }) {
     const settings = bundle.settings || {};
     const sectionsMap = settings.sections || {};
     const visibleSectionIds = new Set((navigationItems || []).map(n => n.id));
+    const sectionAliases = {
+      webdav: 'syncTransfer',
+    };
 
     const allIds = Array.from(new Set([
       ...Object.keys(settings.sections || {}),
@@ -31,7 +34,8 @@ function SettingsSearch({ onNavigate, className = '' }) {
     ]));
 
     allIds.forEach(sectionId => {
-      if (!visibleSectionIds.has(sectionId)) return;
+      const targetSection = visibleSectionIds.has(sectionId) ? sectionId : sectionAliases[sectionId];
+      if (!targetSection || !visibleSectionIds.has(targetSection)) return;
       const secObj = settings[sectionId];
       if (!secObj || typeof secObj !== 'object') return;
 
@@ -42,9 +46,9 @@ function SettingsSearch({ onNavigate, className = '' }) {
         const descRaw = secObj[key];
         if (typeof labelRaw !== 'string' || typeof descRaw !== 'string') return;
 
-        const sectionNameStr = sectionsMap[sectionId]
-          || t(`settings.${sectionId}.title`)
-          || sectionId;
+        const sectionNameStr = targetSection === sectionId
+          ? (sectionsMap[sectionId] || t(`settings.${sectionId}.title`) || sectionId)
+          : `${sectionsMap[targetSection] || targetSection} / ${sectionsMap[sectionId] || t(`settings.${sectionId}.title`) || sectionId}`;
         const labelStr = t(`settings.${sectionId}.${base}`);
         const descStr = t(`settings.${sectionId}.${key}`);
 
@@ -63,7 +67,7 @@ function SettingsSearch({ onNavigate, className = '' }) {
         ) {
           results.push({
             key: base,
-            section: sectionId,
+            section: targetSection,
             sectionName: sectionNameStr || '',
             label: labelStr || '',
             description: descStr || '',

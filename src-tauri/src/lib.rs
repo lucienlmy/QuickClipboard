@@ -283,6 +283,22 @@ pub fn run() {
                 commands::webdav_get_last_report,
                 commands::webdav_start_scheduler,
                 commands::webdav_stop_scheduler,
+                commands::sync_transfer_get_mode_infos,
+                commands::sync_transfer_lan_get_status,
+                commands::sync_transfer_lan_start_http_server,
+                commands::sync_transfer_lan_stop_http_server,
+                commands::sync_transfer_lan_refresh_pairing_code,
+                commands::sync_transfer_lan_list_paired_peers,
+                commands::sync_transfer_lan_remove_paired_peer,
+                commands::sync_transfer_lan_pair_with_peer,
+                commands::sync_transfer_lan_fetch_peer_snapshot,
+                commands::sync_transfer_lan_get_local_snapshot,
+                commands::sync_transfer_lan_discover_peers,
+                commands::sync_transfer_lan_get_auto_sync_status,
+                commands::sync_transfer_lan_update_auto_sync_settings,
+                commands::sync_transfer_lan_pull_from_peer,
+                commands::sync_transfer_lan_push_to_peer,
+                commands::sync_transfer_lan_send_file_to_peer,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
@@ -425,6 +441,13 @@ pub fn run() {
 
                 if settings.webdav_enabled {
                     services::webdav_sync::start_scheduler();
+                }
+
+                {
+                    let app_handle = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        services::sync_transfer::lan_start_configured_services(app_handle).await;
+                    });
                 }
 
                 if settings.clipboard_monitor {

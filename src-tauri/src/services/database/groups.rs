@@ -9,11 +9,8 @@ pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
     with_connection(|conn| {
         let mut stmt = conn.prepare(
             "SELECT g.name, g.icon, g.color, g.order_index, COALESCE(g.source_device_id, ''),
-                    g.created_at, g.updated_at, COUNT(f.id) AS item_count
+                    g.created_at, g.updated_at
              FROM groups g
-             LEFT JOIN favorites f ON f.group_name = g.name
-             GROUP BY g.name, g.icon, g.color, g.order_index, g.source_device_id, g.created_at, g.updated_at
-             HAVING item_count > 0
              ORDER BY g.order_index, g.name",
         )?;
         let rows = stmt.query_map([], |row| {

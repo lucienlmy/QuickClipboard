@@ -11,6 +11,7 @@ pub mod low_memory;
 pub mod memory;
 pub mod store;
 pub mod lan_sync;
+pub mod sync_transfer;
 pub mod webdav_sync;
 
 pub use settings::{AppSettings, get_settings, update_settings, get_data_directory};

@@ -13,7 +13,7 @@ import AppearanceSection from './sections/AppearanceSection';
 import ShortcutsSection from './sections/ShortcutsSection';
 import ClipboardSection from './sections/ClipboardSection';
 import LanSyncSection from './sections/LanSyncSection';
-import WebdavSection from './sections/WebdavSection';
+import SyncTransferSection from './sections/SyncTransferSection';
 import AIConfigSection from './sections/AIConfigSection';
 import TranslationSection from './sections/TranslationSection';
 import PreviewSection from './sections/PreviewSection';
@@ -140,8 +140,8 @@ function App() {
       case 'lanSync':
         content = <LanSyncSection settings={snap} onSettingChange={handleSettingChange} />;
         break;
-      case 'webdav':
-        content = <WebdavSection settings={snap} onSettingChange={handleSettingChange} />;
+      case 'syncTransfer':
+        content = <SyncTransferSection settings={snap} onSettingChange={handleSettingChange} />;
         break;
       case 'aiConfig':
         content = <AIConfigSection settings={snap} onSettingChange={handleSettingChange} />;
