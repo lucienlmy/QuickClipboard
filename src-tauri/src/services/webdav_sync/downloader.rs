@@ -143,9 +143,6 @@ async fn download_collection(
             if entry.chunk != chunk_id {
                 continue;
             }
-            if !include_own_device && record.source_device_id == device_id {
-                continue;
-            }
             if record.updated_at < entry.updated_at {
                 continue;
             }

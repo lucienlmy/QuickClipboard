@@ -21,7 +21,7 @@ pub async fn upload_parts(
     let mut uploaded_records = Vec::new();
 
     if settings.webdav_sync_clipboard && upload_clipboard {
-        let history_records = crate::services::database::webdav_list_own_history_records(device_id)?;
+        let history_records = crate::services::database::webdav_list_history_records(device_id)?;
         match upload_collection_incremental(client, SyncCollection::History, history_records, device_id).await {
             Ok(records) => {
                 let count = records.len() as u32;
@@ -38,7 +38,7 @@ pub async fn upload_parts(
 
     if settings.webdav_sync_favorites && (upload_favorites || upload_groups) {
         if upload_favorites {
-            let favorite_records = crate::services::database::webdav_list_own_favorite_records(device_id)?;
+            let favorite_records = crate::services::database::webdav_list_favorite_records(device_id)?;
             match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records, device_id).await {
                 Ok(records) => {
                     let count = records.len() as u32;
@@ -94,7 +94,6 @@ async fn upload_collection_incremental(
 
     for record in records {
         let needs_upload = match index.entries.get(&record.uuid) {
-            Some(entry) if entry.source_device_id != device_id => false,
             Some(entry) => entry.updated_at < record.updated_at,
             None => true,
         };
@@ -180,7 +179,7 @@ async fn upload_collection_incremental(
                 SyncIndexEntry {
                     chunk: chunk_id,
                     updated_at: record.updated_at,
-                    source_device_id: record.source_device_id.clone(),
+                    source_device_id: device_id.to_string(),
                 },
             );
         }
@@ -196,7 +195,7 @@ async fn upload_collection_incremental(
                 SyncIndexEntry {
                     chunk: chunk_id,
                     updated_at: record.updated_at,
-                    source_device_id: record.source_device_id.clone(),
+                    source_device_id: device_id.to_string(),
                 },
             );
         }
