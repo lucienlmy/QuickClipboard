@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use super::types::{CloudGroup, GroupList};
 use super::webdav_client::WebdavClient;
 
-pub async fn upload_groups(client: &WebdavClient, device_id: &str) -> Result<Vec<CloudGroup>, String> {
+pub async fn upload_groups_with_tombstones(
+    client: &WebdavClient,
+    device_id: &str,
+    tombstone_states: &HashMap<String, i64>,
+) -> Result<Vec<CloudGroup>, String> {
     let mut remote = client
         .get_json::<GroupList>("groups/groups.json")
         .await?
@@ -14,7 +18,9 @@ pub async fn upload_groups(client: &WebdavClient, device_id: &str) -> Result<Vec
         .collect::<HashMap<_, _>>();
     let mut changed = Vec::new();
 
-    for mut group in crate::services::database::webdav_list_groups(device_id)? {
+    let local_groups = crate::services::database::webdav_list_groups(device_id)?;
+    let local_groups = crate::services::database::filter_groups_not_deleted_by_states(local_groups, tombstone_states);
+    for mut group in local_groups {
         group.source_device_id = device_id.to_string();
         match remote.get(&group.name) {
             Some(existing) if existing.updated_at >= group.updated_at => {}
@@ -50,5 +56,6 @@ pub async fn download_groups(
         .into_iter()
         .filter(|group| include_own_device || group.source_device_id != device_id)
         .collect::<Vec<CloudGroup>>();
-    crate::services::database::webdav_save_groups(&groups)
+    let groups = crate::services::database::filter_groups_not_deleted(&groups)?;
+    crate::services::database::lan_save_groups(&groups)
 }

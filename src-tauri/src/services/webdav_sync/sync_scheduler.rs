@@ -72,9 +72,11 @@ pub fn start() {
                         let upload_clipboard = signature.clipboard != last_uploaded_signature.clipboard;
                         let upload_favorites = signature.favorites != last_uploaded_signature.favorites;
                         let upload_groups = signature.groups != last_uploaded_signature.groups;
-                        if upload_clipboard || upload_favorites || upload_groups {
-                            if let Ok(report) = super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await {
-                                last_uploaded_signature = signature;
+                        let upload_tombstones = signature.tombstones != last_uploaded_signature.tombstones;
+                        if let Ok(report) = super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await {
+                            last_uploaded_signature = crate::services::database::webdav_local_sync_parts_signature()
+                                .unwrap_or(signature);
+                            if upload_clipboard || upload_favorites || upload_groups || upload_tombstones || report.pulled > 0 || report.pushed > 0 {
                                 store_report("push", report, true);
                             }
                         }
@@ -110,8 +112,8 @@ pub fn status() -> WebdavStatus {
 }
 
 fn store_report(mode: &'static str, result: SyncReport, automatic: bool) {
-    let should_refresh_main_window = mode == "pull"
-        && (result.pulled_clipboard > 0 || result.pulled_favorites > 0 || result.pulled_groups > 0);
+    let should_refresh_main_window =
+        result.pulled_clipboard > 0 || result.pulled_favorites > 0 || result.pulled_groups > 0;
     let event = WebdavSyncReportEvent { mode, result, automatic };
     *LAST_REPORT.lock() = Some(event.clone());
 

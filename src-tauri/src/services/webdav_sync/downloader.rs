@@ -12,6 +12,17 @@ pub async fn download_all(
 ) -> Result<SyncReport, String> {
     let mut report = SyncReport::default();
     let settings = crate::services::get_settings();
+    let remote_tombstone_report = match super::tombstones_sync::download_tombstones(client).await {
+        Ok(report) => report,
+        Err(e) => {
+            report.errors.push(format!("删除墓碑拉取失败: {}", e));
+            SyncReport::default()
+        }
+    };
+    report.pulled_clipboard += remote_tombstone_report.pulled_clipboard;
+    report.pulled_favorites += remote_tombstone_report.pulled_favorites;
+    report.pulled_groups += remote_tombstone_report.pulled_groups;
+    report.pulled += remote_tombstone_report.pulled;
 
     if settings.webdav_sync_clipboard {
         let local_states = crate::services::database::webdav_history_record_states()?;
@@ -28,12 +39,12 @@ pub async fn download_all(
                 let changed = if records.is_empty() {
                     Vec::new()
                 } else {
-                    crate::services::database::webdav_upsert_history_records(&records)?
+                    crate::services::database::lan_upsert_history_records(&records)?
                 };
                 download_images(client, &changed).await?;
                 let count = changed.len() as u32;
                 report.pulled += count;
-                report.pulled_clipboard = count;
+                report.pulled_clipboard += count;
                 report
                     .pulled_items
                     .extend(changed.iter().map(|record| record.report_item("clipboard")));
@@ -57,12 +68,12 @@ pub async fn download_all(
                 let changed = if records.is_empty() {
                     Vec::new()
                 } else {
-                    crate::services::database::webdav_upsert_favorite_records(&records)?
+                    crate::services::database::lan_upsert_favorite_records(&records)?
                 };
                 download_images(client, &changed).await?;
                 let count = changed.len() as u32;
                 report.pulled += count;
-                report.pulled_favorites = count;
+                report.pulled_favorites += count;
                 report
                     .pulled_items
                     .extend(changed.iter().map(|record| record.report_item("favorites")));
@@ -74,7 +85,7 @@ pub async fn download_all(
             Ok(groups) => {
                 let count = groups.len() as u32;
                 report.pulled += count;
-                report.pulled_groups = count;
+                report.pulled_groups += count;
                 report.pulled_items.extend(groups.into_iter().map(|group| {
                     super::types::SyncReportItem {
                         category: "groups".to_string(),
@@ -103,9 +114,19 @@ async fn download_collection(
     if index.entries.is_empty() {
         return Ok(Vec::new());
     }
+    let collection_name = collection.dir();
+    let tombstone_states = crate::services::database::sync_tombstone_states()?;
 
     let mut selected_entries = HashMap::<String, SyncIndexEntry>::new();
     for (uuid, entry) in index.entries {
+        if tombstone_states
+            .get(&crate::services::database::tombstone_state_key(collection_name, &uuid))
+            .map(|deleted_at| *deleted_at >= entry.updated_at)
+            .unwrap_or(false)
+        {
+            continue;
+        }
+
         if !include_own_device && entry.source_device_id == device_id {
             continue;
         }
@@ -144,6 +165,13 @@ async fn download_collection(
                 continue;
             }
             if record.updated_at < entry.updated_at {
+                continue;
+            }
+            if tombstone_states
+                .get(&crate::services::database::tombstone_state_key(collection_name, &record.uuid))
+                .map(|deleted_at| *deleted_at >= record.updated_at)
+                .unwrap_or(false)
+            {
                 continue;
             }
             out.push(record);

@@ -439,15 +439,11 @@ pub fn webdav_history_record_states() -> Result<HashMap<String, i64>, String> {
     })
 }
 
-pub fn webdav_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
-    upsert_history_records(records, false)
-}
-
 pub fn lan_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
-    upsert_history_records(records, true)
+    upsert_history_records(records)
 }
 
-fn upsert_history_records(records: &[CloudRecord], respect_tombstones: bool) -> Result<Vec<CloudRecord>, String> {
+fn upsert_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
     if records.is_empty() {
         return Ok(Vec::new());
     }
@@ -460,7 +456,7 @@ fn upsert_history_records(records: &[CloudRecord], respect_tombstones: bool) -> 
             if record.uuid.trim().is_empty() {
                 continue;
             }
-            if respect_tombstones && super::tombstones::is_record_deleted_in_conn(
+            if super::tombstones::is_record_deleted_in_conn(
                 &tx,
                 super::tombstones::COLLECTION_HISTORY,
                 &record.uuid,

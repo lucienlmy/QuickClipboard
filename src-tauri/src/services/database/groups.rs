@@ -29,15 +29,11 @@ pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
     })
 }
 
-pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, String> {
-    save_groups(groups, false)
-}
-
 pub fn lan_save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, String> {
-    save_groups(groups, true)
+    save_groups(groups)
 }
 
-fn save_groups(groups: &[CloudGroup], respect_tombstones: bool) -> Result<Vec<CloudGroup>, String> {
+fn save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, String> {
     if groups.is_empty() {
         return Ok(Vec::new());
     }
@@ -47,7 +43,7 @@ fn save_groups(groups: &[CloudGroup], respect_tombstones: bool) -> Result<Vec<Cl
         let mut changed = Vec::new();
 
         for group in groups {
-            if respect_tombstones && super::tombstones::is_record_deleted_in_conn(
+            if super::tombstones::is_record_deleted_in_conn(
                 &tx,
                 super::tombstones::COLLECTION_GROUPS,
                 &group.name,

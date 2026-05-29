@@ -127,6 +127,12 @@ pub struct GroupList {
     pub groups: Vec<CloudGroup>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TombstoneList {
+    #[serde(default)]
+    pub tombstones: Vec<crate::services::database::SyncTombstone>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudGroup {
     pub name: String,

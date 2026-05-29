@@ -20,8 +20,27 @@ pub async fn upload_parts(
     let settings = crate::services::get_settings();
     let mut uploaded_records = Vec::new();
 
+    let tombstone_states = match super::tombstones_sync::upload_tombstones(client).await {
+        Ok(result) => {
+            report.pulled_clipboard += result.applied.history;
+            report.pulled_favorites += result.applied.favorites;
+            report.pulled_groups += result.applied.groups;
+            report.pulled += result.applied.total();
+            result.states
+        }
+        Err(e) => {
+            report.errors.push(format!("删除墓碑推送失败: {}", e));
+            crate::services::database::sync_tombstone_states().unwrap_or_default()
+        }
+    };
+
     if settings.webdav_sync_clipboard && upload_clipboard {
         let history_records = crate::services::database::webdav_list_history_records(device_id)?;
+        let history_records = crate::services::database::filter_records_not_deleted_by_states(
+            crate::services::database::COLLECTION_HISTORY,
+            history_records,
+            &tombstone_states,
+        );
         match upload_collection_incremental(client, SyncCollection::History, history_records, device_id).await {
             Ok(records) => {
                 let count = records.len() as u32;
@@ -39,6 +58,11 @@ pub async fn upload_parts(
     if settings.webdav_sync_favorites && (upload_favorites || upload_groups) {
         if upload_favorites {
             let favorite_records = crate::services::database::webdav_list_favorite_records(device_id)?;
+            let favorite_records = crate::services::database::filter_records_not_deleted_by_states(
+                crate::services::database::COLLECTION_FAVORITES,
+                favorite_records,
+                &tombstone_states,
+            );
             match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records, device_id).await {
                 Ok(records) => {
                     let count = records.len() as u32;
@@ -54,7 +78,7 @@ pub async fn upload_parts(
         }
 
         if upload_groups {
-            match super::groups_sync::upload_groups(client, device_id).await {
+            match super::groups_sync::upload_groups_with_tombstones(client, device_id, &tombstone_states).await {
                 Ok(groups) => {
                     let count = groups.len() as u32;
                     report.pushed += count;

@@ -29,10 +29,16 @@ pub fn webdav_local_sync_parts_signature() -> Result<WebdavLocalSyncSignature, S
             [],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
+        let tombstones: (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), COALESCE(MAX(deleted_at), 0) FROM sync_tombstones",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
         Ok(WebdavLocalSyncSignature {
             clipboard: format!("{}:{}", clipboard.0, clipboard.1),
             favorites: format!("{}:{}", favorites.0, favorites.1),
             groups: format!("{}:{}", groups.0, groups.1),
+            tombstones: format!("{}:{}", tombstones.0, tombstones.1),
         })
     })
 }
@@ -42,5 +48,6 @@ pub struct WebdavLocalSyncSignature {
     pub clipboard: String,
     pub favorites: String,
     pub groups: String,
+    pub tombstones: String,
 }
 

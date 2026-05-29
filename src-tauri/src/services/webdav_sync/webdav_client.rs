@@ -38,6 +38,7 @@ impl WebdavClient {
         self.mkcol("favorites/chunks").await?;
         self.mkcol("groups").await?;
         self.mkcol("files").await?;
+        self.mkcol("tombstones").await?;
         Ok(())
     }
 
@@ -55,6 +56,11 @@ impl WebdavClient {
     pub async fn ensure_files_dir(&self) -> Result<(), String> {
         self.mkcol("").await?;
         self.mkcol("files").await
+    }
+
+    pub async fn ensure_tombstones_dir(&self) -> Result<(), String> {
+        self.mkcol("").await?;
+        self.mkcol("tombstones").await
     }
 
     pub async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, String> {

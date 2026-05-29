@@ -4,6 +4,7 @@ pub mod groups_sync;
 pub mod index_manager;
 pub mod local_state;
 pub mod sync_scheduler;
+pub mod tombstones_sync;
 pub mod types;
 pub mod uploader;
 pub mod webdav_client;
