@@ -3,12 +3,14 @@ pub mod connection;
 pub mod clipboard;
 pub mod favorites;
 pub mod groups;
+pub mod tombstones;
 
 pub use models::*;
 pub use connection::init_database;
 pub use clipboard::*;
 pub use favorites::*;
 pub use groups::*;
+pub use tombstones::*;
 
 pub fn webdav_local_sync_parts_signature() -> Result<WebdavLocalSyncSignature, String> {
     connection::with_connection(|conn| {

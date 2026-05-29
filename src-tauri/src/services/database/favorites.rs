@@ -127,6 +127,14 @@ pub fn webdav_favorite_record_states() -> Result<HashMap<String, i64>, String> {
 }
 
 pub fn webdav_upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_favorite_records(records, false)
+}
+
+pub fn lan_upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_favorite_records(records, true)
+}
+
+fn upsert_favorite_records(records: &[CloudRecord], respect_tombstones: bool) -> Result<Vec<CloudRecord>, String> {
     if records.is_empty() {
         return Ok(Vec::new());
     }
@@ -137,6 +145,14 @@ pub fn webdav_upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<Clo
 
         for record in records {
             if record.uuid.trim().is_empty() {
+                continue;
+            }
+            if respect_tombstones && super::tombstones::is_record_deleted_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_FAVORITES,
+                &record.uuid,
+                record.updated_at,
+            )? {
                 continue;
             }
 
@@ -707,9 +723,20 @@ pub fn delete_favorite(id: String) -> Result<(), String> {
                 |row| row.get::<_, Option<String>>(0),
             )
             .optional()?;
-        let image_ids: Option<String> = image_ids_opt.flatten();
+        let Some(image_ids) = image_ids_opt else {
+            return Ok(Vec::new());
+        };
 
-        conn.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
+        let tx = conn.unchecked_transaction()?;
+        super::tombstones::record_sync_tombstone_in_conn(
+            &tx,
+            super::tombstones::COLLECTION_FAVORITES,
+            &id,
+            &crate::services::sync_transfer::device_id(),
+            chrono::Local::now().timestamp(),
+        )?;
+        tx.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
+        tx.commit()?;
 
         let mut to_delete = Vec::new();
         if let Some(ids) = image_ids {
@@ -740,8 +767,9 @@ pub fn delete_favorites(ids: &[String]) -> Result<(), String> {
 
     let images_to_delete: Vec<String> = with_connection(|conn| {
         let mut image_id_set = std::collections::HashSet::new();
+        let mut existing_ids = Vec::new();
         for id in &unique_ids {
-            let image_ids_opt: Option<Option<String>> = conn
+            let item_exists: Option<Option<String>> = conn
                 .query_row(
                     "SELECT image_id FROM favorites WHERE id = ?",
                     params![id],
@@ -749,14 +777,28 @@ pub fn delete_favorites(ids: &[String]) -> Result<(), String> {
                 )
                 .optional()?;
 
-            if let Some(image_ids) = image_ids_opt.flatten() {
-                for image_id in split_image_ids(&image_ids) {
-                    image_id_set.insert(image_id);
+            if let Some(image_ids) = item_exists {
+                if let Some(image_ids) = image_ids {
+                    for image_id in split_image_ids(&image_ids) {
+                        image_id_set.insert(image_id);
+                    }
                 }
+                existing_ids.push(id.clone());
             }
         }
 
         let tx = conn.unchecked_transaction()?;
+        let deleted_at = chrono::Local::now().timestamp();
+        let local_device_id = crate::services::sync_transfer::device_id();
+        for id in &existing_ids {
+            super::tombstones::record_sync_tombstone_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_FAVORITES,
+                id,
+                &local_device_id,
+                deleted_at,
+            )?;
+        }
         for id in &unique_ids {
             tx.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
         }

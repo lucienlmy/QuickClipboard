@@ -106,6 +106,10 @@ pub async fn fetch_peer_groups(peer: &super::peer_store::PairedPeer) -> Result<s
     authorized_get(peer, "/qc-sync/groups").await
 }
 
+pub async fn fetch_peer_tombstones(peer: &super::peer_store::PairedPeer) -> Result<super::LanTombstoneBatch, String> {
+    authorized_get(peer, "/qc-sync/tombstones").await
+}
+
 pub async fn push_peer_history_records(
     peer: &super::peer_store::PairedPeer,
     batch: super::LanRecordBatch,
@@ -125,6 +129,13 @@ pub async fn push_peer_groups(
     batch: super::LanGroupBatch,
 ) -> Result<super::LanGroupBatch, String> {
     authorized_post(peer, "/qc-sync/groups", &batch).await
+}
+
+pub async fn push_peer_tombstones(
+    peer: &super::peer_store::PairedPeer,
+    batch: super::LanTombstoneBatch,
+) -> Result<super::LanTombstoneBatch, String> {
+    authorized_post(peer, "/qc-sync/tombstones", &batch).await
 }
 
 pub async fn fetch_peer_image(peer: &super::peer_store::PairedPeer, image_id: &str) -> Result<Option<Vec<u8>>, String> {

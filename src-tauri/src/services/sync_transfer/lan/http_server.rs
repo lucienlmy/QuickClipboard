@@ -13,6 +13,7 @@ const SNAPSHOT_PATH: &str = "/qc-sync/snapshot";
 const HISTORY_RECORDS_PATH: &str = "/qc-sync/records/history";
 const FAVORITE_RECORDS_PATH: &str = "/qc-sync/records/favorites";
 const GROUPS_PATH: &str = "/qc-sync/groups";
+const TOMBSTONES_PATH: &str = "/qc-sync/tombstones";
 const FILES_PREFIX: &str = "/qc-sync/files/";
 const TRANSFER_FILES_PREFIX: &str = "/qc-transfer/files/";
 const MAX_REQUEST_BODY_SIZE: usize = super::files::MAX_DIRECT_TRANSFER_FILE_SIZE as usize;
@@ -159,6 +160,10 @@ async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net:
         ("POST", FAVORITE_RECORDS_PATH) => authorized_json(&request, || save_favorite_records(&request, &app)),
         ("GET", GROUPS_PATH) => authorized_json(&request, super::snapshot::list_groups),
         ("POST", GROUPS_PATH) => authorized_json(&request, || save_groups(&request, &app)),
+        ("GET", TOMBSTONES_PATH) => authorized_json(&request, || {
+            super::snapshot::list_tombstones_since(query_i64(&request, "since"))
+        }),
+        ("POST", TOMBSTONES_PATH) => authorized_json(&request, || save_tombstones(&request, &app)),
         ("GET", path) if path.starts_with(FILES_PREFIX) => authorized_bytes(&request, || read_file(path)),
         ("PUT", path) if path.starts_with(FILES_PREFIX) => authorized_json(&request, || save_file(path, &request.body)),
         ("PUT", path) if path.starts_with(TRANSFER_FILES_PREFIX) => authorized_json(&request, || save_transfer_file(path, &request.body)),
@@ -221,7 +226,11 @@ fn query_i64(request: &HttpRequest, name: &str) -> Option<i64> {
 fn save_history_records(request: &HttpRequest, app: &AppHandle) -> Result<super::LanRecordBatch, String> {
     let batch = serde_json::from_slice::<super::LanRecordBatch>(&request.body)
         .map_err(|e| format!("解析局域网历史数据失败: {}", e))?;
-    let changed = crate::services::database::webdav_upsert_history_records(&batch.records)?;
+    let records = crate::services::database::filter_records_not_deleted(
+        crate::services::database::COLLECTION_HISTORY,
+        &batch.records,
+    )?;
+    let changed = crate::services::database::lan_upsert_history_records(&records)?;
     if !changed.is_empty() {
         crate::windows::main_window::mark_clipboard_refresh_pending();
         emit_refresh_if_visible(app);
@@ -235,7 +244,11 @@ fn save_history_records(request: &HttpRequest, app: &AppHandle) -> Result<super:
 fn save_favorite_records(request: &HttpRequest, app: &AppHandle) -> Result<super::LanRecordBatch, String> {
     let batch = serde_json::from_slice::<super::LanRecordBatch>(&request.body)
         .map_err(|e| format!("解析局域网收藏数据失败: {}", e))?;
-    let changed = crate::services::database::webdav_upsert_favorite_records(&batch.records)?;
+    let records = crate::services::database::filter_records_not_deleted(
+        crate::services::database::COLLECTION_FAVORITES,
+        &batch.records,
+    )?;
+    let changed = crate::services::database::lan_upsert_favorite_records(&records)?;
     if !changed.is_empty() {
         crate::windows::main_window::mark_favorites_refresh_pending();
         emit_refresh_if_visible(app);
@@ -249,13 +262,39 @@ fn save_favorite_records(request: &HttpRequest, app: &AppHandle) -> Result<super
 fn save_groups(request: &HttpRequest, app: &AppHandle) -> Result<super::LanGroupBatch, String> {
     let batch = serde_json::from_slice::<super::LanGroupBatch>(&request.body)
         .map_err(|e| format!("解析局域网分组数据失败: {}", e))?;
-    let changed = crate::services::database::webdav_save_groups(&batch.groups)?;
+    let groups = crate::services::database::filter_groups_not_deleted(&batch.groups)?;
+    let changed = crate::services::database::lan_save_groups(&groups)?;
     if !changed.is_empty() {
         crate::windows::main_window::mark_groups_refresh_pending();
         crate::windows::main_window::mark_favorites_refresh_pending();
         emit_refresh_if_visible(app);
     }
     Ok(super::LanGroupBatch { groups: changed })
+}
+
+fn save_tombstones(request: &HttpRequest, app: &AppHandle) -> Result<super::LanTombstoneBatch, String> {
+    let batch = serde_json::from_slice::<super::LanTombstoneBatch>(&request.body)
+        .map_err(|e| format!("解析局域网删除墓碑失败: {}", e))?;
+    let changed = crate::services::database::upsert_sync_tombstones(&batch.tombstones)?;
+    let report = crate::services::database::apply_sync_tombstones(&batch.tombstones)?;
+    mark_tombstone_refresh(&report, app);
+    Ok(super::LanTombstoneBatch { tombstones: changed })
+}
+
+fn mark_tombstone_refresh(report: &crate::services::database::SyncTombstoneApplyReport, app: &AppHandle) {
+    if report.history > 0 {
+        crate::windows::main_window::mark_clipboard_refresh_pending();
+    }
+    if report.favorites > 0 {
+        crate::windows::main_window::mark_favorites_refresh_pending();
+    }
+    if report.groups > 0 {
+        crate::windows::main_window::mark_groups_refresh_pending();
+        crate::windows::main_window::mark_favorites_refresh_pending();
+    }
+    if report.total() > 0 {
+        emit_refresh_if_visible(app);
+    }
 }
 
 fn read_file(path: &str) -> Result<Option<Vec<u8>>, String> {

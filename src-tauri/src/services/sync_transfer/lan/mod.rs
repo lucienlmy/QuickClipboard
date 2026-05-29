@@ -17,7 +17,7 @@ pub const DEFAULT_HTTP_PORT: u16 = 35691;
 
 pub use peer_store::PairedPeerInfo;
 pub use runtime::{LanRuntimeStatus, PairingCodeView};
-pub use snapshot::{LanGroupBatch, LanRecordBatch, LanSyncSnapshot};
+pub use snapshot::{LanGroupBatch, LanRecordBatch, LanSyncSnapshot, LanTombstoneBatch};
 pub use discovery::DiscoveredLanPeer;
 pub use transfer::FileTransferResult;
 pub use auto_sync::{LanAutoSyncSettings, LanAutoSyncStatus};

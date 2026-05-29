@@ -440,6 +440,14 @@ pub fn webdav_history_record_states() -> Result<HashMap<String, i64>, String> {
 }
 
 pub fn webdav_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_history_records(records, false)
+}
+
+pub fn lan_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_history_records(records, true)
+}
+
+fn upsert_history_records(records: &[CloudRecord], respect_tombstones: bool) -> Result<Vec<CloudRecord>, String> {
     if records.is_empty() {
         return Ok(Vec::new());
     }
@@ -450,6 +458,14 @@ pub fn webdav_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<Clou
 
         for record in records {
             if record.uuid.trim().is_empty() {
+                continue;
+            }
+            if respect_tombstones && super::tombstones::is_record_deleted_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_HISTORY,
+                &record.uuid,
+                record.updated_at,
+            )? {
                 continue;
             }
 
@@ -917,14 +933,25 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
 // 删除单个剪贴板项
 pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
     let images_to_delete: Vec<String> = with_connection(|conn| {
-        let image_ids_opt: Option<Option<String>> = conn
+        let item: Option<(Option<String>, Option<String>)> = conn
             .query_row(
-                "SELECT image_id FROM clipboard WHERE id = ?",
+                "SELECT image_id, uuid FROM clipboard WHERE id = ?",
                 params![id],
-                |row| row.get::<_, Option<String>>(0),
+                |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
             )
             .optional()?;
-        let image_ids: Option<String> = image_ids_opt.flatten();
+        let Some((image_ids, uuid)) = item else {
+            return Ok(Vec::new());
+        };
+        let deleted_at = chrono::Local::now().timestamp();
+        let tombstone_id = uuid.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| id.to_string());
+        super::tombstones::record_sync_tombstone_in_conn(
+            conn,
+            super::tombstones::COLLECTION_HISTORY,
+            &tombstone_id,
+            &crate::services::sync_transfer::device_id(),
+            deleted_at,
+        )?;
 
         conn.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
 
@@ -957,23 +984,38 @@ pub fn delete_clipboard_items(ids: &[i64]) -> Result<(), String> {
 
     let images_to_delete: Vec<String> = with_connection(|conn| {
         let mut image_id_set: HashSet<String> = HashSet::new();
+        let mut tombstone_ids = Vec::new();
         for id in &unique_ids {
-            let image_ids_opt: Option<Option<String>> = conn
+            let item: Option<(Option<String>, Option<String>)> = conn
                 .query_row(
-                    "SELECT image_id FROM clipboard WHERE id = ?",
+                    "SELECT image_id, uuid FROM clipboard WHERE id = ?",
                     params![id],
-                    |row| row.get::<_, Option<String>>(0),
+                    |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
                 )
                 .optional()?;
 
-            if let Some(image_ids) = image_ids_opt.flatten() {
-                for image_id in split_image_ids(&image_ids) {
-                    image_id_set.insert(image_id);
+            if let Some((image_ids, uuid)) = item {
+                if let Some(image_ids) = image_ids {
+                    for image_id in split_image_ids(&image_ids) {
+                        image_id_set.insert(image_id);
+                    }
                 }
+                tombstone_ids.push(uuid.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| id.to_string()));
             }
         }
 
         let tx = conn.unchecked_transaction()?;
+        let deleted_at = chrono::Local::now().timestamp();
+        let local_device_id = crate::services::sync_transfer::device_id();
+        for uuid in &tombstone_ids {
+            super::tombstones::record_sync_tombstone_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_HISTORY,
+                uuid,
+                &local_device_id,
+                deleted_at,
+            )?;
+        }
         for id in &unique_ids {
             tx.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
         }
@@ -999,20 +1041,43 @@ pub fn delete_clipboard_items(ids: &[i64]) -> Result<(), String> {
 pub fn clear_clipboard_history() -> Result<(), String> {
     let images_to_delete: Vec<String> = with_connection(|conn| {
         let mut stmt = conn.prepare(
-            "SELECT image_id FROM clipboard WHERE image_id IS NOT NULL AND image_id <> ''",
+            "SELECT id, image_id, uuid FROM clipboard",
         )?;
-        let ids_iter = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let ids_iter = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })?;
         let mut set: HashSet<String> = HashSet::new();
+        let mut tombstone_ids = Vec::new();
         for r in ids_iter {
-            if let Ok(s) = r {
-                for iid in split_image_ids(&s) {
-                    set.insert(iid);
+            if let Ok((id, image_ids, uuid)) = r {
+                if let Some(image_ids) = image_ids {
+                    for iid in split_image_ids(&image_ids) {
+                        set.insert(iid);
+                    }
                 }
+                tombstone_ids.push(uuid.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| id.to_string()));
             }
         }
         drop(stmt);
 
-        conn.execute("DELETE FROM clipboard", [])?;
+        let tx = conn.unchecked_transaction()?;
+        let deleted_at = chrono::Local::now().timestamp();
+        let local_device_id = crate::services::sync_transfer::device_id();
+        for uuid in tombstone_ids {
+            super::tombstones::record_sync_tombstone_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_HISTORY,
+                &uuid,
+                &local_device_id,
+                deleted_at,
+            )?;
+        }
+        tx.execute("DELETE FROM clipboard", [])?;
+        tx.commit()?;
 
         let mut to_delete = Vec::new();
         for iid in set.into_iter() {

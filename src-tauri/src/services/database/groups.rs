@@ -30,6 +30,14 @@ pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
 }
 
 pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, String> {
+    save_groups(groups, false)
+}
+
+pub fn lan_save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, String> {
+    save_groups(groups, true)
+}
+
+fn save_groups(groups: &[CloudGroup], respect_tombstones: bool) -> Result<Vec<CloudGroup>, String> {
     if groups.is_empty() {
         return Ok(Vec::new());
     }
@@ -39,6 +47,15 @@ pub fn webdav_save_groups(groups: &[CloudGroup]) -> Result<Vec<CloudGroup>, Stri
         let mut changed = Vec::new();
 
         for group in groups {
+            if respect_tombstones && super::tombstones::is_record_deleted_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_GROUPS,
+                &group.name,
+                group.updated_at,
+            )? {
+                continue;
+            }
+
             let existing = tx
                 .query_row(
                     "SELECT icon, color, order_index, COALESCE(source_device_id, ''), created_at, updated_at
@@ -250,8 +267,23 @@ pub fn delete_group(name: String) -> Result<(), String> {
                 "不能删除'全部'分组".to_string()
             ));
         }
+
+        let exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM groups WHERE name = ?1",
+            params![&name],
+            |row| row.get(0),
+        )?;
         
         let tx = conn.unchecked_transaction()?;
+        if exists > 0 {
+            super::tombstones::record_sync_tombstone_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_GROUPS,
+                &name,
+                &crate::services::sync_transfer::device_id(),
+                chrono::Local::now().timestamp(),
+            )?;
+        }
         
         tx.execute(
             "UPDATE favorites SET group_name = '全部' WHERE group_name = ?1",

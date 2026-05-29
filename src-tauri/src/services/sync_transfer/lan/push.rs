@@ -10,8 +10,32 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
     let mut report = SyncReport::default();
     let remote_snapshot = super::http_client::fetch_peer_snapshot(&peer).await?;
 
+    let tombstones = crate::services::database::tombstones_newer_than_remote(
+        crate::services::database::list_sync_tombstones_since(None)?,
+        &remote_snapshot.tombstone_states,
+    );
+    if !tombstones.is_empty() {
+        let _ = super::http_client::push_peer_tombstones(
+            &peer,
+            super::LanTombstoneBatch {
+                tombstones,
+            },
+        )
+        .await?;
+    }
+
+    let local_history_records = crate::services::database::webdav_list_history_records(&local_device_id)?;
+    let local_history_records = crate::services::database::filter_records_not_deleted(
+        crate::services::database::COLLECTION_HISTORY,
+        &local_history_records,
+    )?;
+    let history_records = crate::services::database::filter_records_not_deleted_by_states(
+        crate::services::database::COLLECTION_HISTORY,
+        local_history_records,
+        &remote_snapshot.tombstone_states,
+    );
     let history_records = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
-        crate::services::database::webdav_list_history_records(&local_device_id)?,
+        history_records,
         &remote_snapshot.history_states,
     );
     if !history_records.is_empty() {
@@ -31,8 +55,18 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
             .extend(changed_history.records.iter().map(|record| record.report_item("clipboard")));
     }
 
+    let local_favorite_records = crate::services::database::webdav_list_favorite_records(&local_device_id)?;
+    let local_favorite_records = crate::services::database::filter_records_not_deleted(
+        crate::services::database::COLLECTION_FAVORITES,
+        &local_favorite_records,
+    )?;
+    let favorite_records = crate::services::database::filter_records_not_deleted_by_states(
+        crate::services::database::COLLECTION_FAVORITES,
+        local_favorite_records,
+        &remote_snapshot.tombstone_states,
+    );
     let favorite_records = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
-        crate::services::database::webdav_list_favorite_records(&local_device_id)?,
+        favorite_records,
         &remote_snapshot.favorite_states,
     );
     if !favorite_records.is_empty() {
@@ -52,8 +86,14 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
             .extend(changed_favorites.records.iter().map(|record| record.report_item("favorites")));
     }
 
+    let local_groups = crate::services::database::webdav_list_groups(&local_device_id)?;
+    let local_groups = crate::services::database::filter_groups_not_deleted(&local_groups)?;
+    let groups = crate::services::database::filter_groups_not_deleted_by_states(
+        local_groups,
+        &remote_snapshot.tombstone_states,
+    );
     let groups = crate::services::sync_transfer::sync_plan::groups_newer_than_remote(
-        crate::services::database::webdav_list_groups(&local_device_id)?,
+        groups,
         &remote_snapshot.groups,
     );
     if !groups.is_empty() {
