@@ -18,6 +18,18 @@ import {
   uploadWebdav
 } from '@shared/api/webdavSync';
 
+function SubGroupTitle({ icon, title, description }) {
+  return (
+    <div className="mb-2 mt-1 flex items-baseline gap-2">
+      <i className={`${icon} text-qc-fg-muted`} />
+      <h3 className="text-sm font-semibold text-qc-fg">{title}</h3>
+      {description && (
+        <span className="text-xs text-qc-fg-muted">{description}</span>
+      )}
+    </div>
+  );
+}
+
 function WebdavSection({ settings, onSettingChange }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState('');
@@ -136,82 +148,96 @@ function WebdavSection({ settings, onSettingChange }) {
   };
 
   return (
-    <div className="space-y-6">
-      <SettingsSection title={t('settings.webdav.title')} description={t('settings.webdav.description')}>
-        <SettingItem label={t('settings.webdav.enabled')} description={t('settings.webdav.enabledDesc')}>
-          <Toggle checked={Boolean(settings.webdavEnabled)} onChange={checked => update('webdavEnabled', checked)} />
-        </SettingItem>
+    <SettingsSection
+      title={t('settings.webdav.title')}
+      description={t('settings.webdav.description')}
+    >
+      {/* 子区 1：连接配置 */}
+      <SettingItem label={t('settings.webdav.enabled')} description={t('settings.webdav.enabledDesc')}>
+        <Toggle checked={Boolean(settings.webdavEnabled)} onChange={checked => update('webdavEnabled', checked)} />
+      </SettingItem>
 
-        <SettingItem label={t('settings.webdav.url')}>
-          <Input value={settings.webdavUrl || ''} commitOnBlur onCommit={v => update('webdavUrl', String(v))} placeholder={t('settings.webdav.urlPlaceholder')} className="w-80" />
-        </SettingItem>
+      <SettingItem label={t('settings.webdav.url')}>
+        <Input value={settings.webdavUrl || ''} commitOnBlur onCommit={v => update('webdavUrl', String(v))} placeholder={t('settings.webdav.urlPlaceholder')} className="w-80" />
+      </SettingItem>
 
-        <SettingItem label={t('settings.webdav.username')}>
-          <Input value={settings.webdavUsername || ''} commitOnBlur onCommit={v => update('webdavUsername', String(v))} placeholder={t('settings.webdav.usernamePlaceholder')} className="w-80" />
-        </SettingItem>
+      <SettingItem label={t('settings.webdav.username')}>
+        <Input value={settings.webdavUsername || ''} commitOnBlur onCommit={v => update('webdavUsername', String(v))} placeholder={t('settings.webdav.usernamePlaceholder')} className="w-80" />
+      </SettingItem>
 
-        <SettingItem label={t('settings.webdav.password')}>
-          <Input type="password" value={settings.webdavPassword || ''} commitOnBlur onCommit={v => update('webdavPassword', String(v))} placeholder={t('settings.webdav.passwordPlaceholder')} className="w-80" />
-        </SettingItem>
+      <SettingItem label={t('settings.webdav.password')}>
+        <Input type="password" value={settings.webdavPassword || ''} commitOnBlur onCommit={v => update('webdavPassword', String(v))} placeholder={t('settings.webdav.passwordPlaceholder')} className="w-80" />
+      </SettingItem>
 
-        <SettingItem label={t('settings.webdav.rootPath')}>
-          <Input value={settings.webdavRootPath || 'quickclipboard'} commitOnBlur onCommit={v => update('webdavRootPath', String(v))} placeholder={t('settings.webdav.rootPathPlaceholder')} className="w-80" />
-        </SettingItem>
-      </SettingsSection>
+      <SettingItem label={t('settings.webdav.rootPath')}>
+        <Input value={settings.webdavRootPath || 'quickclipboard'} commitOnBlur onCommit={v => update('webdavRootPath', String(v))} placeholder={t('settings.webdav.rootPathPlaceholder')} className="w-80" />
+      </SettingItem>
 
-      <SettingsSection title={t('settings.webdav.syncTitle')} description={t('settings.webdav.syncDesc')}>
-        <SettingItem label={t('settings.webdav.syncCategories')} description={t('settings.webdav.syncCategoriesDesc')}>
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-qc-fg">
-              <Toggle checked={settings.webdavSyncClipboard !== false} onChange={checked => update('webdavSyncClipboard', checked)} />
-              {t('settings.webdav.syncClipboard')}
-            </label>
-            <label className="flex items-center gap-2 text-sm text-qc-fg">
-              <Toggle checked={settings.webdavSyncFavorites !== false} onChange={checked => update('webdavSyncFavorites', checked)} />
-              {t('settings.webdav.syncFavorites')}
-            </label>
+      {/* 子区 2：同步操作 */}
+      <div className="pt-5">
+        <SubGroupTitle
+          icon="ti ti-cloud-up"
+          title={t('settings.webdav.syncTitle')}
+          description={t('settings.webdav.syncDesc')}
+        />
+      </div>
+      <SettingItem label={t('settings.webdav.syncCategories')} description={t('settings.webdav.syncCategoriesDesc')}>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm text-qc-fg">
+            <Toggle checked={settings.webdavSyncClipboard !== false} onChange={checked => update('webdavSyncClipboard', checked)} />
+            {t('settings.webdav.syncClipboard')}
+          </label>
+          <label className="flex items-center gap-2 text-sm text-qc-fg">
+            <Toggle checked={settings.webdavSyncFavorites !== false} onChange={checked => update('webdavSyncFavorites', checked)} />
+            {t('settings.webdav.syncFavorites')}
+          </label>
+        </div>
+      </SettingItem>
+
+      <SettingItem stacked label={t('settings.webdav.manualActions')} description={t('settings.webdav.manualActionsDesc')}>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => runAction('testWebdavConnection', testWebdavConnection, 'settings.webdav.testSuccess', 'push')} disabled={Boolean(busy)} variant="secondary" icon={<i className="ti ti-plug-connected" />}>
+              {busy === 'testWebdavConnection' ? t('settings.webdav.testing') : t('settings.webdav.testConnection')}
+            </Button>
+            <Button onClick={() => runAction('uploadWebdav', uploadWebdav, 'settings.webdav.pushComplete', 'push')} disabled={Boolean(busy)} variant="primary" icon={<i className="ti ti-upload" />}>
+              {busy === 'uploadWebdav' ? t('settings.webdav.pushing') : t('settings.webdav.upload')}
+            </Button>
+            <Button onClick={() => runAction('downloadWebdav', downloadWebdav, 'settings.webdav.pullComplete', 'pull')} disabled={Boolean(busy)} variant="secondary" icon={<i className="ti ti-download" />}>
+              {busy === 'downloadWebdav' ? t('settings.webdav.pulling') : t('settings.webdav.download')}
+            </Button>
+            <Button onClick={handleDownloadAll} disabled={Boolean(busy)} variant="secondary" icon={<i className="ti ti-restore" />}>
+              {busy === 'downloadAllWebdav' ? t('settings.webdav.pullingAll') : t('settings.webdav.downloadAll')}
+            </Button>
           </div>
-        </SettingItem>
+          {renderReportDetail()}
+        </div>
+      </SettingItem>
 
-        <SettingItem stacked label={t('settings.webdav.manualActions')} description={t('settings.webdav.manualActionsDesc')}>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={() => runAction('testWebdavConnection', testWebdavConnection, 'settings.webdav.testSuccess', 'push')} disabled={Boolean(busy)} variant="secondary" icon={<i className="ti ti-plug-connected" />}>
-                {busy === 'testWebdavConnection' ? t('settings.webdav.testing') : t('settings.webdav.testConnection')}
-              </Button>
-              <Button onClick={() => runAction('uploadWebdav', uploadWebdav, 'settings.webdav.pushComplete', 'push')} disabled={Boolean(busy)} variant="primary" icon={<i className="ti ti-upload" />}>
-                {busy === 'uploadWebdav' ? t('settings.webdav.pushing') : t('settings.webdav.upload')}
-              </Button>
-              <Button onClick={() => runAction('downloadWebdav', downloadWebdav, 'settings.webdav.pullComplete', 'pull')} disabled={Boolean(busy)} variant="secondary" icon={<i className="ti ti-download" />}>
-                {busy === 'downloadWebdav' ? t('settings.webdav.pulling') : t('settings.webdav.download')}
-              </Button>
-              <Button onClick={handleDownloadAll} disabled={Boolean(busy)} variant="secondary" icon={<i className="ti ti-restore" />}>
-                {busy === 'downloadAllWebdav' ? t('settings.webdav.pullingAll') : t('settings.webdav.downloadAll')}
-              </Button>
-            </div>
-            {renderReportDetail()}
-          </div>
-        </SettingItem>
-      </SettingsSection>
+      {/* 子区 3：自动同步 */}
+      <div className="pt-5">
+        <SubGroupTitle
+          icon="ti ti-clock-play"
+          title={t('settings.webdav.autoSyncTitle')}
+          description={t('settings.webdav.autoSyncDesc')}
+        />
+      </div>
+      <SettingItem label={t('settings.webdav.autoPush')} description={t('settings.webdav.autoPushDesc')}>
+        <div className="flex flex-wrap items-center gap-3">
+          <Toggle checked={Boolean(settings.webdavAutoPush)} onChange={checked => update('webdavAutoPush', checked)} />
+          <span className="text-sm text-qc-fg-muted">{t('settings.webdav.pushDelaySecs')}</span>
+          <Input type="number" value={settings.webdavPushDelaySecs ?? 10} commitOnBlur onCommit={v => update('webdavPushDelaySecs', Math.max(1, parseInt(String(v), 10) || 10))} min={1} className="w-24" />
+        </div>
+      </SettingItem>
 
-      <SettingsSection title={t('settings.webdav.autoSyncTitle')} description={t('settings.webdav.autoSyncDesc')}>
-        <SettingItem label={t('settings.webdav.autoPush')} description={t('settings.webdav.autoPushDesc')}>
-          <div className="flex flex-wrap items-center gap-3">
-            <Toggle checked={Boolean(settings.webdavAutoPush)} onChange={checked => update('webdavAutoPush', checked)} />
-            <span className="text-sm text-qc-fg-muted">{t('settings.webdav.pushDelaySecs')}</span>
-            <Input type="number" value={settings.webdavPushDelaySecs ?? 10} commitOnBlur onCommit={v => update('webdavPushDelaySecs', Math.max(1, parseInt(String(v), 10) || 10))} min={1} className="w-24" />
-          </div>
-        </SettingItem>
-
-        <SettingItem label={t('settings.webdav.autoPull')} description={t('settings.webdav.autoPullDesc')}>
-          <div className="flex flex-wrap items-center gap-3">
-            <Toggle checked={Boolean(settings.webdavAutoPull)} onChange={checked => update('webdavAutoPull', checked)} />
-            <span className="text-sm text-qc-fg-muted">{t('settings.webdav.pullIntervalSecs')}</span>
-            <Input type="number" value={settings.webdavPullIntervalSecs ?? 30} commitOnBlur onCommit={v => update('webdavPullIntervalSecs', Math.max(10, parseInt(String(v), 10) || 30))} min={10} className="w-24" />
-          </div>
-        </SettingItem>
-      </SettingsSection>
-    </div>
+      <SettingItem label={t('settings.webdav.autoPull')} description={t('settings.webdav.autoPullDesc')}>
+        <div className="flex flex-wrap items-center gap-3">
+          <Toggle checked={Boolean(settings.webdavAutoPull)} onChange={checked => update('webdavAutoPull', checked)} />
+          <span className="text-sm text-qc-fg-muted">{t('settings.webdav.pullIntervalSecs')}</span>
+          <Input type="number" value={settings.webdavPullIntervalSecs ?? 30} commitOnBlur onCommit={v => update('webdavPullIntervalSecs', Math.max(10, parseInt(String(v), 10) || 30))} min={10} className="w-24" />
+        </div>
+      </SettingItem>
+    </SettingsSection>
   );
 }
 
