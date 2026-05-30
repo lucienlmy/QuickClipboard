@@ -73,11 +73,10 @@ pub async fn sync_transfer_lan_update_auto_sync_settings(
     app: tauri::AppHandle,
 ) -> Result<services::sync_transfer::lan::LanAutoSyncSettings, String> {
     let settings = services::sync_transfer::lan_update_auto_sync_settings(settings)?;
-    if settings.is_enabled() {
+    if settings.receive_enabled {
         services::sync_transfer::lan_start_http_server(app.clone()).await?;
-        services::sync_transfer::lan_start_auto_sync(app);
     } else {
-        services::sync_transfer::lan_stop_auto_sync();
+        services::sync_transfer::lan_stop_http_server().await;
     }
     Ok(settings)
 }

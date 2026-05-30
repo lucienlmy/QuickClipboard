@@ -63,21 +63,16 @@ pub fn lan_update_auto_sync_settings(settings: lan::LanAutoSyncSettings) -> Resu
     lan::auto_sync::update_settings(settings)
 }
 
-pub fn lan_start_auto_sync(app: tauri::AppHandle) {
-    lan::auto_sync::start(app);
-}
-
-pub fn lan_stop_auto_sync() {
-    lan::auto_sync::stop();
+pub fn lan_notify_local_change(app: tauri::AppHandle, reason: &'static str) {
+    lan::auto_sync::notify_local_change(app, reason);
 }
 
 pub async fn lan_start_configured_services(app: tauri::AppHandle) {
     let settings = lan::auto_sync::settings();
-    if !settings.is_enabled() {
+    if !settings.receive_enabled {
         return;
     }
-    let _ = lan::http_server::start(app.clone(), Default::default()).await;
-    lan::auto_sync::start(app);
+    let _ = lan::http_server::start(app, Default::default()).await;
 }
 
 pub async fn lan_pull_from_peer(device_id: &str) -> Result<crate::services::webdav_sync::SyncReport, String> {

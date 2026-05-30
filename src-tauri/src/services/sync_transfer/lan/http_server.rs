@@ -153,19 +153,19 @@ async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net:
         ("GET", HISTORY_RECORDS_PATH) => authorized_json(&request, || {
             super::snapshot::list_history_records_since(query_i64(&request, "since"))
         }),
-        ("POST", HISTORY_RECORDS_PATH) => authorized_json(&request, || save_history_records(&request, &app)),
+        ("POST", HISTORY_RECORDS_PATH) => authorized_receive_json(&request, || save_history_records(&request, &app)),
         ("GET", FAVORITE_RECORDS_PATH) => authorized_json(&request, || {
             super::snapshot::list_favorite_records_since(query_i64(&request, "since"))
         }),
-        ("POST", FAVORITE_RECORDS_PATH) => authorized_json(&request, || save_favorite_records(&request, &app)),
+        ("POST", FAVORITE_RECORDS_PATH) => authorized_receive_json(&request, || save_favorite_records(&request, &app)),
         ("GET", GROUPS_PATH) => authorized_json(&request, super::snapshot::list_groups),
-        ("POST", GROUPS_PATH) => authorized_json(&request, || save_groups(&request, &app)),
+        ("POST", GROUPS_PATH) => authorized_receive_json(&request, || save_groups(&request, &app)),
         ("GET", TOMBSTONES_PATH) => authorized_json(&request, || {
             super::snapshot::list_tombstones_since(query_i64(&request, "since"))
         }),
-        ("POST", TOMBSTONES_PATH) => authorized_json(&request, || save_tombstones(&request, &app)),
+        ("POST", TOMBSTONES_PATH) => authorized_receive_json(&request, || save_tombstones(&request, &app)),
         ("GET", path) if path.starts_with(FILES_PREFIX) => authorized_bytes(&request, || read_file(path)),
-        ("PUT", path) if path.starts_with(FILES_PREFIX) => authorized_json(&request, || save_file(path, &request.body)),
+        ("PUT", path) if path.starts_with(FILES_PREFIX) => authorized_receive_json(&request, || save_file(path, &request.body)),
         ("PUT", path) if path.starts_with(TRANSFER_FILES_PREFIX) => authorized_json(&request, || save_transfer_file(path, &request.body)),
         _ => json_response(404, serde_json::json!({ "message": "未找到接口" })),
     };
@@ -184,6 +184,17 @@ where
         Ok(value) => json_response(200, value),
         Err(message) => json_response(500, serde_json::json!({ "message": message })),
     }
+}
+
+fn authorized_receive_json<T, F>(request: &HttpRequest, action: F) -> HttpResponse
+where
+    T: Serialize,
+    F: FnOnce() -> Result<T, String>,
+{
+    if !super::auto_sync::can_receive() {
+        return json_response(403, serde_json::json!({ "message": "局域网接收已关闭" }));
+    }
+    authorized_json(request, action)
 }
 
 fn authorized_bytes<F>(request: &HttpRequest, action: F) -> HttpResponse
@@ -234,6 +245,7 @@ fn save_history_records(request: &HttpRequest, app: &AppHandle) -> Result<super:
     if !changed.is_empty() {
         crate::windows::main_window::mark_clipboard_refresh_pending();
         emit_refresh_if_visible(app);
+        super::auto_sync::notify_local_change(app.clone(), "relay");
     }
     Ok(super::LanRecordBatch {
         collection: "history".to_string(),
@@ -252,6 +264,7 @@ fn save_favorite_records(request: &HttpRequest, app: &AppHandle) -> Result<super
     if !changed.is_empty() {
         crate::windows::main_window::mark_favorites_refresh_pending();
         emit_refresh_if_visible(app);
+        super::auto_sync::notify_local_change(app.clone(), "relay");
     }
     Ok(super::LanRecordBatch {
         collection: "favorites".to_string(),
@@ -268,6 +281,7 @@ fn save_groups(request: &HttpRequest, app: &AppHandle) -> Result<super::LanGroup
         crate::windows::main_window::mark_groups_refresh_pending();
         crate::windows::main_window::mark_favorites_refresh_pending();
         emit_refresh_if_visible(app);
+        super::auto_sync::notify_local_change(app.clone(), "relay");
     }
     Ok(super::LanGroupBatch { groups: changed })
 }
@@ -278,6 +292,9 @@ fn save_tombstones(request: &HttpRequest, app: &AppHandle) -> Result<super::LanT
     let changed = crate::services::database::upsert_sync_tombstones(&batch.tombstones)?;
     let report = crate::services::database::apply_sync_tombstones(&batch.tombstones)?;
     mark_tombstone_refresh(&report, app);
+    if !changed.is_empty() || report.total() > 0 {
+        super::auto_sync::notify_local_change(app.clone(), "relay");
+    }
     Ok(super::LanTombstoneBatch { tombstones: changed })
 }
 

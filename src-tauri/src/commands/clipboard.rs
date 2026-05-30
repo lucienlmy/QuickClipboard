@@ -114,13 +114,21 @@ pub fn get_clipboard_total_count() -> Result<i64, String> {
 // 移动剪贴板项到顶部（粘贴后置顶使用）
 #[tauri::command]
 pub fn move_clipboard_item(id: i64) -> Result<(), String> {
-    move_clipboard_item_to_top(id)
+    let result = move_clipboard_item_to_top(id);
+    if result.is_ok() {
+        notify_lan_change("clipboard");
+    }
+    result
 }
 
 // 移动剪贴板项（拖拽排序，按 ID，用于搜索/筛选时）
 #[tauri::command]
 pub fn move_clipboard_item_by_id(from_id: i64, to_id: i64) -> Result<(), String> {
-    db_move_clipboard_item_by_id(from_id, to_id)
+    let result = db_move_clipboard_item_by_id(from_id, to_id);
+    if result.is_ok() {
+        notify_lan_change("clipboard");
+    }
+    result
 }
 
 // 应用历史记录数量限制
@@ -223,6 +231,7 @@ pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
     let result = db_delete_clipboard_item(id);
     if result.is_ok() {
         crate::services::clipboard::clear_last_content_cache();
+        notify_lan_change("clipboard");
     }
     result
 }
@@ -232,6 +241,7 @@ pub fn delete_clipboard_items(ids: Vec<i64>) -> Result<(), String> {
     let result = db_delete_clipboard_items(&ids);
     if result.is_ok() {
         crate::services::clipboard::clear_last_content_cache();
+        notify_lan_change("clipboard");
     }
     result
 }
@@ -242,6 +252,7 @@ pub fn clear_clipboard_history() -> Result<(), String> {
     let result = db_clear_clipboard_history();
     if result.is_ok() {
         crate::services::clipboard::clear_last_content_cache();
+        notify_lan_change("clipboard");
     }
     result
 }
@@ -264,13 +275,21 @@ pub fn update_clipboard_item_cmd(
     content: String,
     html_content: Option<String>,
 ) -> Result<(), String> {
-    db_update_clipboard_item(id, content, html_content)
+    let result = db_update_clipboard_item(id, content, html_content);
+    if result.is_ok() {
+        notify_lan_change("clipboard");
+    }
+    result
 }
 
 // 切换剪贴板项置顶状态
 #[tauri::command]
 pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
-    db_toggle_pin(id)
+    let result = db_toggle_pin(id);
+    if result.is_ok() {
+        notify_lan_change("clipboard");
+    }
+    result
 }
 
 // 复制图片文件到剪贴板
@@ -450,4 +469,10 @@ pub async fn paste_image_file(file_path: String, app: tauri::AppHandle) -> Resul
 #[tauri::command]
 pub fn resolve_image_path(stored_path: String) -> Result<String, String> {
     Ok(resolve_stored_path(&stored_path))
+}
+
+fn notify_lan_change(reason: &'static str) {
+    if let Some(app) = crate::services::clipboard::get_app_handle() {
+        crate::services::sync_transfer::lan_notify_local_change(app, reason);
+    }
 }

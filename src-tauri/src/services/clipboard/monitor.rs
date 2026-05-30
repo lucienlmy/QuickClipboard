@@ -325,6 +325,9 @@ fn process_clipboard_change_once() {
     }
 
     if any_stored {
+        if let Some(app) = get_app_handle() {
+            crate::services::sync_transfer::lan_notify_local_change(app, "clipboard");
+        }
         crate::AppSounds::play_copy_on_success();
     }
 }

@@ -248,16 +248,11 @@ function LanModePanel({
 }) {
   const localPairingCode = status?.pairing_code;
   const autoSettings = autoSyncStatus?.settings || {
-    auto_push: false,
-    auto_pull: false,
-    interval_secs: 3,
+    send_enabled: false,
+    receive_enabled: false,
   };
-  const autoPushEnabled = Boolean(autoSettings.auto_push);
-  const autoPullEnabled = Boolean(autoSettings.auto_pull);
-
-  const updateAutoSetting = (patch) => {
-    onUpdateAutoSync({ ...autoSettings, ...patch });
-  };
+  const sendEnabled = Boolean(autoSettings.send_enabled ?? autoSettings.auto_push);
+  const receiveEnabled = Boolean(autoSettings.receive_enabled ?? autoSettings.auto_pull);
 
   const updateAutoDirection = (direction, checked) => {
     onUpdateAutoSync({ ...autoSettings, [direction]: checked });
@@ -564,35 +559,21 @@ function LanModePanel({
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-qc-fg">
               <Toggle
-                checked={autoPushEnabled}
-                onChange={checked => updateAutoDirection('auto_push', checked)}
+                checked={sendEnabled}
+                onChange={checked => updateAutoDirection('send_enabled', checked)}
                 disabled={busy === 'updateAutoSync'}
               />
               {t('settings.syncTransfer.autoPush')}
             </label>
             <label className="flex items-center gap-2 text-sm text-qc-fg">
               <Toggle
-                checked={autoPullEnabled}
-                onChange={checked => updateAutoDirection('auto_pull', checked)}
+                checked={receiveEnabled}
+                onChange={checked => updateAutoDirection('receive_enabled', checked)}
                 disabled={busy === 'updateAutoSync'}
               />
               {t('settings.syncTransfer.autoPull')}
             </label>
           </div>
-        </SettingItem>
-        <SettingItem
-          label={t('settings.syncTransfer.autoSyncInterval')}
-          description={t('settings.syncTransfer.autoSyncIntervalDesc')}
-        >
-          <Input
-            type="number"
-            min="1"
-            max="3600"
-            value={autoSettings.interval_secs}
-            commitOnBlur
-            onCommit={v => updateAutoSetting({ interval_secs: Math.max(1, Math.min(3600, parseInt(String(v), 10) || 3)) })}
-            className="w-28"
-          />
         </SettingItem>
       </SettingsSection>
     </div>
