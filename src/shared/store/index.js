@@ -28,8 +28,6 @@ export {
 } from './groupsStore'
 export { toastStore, toast, TOAST_POSITIONS } from './toastStore'
 export { navigationStore } from './navigationStore'
-export { chatStore } from './chatStore'
-
 // 初始化所有 stores
 export async function initStores() {
   await initSettingsFunc()

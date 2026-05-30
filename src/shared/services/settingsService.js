@@ -33,7 +33,7 @@ export const defaultSettings = {
   customFontPath: '',
   customFontUrl: '',
   customFontFamily: '',
-  visibleOptionalTabs: ['favorites', 'emoji', 'chat'],
+  visibleOptionalTabs: ['favorites', 'emoji'],
   opacity: 0.9,
   backgroundImagePath: '',
   superBackgroundBlurScale: 1,
@@ -181,16 +181,6 @@ export const defaultSettings = {
   webdavSyncClipboard: true,
   webdavSyncFavorites: true,
 
-  // LAN Sync 设置
-  lanSyncEnabled: false,
-  lanSyncAutoStart: false,
-  lanSyncMode: 'off',
-  lanSyncServerPort: 18181,
-  lanSyncPeerUrl: 'ws://127.0.0.1:18181',
-  lanSyncAutoReconnect: true,
-  lanSyncSendEnabled: true,
-  lanSyncReceiveEnabled: true,
-  lanSyncReceiveWriteClipboard: false
 }
 
 // 加载设置

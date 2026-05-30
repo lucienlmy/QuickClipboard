@@ -1,7 +1,6 @@
 export const OPTIONAL_TAB_OPTIONS = [
   { id: 'favorites', labelKey: 'favorites.title', fallbackLabel: '收藏' },
-  { id: 'emoji', labelKey: 'emoji.title', fallbackLabel: '符号' },
-  { id: 'chat', labelKey: 'chat.title', fallbackLabel: '聊天' }
+  { id: 'emoji', labelKey: 'emoji.title', fallbackLabel: '符号' }
 ]
 
 export const MAIN_TAB_ORDER = ['clipboard', ...OPTIONAL_TAB_OPTIONS.map(option => option.id)]

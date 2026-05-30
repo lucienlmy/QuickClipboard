@@ -22,7 +22,6 @@ dependencies = [
  "hmac",
  "if-addrs",
  "image",
- "lan-sync-core",
  "low-memory-fltk",
  "once_cell",
  "parking_lot",
@@ -3860,24 +3859,6 @@ dependencies = [
  "html5ever",
  "indexmap 2.12.1",
  "selectors",
-]
-
-[[package]]
-name = "lan-sync-core"
-version = "0.1.0"
-dependencies = [
- "fastrand",
- "futures-util",
- "hex",
- "hmac",
- "if-addrs",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.17",
- "tokio",
- "tokio-tungstenite",
- "url",
 ]
 
 [[package]]
@@ -8178,18 +8159,6 @@ checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
  "rustls",
  "tokio",
-]
-
-[[package]]
-name = "tokio-tungstenite"
-version = "0.26.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a9daff607c6d2bf6c16fd681ccb7eecc83e4e2cdc1ca067ffaadfca5de7f084"
-dependencies = [
- "futures-util",
- "log",
- "tokio",
- "tungstenite",
 ]
 
 [[package]]

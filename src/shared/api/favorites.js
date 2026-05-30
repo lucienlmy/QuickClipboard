@@ -112,7 +112,3 @@ export async function mergeCopyFavoriteItems(ids) {
 export async function mergePasteFavoriteItems(ids) {
   return await invoke('merge_paste_favorite_items', { ids })
 }
-
-export async function syncFavoriteItemToLanSync(favoriteId) {
-  return await invoke('lan_sync_sync_favorite_item', { favoriteId })
-}

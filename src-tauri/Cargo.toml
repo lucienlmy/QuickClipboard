@@ -57,7 +57,6 @@ atree = "0.5.2"
 rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
 winreg = "0.55"
-lan-sync-core = { path = "plugins/lan-sync-core" }
 low-memory-fltk = { path = "plugins/low-memory-fltk" }
 ratatui = "0.29"
 crossterm = "0.28"

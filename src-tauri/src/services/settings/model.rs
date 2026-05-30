@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const SETTINGS_MIGRATION_VERSION_V1: u32 = 1;
+pub const SETTINGS_MIGRATION_VERSION_V2: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -190,24 +191,6 @@ pub struct AppSettings {
     pub webdav_sync_clipboard: bool,
     pub webdav_sync_favorites: bool,
 
-    // LAN Sync 设置
-    pub lan_sync_enabled: bool,
-    #[serde(default)]
-    pub lan_sync_auto_start: bool,
-    #[serde(default = "default_true")]
-    pub lan_sync_send_enabled: bool,
-    #[serde(default = "default_true")]
-    pub lan_sync_receive_enabled: bool,
-    #[serde(default)]
-    pub lan_sync_receive_write_clipboard: bool,
-    pub lan_sync_mode: String,
-    pub lan_sync_server_port: u16,
-    pub lan_sync_peer_url: String,
-    pub lan_sync_auto_reconnect: bool,
-}
-
-fn default_true() -> bool {
-    true
 }
 
 impl Default for AppSettings {
@@ -234,7 +217,6 @@ impl Default for AppSettings {
             visible_optional_tabs: vec![
                 "favorites".to_string(),
                 "emoji".to_string(),
-                "chat".to_string(),
             ],
             opacity: 0.9,
             background_image_path: String::new(),
@@ -249,7 +231,7 @@ impl Default for AppSettings {
             image_preview: true,
             text_preview: true,
             file_preview: true,
-            settings_migration_version: Some(SETTINGS_MIGRATION_VERSION_V1),
+            settings_migration_version: Some(SETTINGS_MIGRATION_VERSION_V2),
             display_priority_order: "text,html,image".to_string(),
 
             sound_enabled: true,
@@ -378,15 +360,6 @@ impl Default for AppSettings {
             webdav_sync_clipboard: true,
             webdav_sync_favorites: true,
 
-            lan_sync_enabled: false,
-            lan_sync_auto_start: false,
-            lan_sync_send_enabled: true,
-            lan_sync_receive_enabled: true,
-            lan_sync_receive_write_clipboard: false,
-            lan_sync_mode: "off".to_string(),
-            lan_sync_server_port: 18181,
-            lan_sync_peer_url: "ws://127.0.0.1:18181".to_string(),
-            lan_sync_auto_reconnect: true,
         }
     }
 }

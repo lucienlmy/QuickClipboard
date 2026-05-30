@@ -1,4 +1,4 @@
-use super::model::{AppSettings, SETTINGS_MIGRATION_VERSION_V1};
+use super::model::{AppSettings, SETTINGS_MIGRATION_VERSION_V1, SETTINGS_MIGRATION_VERSION_V2};
 use std::{env, fs, path::PathBuf};
 
 pub struct SettingsStorage;
@@ -13,6 +13,11 @@ impl SettingsStorage {
             settings.text_preview = true;
             settings.file_preview = true;
             settings.settings_migration_version = Some(SETTINGS_MIGRATION_VERSION_V1);
+            migrated = true;
+        }
+
+        if migration_version < SETTINGS_MIGRATION_VERSION_V2 {
+            settings.settings_migration_version = Some(SETTINGS_MIGRATION_VERSION_V2);
             migrated = true;
         }
 
@@ -58,8 +63,9 @@ impl SettingsStorage {
         }
 
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let has_legacy_lan_sync_settings = content.contains("\"lanSync");
         let mut settings: AppSettings = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-        let migrated = Self::migrate_settings(&mut settings);
+        let migrated = Self::migrate_settings(&mut settings) || has_legacy_lan_sync_settings;
 
         if migrated {
             let _ = Self::save(&settings);

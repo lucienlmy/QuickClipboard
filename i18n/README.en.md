@@ -30,7 +30,7 @@
 
 ## Introduction
 
-**QuickClipboard** is a cross-platform clipboard enhancement tool (currently supports Windows and Android), built with Tauri 2 + Rust + React. It starts working the moment you copy — automatically recording text, images, rich text, and files, so you can always retrieve anything you've ever copied. Beyond just recording, QuickClipboard integrates screenshot, image pinning, OCR, LAN sync, and more, delivering a comprehensive productivity boost for daily work.
+**QuickClipboard** is a cross-platform clipboard enhancement tool (currently supports Windows and Android), built with Tauri 2 + Rust + React. It starts working the moment you copy — automatically recording text, images, rich text, and files, so you can always retrieve anything you've ever copied. Beyond just recording, QuickClipboard integrates screenshot, image pinning, OCR, WebDAV sync, LAN sync/transfer, and more, delivering a comprehensive productivity boost for daily work.
 
 > Native performance, low memory footprint, ready to use on launch, lives in your system tray.
 
@@ -48,8 +48,7 @@
 | Pin to Screen           | Desktop pinned images · GPU-accelerated rendering · Drag to resize / pin · Copy / save as · Pin after screenshot    |
 | Built-in Screenshot     | Standard screenshot · Quick screenshot / quick pin / quick OCR · Multi-monitor support · Scrolling screenshot · Auto-detect area · Screen color picker · Annotation tools |
 | OCR Recognition         | Image OCR · Screenshot OCR · One-click extract and copy text                                                        |
-| LAN Sync                | Clipboard sync (text / images) · Server / client mode · Pairing code / QR code connection · Auto-write to clipboard after receiving · Auto-reconnect |
-| LAN Chat & Transfer     | LAN chat · Send files / folders · Online device list · Receive confirmation · Transfer progress notifications        |
+| Sync / Transfer         | WebDAV full sync · LAN HTTP direct connection · Pairing code connection · Auto push/pull · File sending              |
 | Edge Snap & Window      | Auto-hide at screen edge · Summon by cursor · Pin window · Remember position / size · Title bar orientation switch  |
 | Personalization         | Follow system / Light-Dark theme / Super background · Multiple theme styles · Custom background / blur · Custom font · Animation toggle |
 | Low Memory Mode         | Auto or manual switch to lightweight mode · Instant full-UI recovery · Say goodbye to memory anxiety (~10MB in low-memory mode) |

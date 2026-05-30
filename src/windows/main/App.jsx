@@ -8,7 +8,6 @@ import { groupsStore } from '@shared/store/groupsStore';
 import { navigationStore } from '@shared/store/navigationStore';
 import { clipboardStore } from '@shared/store/clipboardStore';
 import { favoritesStore } from '@shared/store/favoritesStore';
-import { chatStore } from '@shared/store/chatStore';
 import { useWindowDrag } from '@shared/hooks/useWindowDrag';
 import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
@@ -23,7 +22,6 @@ import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
 import FavoritesTab from './components/FavoritesTab';
-import ChatTab from './components/ChatTab';
 const EmojiTab = lazy(() => import('./components/EmojiTab'));
 import MultiSelectActionBar from './components/MultiSelectActionBar';
 import ToastContainer from '@shared/components/common/ToastContainer';
@@ -68,10 +66,6 @@ function App() {
 
   // 监听设置变更事件
   useSettingsSync();
-
-  useEffect(() => {
-    chatStore.init();
-  }, []);
 
   useEffect(() => {
     if (!isMainTabVisible(activeTab, settings.visibleOptionalTabs)) {
@@ -141,7 +135,6 @@ function App() {
     navigationStore.setActiveTab(activeTab);
     clipboardStore.exitMultiSelectMode();
     favoritesStore.exitMultiSelectMode();
-    chatStore.setChatActive(activeTab === 'chat');
   }, [activeTab]);
   useEffect(() => {
     const setupListeners = async () => {
@@ -426,7 +419,6 @@ function App() {
   const ContentComponent = <div ref={contentDragRef} className="main-content-area flex-1 min-h-0 overflow-hidden relative pb-[8px] bg-qc-surface transition-colors duration-500">
       {activeTab === 'clipboard' && <ClipboardTab ref={clipboardTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
       {activeTab === 'favorites' && <FavoritesTab ref={favoritesTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}
-      {activeTab === 'chat' && <ChatTab />}
       {activeTab === 'emoji' && <Suspense fallback={null}><EmojiTab emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} /></Suspense>}
     </div>;
   const ActionBarComponent = <MultiSelectActionBar activeTab={activeTab} />;
