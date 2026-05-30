@@ -63,7 +63,7 @@ pub async fn start_responder(http_port: u16) -> Result<(), String> {
 
     let socket = UdpSocket::bind(("0.0.0.0", DISCOVERY_PORT))
         .await
-        .map_err(|e| format!("新版局域网发现服务启动失败: {}", e))?;
+        .map_err(|e| format!("局域网发现服务启动失败: {}", e))?;
     socket
         .set_broadcast(true)
         .map_err(|e| format!("启用局域网发现广播失败: {}", e))?;

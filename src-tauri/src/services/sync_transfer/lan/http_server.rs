@@ -102,7 +102,7 @@ pub async fn start(app: AppHandle, config: LanHttpServerConfig) -> Result<u16, S
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", config.port))
         .await
-        .map_err(|e| format!("新版局域网 HTTP 服务启动失败: {}", e))?;
+        .map_err(|e| format!("局域网 HTTP 服务启动失败: {}", e))?;
     let port = listener
         .local_addr()
         .map_err(|e| e.to_string())?
