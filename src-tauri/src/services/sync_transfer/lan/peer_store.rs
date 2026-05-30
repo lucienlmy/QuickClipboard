@@ -58,12 +58,22 @@ pub fn save_peers(peers: &[PairedPeer]) -> Result<(), String> {
 
 pub fn upsert_peer(peer: PairedPeer) -> Result<(), String> {
     let mut peers = list_peers();
+    let new_base = normalize_base_url(&peer.base_url);
+    if !new_base.is_empty() {
+        peers.retain(|item| {
+            item.device_id == peer.device_id || normalize_base_url(&item.base_url) != new_base
+        });
+    }
     if let Some(existing) = peers.iter_mut().find(|item| item.device_id == peer.device_id) {
         *existing = peer;
     } else {
         peers.push(peer);
     }
     save_peers(&peers)
+}
+
+fn normalize_base_url(raw: &str) -> String {
+    raw.trim().trim_end_matches('/').to_ascii_lowercase()
 }
 
 pub fn mark_peer_seen(device_id: &str) -> Result<(), String> {

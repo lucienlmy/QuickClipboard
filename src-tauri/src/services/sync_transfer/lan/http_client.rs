@@ -1,4 +1,24 @@
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
+
+pub const LAN_UNAUTHORIZED: &str = "局域网设备未授权（配对已失效）";
+
+fn build_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .connect_timeout(Duration::from_secs(3))
+        .timeout(Duration::from_secs(20))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+fn build_transfer_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .connect_timeout(Duration::from_secs(3))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanHttpClientConfig {
@@ -35,7 +55,7 @@ struct PairingConfirmOutput {
 
 pub async fn pair_with_peer(base_url: String, pairing_code: String) -> Result<super::PairedPeerInfo, String> {
     let base_url = normalize_base_url(&base_url)?;
-    let client = reqwest::Client::new();
+    let client = build_client();
     let hello = client
         .get(format!("{}/qc-sync/hello", base_url))
         .send()
@@ -139,7 +159,7 @@ pub async fn push_peer_tombstones(
 }
 
 pub async fn fetch_peer_image(peer: &super::peer_store::PairedPeer, image_id: &str) -> Result<Option<Vec<u8>>, String> {
-    let client = reqwest::Client::new();
+    let client = build_transfer_client();
     let config = LanHttpClientConfig {
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
@@ -165,7 +185,7 @@ pub async fn fetch_peer_image(peer: &super::peer_store::PairedPeer, image_id: &s
 }
 
 pub async fn push_peer_image(peer: &super::peer_store::PairedPeer, image_id: &str, bytes: Vec<u8>) -> Result<(), String> {
-    let client = reqwest::Client::new();
+    let client = build_transfer_client();
     let config = LanHttpClientConfig {
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
@@ -185,7 +205,7 @@ pub async fn push_peer_image(peer: &super::peer_store::PairedPeer, image_id: &st
 }
 
 pub async fn send_peer_file(peer: &super::peer_store::PairedPeer, file_name: &str, bytes: Vec<u8>) -> Result<super::FileTransferResult, String> {
-    let client = reqwest::Client::new();
+    let client = build_transfer_client();
     let config = LanHttpClientConfig {
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
@@ -212,7 +232,7 @@ pub async fn send_peer_file(peer: &super::peer_store::PairedPeer, file_name: &st
 }
 
 async fn authorized_get<T: serde::de::DeserializeOwned>(peer: &super::peer_store::PairedPeer, path: &str) -> Result<T, String> {
-    let client = reqwest::Client::new();
+    let client = build_client();
     let config = LanHttpClientConfig {
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
@@ -224,6 +244,9 @@ async fn authorized_get<T: serde::de::DeserializeOwned>(peer: &super::peer_store
         .send()
         .await
         .map_err(|e| format!("读取局域网同步数据失败: {}", e))?;
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return Err(LAN_UNAUTHORIZED.to_string());
+    }
     if !response.status().is_success() {
         return Err(format!("读取局域网同步数据失败: {}", response.status()));
     }
@@ -235,7 +258,7 @@ where
     T: serde::de::DeserializeOwned,
     B: Serialize + ?Sized,
 {
-    let client = reqwest::Client::new();
+    let client = build_client();
     let config = LanHttpClientConfig {
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
