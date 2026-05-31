@@ -191,6 +191,7 @@ pub struct AppSettings {
     pub webdav_sync_clipboard: bool,
     pub webdav_sync_favorites: bool,
     pub webdav_sync_images: bool,
+    pub sync_transfer_active_mode: String,
 
 }
 
@@ -361,6 +362,7 @@ impl Default for AppSettings {
             webdav_sync_clipboard: true,
             webdav_sync_favorites: true,
             webdav_sync_images: false,
+            sync_transfer_active_mode: "webdav".to_string(),
 
         }
     }

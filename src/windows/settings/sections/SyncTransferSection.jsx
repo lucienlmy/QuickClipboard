@@ -22,8 +22,6 @@ import {
   refreshSyncTransferLanPairingCode,
   removeSyncTransferLanPairedPeer,
   sendSyncTransferLanFileToPeer,
-  startSyncTransferLanHttpServer,
-  stopSyncTransferLanHttpServer,
   updateSyncTransferLanAutoSyncSettings,
 } from '@shared/api/syncTransfer';
 import { toast } from '@shared/store/toastStore';
@@ -31,7 +29,7 @@ import WebdavSection from './WebdavSection';
 
 function SyncTransferSection({ settings, onSettingChange }) {
   const { t } = useTranslation();
-  const [activeMode, setActiveMode] = useState('webdav');
+  const [activeMode, setActiveMode] = useState(settings.syncTransferActiveMode === 'lan' ? 'lan' : 'webdav');
   const [modeInfos, setModeInfos] = useState([]);
   const [lanStatus, setLanStatus] = useState(null);
   const [pairedPeers, setPairedPeers] = useState([]);
@@ -57,6 +55,11 @@ function SyncTransferSection({ settings, onSettingChange }) {
     };
   }, []);
 
+  useEffect(() => {
+    const savedMode = settings.syncTransferActiveMode === 'lan' ? 'lan' : 'webdav';
+    setActiveMode(current => (current === savedMode ? current : savedMode));
+  }, [settings.syncTransferActiveMode]);
+
   const loadLanState = async () => {
     const [status, peers, snapshot] = await Promise.all([
       getSyncTransferLanStatus(),
@@ -75,7 +78,9 @@ function SyncTransferSection({ settings, onSettingChange }) {
 
   useEffect(() => {
     if (activeMode !== 'lan') return;
-    runLanAction('startServer', startSyncTransferLanHttpServer);
+    loadLanState().catch(e => {
+      toast.error(e?.message || String(e), { duration: 5000 });
+    });
   }, [activeMode]);
 
   useEffect(() => {
@@ -142,6 +147,13 @@ function SyncTransferSection({ settings, onSettingChange }) {
       label: available ? mode.label : `${mode.label} (${t('settings.syncTransfer.pending')})`,
     };
   });
+  const handleModeChange = async mode => {
+    const nextMode = mode === 'lan' ? 'lan' : 'webdav';
+    setActiveMode(nextMode);
+    if (settings.syncTransferActiveMode !== nextMode) {
+      await onSettingChange('syncTransferActiveMode', nextMode);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -156,7 +168,7 @@ function SyncTransferSection({ settings, onSettingChange }) {
         </div>
         <SegmentedControl
           value={activeMode}
-          onChange={setActiveMode}
+          onChange={handleModeChange}
           options={modeOptions}
         />
       </div>
@@ -170,8 +182,6 @@ function SyncTransferSection({ settings, onSettingChange }) {
           autoSyncStatus={autoSyncStatus}
           peers={pairedPeers}
           busy={lanBusy}
-          onStartServer={() => runLanAction('startServer', startSyncTransferLanHttpServer)}
-          onStopServer={() => runLanAction('stopServer', stopSyncTransferLanHttpServer)}
           onRefresh={() => runLanAction('refresh', refreshSyncTransferLanPairingCode)}
           discoveredPeers={discoveredPeers}
           onDiscoverPeers={() => runLanAction('discoverPeers', async () => {
@@ -225,8 +235,6 @@ function LanModePanel({
   peerPairingCode,
   onPeerBaseUrlChange,
   onPairingCodeChange,
-  onStartServer,
-  onStopServer,
   onRefresh,
   discoveredPeers,
   onDiscoverPeers,
@@ -274,6 +282,7 @@ function LanModePanel({
   };
 
   const httpRunning = Boolean(status?.http_running);
+  const receiveRunning = receiveEnabled && httpRunning;
 
   return (
     <div className="space-y-5">
@@ -286,13 +295,13 @@ function LanModePanel({
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-qc-border">
             <div className="flex items-center gap-3">
               <Toggle
-                checked={httpRunning}
-                onChange={checked => (checked ? onStartServer() : onStopServer())}
-                disabled={busy === 'startServer' || busy === 'stopServer'}
+                checked={receiveEnabled}
+                onChange={checked => updateAutoDirection('receive_enabled', checked)}
+                disabled={busy === 'updateAutoSync'}
               />
               <div>
                 <div className="text-sm font-medium text-qc-fg">
-                  {httpRunning ? t('settings.syncTransfer.serviceRunning') : t('settings.syncTransfer.stopped')}
+                  {receiveRunning ? t('settings.syncTransfer.serviceRunning') : t('settings.syncTransfer.stopped')}
                 </div>
                 <div className="text-xs text-qc-fg-muted">{t('settings.syncTransfer.receivePanelDesc')}</div>
               </div>
@@ -337,7 +346,7 @@ function LanModePanel({
                     <button
                       type="button"
                       onClick={onRefresh}
-                      disabled={busy === 'refresh'}
+                      disabled={!receiveEnabled || busy === 'refresh'}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-qc-fg-muted hover:bg-qc-hover hover:text-qc-fg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <i className={busy === 'refresh' ? 'ti ti-loader-2 animate-spin' : 'ti ti-refresh'} />

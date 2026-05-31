@@ -181,6 +181,7 @@ export const defaultSettings = {
   webdavSyncClipboard: true,
   webdavSyncFavorites: true,
   webdavSyncImages: false,
+  syncTransferActiveMode: 'webdav',
 
 }
 
