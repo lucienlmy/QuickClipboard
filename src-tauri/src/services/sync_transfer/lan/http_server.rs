@@ -166,7 +166,7 @@ async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net:
         ("POST", TOMBSTONES_PATH) => authorized_receive_json(&request, || save_tombstones(&request, &app)),
         ("GET", path) if path.starts_with(FILES_PREFIX) => authorized_bytes(&request, || read_file(path)),
         ("PUT", path) if path.starts_with(FILES_PREFIX) => authorized_receive_json(&request, || save_file(path, &request.body)),
-        ("PUT", path) if path.starts_with(TRANSFER_FILES_PREFIX) => authorized_json(&request, || save_transfer_file(path, &request.body)),
+        ("PUT", path) if path.starts_with(TRANSFER_FILES_PREFIX) => authorized_receive_json(&request, || save_transfer_file(path, &request.body)),
         _ => json_response(404, serde_json::json!({ "message": "未找到接口" })),
     };
     write_response(&mut stream, response).await
