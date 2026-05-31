@@ -133,6 +133,17 @@ pub struct TombstoneList {
     pub tombstones: Vec<crate::services::database::SyncTombstone>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ImageFileIndex {
+    #[serde(default)]
+    pub images: HashMap<String, ImageFileIndexEntry>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ImageFileIndexEntry {
+    pub uploaded_at: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudGroup {
     pub name: String,

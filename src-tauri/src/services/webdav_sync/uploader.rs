@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::chunk_manager::{load_chunk, save_chunk};
 use super::index_manager::{load_index, save_index};
-use super::types::{CloudRecord, RecordChunk, SyncCollection, SyncIndexEntry, SyncReport, CHUNK_RECORD_LIMIT};
+use super::types::{CloudRecord, ImageFileIndex, ImageFileIndexEntry, RecordChunk, SyncCollection, SyncIndexEntry, SyncReport, CHUNK_RECORD_LIMIT};
 use super::webdav_client::WebdavClient;
 
 pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncReport, String> {
@@ -269,19 +269,45 @@ async fn upload_images(client: &WebdavClient, records: &[CloudRecord]) -> Result
         return Ok(());
     }
 
-    client.ensure_files_dir().await?;
+    let mut index = load_image_file_index(client).await?;
+    let mut changed = false;
 
     let data_dir = crate::services::get_data_directory()?;
     let images_dir = data_dir.join("clipboard_images");
     for image_id in image_ids {
+        if index.images.contains_key(&image_id) {
+            continue;
+        }
         let path = images_dir.join(format!("{}.png", image_id));
         let Ok(bytes) = std::fs::read(path) else {
             continue;
         };
+        if !changed {
+            client.ensure_files_dir().await?;
+        }
         client.put_bytes(&format!("files/{}.png", image_id), bytes).await?;
+        index.images.insert(
+            image_id,
+            ImageFileIndexEntry {
+                uploaded_at: chrono::Utc::now().timestamp(),
+            },
+        );
+        changed = true;
+    }
+
+    if changed {
+        save_image_file_index(client, &index).await?;
     }
 
     Ok(())
+}
+
+async fn load_image_file_index(client: &WebdavClient) -> Result<ImageFileIndex, String> {
+    Ok(client.get_json("files/index.json").await?.unwrap_or_default())
+}
+
+async fn save_image_file_index(client: &WebdavClient, index: &ImageFileIndex) -> Result<(), String> {
+    client.put_json("files/index.json", index).await
 }
 
 fn collect_image_ids(out: &mut HashSet<String>, raw: Option<&str>) {
