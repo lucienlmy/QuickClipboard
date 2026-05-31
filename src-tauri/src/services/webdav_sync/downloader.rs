@@ -8,7 +8,7 @@ use super::webdav_client::WebdavClient;
 pub async fn download_all(
     client: &WebdavClient,
     device_id: &str,
-    include_own_device: bool,
+    force_download: bool,
 ) -> Result<SyncReport, String> {
     let mut report = SyncReport::default();
     let settings = crate::services::get_settings();
@@ -30,8 +30,7 @@ pub async fn download_all(
         match download_collection(
             client,
             SyncCollection::History,
-            device_id,
-            include_own_device,
+            force_download,
             &local_states,
         )
         .await
@@ -65,8 +64,7 @@ pub async fn download_all(
         match download_collection(
             client,
             SyncCollection::Favorites,
-            device_id,
-            include_own_device,
+            force_download,
             &local_states,
         )
         .await
@@ -93,7 +91,7 @@ pub async fn download_all(
             download_images(client, &records_for_images).await?;
         }
 
-        match super::groups_sync::download_groups(client, device_id, include_own_device).await {
+        match super::groups_sync::download_groups(client).await {
             Ok(groups) => {
                 let count = groups.len() as u32;
                 report.pulled += count;
@@ -118,8 +116,7 @@ pub async fn download_all(
 async fn download_collection(
     client: &WebdavClient,
     collection: SyncCollection,
-    device_id: &str,
-    include_own_device: bool,
+    force_download: bool,
     local_states: &HashMap<String, i64>,
 ) -> Result<Vec<CloudRecord>, String> {
     let index = load_index(client, collection).await?;
@@ -139,11 +136,7 @@ async fn download_collection(
             continue;
         }
 
-        if !include_own_device && entry.source_device_id == device_id {
-            continue;
-        }
-
-        if !include_own_device {
+        if !force_download {
             if let Some(local_updated_at) = local_states.get(&uuid) {
                 if *local_updated_at >= entry.updated_at {
                     continue;

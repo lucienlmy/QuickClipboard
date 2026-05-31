@@ -42,11 +42,7 @@ pub async fn upload_groups_with_tombstones(
     Ok(changed)
 }
 
-pub async fn download_groups(
-    client: &WebdavClient,
-    device_id: &str,
-    include_own_device: bool,
-) -> Result<Vec<CloudGroup>, String> {
+pub async fn download_groups(client: &WebdavClient) -> Result<Vec<CloudGroup>, String> {
     let Some(remote) = client.get_json::<GroupList>("groups/groups.json").await? else {
         return Ok(Vec::new());
     };
@@ -54,7 +50,6 @@ pub async fn download_groups(
     let groups = remote
         .groups
         .into_iter()
-        .filter(|group| include_own_device || group.source_device_id != device_id)
         .collect::<Vec<CloudGroup>>();
     let groups = crate::services::database::filter_groups_not_deleted(&groups)?;
     crate::services::database::lan_save_groups(&groups)

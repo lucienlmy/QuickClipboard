@@ -26,10 +26,10 @@ pub async fn upload() -> Result<SyncReport, String> {
     Ok(sync_scheduler::store_manual_report("push", report))
 }
 
-pub async fn download(include_own_device: bool) -> Result<SyncReport, String> {
+pub async fn download(force_download: bool) -> Result<SyncReport, String> {
     let client = build_client()?;
     let device_id = crate::services::sync_transfer::device_id();
-    let report = downloader::download_all(&client, &device_id, include_own_device).await?;
+    let report = downloader::download_all(&client, &device_id, force_download).await?;
     Ok(sync_scheduler::store_manual_report("pull", report))
 }
 
