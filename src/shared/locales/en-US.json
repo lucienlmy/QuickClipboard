@@ -348,7 +348,8 @@
       "syncCategories": "Sync Scope",
       "syncCategoriesDesc": "Choose which data participates in sync; unchecked data will not sync",
       "syncClipboard": "Clipboard History",
-      "syncFavorites": "Favorites and Groups"
+      "syncFavorites": "Favorites and Groups",
+      "syncImages": "Images"
     },
     "general": {
       "title": "General Settings",

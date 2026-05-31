@@ -34,14 +34,29 @@ pub async fn upload_parts(
         }
     };
 
-    if settings.webdav_sync_clipboard && upload_clipboard {
-        let history_records = crate::services::database::webdav_list_history_records(device_id)?;
-        let history_records = crate::services::database::filter_records_not_deleted_by_states(
+    let history_records = if settings.webdav_sync_clipboard && upload_clipboard {
+        let records = crate::services::database::webdav_list_history_records(device_id)?;
+        crate::services::database::filter_records_not_deleted_by_states(
             crate::services::database::COLLECTION_HISTORY,
-            history_records,
+            records,
             &tombstone_states,
-        );
-        match upload_collection_incremental(client, SyncCollection::History, history_records, device_id).await {
+        )
+    } else {
+        Vec::new()
+    };
+    let favorite_records = if settings.webdav_sync_favorites && upload_favorites {
+        let records = crate::services::database::webdav_list_favorite_records(device_id)?;
+        crate::services::database::filter_records_not_deleted_by_states(
+            crate::services::database::COLLECTION_FAVORITES,
+            records,
+            &tombstone_states,
+        )
+    } else {
+        Vec::new()
+    };
+
+    if settings.webdav_sync_clipboard && upload_clipboard {
+        match upload_collection_incremental(client, SyncCollection::History, history_records.clone(), device_id).await {
             Ok(records) => {
                 let count = records.len() as u32;
                 report.pushed += count;
@@ -57,13 +72,7 @@ pub async fn upload_parts(
 
     if settings.webdav_sync_favorites && (upload_favorites || upload_groups) {
         if upload_favorites {
-            let favorite_records = crate::services::database::webdav_list_favorite_records(device_id)?;
-            let favorite_records = crate::services::database::filter_records_not_deleted_by_states(
-                crate::services::database::COLLECTION_FAVORITES,
-                favorite_records,
-                &tombstone_states,
-            );
-            match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records, device_id).await {
+            match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records.clone(), device_id).await {
                 Ok(records) => {
                     let count = records.len() as u32;
                     report.pushed += count;
@@ -98,9 +107,17 @@ pub async fn upload_parts(
         }
     }
 
-    upload_images(client, &uploaded_records)
-        .await
-        .map_err(|e| format!("上传图片失败: {}", e))?;
+    if settings.webdav_sync_images {
+        if upload_clipboard {
+            uploaded_records.extend(history_records);
+        }
+        if upload_favorites {
+            uploaded_records.extend(favorite_records);
+        }
+        upload_images(client, &uploaded_records)
+            .await
+            .map_err(|e| format!("上传图片失败: {}", e))?;
+    }
 
     Ok(report)
 }

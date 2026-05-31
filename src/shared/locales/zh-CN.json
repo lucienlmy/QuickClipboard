@@ -348,7 +348,8 @@
       "syncCategories": "同步范围",
       "syncCategoriesDesc": "选择需要参与同步的数据，取消勾选的数据不会参与同步",
       "syncClipboard": "剪贴板历史",
-      "syncFavorites": "收藏和分组"
+      "syncFavorites": "收藏和分组",
+      "syncImages": "图片"
     },
     "general": {
       "title": "常规设置",

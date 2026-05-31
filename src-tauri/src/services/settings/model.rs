@@ -190,6 +190,7 @@ pub struct AppSettings {
     pub webdav_pull_interval_secs: u64,
     pub webdav_sync_clipboard: bool,
     pub webdav_sync_favorites: bool,
+    pub webdav_sync_images: bool,
 
 }
 
@@ -359,6 +360,7 @@ impl Default for AppSettings {
             webdav_pull_interval_secs: 30,
             webdav_sync_clipboard: true,
             webdav_sync_favorites: true,
+            webdav_sync_images: false,
 
         }
     }

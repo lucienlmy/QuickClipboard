@@ -180,6 +180,7 @@ export const defaultSettings = {
   webdavPullIntervalSecs: 30,
   webdavSyncClipboard: true,
   webdavSyncFavorites: true,
+  webdavSyncImages: false,
 
 }
 

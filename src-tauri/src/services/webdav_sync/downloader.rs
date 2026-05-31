@@ -26,6 +26,7 @@ pub async fn download_all(
 
     if settings.webdav_sync_clipboard {
         let local_states = crate::services::database::webdav_history_record_states()?;
+        let mut records_for_images = Vec::new();
         match download_collection(
             client,
             SyncCollection::History,
@@ -36,12 +37,13 @@ pub async fn download_all(
         .await
         {
             Ok(records) => {
+                records_for_images.extend(records.iter().cloned());
                 let changed = if records.is_empty() {
                     Vec::new()
                 } else {
                     crate::services::database::lan_upsert_history_records(&records)?
                 };
-                download_images(client, &changed).await?;
+                records_for_images.extend(changed.iter().cloned());
                 let count = changed.len() as u32;
                 report.pulled += count;
                 report.pulled_clipboard += count;
@@ -51,10 +53,15 @@ pub async fn download_all(
             }
             Err(e) => report.errors.push(format!("剪贴板历史拉取失败: {}", e)),
         }
+        if settings.webdav_sync_images {
+            records_for_images.extend(crate::services::database::webdav_list_history_records(device_id)?);
+            download_images(client, &records_for_images).await?;
+        }
     }
 
     if settings.webdav_sync_favorites {
         let local_states = crate::services::database::webdav_favorite_record_states()?;
+        let mut records_for_images = Vec::new();
         match download_collection(
             client,
             SyncCollection::Favorites,
@@ -65,12 +72,13 @@ pub async fn download_all(
         .await
         {
             Ok(records) => {
+                records_for_images.extend(records.iter().cloned());
                 let changed = if records.is_empty() {
                     Vec::new()
                 } else {
                     crate::services::database::lan_upsert_favorite_records(&records)?
                 };
-                download_images(client, &changed).await?;
+                records_for_images.extend(changed.iter().cloned());
                 let count = changed.len() as u32;
                 report.pulled += count;
                 report.pulled_favorites += count;
@@ -79,6 +87,10 @@ pub async fn download_all(
                     .extend(changed.iter().map(|record| record.report_item("favorites")));
             }
             Err(e) => report.errors.push(format!("收藏拉取失败: {}", e)),
+        }
+        if settings.webdav_sync_images {
+            records_for_images.extend(crate::services::database::webdav_list_favorite_records(device_id)?);
+            download_images(client, &records_for_images).await?;
         }
 
         match super::groups_sync::download_groups(client, device_id, include_own_device).await {

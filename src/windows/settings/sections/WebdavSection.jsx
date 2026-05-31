@@ -191,6 +191,10 @@ function WebdavSection({ settings, onSettingChange }) {
             <Toggle checked={settings.webdavSyncFavorites !== false} onChange={checked => update('webdavSyncFavorites', checked)} />
             {t('settings.webdav.syncFavorites')}
           </label>
+          <label className="flex items-center gap-2 text-sm text-qc-fg">
+            <Toggle checked={Boolean(settings.webdavSyncImages)} onChange={checked => update('webdavSyncImages', checked)} />
+            {t('settings.webdav.syncImages')}
+          </label>
         </div>
       </SettingItem>
 
