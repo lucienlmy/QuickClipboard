@@ -118,6 +118,27 @@ pub fn sync_tombstone_states() -> Result<HashMap<String, i64>, String> {
     })
 }
 
+pub fn remove_sync_tombstones_for_items(collection: &str, item_ids: &[String]) -> Result<(), String> {
+    if collection.trim().is_empty() || item_ids.is_empty() {
+        return Ok(());
+    }
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        for item_id in item_ids {
+            if item_id.trim().is_empty() {
+                continue;
+            }
+            tx.execute(
+                "DELETE FROM sync_tombstones WHERE collection = ?1 AND item_id = ?2",
+                params![collection, item_id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    })
+}
+
 pub fn upsert_sync_tombstones(tombstones: &[SyncTombstone]) -> Result<Vec<SyncTombstone>, String> {
     if tombstones.is_empty() {
         return Ok(Vec::new());

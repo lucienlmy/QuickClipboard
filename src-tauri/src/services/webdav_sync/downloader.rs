@@ -23,6 +23,12 @@ pub async fn download_all(
     report.pulled_favorites += remote_tombstone_report.pulled_favorites;
     report.pulled_groups += remote_tombstone_report.pulled_groups;
     report.pulled += remote_tombstone_report.pulled;
+    let tombstone_states = if force_download {
+        super::tombstones_sync::remote_tombstone_states(client)
+            .await?
+    } else {
+        crate::services::database::sync_tombstone_states()?
+    };
 
     if settings.webdav_sync_clipboard {
         let local_states = crate::services::database::webdav_history_record_states()?;
@@ -32,6 +38,7 @@ pub async fn download_all(
             SyncCollection::History,
             force_download,
             &local_states,
+            &tombstone_states,
         )
         .await
         {
@@ -40,7 +47,16 @@ pub async fn download_all(
                 let changed = if records.is_empty() {
                     Vec::new()
                 } else {
-                    crate::services::database::lan_upsert_history_records(&records)?
+                    if force_download {
+                        let item_ids = records.iter().map(|record| record.uuid.clone()).collect::<Vec<_>>();
+                        crate::services::database::remove_sync_tombstones_for_items(
+                            crate::services::database::COLLECTION_HISTORY,
+                            &item_ids,
+                        )?;
+                        crate::services::database::webdav_repair_history_records(&records)?
+                    } else {
+                        crate::services::database::lan_upsert_history_records(&records)?
+                    }
                 };
                 records_for_images.extend(changed.iter().cloned());
                 let count = changed.len() as u32;
@@ -66,6 +82,7 @@ pub async fn download_all(
             SyncCollection::Favorites,
             force_download,
             &local_states,
+            &tombstone_states,
         )
         .await
         {
@@ -74,7 +91,16 @@ pub async fn download_all(
                 let changed = if records.is_empty() {
                     Vec::new()
                 } else {
-                    crate::services::database::lan_upsert_favorite_records(&records)?
+                    if force_download {
+                        let item_ids = records.iter().map(|record| record.uuid.clone()).collect::<Vec<_>>();
+                        crate::services::database::remove_sync_tombstones_for_items(
+                            crate::services::database::COLLECTION_FAVORITES,
+                            &item_ids,
+                        )?;
+                        crate::services::database::webdav_repair_favorite_records(&records)?
+                    } else {
+                        crate::services::database::lan_upsert_favorite_records(&records)?
+                    }
                 };
                 records_for_images.extend(changed.iter().cloned());
                 let count = changed.len() as u32;
@@ -91,7 +117,7 @@ pub async fn download_all(
             download_images(client, &records_for_images).await?;
         }
 
-        match super::groups_sync::download_groups(client).await {
+        match super::groups_sync::download_groups(client, force_download, &tombstone_states).await {
             Ok(groups) => {
                 let count = groups.len() as u32;
                 report.pulled += count;
@@ -118,14 +144,13 @@ async fn download_collection(
     collection: SyncCollection,
     force_download: bool,
     local_states: &HashMap<String, i64>,
+    tombstone_states: &HashMap<String, i64>,
 ) -> Result<Vec<CloudRecord>, String> {
     let index = load_index(client, collection).await?;
     if index.entries.is_empty() {
         return Ok(Vec::new());
     }
     let collection_name = collection.dir();
-    let tombstone_states = crate::services::database::sync_tombstone_states()?;
-
     let mut selected_entries = HashMap::<String, SyncIndexEntry>::new();
     for (uuid, entry) in index.entries {
         if tombstone_states

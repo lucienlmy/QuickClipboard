@@ -42,7 +42,11 @@ pub async fn upload_groups_with_tombstones(
     Ok(changed)
 }
 
-pub async fn download_groups(client: &WebdavClient) -> Result<Vec<CloudGroup>, String> {
+pub async fn download_groups(
+    client: &WebdavClient,
+    force_download: bool,
+    tombstone_states: &HashMap<String, i64>,
+) -> Result<Vec<CloudGroup>, String> {
     let Some(remote) = client.get_json::<GroupList>("groups/groups.json").await? else {
         return Ok(Vec::new());
     };
@@ -50,7 +54,25 @@ pub async fn download_groups(client: &WebdavClient) -> Result<Vec<CloudGroup>, S
     let groups = remote
         .groups
         .into_iter()
+        .filter(|group| {
+            tombstone_states
+                .get(&crate::services::database::tombstone_state_key(
+                    crate::services::database::COLLECTION_GROUPS,
+                    &group.name,
+                ))
+                .map(|deleted_at| *deleted_at < group.updated_at)
+                .unwrap_or(true)
+        })
         .collect::<Vec<CloudGroup>>();
-    let groups = crate::services::database::filter_groups_not_deleted(&groups)?;
-    crate::services::database::lan_save_groups(&groups)
+
+    if force_download {
+        let item_ids = groups.iter().map(|group| group.name.clone()).collect::<Vec<_>>();
+        crate::services::database::remove_sync_tombstones_for_items(
+            crate::services::database::COLLECTION_GROUPS,
+            &item_ids,
+        )?;
+        crate::services::database::webdav_repair_groups(&groups)
+    } else {
+        crate::services::database::lan_save_groups(&groups)
+    }
 }

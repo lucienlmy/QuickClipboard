@@ -127,10 +127,14 @@ pub fn webdav_favorite_record_states() -> Result<HashMap<String, i64>, String> {
 }
 
 pub fn lan_upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
-    upsert_favorite_records(records)
+    upsert_favorite_records(records, false)
 }
 
-fn upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+pub fn webdav_repair_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_favorite_records(records, true)
+}
+
+fn upsert_favorite_records(records: &[CloudRecord], ignore_tombstones: bool) -> Result<Vec<CloudRecord>, String> {
     if records.is_empty() {
         return Ok(Vec::new());
     }
@@ -143,7 +147,7 @@ fn upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, 
             if record.uuid.trim().is_empty() {
                 continue;
             }
-            if super::tombstones::is_record_deleted_in_conn(
+            if !ignore_tombstones && super::tombstones::is_record_deleted_in_conn(
                 &tx,
                 super::tombstones::COLLECTION_FAVORITES,
                 &record.uuid,

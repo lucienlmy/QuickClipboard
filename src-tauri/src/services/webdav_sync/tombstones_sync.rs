@@ -60,6 +60,14 @@ pub async fn download_tombstones(client: &WebdavClient) -> Result<SyncReport, St
     Ok(report)
 }
 
+pub async fn remote_tombstone_states(client: &WebdavClient) -> Result<HashMap<String, i64>, String> {
+    Ok(load_remote_tombstones(client)
+        .await?
+        .into_iter()
+        .map(|(key, tombstone)| (key, tombstone.deleted_at))
+        .collect())
+}
+
 async fn load_remote_tombstones(
     client: &WebdavClient,
 ) -> Result<HashMap<String, crate::services::database::SyncTombstone>, String> {
