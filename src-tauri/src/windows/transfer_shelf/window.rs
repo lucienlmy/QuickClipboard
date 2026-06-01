@@ -110,37 +110,43 @@ fn place_initial_position(app: &AppHandle, window: &WebviewWindow, stagger_index
 fn bind_drop_events(window: &WebviewWindow, app: AppHandle) {
     let label = window.label().to_string();
     window.on_window_event(move |event| {
-        if let WindowEvent::DragDrop(drag_event) = event {
-            let shelf_id = match id_from_label(&label) {
-                Some(value) => value.to_string(),
-                None => return,
-            };
-
-            match drag_event {
-                DragDropEvent::Enter { .. } | DragDropEvent::Over { .. } => {
-                    emit_drop_active(&app, &shelf_id, true);
-                }
-                DragDropEvent::Drop { paths, .. } => {
-                    emit_drop_active(&app, &shelf_id, false);
-                    let strings = paths_to_strings(paths);
-                    if strings.is_empty() {
-                        return;
-                    }
-                    if let Some(window) = app.get_webview_window(&label) {
-                        let _ = window.emit(
-                            FILES_DROPPED_EVENT,
-                            ShelfDroppedFilesPayload {
-                                shelf_id: shelf_id.clone(),
-                                paths: strings,
-                            },
-                        );
-                    }
-                }
-                DragDropEvent::Leave => {
-                    emit_drop_active(&app, &shelf_id, false);
-                }
-                _ => {}
+        match event {
+            WindowEvent::Focused(false) => {
+                crate::services::memory::schedule_cleanup_after_window_inactive();
             }
+            WindowEvent::DragDrop(drag_event) => {
+                let shelf_id = match id_from_label(&label) {
+                    Some(value) => value.to_string(),
+                    None => return,
+                };
+
+                match drag_event {
+                    DragDropEvent::Enter { .. } | DragDropEvent::Over { .. } => {
+                        emit_drop_active(&app, &shelf_id, true);
+                    }
+                    DragDropEvent::Drop { paths, .. } => {
+                        emit_drop_active(&app, &shelf_id, false);
+                        let strings = paths_to_strings(paths);
+                        if strings.is_empty() {
+                            return;
+                        }
+                        if let Some(window) = app.get_webview_window(&label) {
+                            let _ = window.emit(
+                                FILES_DROPPED_EVENT,
+                                ShelfDroppedFilesPayload {
+                                    shelf_id: shelf_id.clone(),
+                                    paths: strings,
+                                },
+                            );
+                        }
+                    }
+                    DragDropEvent::Leave => {
+                        emit_drop_active(&app, &shelf_id, false);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
         }
     });
 }

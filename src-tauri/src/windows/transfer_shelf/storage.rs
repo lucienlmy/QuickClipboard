@@ -77,11 +77,3 @@ pub fn upsert_geometry(id: &str, geometry: ShelfGeometryPersisted) -> Result<(),
     save(&state)
 }
 
-pub fn save_name_counter(value: u32) -> Result<(), String> {
-    let mut state = load();
-    if state.name_counter == value {
-        return Ok(());
-    }
-    state.name_counter = value;
-    save(&state)
-}

@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::collections::HashSet;
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
@@ -18,26 +18,53 @@ struct ShelfRecord {
 }
 
 static SHELVES: Lazy<Mutex<Vec<ShelfRecord>>> = Lazy::new(|| Mutex::new(Vec::new()));
-static NAME_COUNTER: AtomicU32 = AtomicU32::new(0);
-static STATE_LOADED: AtomicU32 = AtomicU32::new(0);
+
+const DEFAULT_SHELF_NAME_PREFIX: &str = "文件盒_";
 
 fn ensure_state_loaded() -> ShelfStatePersisted {
-    let state = storage::load();
-    if STATE_LOADED.swap(1, Ordering::SeqCst) == 0 {
-        let counter = state.name_counter.max(state.shelves.len() as u32);
-        NAME_COUNTER.store(counter, Ordering::SeqCst);
+    storage::load()
+}
+
+fn default_shelf_name_index(name: &str) -> Option<u32> {
+    let suffix = name.strip_prefix(DEFAULT_SHELF_NAME_PREFIX)?;
+    let index = suffix.parse::<u32>().ok()?;
+    if index == 0 || index.to_string() != suffix {
+        return None;
     }
-    state
+    Some(index)
+}
+
+fn next_default_shelf_name(persisted: &[ShelfPersisted], active: &[ShelfRecord]) -> String {
+    let mut used = HashSet::new();
+    for name in persisted
+        .iter()
+        .map(|item| item.name.as_str())
+        .chain(active.iter().map(|item| item.name.as_str()))
+    {
+        if let Some(index) = default_shelf_name_index(name) {
+            used.insert(index);
+        }
+    }
+
+    let mut index = 1;
+    while used.contains(&index) {
+        index += 1;
+    }
+    format!("{}{}", DEFAULT_SHELF_NAME_PREFIX, index)
 }
 
 /// 创建一个新的文件盒窗口，自动分配 id 与默认名称。
 pub fn open_or_create_shelf(app: &AppHandle) -> Result<ShelfSummary, String> {
-    let _ = ensure_state_loaded();
+    let state = ensure_state_loaded();
 
     let id = Uuid::new_v4().to_string();
-    let stagger_index = SHELVES.lock().len() as u32;
-    let counter = NAME_COUNTER.fetch_add(1, Ordering::SeqCst).saturating_add(1);
-    let name = format!("文件盒_{}", counter);
+    let (stagger_index, name) = {
+        let guard = SHELVES.lock();
+        (
+            guard.len() as u32,
+            next_default_shelf_name(&state.shelves, &guard),
+        )
+    };
 
     create_shelf_window(app, &id, &name, stagger_index)?;
 
@@ -53,7 +80,6 @@ pub fn open_or_create_shelf(app: &AppHandle) -> Result<ShelfSummary, String> {
         files: Vec::new(),
         selected_peer_ids: Vec::new(),
     });
-    let _ = storage::save_name_counter(counter);
 
     Ok(ShelfSummary {
         label: label_for(&id),
