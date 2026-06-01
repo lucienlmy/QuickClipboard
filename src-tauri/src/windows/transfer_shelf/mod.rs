@@ -5,7 +5,8 @@
 
 pub mod commands;
 mod manager;
+mod storage;
 mod types;
 mod window;
 
-pub use manager::open_or_create_shelf;
+pub use manager::{open_or_create_shelf, restore_persisted_shelves};

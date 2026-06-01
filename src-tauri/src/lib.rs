@@ -148,6 +148,10 @@ pub fn run() {
                 windows::transfer_shelf::commands::transfer_shelf_focus,
                 windows::transfer_shelf::commands::transfer_shelf_close,
                 windows::transfer_shelf::commands::transfer_shelf_describe_paths,
+                windows::transfer_shelf::commands::transfer_shelf_load_state,
+                windows::transfer_shelf::commands::transfer_shelf_save_state,
+                windows::transfer_shelf::commands::transfer_shelf_save_geometry,
+                windows::transfer_shelf::commands::transfer_shelf_apply_geometry,
                 commands::emit_clipboard_updated,
                 commands::emit_quick_texts_updated,
                 commands::get_clipboard_history,
@@ -429,6 +433,8 @@ pub fn run() {
                         services::sync_transfer::lan_start_configured_services(app_handle).await;
                     });
                 }
+
+                windows::transfer_shelf::restore_persisted_shelves(app.handle());
 
                 if settings.clipboard_monitor {
                     let _ = start_clipboard_monitor();

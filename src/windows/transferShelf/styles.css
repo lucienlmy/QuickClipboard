@@ -274,6 +274,33 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+.shelf-file__badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.shelf-file.is-failed {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: rgba(220, 38, 38, 0.06);
+}
+
+.shelf-file.is-missing {
+  opacity: 0.55;
+}
+
+.shelf-file.is-missing .shelf-file__icon {
+  color: #dc2626;
+}
+
+.shelf-file.is-missing .shelf-file__size {
+  color: #dc2626;
+}
+
 /* ===== dock ===== */
 .shelf-dock {
   display: flex;

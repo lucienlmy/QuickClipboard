@@ -38,6 +38,15 @@ pub struct ShelfDropActivePayload {
     pub active: bool,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShelfStateSnapshot {
+    pub id: String,
+    pub name: String,
+    pub files: Vec<ShelfFileInfo>,
+    pub selected_peer_ids: Vec<String>,
+}
+
 pub fn label_for(id: &str) -> String {
     format!("{}{}", LABEL_PREFIX, id)
 }
