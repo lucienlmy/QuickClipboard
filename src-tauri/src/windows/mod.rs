@@ -8,6 +8,7 @@ pub mod plugins;
 pub mod pin_image_window;
 pub mod updater_window;
 pub mod preview_window;
+pub mod transfer_shelf;
 
 #[cfg(feature = "gpu-image-viewer")]
 pub mod native_pin_window;

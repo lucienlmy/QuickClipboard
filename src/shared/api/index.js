@@ -10,4 +10,5 @@ export * from './dataManagement'
 export * from './previewWindow'
 export * from './webdavSync'
 export * from './syncTransfer'
+export * from './transferShelf'
 

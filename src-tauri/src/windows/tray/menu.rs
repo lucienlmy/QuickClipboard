@@ -185,6 +185,13 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
             preview_image: None,
         },
         separator_item(),
+        menu_item_with_state(
+            "transfer-shelf",
+            "新建文件中转架",
+            Some("ti ti-package"),
+            is_force_update,
+        ),
+        separator_item(),
         menu_item_with_state("toggle-hotkeys", hotkeys_label, Some("ti ti-keyboard"), is_force_update),
         menu_item_with_state("toggle-clipboard-monitor", monitor_label, Some("ti ti-clipboard"), is_force_update),
         separator_item(),
@@ -299,6 +306,11 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
         }
         "open-qq-group" => {
             let _ = crate::windows::community_window::open_community_window(app);
+        }
+        "transfer-shelf" => {
+            if let Err(e) = crate::windows::transfer_shelf::open_or_create_shelf(app) {
+                eprintln!("创建文件中转架失败: {}", e);
+            }
         }
         "toggle" => {
             crate::toggle_main_window_visibility(app);

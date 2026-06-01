@@ -47,6 +47,7 @@
         "input-dialog",
         "context-menu",
         "preview-window",
+        "transfer-shelf",
         "updater"
       ],
       "assetProtocol": {
