@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { LogicalSize } from '@tauri-apps/api/dpi';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import {
   applyTransferShelfGeometry,
@@ -17,6 +18,12 @@ const FILES_DROPPED_EVENT = 'transfer-shelf-files-dropped';
 const DROP_ACTIVE_EVENT = 'transfer-shelf-drop-active';
 const PERSIST_DEBOUNCE_MS = 400;
 const GEOMETRY_DEBOUNCE_MS = 400;
+const VIEW_MODE_KEY = 'transferShelfViewMode';
+const PEERS_COLLAPSED_KEY = 'transferShelfPeersCollapsed';
+const PEERS_MAX_INNER = 90;
+const PEERS_PADDING_TOP = 8;
+const PEERS_BLOCK_FALLBACK = PEERS_MAX_INNER + PEERS_PADDING_TOP;
+const TOGGLE_ANIM_MS = 160;
 
 function getShelfIdFromUrl() {
   try {
@@ -61,6 +68,24 @@ function toPersistedFile(file) {
   };
 }
 
+function readStoredViewMode() {
+  try {
+    const value = localStorage.getItem(VIEW_MODE_KEY);
+    return value === 'grid' ? 'grid' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
+function readStoredPeersCollapsed() {
+  try {
+    const value = localStorage.getItem(PEERS_COLLAPSED_KEY);
+    return value !== '0';
+  } catch {
+    return true;
+  }
+}
+
 export default function App() {
   const shelfId = useMemo(() => getShelfIdFromUrl(), []);
   const [files, setFiles] = useState([]);
@@ -71,9 +96,15 @@ export default function App() {
   const [failedTargets, setFailedTargets] = useState([]);
   const [errorText, setErrorText] = useState('');
   const [restored, setRestored] = useState(false);
+  const [viewMode, setViewMode] = useState(readStoredViewMode);
+  const [peersCollapsed, setPeersCollapsed] = useState(readStoredPeersCollapsed);
   const persistTimerRef = useRef(null);
   const geometryTimerRef = useRef(null);
-
+  const filesPanelRef = useRef(null);
+  const peersRef = useRef(null);
+  const peersWrapperRef = useRef(null);
+  const peersHeightRef = useRef(PEERS_BLOCK_FALLBACK);
+  const animatingRef = useRef(false);
 
   const stagedSize = useMemo(
     () => files.reduce((total, file) => total + (Number(file.size) || 0), 0),
@@ -82,6 +113,11 @@ export default function App() {
   const isSending = task.status === 'sending';
   const canSend = files.length > 0 && selectedPeerIds.length > 0 && !isSending;
   const canRetry = !isSending && failedTargets.length > 0;
+  const selectedPeers = peers.filter((peer) => selectedPeerIds.includes(peer.device_id));
+  const peersCountLabel = `${selectedPeers.length}/${peers.length}`;
+  const sendTitle = !canSend
+    ? (files.length === 0 ? '请先添加文件' : '请选择目标设备')
+    : `发送到 ${selectedPeers.length} 台设备`;
 
   const addPaths = async (paths) => {
     const uniquePaths = [...new Set(paths.filter((path) => typeof path === 'string' && path.length > 0))];
@@ -235,6 +271,24 @@ export default function App() {
     };
   }, [shelfId]);
 
+  // 视图模式持久化
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, viewMode);
+    } catch {
+      // ignore
+    }
+  }, [viewMode]);
+
+  // 折叠状态持久化
+  useEffect(() => {
+    try {
+      localStorage.setItem(PEERS_COLLAPSED_KEY, peersCollapsed ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [peersCollapsed]);
+
   const removeFile = (path) => {
     setFiles((current) => current.filter((file) => file.path !== path));
     setFailedTargets((current) => current.filter((item) => item.path !== path));
@@ -296,6 +350,108 @@ export default function App() {
     }
   };
 
+  const toggleViewMode = () => {
+    setViewMode((mode) => (mode === 'list' ? 'grid' : 'list'));
+  };
+
+  // 折叠/展开设备列表：冻结文件区，避免窗口尺寸变化时 flex 把中间区域推来推去
+  const togglePeersCollapsed = async () => {
+    if (animatingRef.current) return;
+    const next = !peersCollapsed;
+    const wrapper = peersWrapperRef.current;
+    const inner = peersRef.current;
+    const filesPanel = filesPanelRef.current;
+    // 真实可见高度被 inner 的 max-height 夹住，不能直接用 scrollHeight
+    const innerVisible = inner
+      ? Math.min(inner.scrollHeight, PEERS_MAX_INNER)
+      : PEERS_MAX_INNER;
+    const targetWrapperH = innerVisible + PEERS_PADDING_TOP;
+    if (innerVisible > 0) peersHeightRef.current = targetWrapperH;
+    const delta = peersHeightRef.current || PEERS_BLOCK_FALLBACK;
+
+    animatingRef.current = true;
+
+    try {
+      const win = getCurrentWindow();
+      const factor = await win.scaleFactor();
+      const innerSize = await win.innerSize();
+      const logicalW = innerSize.width / factor;
+      const currentLogicalH = innerSize.height / factor;
+      const targetLogicalH = next
+        ? Math.max(currentLogicalH - delta, 220)
+        : currentLogicalH + delta;
+
+      let frozenFilesHeight = 0;
+      if (filesPanel) {
+        frozenFilesHeight = filesPanel.getBoundingClientRect().height;
+        filesPanel.style.flex = '0 0 auto';
+        filesPanel.style.boxSizing = 'border-box';
+        filesPanel.style.height = `${frozenFilesHeight}px`;
+      }
+
+      if (wrapper) {
+        wrapper.style.transition = 'none';
+        wrapper.style.overflow = 'hidden';
+        wrapper.style.maxHeight = next ? `${targetWrapperH}px` : '0px';
+        wrapper.style.paddingTop = next ? `${PEERS_PADDING_TOP}px` : '0px';
+        wrapper.style.opacity = next ? '1' : '0';
+        wrapper.style.pointerEvents = next ? '' : 'none';
+      }
+
+      if (!next) {
+        await win.setSize(new LogicalSize(logicalW, targetLogicalH));
+        setPeersCollapsed(false);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      } else {
+        setPeersCollapsed(false);
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+
+      if (wrapper) {
+        wrapper.style.transition = `max-height ${TOGGLE_ANIM_MS}ms cubic-bezier(0.4, 0, 0.2, 1), padding-top ${TOGGLE_ANIM_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${TOGGLE_ANIM_MS - 20}ms ease`;
+        wrapper.style.maxHeight = next ? '0px' : `${targetWrapperH}px`;
+        wrapper.style.paddingTop = next ? '0px' : `${PEERS_PADDING_TOP}px`;
+        wrapper.style.opacity = next ? '0' : '1';
+        wrapper.style.pointerEvents = next ? 'none' : '';
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, TOGGLE_ANIM_MS));
+
+      if (next) {
+        setPeersCollapsed(true);
+        await win.setSize(new LogicalSize(logicalW, targetLogicalH));
+      } else if (filesPanel && frozenFilesHeight > 0) {
+        const diff = filesPanel.getBoundingClientRect().height - frozenFilesHeight;
+        if (Math.abs(diff) > 0.25) {
+          await win.setSize(new LogicalSize(logicalW, targetLogicalH - diff));
+        }
+      }
+
+      if (wrapper) {
+        wrapper.style.transition = '';
+        wrapper.style.overflow = '';
+        wrapper.style.maxHeight = '';
+        wrapper.style.paddingTop = '';
+        wrapper.style.opacity = '';
+        wrapper.style.pointerEvents = '';
+      }
+      if (filesPanel) {
+        filesPanel.style.flex = '';
+        filesPanel.style.boxSizing = '';
+        filesPanel.style.height = '';
+      }
+    } catch (error) {
+      console.warn('调整中转架窗口高度失败', error);
+    } finally {
+      if (filesPanel) {
+        filesPanel.style.flex = '';
+        filesPanel.style.boxSizing = '';
+        filesPanel.style.height = '';
+      }
+      animatingRef.current = false;
+    }
+  };
+
   // 把 (peer, file) 对作为单元发送，便于失败时只重试失败项
   const runSendBatch = async (targets) => {
     if (!Array.isArray(targets) || targets.length === 0) return;
@@ -347,25 +503,20 @@ export default function App() {
     await runSendBatch(failedTargets);
   };
 
-  const selectedPeers = peers.filter((peer) => selectedPeerIds.includes(peer.device_id));
-  const headerSubtitle = files.length > 0
-    ? `${files.length} 个文件 · ${formatSize(stagedSize)}`
-    : '把文件拖到这里';
-
   return (
     <main className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`}>
       <section className="shelf-shell">
         <header className="shelf-header" onPointerDown={handleStartDrag}>
-          <div className="shelf-header__brand">
-            <span className="shelf-header__logo">
-              <i className="ti ti-package" />
-            </span>
-            <div className="shelf-header__text">
-              <span className="shelf-header__title">文件中转架</span>
-              <span className="shelf-header__subtitle">{headerSubtitle}</span>
-            </div>
-          </div>
+          <span className="shelf-header__title">中转架</span>
           <div className="shelf-header__actions" onPointerDown={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="shelf-icon-btn"
+              title={viewMode === 'list' ? '切换到宫格视图' : '切换到列表视图'}
+              onClick={toggleViewMode}
+            >
+              <i className={`ti ${viewMode === 'list' ? 'ti-layout-grid' : 'ti-layout-list'}`} />
+            </button>
             <button type="button" className="shelf-icon-btn" title="最小化" onClick={handleMinimize}>
               <i className="ti ti-minus" />
             </button>
@@ -375,17 +526,16 @@ export default function App() {
           </div>
         </header>
 
-        <section className="shelf-files">
+        <section className="shelf-files" ref={filesPanelRef}>
           {files.length === 0 ? (
             <div className="shelf-files__empty">
               <span className="shelf-files__empty-icon">
                 <i className="ti ti-cloud-upload" />
               </span>
-              <span className="shelf-files__empty-title">等待文件</span>
-              <span className="shelf-files__empty-hint">把文件拖到这里，或点击下方加号添加</span>
+              <span className="shelf-files__empty-title">把文件拖到这里</span>
             </div>
           ) : (
-            <div className="shelf-files__list">
+            <div className={`shelf-files__list ${viewMode === 'grid' ? 'is-grid' : ''}`}>
               {files.map((file) => {
                 const failedCount = failedTargets.filter((target) => target.path === file.path).length;
                 const missing = file.exists === false;
@@ -396,12 +546,12 @@ export default function App() {
                 ].filter(Boolean).join(' ');
                 const sizeLabel = missing ? '文件不存在' : formatSize(file.size);
                 return (
-                  <div className={className} key={file.path}>
+                  <div className={className} key={file.path} title={file.name}>
                     <span className="shelf-file__icon">
                       <i className={`ti ${missing ? 'ti-file-off' : 'ti-file'}`} />
                     </span>
                     <div className="shelf-file__meta">
-                      <span className="shelf-file__name" title={file.name}>{file.name}</span>
+                      <span className="shelf-file__name">{file.name}</span>
                       <span className="shelf-file__size">
                         {sizeLabel}
                         {failedCount > 0 && <span className="shelf-file__badge">失败 {failedCount}</span>}
@@ -409,7 +559,7 @@ export default function App() {
                     </div>
                     <button
                       type="button"
-                      className="shelf-icon-btn"
+                      className="shelf-icon-btn shelf-file__remove"
                       title="移除"
                       onClick={() => removeFile(file.path)}
                     >
@@ -424,6 +574,16 @@ export default function App() {
 
         <footer className="shelf-dock">
           <div className="shelf-dock__row">
+            <button
+              type="button"
+              className="shelf-send"
+              disabled={!canSend}
+              onClick={sendFiles}
+              title={sendTitle}
+              aria-label={sendTitle}
+            >
+              <i className={`ti ${isSending ? 'ti-loader-2 shelf-spin' : 'ti-send'}`} />
+            </button>
             <button type="button" className="shelf-icon-btn" title="添加文件" onClick={selectFiles}>
               <i className="ti ti-plus" />
             </button>
@@ -436,48 +596,6 @@ export default function App() {
             >
               <i className="ti ti-trash" />
             </button>
-            <span className="shelf-dock__caption">
-              发送到 <strong>{selectedPeers.length > 0 ? `${selectedPeers.length} 台设备` : '未选择'}</strong>
-            </span>
-          </div>
-
-          <div className="shelf-peers">
-            {peers.length === 0 ? (
-              <div className="shelf-peers__empty">暂无配对设备</div>
-            ) : (
-              peers.map((peer) => {
-                const selected = selectedPeerIds.includes(peer.device_id);
-                const name = peer.device_name || peer.name || '未命名';
-                return (
-                  <button
-                    type="button"
-                    key={peer.device_id}
-                    className={`shelf-peer ${selected ? 'is-selected' : ''}`}
-                    title={name}
-                    onClick={() => togglePeer(peer.device_id)}
-                  >
-                    <span className="shelf-peer__icon">
-                      <i className={`ti ${selected ? 'ti-check' : 'ti-device-desktop'}`} />
-                    </span>
-                    <span className="shelf-peer__name">{name}</span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          {errorText && <div className="shelf-error" title={errorText}>{errorText}</div>}
-
-          <div className="shelf-dock__send">
-            <div className="shelf-dock__progress">
-              {task.status !== 'idle' && (
-                <span>
-                  {isSending && `发送中 ${task.done}/${task.total}`}
-                  {task.status === 'done' && '发送完成'}
-                  {task.status === 'failed' && `失败 ${task.failed} 个 / 共 ${task.total}`}
-                </span>
-              )}
-            </div>
             {canRetry && (
               <button
                 type="button"
@@ -488,17 +606,60 @@ export default function App() {
                 <i className="ti ti-refresh" />
               </button>
             )}
+            <span className="shelf-dock__progress">
+              {task.status !== 'idle' && (
+                isSending
+                  ? `${task.done}/${task.total}`
+                  : task.status === 'done'
+                    ? '完成'
+                    : `失败 ${task.failed}/${task.total}`
+              )}
+            </span>
             <button
               type="button"
-              className="shelf-send"
-              disabled={!canSend}
-              onClick={sendFiles}
-              title="发送"
+              className="shelf-icon-btn shelf-dock__toggle"
+              title={peersCollapsed
+                ? `展开设备列表（已选 ${peersCountLabel}）`
+                : `折叠设备列表（已选 ${peersCountLabel}）`}
+              onClick={togglePeersCollapsed}
             >
-              <i className={`ti ${isSending ? 'ti-loader-2 shelf-spin' : 'ti-send'}`} />
-              <span>发送</span>
+              <i className={`ti ${peersCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'}`} />
             </button>
           </div>
+
+          <div
+            className={`shelf-peers ${peersCollapsed ? 'is-collapsed' : ''}`}
+            aria-hidden={peersCollapsed}
+            ref={peersWrapperRef}
+          >
+            <div className="shelf-peers__inner" ref={peersRef}>
+              {peers.length === 0 ? (
+                <div className="shelf-peers__empty">暂无配对设备</div>
+              ) : (
+                peers.map((peer) => {
+                  const selected = selectedPeerIds.includes(peer.device_id);
+                  const name = peer.device_name || peer.name || '未命名';
+                  return (
+                    <button
+                      type="button"
+                      key={peer.device_id}
+                      className={`shelf-peer ${selected ? 'is-selected' : ''}`}
+                      title={name}
+                      onClick={() => togglePeer(peer.device_id)}
+                      tabIndex={peersCollapsed ? -1 : 0}
+                    >
+                      <span className="shelf-peer__icon">
+                        <i className={`ti ${selected ? 'ti-check' : 'ti-device-desktop'}`} />
+                      </span>
+                      <span className="shelf-peer__name">{name}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {errorText && <div className="shelf-error" title={errorText}>{errorText}</div>}
         </footer>
       </section>
     </main>
