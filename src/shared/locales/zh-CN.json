@@ -464,6 +464,8 @@
       "restoreSystemWinV": "恢复系统 Win+V",
       "quickpasteWindow": "便捷粘贴",
       "quickpasteWindowDesc": "快速预览剪贴板内容并粘贴",
+      "transferShelfCreate": "新建文件盒",
+      "transferShelfCreateDesc": "快速创建一个新的文件盒窗口",
       "screenshotTitle": "截屏快捷键",
       "screenshotSectionDesc": "截屏相关的快捷键设置",
       "screenshot": "普通截屏",

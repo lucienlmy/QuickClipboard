@@ -50,6 +50,7 @@ export const defaultSettings = {
   toggleShortcut: 'Shift+Space',
   openSettingsShortcut: '',
   quickpasteShortcut: 'Ctrl+`',
+  transferShelfCreateShortcut: '',
   screenshotShortcut: 'Ctrl+Shift+A',
   numberShortcuts: true,
   numberShortcutsModifier: 'Ctrl',

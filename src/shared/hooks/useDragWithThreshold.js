@@ -4,7 +4,7 @@ import { startDrag } from '@crabnebula/tauri-plugin-drag';
 const DRAG_THRESHOLD = 5;
 
 export function useDragWithThreshold(options = {}) {
-  const { onDragStart, onDragEnd } = options;
+  const { onDragPending, onDragStart, onDragEnd, onDragCancel, shouldStartDrag } = options;
   const dragStateRef = useRef(null);
 
   const handleMouseDown = useCallback((e, filePaths, iconPath, mode = 'copy') => {
@@ -25,6 +25,11 @@ export function useDragWithThreshold(options = {}) {
       const distance = Math.sqrt(dx * dx + dy * dy);
 
       if (distance >= DRAG_THRESHOLD) {
+        if (shouldStartDrag && !shouldStartDrag(moveEvent)) {
+          onDragPending?.({ event: moveEvent, paths, mode, iconPath: iconPath || paths[0] });
+          return;
+        }
+
         isDragging = true;
         cleanup();
         
@@ -46,6 +51,7 @@ export function useDragWithThreshold(options = {}) {
     };
 
     const handleMouseUp = () => {
+      onDragCancel?.();
       cleanup();
     };
 
@@ -60,7 +66,7 @@ export function useDragWithThreshold(options = {}) {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
-  }, [onDragStart, onDragEnd]);
+  }, [onDragPending, onDragStart, onDragEnd, onDragCancel, shouldStartDrag]);
 
   return handleMouseDown;
 }

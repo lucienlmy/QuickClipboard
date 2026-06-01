@@ -149,6 +149,7 @@ pub fn run() {
                 windows::transfer_shelf::commands::transfer_shelf_rename,
                 windows::transfer_shelf::commands::transfer_shelf_close,
                 windows::transfer_shelf::commands::transfer_shelf_describe_paths,
+                windows::transfer_shelf::commands::transfer_shelf_send,
                 windows::transfer_shelf::commands::transfer_shelf_load_state,
                 windows::transfer_shelf::commands::transfer_shelf_save_state,
                 windows::transfer_shelf::commands::transfer_shelf_save_geometry,

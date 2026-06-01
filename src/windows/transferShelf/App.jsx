@@ -13,12 +13,13 @@ import {
   renameTransferShelf,
   saveTransferShelfGeometry,
   saveTransferShelfState,
-  sendSyncTransferLanFileToPeer,
+  sendTransferShelf,
 } from '@shared/api';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 
 const FILES_DROPPED_EVENT = 'transfer-shelf-files-dropped';
 const DROP_ACTIVE_EVENT = 'transfer-shelf-drop-active';
+const TASK_PROGRESS_EVENT = 'transfer-shelf-task-progress';
 const PERSIST_DEBOUNCE_MS = 400;
 const GEOMETRY_DEBOUNCE_MS = 400;
 const VIEW_MODE_KEY = 'transferShelfViewMode';
@@ -91,6 +92,127 @@ function readStoredPeersCollapsed() {
   }
 }
 
+function drawRoundRect(ctx, x, y, width, height, radius) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, radius);
+    return;
+  }
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+}
+
+function createDragPreviewIcon(icon, count, mode) {
+  try {
+    const canvas = document.createElement('canvas');
+    const width = count > 1 ? 88 : 66;
+    const height = 58;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return icon;
+    ctx.scale(ratio, ratio);
+
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.2)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 4;
+
+    const drawFallbackFile = (x, y, alpha) => {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(47, 123, 255, 0.5)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      drawRoundRect(ctx, x, y, 30, 36, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    };
+
+    const drawIconTile = (x, y, alpha) => {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.strokeStyle = 'rgba(47, 123, 255, 0.24)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      drawRoundRect(ctx, x, y, 36, 36, 9);
+      ctx.fill();
+      ctx.stroke();
+      if (icon?.startsWith('data:image/')) {
+        const image = new Image();
+        image.src = icon;
+        if (image.complete) {
+          ctx.drawImage(image, x + 7, y + 7, 22, 22);
+        } else {
+          drawFallbackFile(x + 5, y + 3, 1);
+        }
+      } else {
+        drawFallbackFile(x + 5, y + 3, 1);
+      }
+      ctx.globalAlpha = 1;
+    };
+
+    if (count > 1) {
+      drawIconTile(16, 7, 0.72);
+      drawIconTile(9, 14, 1);
+    } else {
+      drawIconTile(9, 12, 1);
+    }
+
+    ctx.shadowColor = 'transparent';
+    if (count > 1) {
+      ctx.fillStyle = mode === 'move' ? '#16a34a' : '#2f7bff';
+      ctx.beginPath();
+      ctx.arc(46, 14, 13, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 13px "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(Math.min(count, 99)), 46, 14.5);
+    }
+
+    ctx.fillStyle = mode === 'move' ? 'rgba(22, 163, 74, 0.92)' : 'rgba(47, 123, 255, 0.92)';
+    ctx.beginPath();
+    drawRoundRect(ctx, count > 1 ? 43 : 24, 33, 38, 18, 9);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 10px "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(mode === 'move' ? '移动' : '复制', count > 1 ? 62 : 43, 42.5);
+
+    return canvas.toDataURL('image/png');
+  } catch {
+    return icon;
+  }
+}
+
+function getDragPreviewPlacement(event, root, count) {
+  const rect = root?.getBoundingClientRect();
+  const width = count > 1 ? 88 : 66;
+  const height = 58;
+  const gap = 12;
+  if (!rect) {
+    return { x: event.clientX + gap, y: event.clientY + gap };
+  }
+
+  const placeLeft = event.clientX + gap + width > rect.right;
+  const placeTop = event.clientY + gap + height > rect.bottom;
+  const x = placeLeft ? event.clientX - width - gap : event.clientX + gap;
+  const y = placeTop ? event.clientY - height - gap : event.clientY + gap;
+
+  return {
+    x: Math.min(Math.max(x, rect.left + 4), rect.right - width - 4),
+    y: Math.min(Math.max(y, rect.top + 4), rect.bottom - height - 4),
+  };
+}
+
 export default function App() {
   const shelfId = useMemo(() => getShelfIdFromUrl(), []);
   const [files, setFiles] = useState([]);
@@ -108,6 +230,7 @@ export default function App() {
   const [draftName, setDraftName] = useState('文件盒');
   const [selectedFilePaths, setSelectedFilePaths] = useState([]);
   const [lastSelectedPath, setLastSelectedPath] = useState('');
+  const [dragPreview, setDragPreview] = useState(null);
   const persistTimerRef = useRef(null);
   const geometryTimerRef = useRef(null);
   const filesPanelRef = useRef(null);
@@ -115,6 +238,7 @@ export default function App() {
   const peersWrapperRef = useRef(null);
   const peersHeightRef = useRef(PEERS_BLOCK_FALLBACK);
   const animatingRef = useRef(false);
+  const rootRef = useRef(null);
 
   const stagedSize = useMemo(
     () => files.reduce((total, file) => total + (Number(file.size) || 0), 0),
@@ -202,6 +326,35 @@ export default function App() {
       if (paths.length === 0) return;
       setDropActive(false);
       await addPaths(paths);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [shelfId]);
+
+  useEffect(() => {
+    if (!shelfId) return;
+    let unlisten = null;
+    listen(TASK_PROGRESS_EVENT, (event) => {
+      const payload = event.payload || {};
+      if (payload.shelfId !== shelfId) return;
+
+      const errors = Array.isArray(payload.errors) ? payload.errors : [];
+      setTask({
+        status: payload.status || 'idle',
+        total: Number(payload.total) || 0,
+        done: Number(payload.done) || 0,
+        failed: Number(payload.failed) || 0,
+      });
+      setFailedTargets(errors.map((item) => ({
+        peerId: item.peerId,
+        path: item.path,
+        message: item.message || '',
+      })));
+      setErrorText(errors.length > 0 ? errors[errors.length - 1].message || '' : '');
     }).then((fn) => {
       unlisten = fn;
     });
@@ -470,7 +623,32 @@ export default function App() {
   };
 
   const handleExternalDragMouseDown = useDragWithThreshold({
+    onDragPending: ({ event, paths, mode, iconPath }) => {
+      const placement = getDragPreviewPlacement(event, rootRef.current, paths.length);
+      setDragPreview({
+        x: placement.x,
+        y: placement.y,
+        count: paths.length,
+        mode,
+        iconPath,
+      });
+    },
+    shouldStartDrag: (event) => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return true;
+      return event.clientX < rect.left
+        || event.clientX > rect.right
+        || event.clientY < rect.top
+        || event.clientY > rect.bottom;
+    },
+    onDragStart: () => {
+      setDragPreview(null);
+    },
+    onDragCancel: () => {
+      setDragPreview(null);
+    },
     onDragEnd: async ({ paths, mode, result, cursorPos }) => {
+      setDragPreview(null);
       if (mode !== 'move' || result !== 'Dropped' || !Array.isArray(paths) || paths.length === 0) return;
       if (cursorPos && Number.isFinite(cursorPos.x) && Number.isFinite(cursorPos.y)) {
         try {
@@ -617,27 +795,30 @@ export default function App() {
       return;
     }
 
-    const total = validTargets.length;
-    let done = 0;
-    let failed = 0;
-    const newFailed = [];
     setErrorText('');
-    setTask({ status: 'sending', total, done, failed });
+    setFailedTargets([]);
+    setTask({ status: 'sending', total: validTargets.length, done: 0, failed: 0 });
 
-    for (const target of validTargets) {
-      try {
-        await sendSyncTransferLanFileToPeer(target.peerId, target.path);
-        done += 1;
-      } catch (error) {
-        failed += 1;
-        newFailed.push({ ...target, message: error?.message || String(error) });
-        setErrorText(error?.message || String(error));
-      }
-      setTask({ status: 'sending', total, done, failed });
+    try {
+      const result = await sendTransferShelf(shelfId, validTargets);
+      const errors = Array.isArray(result?.errors) ? result.errors : [];
+      setFailedTargets(errors.map((item) => ({
+        peerId: item.peerId,
+        path: item.path,
+        message: item.message || '',
+      })));
+      setTask({
+        status: result?.status || (errors.length > 0 ? 'failed' : 'done'),
+        total: Number(result?.total) || validTargets.length,
+        done: Number(result?.done) || 0,
+        failed: Number(result?.failed) || errors.length,
+      });
+      setErrorText(errors.length > 0 ? errors[errors.length - 1].message || '' : '');
+    } catch (error) {
+      const message = error?.message || String(error);
+      setErrorText(message);
+      setTask({ status: 'failed', total: validTargets.length, done: 0, failed: validTargets.length });
     }
-
-    setFailedTargets(newFailed);
-    setTask({ status: failed > 0 ? 'failed' : 'done', total, done, failed });
   };
 
   const sendFiles = async () => {
@@ -657,7 +838,7 @@ export default function App() {
   };
 
   return (
-    <main className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`} onPointerDown={handleStartDrag}>
+    <main ref={rootRef} className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`} onPointerDown={handleStartDrag}>
       <section className="shelf-shell">
         <header className="shelf-header">
           {!editingName && (
@@ -747,12 +928,15 @@ export default function App() {
                     title={canExternalDrag ? `${file.name}\n${selected && dragPaths.length > 1 ? `拖出 ${dragPaths.length} 个选中文件` : '拖到外部程序'}，Shift 拖拽为移动` : file.name}
                     onClick={(event) => selectFile(event, file.path)}
                     onMouseDown={canExternalDrag
-                      ? (event) => handleExternalDragMouseDown(
-                        event,
-                        dragPaths,
-                        dragPaths[0],
-                        event.shiftKey ? 'move' : 'copy',
-                      )
+                      ? (event) => {
+                        const dragMode = event.shiftKey ? 'move' : 'copy';
+                        const dragIcon = createDragPreviewIcon(
+                          dragFiles.find((item) => item.icon)?.icon || '',
+                          dragPaths.length,
+                          dragMode,
+                        ) || dragPaths[0];
+                        handleExternalDragMouseDown(event, dragPaths, dragIcon, dragMode);
+                      }
                       : undefined}
                   >
                     <span className="shelf-file__icon">
@@ -879,6 +1063,22 @@ export default function App() {
           {errorText && <div className="shelf-error" title={errorText}>{errorText}</div>}
         </footer>
       </section>
+      {dragPreview && (
+        <div
+          className="shelf-drag-preview"
+          style={{
+            transform: `translate3d(${dragPreview.x}px, ${dragPreview.y}px, 0)`,
+          }}
+        >
+          {dragPreview.iconPath?.startsWith('data:image/') ? (
+            <img src={dragPreview.iconPath} alt="" draggable={false} />
+          ) : (
+            <span className="shelf-drag-preview__fallback">
+              <i className="ti ti-file" />
+            </span>
+          )}
+        </div>
+      )}
     </main>
   );
 }

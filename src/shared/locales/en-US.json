@@ -464,6 +464,8 @@
       "restoreSystemWinV": "Restore system Win+V",
       "quickpasteWindow": "Quick Paste",
       "quickpasteWindowDesc": "Quickly preview and paste clipboard content",
+      "transferShelfCreate": "New File Box",
+      "transferShelfCreateDesc": "Quickly create a new file box window",
       "screenshotTitle": "Screenshot Shortcuts",
       "screenshotSectionDesc": "Screenshot related shortcut settings",
       "screenshot": "Normal Screenshot",

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub const LABEL_PREFIX: &str = "transfer-shelf-";
 pub const FILES_DROPPED_EVENT: &str = "transfer-shelf-files-dropped";
 pub const DROP_ACTIVE_EVENT: &str = "transfer-shelf-drop-active";
+pub const TASK_PROGRESS_EVENT: &str = "transfer-shelf-task-progress";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +38,32 @@ pub struct ShelfDroppedFilesPayload {
 pub struct ShelfDropActivePayload {
     pub shelf_id: String,
     pub active: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShelfSendTarget {
+    pub peer_id: String,
+    pub path: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShelfSendError {
+    pub peer_id: String,
+    pub path: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShelfSendTaskPayload {
+    pub shelf_id: String,
+    pub status: String,
+    pub total: usize,
+    pub done: usize,
+    pub failed: usize,
+    pub errors: Vec<ShelfSendError>,
 }
 
 #[derive(Clone, Debug, Serialize)]

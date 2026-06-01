@@ -76,6 +76,7 @@ pub struct AppSettings {
     // 预览窗口设置
     pub quickpaste_enabled: bool,
     pub quickpaste_shortcut: String,
+    pub transfer_shelf_create_shortcut: String,
     pub quickpaste_paste_on_modifier_release: bool,
     pub quickpaste_scroll_sound: bool,
     pub quickpaste_scroll_sound_path: String,
@@ -264,6 +265,7 @@ impl Default for AppSettings {
 
             quickpaste_enabled: true,
             quickpaste_shortcut: "Ctrl+`".to_string(),
+            transfer_shelf_create_shortcut: String::new(),
             quickpaste_paste_on_modifier_release: true,
             quickpaste_scroll_sound: true,
             quickpaste_scroll_sound_path: "sounds/roll.mp3".to_string(),

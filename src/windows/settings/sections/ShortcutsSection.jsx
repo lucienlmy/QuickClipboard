@@ -98,6 +98,9 @@ function ShortcutsSection({ settings, onSettingChange, activeTab }) {
             <SettingItem label={t('settings.shortcuts.quickpasteWindow')} description={t('settings.shortcuts.quickpasteWindowDesc')}>
               <ShortcutInput value={settings.quickpasteShortcut} onChange={value => handleShortcutChange('quickpasteShortcut', value)} onReset={() => handleShortcutChange('quickpasteShortcut', 'Ctrl+`')} hasError={hasErrorStatus('quickpasteShortcut', 'quickpaste')} errorMessage={getErrorMessage('quickpasteShortcut', 'quickpaste')} />
             </SettingItem>
+            <SettingItem label={t('settings.shortcuts.transferShelfCreate')} description={t('settings.shortcuts.transferShelfCreateDesc')}>
+              <ShortcutInput value={settings.transferShelfCreateShortcut} onChange={value => handleShortcutChange('transferShelfCreateShortcut', value)} onReset={() => handleShortcutChange('transferShelfCreateShortcut', '')} hasError={hasErrorStatus('transferShelfCreateShortcut', 'transfer_shelf_create')} errorMessage={getErrorMessage('transferShelfCreateShortcut', 'transfer_shelf_create')} />
+            </SettingItem>
             <SettingItem label={t('settings.shortcuts.toggleClipboardMonitor')} description={t('settings.shortcuts.toggleClipboardMonitorDesc')}>
               <ShortcutInput value={settings.toggleClipboardMonitorShortcut} onChange={value => handleShortcutChange('toggleClipboardMonitorShortcut', value)} onReset={() => handleShortcutChange('toggleClipboardMonitorShortcut', '')} hasError={hasErrorStatus('toggleClipboardMonitorShortcut', 'toggle_clipboard_monitor')} errorMessage={getErrorMessage('toggleClipboardMonitorShortcut', 'toggle_clipboard_monitor')} />
             </SettingItem>

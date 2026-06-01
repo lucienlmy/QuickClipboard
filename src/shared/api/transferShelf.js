@@ -24,6 +24,10 @@ export async function describeTransferShelfPaths(paths) {
   return await invoke('transfer_shelf_describe_paths', { paths });
 }
 
+export async function sendTransferShelf(id, targets) {
+  return await invoke('transfer_shelf_send', { id, targets });
+}
+
 export async function loadTransferShelfState(id) {
   return await invoke('transfer_shelf_load_state', { id });
 }

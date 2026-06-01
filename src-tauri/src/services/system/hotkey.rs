@@ -312,6 +312,25 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn register_transfer_shelf_create_hotkey(shortcut_str: &str) -> Result<(), String> {
+    register_shortcut("transfer_shelf_create", shortcut_str, |app| {
+        if is_foreground_globally_disabled() {
+            return;
+        }
+
+        let app = app.clone();
+        std::thread::spawn(move || {
+            if !matches!(ensure_normal_mode_for_hotkey(&app, "创建文件盒"), Ok(true)) {
+                return;
+            }
+
+            if let Err(error) = crate::windows::transfer_shelf::open_or_create_shelf(&app) {
+                eprintln!("快捷键创建文件盒失败: {}", error);
+            }
+        });
+    })
+}
+
 #[cfg(feature = "screenshot-suite")]
 pub fn register_screenshot_hotkey(shortcut_str: &str) -> Result<(), String> {
     register_shortcut("screenshot", shortcut_str, |app| {
@@ -780,6 +799,12 @@ pub fn reload_from_settings() -> Result<(), String> {
         if settings.quickpaste_enabled && !settings.quickpaste_shortcut.is_empty() {
             if let Err(e) = register_quickpaste_hotkey(&settings.quickpaste_shortcut) {
                 eprintln!("注册预览窗口快捷键失败: {}", e);
+            }
+        }
+
+        if !settings.transfer_shelf_create_shortcut.is_empty() {
+            if let Err(e) = register_transfer_shelf_create_hotkey(&settings.transfer_shelf_create_shortcut) {
+                eprintln!("注册文件盒创建快捷键失败: {}", e);
             }
         }
         
