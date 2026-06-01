@@ -7,7 +7,7 @@ export function useDragWithThreshold(options = {}) {
   const { onDragStart, onDragEnd } = options;
   const dragStateRef = useRef(null);
 
-  const handleMouseDown = useCallback((e, filePaths, iconPath) => {
+  const handleMouseDown = useCallback((e, filePaths, iconPath, mode = 'copy') => {
     if (e.button !== 0) return;
     
     const paths = Array.isArray(filePaths) ? filePaths.filter(Boolean) : [];
@@ -29,15 +29,19 @@ export function useDragWithThreshold(options = {}) {
         cleanup();
         
         onDragStart?.();
+        let dragPayload = null;
         try {
           await startDrag({ 
             item: paths, 
-            icon: iconPath || paths[0] 
+            icon: iconPath || paths[0],
+            mode,
+          }, (payload) => {
+            dragPayload = payload || null;
           });
         } catch (err) {
           console.error('拖拽失败:', err);
         }
-        onDragEnd?.();
+        onDragEnd?.({ paths, mode, result: dragPayload?.result || null, cursorPos: dragPayload?.cursorPos || null });
       }
     };
 

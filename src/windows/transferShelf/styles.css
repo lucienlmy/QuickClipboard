@@ -221,6 +221,24 @@ button {
   background: color-mix(in srgb, var(--qc-accent, #2f7bff) 5%, var(--qc-surface, #ffffff));
 }
 
+.shelf-file.is-selected {
+  border-color: rgba(47, 123, 255, 0.62);
+  background: color-mix(in srgb, var(--qc-accent, #2f7bff) 12%, var(--qc-surface, #ffffff));
+  box-shadow: inset 0 0 0 1px rgba(47, 123, 255, 0.18);
+}
+
+.shelf-file.is-selected:hover,
+.shelf-file.is-selected.is-draggable:hover {
+  border-color: rgba(47, 123, 255, 0.72);
+  background: color-mix(in srgb, var(--qc-accent, #2f7bff) 16%, var(--qc-surface, #ffffff));
+  box-shadow: inset 0 0 0 1px rgba(47, 123, 255, 0.24);
+}
+
+.shelf-file.is-selected .shelf-file__icon {
+  background: rgba(47, 123, 255, 0.16);
+  color: #1d5bd6;
+}
+
 .shelf-files__list.is-grid .shelf-file {
   flex-direction: column;
   align-items: stretch;

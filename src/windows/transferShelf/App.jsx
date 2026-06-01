@@ -99,6 +99,8 @@ export default function App() {
   const [restored, setRestored] = useState(false);
   const [viewMode, setViewMode] = useState(readStoredViewMode);
   const [peersCollapsed, setPeersCollapsed] = useState(readStoredPeersCollapsed);
+  const [selectedFilePaths, setSelectedFilePaths] = useState([]);
+  const [lastSelectedPath, setLastSelectedPath] = useState('');
   const persistTimerRef = useRef(null);
   const geometryTimerRef = useRef(null);
   const filesPanelRef = useRef(null);
@@ -114,11 +116,20 @@ export default function App() {
   const isSending = task.status === 'sending';
   const canSend = files.length > 0 && selectedPeerIds.length > 0 && !isSending;
   const canRetry = !isSending && failedTargets.length > 0;
+  const selectedFileSet = useMemo(() => new Set(selectedFilePaths), [selectedFilePaths]);
+  const activeFiles = useMemo(
+    () => {
+      const selected = files.filter((file) => selectedFileSet.has(file.path));
+      return selected.length > 0 ? selected : files;
+    },
+    [files, selectedFileSet],
+  );
+  const validSelectedFileCount = files.filter((file) => selectedFileSet.has(file.path)).length;
   const selectedPeers = peers.filter((peer) => selectedPeerIds.includes(peer.device_id));
   const peersCountLabel = `${selectedPeers.length}/${peers.length}`;
   const sendTitle = !canSend
     ? (files.length === 0 ? '请先添加文件' : '请选择目标设备')
-    : `发送到 ${selectedPeers.length} 台设备`;
+    : `发送 ${activeFiles.length} 个文件到 ${selectedPeers.length} 台设备`;
 
   const addPaths = async (paths) => {
     const uniquePaths = [...new Set(paths.filter((path) => typeof path === 'string' && path.length > 0))];
@@ -290,16 +301,53 @@ export default function App() {
     }
   }, [peersCollapsed]);
 
+  useEffect(() => {
+    const pathSet = new Set(files.map((file) => file.path));
+    setSelectedFilePaths((current) => current.filter((path) => pathSet.has(path)));
+    setLastSelectedPath((current) => (current && pathSet.has(current) ? current : ''));
+  }, [files]);
+
   const removeFile = (path) => {
     setFiles((current) => current.filter((file) => file.path !== path));
     setFailedTargets((current) => current.filter((item) => item.path !== path));
+    setSelectedFilePaths((current) => current.filter((item) => item !== path));
+    setLastSelectedPath((current) => (current === path ? '' : current));
   };
 
   const clearFiles = () => {
     setFiles([]);
     setErrorText('');
     setFailedTargets([]);
+    setSelectedFilePaths([]);
+    setLastSelectedPath('');
     setTask({ status: 'idle', total: 0, done: 0, failed: 0 });
+  };
+
+  const selectFile = (event, path) => {
+    if (event.shiftKey && lastSelectedPath) {
+      const startIndex = files.findIndex((file) => file.path === lastSelectedPath);
+      const endIndex = files.findIndex((file) => file.path === path);
+      if (startIndex >= 0 && endIndex >= 0) {
+        const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+        const rangePaths = files.slice(from, to + 1).map((file) => file.path);
+        setSelectedFilePaths((current) => Array.from(new Set([...current, ...rangePaths])));
+        setLastSelectedPath(path);
+        return;
+      }
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedFilePaths((current) => (
+        current.includes(path)
+          ? current.filter((item) => item !== path)
+          : [...current, path]
+      ));
+      setLastSelectedPath(path);
+      return;
+    }
+
+    setSelectedFilePaths([path]);
+    setLastSelectedPath(path);
   };
 
   const togglePeer = (deviceId) => {
@@ -355,7 +403,43 @@ export default function App() {
     setViewMode((mode) => (mode === 'list' ? 'grid' : 'list'));
   };
 
-  const handleExternalDragMouseDown = useDragWithThreshold();
+  const handleExternalDragMouseDown = useDragWithThreshold({
+    onDragEnd: async ({ paths, mode, result, cursorPos }) => {
+      if (mode !== 'move' || result !== 'Dropped' || !Array.isArray(paths) || paths.length === 0) return;
+      if (cursorPos && Number.isFinite(cursorPos.x) && Number.isFinite(cursorPos.y)) {
+        try {
+          const win = getCurrentWindow();
+          const position = await win.outerPosition();
+          const size = await win.outerSize();
+          const insideWindow = cursorPos.x >= position.x
+            && cursorPos.x <= position.x + size.width
+            && cursorPos.y >= position.y
+            && cursorPos.y <= position.y + size.height;
+          if (insideWindow) return;
+        } catch {
+          // 无法判断落点时继续按插件 Dropped 结果处理
+        }
+      }
+      let movedPaths = [];
+      try {
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        const infos = await describeTransferShelfPaths(paths);
+        movedPaths = Array.isArray(infos)
+          ? infos.filter((info) => info && info.exists === false).map((info) => info.path)
+          : [];
+      } catch {
+        movedPaths = [];
+      }
+      if (movedPaths.length === 0) return;
+
+      const movedSet = new Set(movedPaths);
+      setFiles((current) => current.filter((file) => !movedSet.has(file.path)));
+      setFailedTargets((current) => current.filter((item) => !movedSet.has(item.path)));
+      setSelectedFilePaths((current) => current.filter((path) => !movedSet.has(path)));
+      setLastSelectedPath((current) => (movedSet.has(current) ? '' : current));
+      setErrorText('');
+    },
+  });
 
   // 折叠/展开设备列表：冻结文件区，避免窗口尺寸变化时 flex 把中间区域推来推去
   const togglePeersCollapsed = async () => {
@@ -494,7 +578,7 @@ export default function App() {
     if (!canSend) return;
     const targets = [];
     for (const peerId of selectedPeerIds) {
-      for (const file of files) {
+      for (const file of activeFiles) {
         targets.push({ peerId, path: file.path });
       }
     }
@@ -542,10 +626,16 @@ export default function App() {
               {files.map((file) => {
                 const failedCount = failedTargets.filter((target) => target.path === file.path).length;
                 const missing = file.exists === false;
+                const selected = selectedFileSet.has(file.path);
                 const canExternalDrag = !missing;
+                const dragFiles = selected
+                  ? files.filter((item) => selectedFileSet.has(item.path) && item.exists !== false)
+                  : [file];
+                const dragPaths = dragFiles.map((item) => item.path);
                 const className = [
                   'shelf-file',
                   canExternalDrag ? 'is-draggable' : '',
+                  selected ? 'is-selected' : '',
                   missing ? 'is-missing' : '',
                   failedCount > 0 ? 'is-failed' : '',
                 ].filter(Boolean).join(' ');
@@ -554,9 +644,15 @@ export default function App() {
                   <div
                     className={className}
                     key={file.path}
-                    title={canExternalDrag ? `${file.name}\n拖到外部程序` : file.name}
+                    title={canExternalDrag ? `${file.name}\n${selected && dragPaths.length > 1 ? `拖出 ${dragPaths.length} 个选中文件` : '拖到外部程序'}，Shift 拖拽为移动` : file.name}
+                    onClick={(event) => selectFile(event, file.path)}
                     onMouseDown={canExternalDrag
-                      ? (event) => handleExternalDragMouseDown(event, [file.path], file.path)
+                      ? (event) => handleExternalDragMouseDown(
+                        event,
+                        dragPaths,
+                        dragPaths[0],
+                        event.shiftKey ? 'move' : 'copy',
+                      )
                       : undefined}
                   >
                     <span className="shelf-file__icon">
@@ -623,6 +719,7 @@ export default function App() {
               </button>
             )}
             <span className="shelf-dock__progress">
+              {task.status === 'idle' && validSelectedFileCount > 0 && `已选 ${validSelectedFileCount}`}
               {task.status !== 'idle' && (
                 isSending
                   ? `${task.done}/${task.total}`
