@@ -13,6 +13,7 @@ import {
   saveTransferShelfState,
   sendSyncTransferLanFileToPeer,
 } from '@shared/api';
+import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 
 const FILES_DROPPED_EVENT = 'transfer-shelf-files-dropped';
 const DROP_ACTIVE_EVENT = 'transfer-shelf-drop-active';
@@ -354,6 +355,8 @@ export default function App() {
     setViewMode((mode) => (mode === 'list' ? 'grid' : 'list'));
   };
 
+  const handleExternalDragMouseDown = useDragWithThreshold();
+
   // 折叠/展开设备列表：冻结文件区，避免窗口尺寸变化时 flex 把中间区域推来推去
   const togglePeersCollapsed = async () => {
     if (animatingRef.current) return;
@@ -539,14 +542,23 @@ export default function App() {
               {files.map((file) => {
                 const failedCount = failedTargets.filter((target) => target.path === file.path).length;
                 const missing = file.exists === false;
+                const canExternalDrag = !missing;
                 const className = [
                   'shelf-file',
+                  canExternalDrag ? 'is-draggable' : '',
                   missing ? 'is-missing' : '',
                   failedCount > 0 ? 'is-failed' : '',
                 ].filter(Boolean).join(' ');
                 const sizeLabel = missing ? '文件不存在' : formatSize(file.size);
                 return (
-                  <div className={className} key={file.path} title={file.name}>
+                  <div
+                    className={className}
+                    key={file.path}
+                    title={canExternalDrag ? `${file.name}\n拖到外部程序` : file.name}
+                    onMouseDown={canExternalDrag
+                      ? (event) => handleExternalDragMouseDown(event, [file.path], file.path)
+                      : undefined}
+                  >
                     <span className="shelf-file__icon">
                       <i className={`ti ${missing ? 'ti-file-off' : 'ti-file'}`} />
                     </span>
@@ -561,7 +573,11 @@ export default function App() {
                       type="button"
                       className="shelf-icon-btn shelf-file__remove"
                       title="移除"
-                      onClick={() => removeFile(file.path)}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeFile(file.path);
+                      }}
                     >
                       <i className="ti ti-x" />
                     </button>
