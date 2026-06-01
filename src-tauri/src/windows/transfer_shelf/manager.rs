@@ -30,14 +30,14 @@ fn ensure_state_loaded() -> ShelfStatePersisted {
     state
 }
 
-/// 创建一个新的中转架窗口，自动分配 id 与默认名称。
+/// 创建一个新的文件盒窗口，自动分配 id 与默认名称。
 pub fn open_or_create_shelf(app: &AppHandle) -> Result<ShelfSummary, String> {
     let _ = ensure_state_loaded();
 
     let id = Uuid::new_v4().to_string();
     let stagger_index = SHELVES.lock().len() as u32;
     let counter = NAME_COUNTER.fetch_add(1, Ordering::SeqCst).saturating_add(1);
-    let name = format!("中转架 {}", counter);
+    let name = format!("文件盒 {}", counter);
 
     create_shelf_window(app, &id, &name, stagger_index)?;
 
@@ -74,7 +74,7 @@ pub fn restore_persisted_shelves(app: &AppHandle) {
             continue;
         }
         if let Err(err) = create_shelf_window(app, &persisted.id, &persisted.name, index as u32) {
-            eprintln!("[transfer_shelf] 恢复中转架窗口失败 {}: {}", persisted.id, err);
+            eprintln!("[transfer_shelf] 恢复文件盒窗口失败 {}: {}", persisted.id, err);
             continue;
         }
         SHELVES.lock().push(ShelfRecord {
@@ -100,14 +100,14 @@ pub fn focus_shelf(app: &AppHandle, id: &str) -> Result<(), String> {
     let label = label_for(id);
     let window = app
         .get_webview_window(&label)
-        .ok_or_else(|| format!("找不到中转架窗口: {}", id))?;
+        .ok_or_else(|| format!("找不到文件盒窗口: {}", id))?;
     if window.is_minimized().unwrap_or(false) {
         let _ = window.unminimize();
     }
     let _ = window.show();
     window
         .set_focus()
-        .map_err(|e| format!("聚焦中转架窗口失败: {}", e))
+        .map_err(|e| format!("聚焦文件盒窗口失败: {}", e))
 }
 
 pub fn close_shelf(app: &AppHandle, id: &str) -> Result<(), String> {
@@ -115,7 +115,7 @@ pub fn close_shelf(app: &AppHandle, id: &str) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
         window
             .close()
-            .map_err(|e| format!("关闭中转架窗口失败: {}", e))?;
+            .map_err(|e| format!("关闭文件盒窗口失败: {}", e))?;
     }
 
     {

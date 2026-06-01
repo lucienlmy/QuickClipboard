@@ -65,7 +65,7 @@ pub fn transfer_shelf_save_geometry(
     let label = label_for(&id);
     let window = app
         .get_webview_window(&label)
-        .ok_or_else(|| format!("找不到中转架窗口: {}", id))?;
+        .ok_or_else(|| format!("找不到文件盒窗口: {}", id))?;
     let position = window
         .outer_position()
         .map_err(|e| format!("读取窗口位置失败: {}", e))?;
@@ -92,7 +92,7 @@ pub fn transfer_shelf_apply_geometry(app: AppHandle, id: String) -> Result<bool,
     let label = label_for(&id);
     let window = app
         .get_webview_window(&label)
-        .ok_or_else(|| format!("找不到中转架窗口: {}", id))?;
+        .ok_or_else(|| format!("找不到文件盒窗口: {}", id))?;
     if geometry.width > 0 && geometry.height > 0 {
         let _ = window.set_size(PhysicalSize::new(geometry.width, geometry.height));
     }

@@ -528,7 +528,7 @@ export default function App() {
         filesPanel.style.height = '';
       }
     } catch (error) {
-      console.warn('调整中转架窗口高度失败', error);
+      console.warn('调整文件盒窗口高度失败', error);
     } finally {
       if (filesPanel) {
         filesPanel.style.flex = '';
@@ -594,7 +594,7 @@ export default function App() {
     <main className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`}>
       <section className="shelf-shell">
         <header className="shelf-header" onPointerDown={handleStartDrag}>
-          <span className="shelf-header__title">中转架</span>
+          <span className="shelf-header__title">文件盒</span>
           <div className="shelf-header__actions" onPointerDown={(event) => event.stopPropagation()}>
             <button
               type="button"

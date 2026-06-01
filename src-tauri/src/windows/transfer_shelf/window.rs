@@ -59,7 +59,7 @@ pub fn create_shelf_window(
         .visible(false)
         .drag_and_drop(true)
         .build()
-        .map_err(|e| format!("创建文件中转架窗口失败: {}", e))?;
+        .map_err(|e| format!("创建文件盒窗口失败: {}", e))?;
 
     place_initial_position(app, &window, stagger_index);
     bind_drop_events(&window, app.clone());

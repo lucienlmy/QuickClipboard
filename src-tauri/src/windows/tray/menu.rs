@@ -187,7 +187,7 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
         separator_item(),
         menu_item_with_state(
             "transfer-shelf",
-            "新建文件中转架",
+            "新建文件盒",
             Some("ti ti-package"),
             is_force_update,
         ),
@@ -309,7 +309,7 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
         }
         "transfer-shelf" => {
             if let Err(e) = crate::windows::transfer_shelf::open_or_create_shelf(app) {
-                eprintln!("创建文件中转架失败: {}", e);
+                eprintln!("创建文件盒失败: {}", e);
             }
         }
         "toggle" => {
