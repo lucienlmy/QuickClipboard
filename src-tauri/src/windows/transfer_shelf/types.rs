@@ -14,6 +14,7 @@ pub struct ShelfFileInfo {
     pub size: u64,
     pub is_dir: bool,
     pub exists: bool,
+    pub icon: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -71,5 +72,9 @@ pub fn describe_path(path: &str) -> ShelfFileInfo {
         size: metadata.as_ref().map(|value| value.len()).unwrap_or(0),
         is_dir: metadata.as_ref().map(|value| value.is_dir()).unwrap_or(false),
         exists: metadata.is_some(),
+        icon: metadata
+            .as_ref()
+            .filter(|value| value.is_file())
+            .and_then(|_| crate::utils::icon::get_file_icon_base64(path)),
     }
 }

@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { showConfirm } from '@shared/utils/dialog';
 import {
   applyTransferShelfGeometry,
   closeTransferShelf,
@@ -56,6 +57,7 @@ function createFileItem(info) {
     size: Number(info.size) || 0,
     isDir: Boolean(info.isDir),
     exists: Boolean(info.exists),
+    icon: info.icon || '',
     addedAt: Date.now(),
   };
 }
@@ -67,6 +69,7 @@ function toPersistedFile(file) {
     size: Number(file.size) || 0,
     isDir: Boolean(file.isDir),
     exists: Boolean(file.exists),
+    icon: file.icon || '',
   };
 }
 
@@ -376,6 +379,14 @@ export default function App() {
   };
 
   const handleClose = async () => {
+    if (files.length > 0) {
+      const confirmed = await showConfirm(
+        `文件盒里还有 ${files.length} 个暂存文件，关闭后会移除这些暂存引用，是否继续？`,
+        '关闭文件盒',
+      );
+      if (!confirmed) return;
+    }
+
     if (shelfId) {
       try {
         await closeTransferShelf(shelfId);
@@ -745,7 +756,11 @@ export default function App() {
                       : undefined}
                   >
                     <span className="shelf-file__icon">
-                      <i className={`ti ${missing ? 'ti-file-off' : 'ti-file'}`} />
+                      {!missing && file.icon ? (
+                        <img src={file.icon} alt="" draggable={false} />
+                      ) : (
+                        <i className={`ti ${missing ? 'ti-file-off' : 'ti-file'}`} />
+                      )}
                     </span>
                     <div className="shelf-file__meta">
                       <span className="shelf-file__name">{file.name}</span>
