@@ -146,6 +146,7 @@ pub fn run() {
                 windows::transfer_shelf::commands::transfer_shelf_create,
                 windows::transfer_shelf::commands::transfer_shelf_list,
                 windows::transfer_shelf::commands::transfer_shelf_focus,
+                windows::transfer_shelf::commands::transfer_shelf_rename,
                 windows::transfer_shelf::commands::transfer_shelf_close,
                 windows::transfer_shelf::commands::transfer_shelf_describe_paths,
                 windows::transfer_shelf::commands::transfer_shelf_load_state,

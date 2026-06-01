@@ -2,7 +2,7 @@ use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize};
 
 use super::manager::{
     close_shelf, focus_shelf, list_shelves, load_shelf_state, open_or_create_shelf,
-    save_shelf_state,
+    rename_shelf, save_shelf_state,
 };
 use super::storage::{self, ShelfGeometryPersisted};
 use super::types::{describe_path, label_for, ShelfFileInfo, ShelfStateSnapshot, ShelfSummary};
@@ -20,6 +20,11 @@ pub fn transfer_shelf_list() -> Vec<ShelfSummary> {
 #[tauri::command]
 pub fn transfer_shelf_focus(app: AppHandle, id: String) -> Result<(), String> {
     focus_shelf(&app, &id)
+}
+
+#[tauri::command]
+pub fn transfer_shelf_rename(app: AppHandle, id: String, name: String) -> Result<ShelfSummary, String> {
+    rename_shelf(&app, &id, name)
 }
 
 #[tauri::command]

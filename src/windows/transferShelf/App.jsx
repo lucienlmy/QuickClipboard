@@ -9,6 +9,7 @@ import {
   describeTransferShelfPaths,
   listSyncTransferLanPairedPeers,
   loadTransferShelfState,
+  renameTransferShelf,
   saveTransferShelfGeometry,
   saveTransferShelfState,
   sendSyncTransferLanFileToPeer,
@@ -99,6 +100,9 @@ export default function App() {
   const [restored, setRestored] = useState(false);
   const [viewMode, setViewMode] = useState(readStoredViewMode);
   const [peersCollapsed, setPeersCollapsed] = useState(readStoredPeersCollapsed);
+  const [shelfName, setShelfName] = useState('文件盒');
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('文件盒');
   const [selectedFilePaths, setSelectedFilePaths] = useState([]);
   const [lastSelectedPath, setLastSelectedPath] = useState('');
   const persistTimerRef = useRef(null);
@@ -162,6 +166,11 @@ export default function App() {
           ? snapshot.files.filter((info) => info && !info.isDir).map(createFileItem)
           : [];
         if (restoredFiles.length > 0) setFiles(restoredFiles);
+        if (typeof snapshot.name === 'string' && snapshot.name.trim()) {
+          setShelfName(snapshot.name);
+          setDraftName(snapshot.name);
+          getCurrentWindow().setTitle(snapshot.name).catch(() => { });
+        }
         if (Array.isArray(snapshot.selectedPeerIds) && snapshot.selectedPeerIds.length > 0) {
           setSelectedPeerIds(snapshot.selectedPeerIds);
         }
@@ -391,6 +400,20 @@ export default function App() {
   };
 
   const handleStartDrag = async (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest([
+      'button',
+      'input',
+      'textarea',
+      'select',
+      'a',
+      '[data-no-window-drag]',
+      '.shelf-file',
+      '.shelf-peer',
+      '.shelf-files__list',
+      '.shelf-peers__inner',
+      '.shelf-error',
+    ].join(','))) return;
     if (event?.preventDefault) event.preventDefault();
     try {
       await getCurrentWindow().startDragging();
@@ -401,6 +424,38 @@ export default function App() {
 
   const toggleViewMode = () => {
     setViewMode((mode) => (mode === 'list' ? 'grid' : 'list'));
+  };
+
+  const startEditName = () => {
+    setDraftName(shelfName);
+    setEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setDraftName(shelfName);
+    setEditingName(false);
+  };
+
+  const saveName = async () => {
+    const nextName = draftName.trim();
+    if (!nextName) {
+      cancelEditName();
+      return;
+    }
+    if (nextName === shelfName) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      const summary = await renameTransferShelf(shelfId, nextName);
+      const savedName = summary?.name || nextName;
+      setShelfName(savedName);
+      setDraftName(savedName);
+      await getCurrentWindow().setTitle(savedName).catch(() => { });
+      setEditingName(false);
+    } catch (error) {
+      setErrorText(error?.message || String(error));
+    }
   };
 
   const handleExternalDragMouseDown = useDragWithThreshold({
@@ -591,10 +646,44 @@ export default function App() {
   };
 
   return (
-    <main className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`}>
+    <main className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`} onPointerDown={handleStartDrag}>
       <section className="shelf-shell">
-        <header className="shelf-header" onPointerDown={handleStartDrag}>
-          <span className="shelf-header__title">文件盒</span>
+        <header className="shelf-header">
+          {!editingName && (
+            <button
+              type="button"
+              className="shelf-header__rename"
+              title="重命名"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={startEditName}
+            >
+              <i className="ti ti-pencil" />
+            </button>
+          )}
+          {editingName ? (
+            <input
+              className="shelf-header__name-input"
+              value={draftName}
+              maxLength={48}
+              autoFocus
+              onPointerDown={(event) => event.stopPropagation()}
+              onChange={(event) => setDraftName(event.target.value)}
+              onBlur={saveName}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  saveName();
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  cancelEditName();
+                }
+              }}
+            />
+          ) : (
+            <span className="shelf-header__title" title={shelfName}>
+              {shelfName}
+            </span>
+          )}
           <div className="shelf-header__actions" onPointerDown={(event) => event.stopPropagation()}>
             <button
               type="button"

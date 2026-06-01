@@ -37,7 +37,7 @@ pub fn open_or_create_shelf(app: &AppHandle) -> Result<ShelfSummary, String> {
     let id = Uuid::new_v4().to_string();
     let stagger_index = SHELVES.lock().len() as u32;
     let counter = NAME_COUNTER.fetch_add(1, Ordering::SeqCst).saturating_add(1);
-    let name = format!("文件盒 {}", counter);
+    let name = format!("文件盒_{}", counter);
 
     create_shelf_window(app, &id, &name, stagger_index)?;
 
@@ -108,6 +108,38 @@ pub fn focus_shelf(app: &AppHandle, id: &str) -> Result<(), String> {
     window
         .set_focus()
         .map_err(|e| format!("聚焦文件盒窗口失败: {}", e))
+}
+
+pub fn rename_shelf(app: &AppHandle, id: &str, name: String) -> Result<ShelfSummary, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("文件盒名称不能为空".to_string());
+    }
+    let next_name = trimmed.chars().take(48).collect::<String>();
+
+    {
+        let mut guard = SHELVES.lock();
+        let record = guard
+            .iter_mut()
+            .find(|item| item.id == id)
+            .ok_or_else(|| format!("找不到文件盒窗口: {}", id))?;
+        record.name = next_name.clone();
+    }
+
+    let mut persisted = load_shelf_state(id);
+    persisted.name = next_name.clone();
+    let _ = storage::upsert_shelf(persisted);
+
+    let label = label_for(id);
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.set_title(&next_name);
+    }
+
+    Ok(ShelfSummary {
+        label,
+        id: id.to_string(),
+        name: next_name,
+    })
 }
 
 pub fn close_shelf(app: &AppHandle, id: &str) -> Result<(), String> {

@@ -12,6 +12,10 @@ export async function focusTransferShelf(id) {
   return await invoke('transfer_shelf_focus', { id });
 }
 
+export async function renameTransferShelf(id, name) {
+  return await invoke('transfer_shelf_rename', { id, name });
+}
+
 export async function closeTransferShelf(id) {
   return await invoke('transfer_shelf_close', { id });
 }
