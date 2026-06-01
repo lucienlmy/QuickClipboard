@@ -11,6 +11,7 @@ import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plu
 import { invoke } from '@tauri-apps/api/core';
 import { hideMainWindow } from '@shared/api/window';
 import { clearClipboardHistory } from '@shared/api';
+import { createTransferShelf } from '@shared/api/transferShelf';
 import {
   startScreenshot,
   startScreenshotQuickSave,
@@ -133,6 +134,17 @@ const TitleBar = forwardRef(({
       toast.error(t('updater.checkFailed', {
         msg: error?.message || String(error)
       }), TOAST_CONFIG);
+    }
+  };
+
+  const handleOpenTransferShelf = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await createTransferShelf();
+    } catch (error) {
+      console.error('标题栏新建文件中转架失败:', error);
+      toast.error(`新建文件中转架失败：${error?.message || String(error)}`, TOAST_CONFIG);
     }
   };
 
@@ -437,6 +449,17 @@ const TitleBar = forwardRef(({
               aria-label={t('tools.pin')}
             >
               <i className="ti ti-pin" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
+          <Tooltip content="新建文件中转架" placement={tooltipPlacement} asChild>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
+              aria-label="新建文件中转架"
+              type="button"
+              onClick={handleOpenTransferShelf}
+            >
+              <i className="ti ti-package" style={{ fontSize: 16 }} data-stroke="1.5"></i>
             </button>
           </Tooltip>
 
