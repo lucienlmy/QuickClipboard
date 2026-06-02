@@ -63,6 +63,44 @@ function createFileItem(info) {
   };
 }
 
+function normalizeFileProgresses(items) {
+  if (!Array.isArray(items)) return {};
+  const out = {};
+  items.forEach((item) => {
+    const path = typeof item?.path === 'string' ? item.path : '';
+    if (!path) return;
+    out[path] = {
+      sentBytes: Number(item.sentBytes) || 0,
+      totalBytes: Number(item.totalBytes) || 0,
+      total: Number(item.total) || 0,
+      done: Number(item.done) || 0,
+      failed: Number(item.failed) || 0,
+      status: item.status || 'pending',
+    };
+  });
+  return out;
+}
+
+function buildInitialFileProgresses(targets, fileMap) {
+  const out = {};
+  targets.forEach((target) => {
+    const file = fileMap.get(target.path);
+    if (!file) return;
+    const current = out[target.path] || {
+      sentBytes: 0,
+      totalBytes: 0,
+      total: 0,
+      done: 0,
+      failed: 0,
+      status: 'pending',
+    };
+    current.total += 1;
+    current.totalBytes += Number(file.size) || 0;
+    out[target.path] = current;
+  });
+  return out;
+}
+
 function toPersistedFile(file) {
   return {
     path: file.path,
@@ -219,8 +257,17 @@ export default function App() {
   const [peers, setPeers] = useState([]);
   const [selectedPeerIds, setSelectedPeerIds] = useState([]);
   const [dropActive, setDropActive] = useState(false);
-  const [task, setTask] = useState({ status: 'idle', total: 0, done: 0, failed: 0 });
+  const [task, setTask] = useState({
+    status: 'idle',
+    total: 0,
+    done: 0,
+    failed: 0,
+    sentBytes: 0,
+    totalBytes: 0,
+    currentFileName: '',
+  });
   const [failedTargets, setFailedTargets] = useState([]);
+  const [fileProgresses, setFileProgresses] = useState({});
   const [errorText, setErrorText] = useState('');
   const [restored, setRestored] = useState(false);
   const [viewMode, setViewMode] = useState(readStoredViewMode);
@@ -348,7 +395,11 @@ export default function App() {
         total: Number(payload.total) || 0,
         done: Number(payload.done) || 0,
         failed: Number(payload.failed) || 0,
+        sentBytes: Number(payload.sentBytes) || 0,
+        totalBytes: Number(payload.totalBytes) || 0,
+        currentFileName: payload.currentFileName || '',
       });
+      setFileProgresses(normalizeFileProgresses(payload.fileProgresses));
       setFailedTargets(errors.map((item) => ({
         peerId: item.peerId,
         path: item.path,
@@ -475,6 +526,11 @@ export default function App() {
   const removeFile = (path) => {
     setFiles((current) => current.filter((file) => file.path !== path));
     setFailedTargets((current) => current.filter((item) => item.path !== path));
+    setFileProgresses((current) => {
+      const next = { ...current };
+      delete next[path];
+      return next;
+    });
     setSelectedFilePaths((current) => current.filter((item) => item !== path));
     setLastSelectedPath((current) => (current === path ? '' : current));
   };
@@ -483,9 +539,10 @@ export default function App() {
     setFiles([]);
     setErrorText('');
     setFailedTargets([]);
+    setFileProgresses({});
     setSelectedFilePaths([]);
     setLastSelectedPath('');
-    setTask({ status: 'idle', total: 0, done: 0, failed: 0 });
+    setTask({ status: 'idle', total: 0, done: 0, failed: 0, sentBytes: 0, totalBytes: 0, currentFileName: '' });
   };
 
   const selectFile = (event, path) => {
@@ -679,6 +736,11 @@ export default function App() {
       const movedSet = new Set(movedPaths);
       setFiles((current) => current.filter((file) => !movedSet.has(file.path)));
       setFailedTargets((current) => current.filter((item) => !movedSet.has(item.path)));
+      setFileProgresses((current) => {
+        const next = { ...current };
+        movedSet.forEach((path) => delete next[path]);
+        return next;
+      });
       setSelectedFilePaths((current) => current.filter((path) => !movedSet.has(path)));
       setLastSelectedPath((current) => (movedSet.has(current) ? '' : current));
       setErrorText('');
@@ -797,7 +859,21 @@ export default function App() {
 
     setErrorText('');
     setFailedTargets([]);
-    setTask({ status: 'sending', total: validTargets.length, done: 0, failed: 0 });
+    const initialFileProgresses = buildInitialFileProgresses(validTargets, fileMap);
+    setFileProgresses(initialFileProgresses);
+    const totalBytes = validTargets.reduce((sum, target) => {
+      const file = fileMap.get(target.path);
+      return sum + (Number(file?.size) || 0);
+    }, 0);
+    setTask({
+      status: 'sending',
+      total: validTargets.length,
+      done: 0,
+      failed: 0,
+      sentBytes: 0,
+      totalBytes,
+      currentFileName: '',
+    });
 
     try {
       const result = await sendTransferShelf(shelfId, validTargets);
@@ -812,12 +888,32 @@ export default function App() {
         total: Number(result?.total) || validTargets.length,
         done: Number(result?.done) || 0,
         failed: Number(result?.failed) || errors.length,
+        sentBytes: Number(result?.sentBytes) || totalBytes,
+        totalBytes: Number(result?.totalBytes) || totalBytes,
+        currentFileName: '',
       });
+      setFileProgresses(normalizeFileProgresses(result?.fileProgresses));
       setErrorText(errors.length > 0 ? errors[errors.length - 1].message || '' : '');
     } catch (error) {
       const message = error?.message || String(error);
       setErrorText(message);
-      setTask({ status: 'failed', total: validTargets.length, done: 0, failed: validTargets.length });
+      setTask({
+        status: 'failed',
+        total: validTargets.length,
+        done: 0,
+        failed: validTargets.length,
+        sentBytes: 0,
+        totalBytes,
+        currentFileName: '',
+      });
+      setFileProgresses(Object.fromEntries(Object.entries(initialFileProgresses).map(([path, progress]) => [
+        path,
+        {
+          ...progress,
+          status: 'failed',
+          failed: progress.total,
+        },
+      ])));
     }
   };
 
@@ -906,6 +1002,12 @@ export default function App() {
             <div className={`shelf-files__list ${viewMode === 'grid' ? 'is-grid' : ''}`}>
               {files.map((file) => {
                 const failedCount = failedTargets.filter((target) => target.path === file.path).length;
+                const progress = fileProgresses[file.path];
+                const progressRatio = progress?.totalBytes > 0
+                  ? Math.min(1, Math.max(0, progress.sentBytes / progress.totalBytes))
+                  : 0;
+                const progressVisible = Boolean(progress)
+                  && (isSending || progress.status === 'done' || progress.status === 'failed');
                 const missing = file.exists === false;
                 const selected = selectedFileSet.has(file.path);
                 const canExternalDrag = !missing;
@@ -919,8 +1021,14 @@ export default function App() {
                   selected ? 'is-selected' : '',
                   missing ? 'is-missing' : '',
                   failedCount > 0 ? 'is-failed' : '',
+                  progressVisible ? 'has-progress' : '',
+                  progress?.status ? `is-progress-${progress.status}` : '',
                 ].filter(Boolean).join(' ');
-                const sizeLabel = missing ? '文件不存在' : formatSize(file.size);
+                const sizeLabel = missing
+                  ? '文件不存在'
+                  : progressVisible && progress.totalBytes > 0
+                    ? `${formatSize(progress.sentBytes)} / ${formatSize(progress.totalBytes)}`
+                    : formatSize(file.size);
                 return (
                   <div
                     className={className}
@@ -965,6 +1073,12 @@ export default function App() {
                     >
                       <i className="ti ti-x" />
                     </button>
+                    {progressVisible && (
+                      <span
+                        className="shelf-file__progress"
+                        style={{ transform: `scaleX(${progressRatio})` }}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -1010,7 +1124,9 @@ export default function App() {
               {task.status === 'idle' && validSelectedFileCount > 0 && `已选 ${validSelectedFileCount}`}
               {task.status !== 'idle' && (
                 isSending
-                  ? `${task.done}/${task.total}`
+                  ? task.totalBytes > 0
+                    ? `${formatSize(task.sentBytes)} / ${formatSize(task.totalBytes)}`
+                    : `${task.done}/${task.total}`
                   : task.status === 'done'
                     ? '完成'
                     : `失败 ${task.failed}/${task.total}`

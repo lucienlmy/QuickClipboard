@@ -1,4 +1,9 @@
+use std::sync::Arc;
+use tauri::Emitter;
+
 use crate::services;
+
+pub const SYNC_TRANSFER_LAN_FILE_PROGRESS_EVENT: &str = "sync-transfer-lan-file-progress";
 
 #[tauri::command]
 pub fn sync_transfer_get_mode_infos() -> Result<Vec<services::sync_transfer::SyncTransferModeInfo>, String> {
@@ -109,6 +114,17 @@ pub async fn sync_transfer_lan_push_to_peer(device_id: String) -> Result<service
 pub async fn sync_transfer_lan_send_file_to_peer(
     device_id: String,
     file_path: String,
+    transfer_id: Option<String>,
+    app: tauri::AppHandle,
 ) -> Result<services::sync_transfer::lan::FileTransferResult, String> {
-    services::sync_transfer::lan_send_file_to_peer(&device_id, &file_path).await
+    let progress_app = app.clone();
+    let callback: services::sync_transfer::lan::FileTransferProgressCallback = Arc::new(move |payload| {
+        let _ = progress_app.emit(SYNC_TRANSFER_LAN_FILE_PROGRESS_EVENT, payload);
+    });
+    services::sync_transfer::lan_send_file_to_peer_with_progress(
+        &device_id,
+        &file_path,
+        transfer_id,
+        Some(callback),
+    ).await
 }

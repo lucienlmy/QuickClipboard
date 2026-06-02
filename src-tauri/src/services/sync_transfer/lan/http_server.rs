@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tauri::AppHandle;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -17,12 +18,19 @@ const TOMBSTONES_PATH: &str = "/qc-sync/tombstones";
 const FILES_PREFIX: &str = "/qc-sync/files/";
 const TRANSFER_FILES_PREFIX: &str = "/qc-transfer/files/";
 const MAX_REQUEST_BODY_SIZE: usize = super::files::MAX_DIRECT_TRANSFER_FILE_SIZE as usize;
+const FILE_TRANSFER_BUFFER_SIZE: usize = 1024 * 1024;
 
 static SERVER: Lazy<tokio::sync::Mutex<Option<ServerState>>> = Lazy::new(|| tokio::sync::Mutex::new(None));
 
 struct ServerState {
     port: u16,
     task: tokio::task::JoinHandle<()>,
+}
+
+struct SavedTransferFile {
+    path: std::path::PathBuf,
+    size: u64,
+    sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,8 +140,12 @@ pub async fn stop() {
 }
 
 async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net::SocketAddr, app: AppHandle) -> Result<(), String> {
-    let request = read_request(&mut stream).await?;
-    let response = match (request.method.as_str(), request.path.as_str()) {
+    let mut request = read_request(&mut stream).await?;
+    let response = if request.method == "PUT" && request.path.starts_with(TRANSFER_FILES_PREFIX) {
+        receive_transfer_file_stream(&request, &mut stream).await
+    } else {
+        read_request_body(&mut request, &mut stream, MAX_REQUEST_BODY_SIZE).await?;
+        match (request.method.as_str(), request.path.as_str()) {
         ("GET", HELLO_PATH) => json_response(200, serde_json::json!({
             "device_id": super::runtime::device_id(),
             "device_name": super::runtime::device_name(),
@@ -166,8 +178,8 @@ async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net:
         ("POST", TOMBSTONES_PATH) => authorized_receive_json(&request, || save_tombstones(&request, &app)),
         ("GET", path) if path.starts_with(FILES_PREFIX) => authorized_bytes(&request, || read_file(path)),
         ("PUT", path) if path.starts_with(FILES_PREFIX) => authorized_receive_json(&request, || save_file(path, &request.body)),
-        ("PUT", path) if path.starts_with(TRANSFER_FILES_PREFIX) => authorized_receive_json(&request, || save_transfer_file(path, &request.body)),
         _ => json_response(404, serde_json::json!({ "message": "未找到接口" })),
+        }
     };
     write_response(&mut stream, response).await
 }
@@ -325,13 +337,105 @@ fn save_file(path: &str, bytes: &[u8]) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "saved": true }))
 }
 
-fn save_transfer_file(path: &str, bytes: &[u8]) -> Result<serde_json::Value, String> {
-    let file_name = super::files::file_name_from_transfer_path(path)?;
-    let path = super::files::save_received_file(&file_name, bytes)?;
-    Ok(serde_json::json!({
-        "saved": true,
-        "path": path.to_string_lossy().to_string(),
-    }))
+async fn receive_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::net::TcpStream) -> HttpResponse {
+    if !super::auto_sync::can_receive() {
+        return json_response(403, serde_json::json!({ "message": "局域网接收已关闭" }));
+    }
+    if !is_authorized_request(request) {
+        return json_response(403, serde_json::json!({ "message": "未授权的局域网同步请求" }));
+    }
+
+    match save_transfer_file_stream(request, stream).await {
+        Ok(saved) => json_response(200, serde_json::json!({
+            "saved": true,
+            "path": saved.path.to_string_lossy().to_string(),
+            "size": saved.size,
+            "sha256": saved.sha256,
+        })),
+        Err(message) => json_response(500, serde_json::json!({ "message": message })),
+    }
+}
+
+async fn save_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::net::TcpStream) -> Result<SavedTransferFile, String> {
+    let file_name = super::files::file_name_from_transfer_path(&request.path)?;
+    let reservation = super::files::prepare_received_file(&file_name)?;
+    let result = async {
+        let mut file = tokio::fs::File::create(&reservation.temp_path)
+            .await
+            .map_err(|e| format!("创建接收文件失败: {}", e))?;
+        let mut hasher = Sha256::new();
+        let mut written = 0usize;
+        if !request.body.is_empty() {
+            file.write_all(&request.body)
+                .await
+                .map_err(|e| format!("保存接收文件失败: {}", e))?;
+            hasher.update(&request.body);
+            written = request.body.len();
+        }
+        let remaining = request
+            .content_length
+            .checked_sub(written)
+            .ok_or_else(|| "请求体长度异常".to_string())?;
+        if remaining > 0 {
+            copy_exact_to_file(stream, &mut file, &mut hasher, remaining).await?;
+        }
+        file.flush().await.map_err(|e| format!("保存接收文件失败: {}", e))?;
+        drop(file);
+        let saved_len = tokio::fs::metadata(&reservation.temp_path)
+            .await
+            .map_err(|e| format!("校验接收文件失败: {}", e))?
+            .len();
+        if saved_len != request.content_length as u64 {
+            return Err(format!(
+                "局域网文件接收不完整: 期望 {} 字节，实际 {} 字节",
+                request.content_length,
+                saved_len,
+            ));
+        }
+        let saved_path = tokio::task::spawn_blocking({
+            let reservation = reservation.clone();
+            move || super::files::commit_received_file(&reservation)
+        })
+        .await
+        .map_err(|e| format!("完成接收文件保存失败: {}", e))??;
+        Ok(SavedTransferFile {
+            path: saved_path,
+            size: saved_len,
+            sha256: hex::encode(hasher.finalize()),
+        })
+    }.await;
+
+    match result {
+        Ok(saved) => Ok(saved),
+        Err(message) => {
+            super::files::discard_received_file(&reservation);
+            Err(message)
+        }
+    }
+}
+
+async fn copy_exact_to_file(
+    stream: &mut tokio::net::TcpStream,
+    file: &mut tokio::fs::File,
+    hasher: &mut Sha256,
+    mut remaining: usize,
+) -> Result<(), String> {
+    let mut buffer = vec![0u8; FILE_TRANSFER_BUFFER_SIZE];
+    while remaining > 0 {
+        let read_len = remaining.min(buffer.len());
+        let read = stream.read(&mut buffer[..read_len])
+            .await
+            .map_err(|e| format!("读取局域网传输内容失败: {}", e))?;
+        if read == 0 {
+            return Err("局域网文件传输连接提前关闭".to_string());
+        }
+        file.write_all(&buffer[..read])
+            .await
+            .map_err(|e| format!("保存接收文件失败: {}", e))?;
+        hasher.update(&buffer[..read]);
+        remaining -= read;
+    }
+    Ok(())
 }
 
 fn emit_refresh_if_visible(app: &AppHandle) {
@@ -365,6 +469,7 @@ struct HttpRequest {
     query: Vec<(String, String)>,
     headers: Vec<(String, String)>,
     body: Vec<u8>,
+    content_length: usize,
 }
 
 struct HttpResponse {
@@ -413,23 +518,11 @@ async fn read_request(stream: &mut tokio::net::TcpStream) -> Result<HttpRequest,
             content_length = value
                 .parse::<usize>()
                 .map_err(|_| "无效的 Content-Length".to_string())?;
-            if content_length > MAX_REQUEST_BODY_SIZE {
-                return Err("请求体超过 512MB，第一版直传暂不支持超大文件".to_string());
-            }
         }
         headers.push((name, value));
     }
 
     let mut body = buffer[header_end..].to_vec();
-    if body.len() > MAX_REQUEST_BODY_SIZE {
-        return Err("请求体超过 512MB，第一版直传暂不支持超大文件".to_string());
-    }
-    if content_length > body.len() {
-        let remaining = content_length - body.len();
-        let mut extra = vec![0u8; remaining];
-        stream.read_exact(&mut extra).await.map_err(|e| e.to_string())?;
-        body.extend_from_slice(&extra);
-    }
     if body.len() > content_length {
         body.truncate(content_length);
     }
@@ -456,7 +549,28 @@ async fn read_request(stream: &mut tokio::net::TcpStream) -> Result<HttpRequest,
         query,
         headers,
         body,
+        content_length,
     })
+}
+
+async fn read_request_body(
+    request: &mut HttpRequest,
+    stream: &mut tokio::net::TcpStream,
+    max_size: usize,
+) -> Result<(), String> {
+    if request.content_length > max_size || request.body.len() > max_size {
+        return Err("请求体超过 512MB，第一版直传暂不支持超大文件".to_string());
+    }
+    if request.content_length > request.body.len() {
+        let remaining = request.content_length - request.body.len();
+        let mut extra = vec![0u8; remaining];
+        stream.read_exact(&mut extra).await.map_err(|e| e.to_string())?;
+        request.body.extend_from_slice(&extra);
+    }
+    if request.body.len() > request.content_length {
+        request.body.truncate(request.content_length);
+    }
+    Ok(())
 }
 
 fn json_response<T: Serialize>(status_code: u16, value: T) -> HttpResponse {

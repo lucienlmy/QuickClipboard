@@ -57,13 +57,30 @@ pub struct ShelfSendError {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ShelfFileProgress {
+    pub path: String,
+    pub sent_bytes: u64,
+    pub total_bytes: u64,
+    pub total: usize,
+    pub done: usize,
+    pub failed: usize,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShelfSendTaskPayload {
     pub shelf_id: String,
     pub status: String,
     pub total: usize,
     pub done: usize,
     pub failed: usize,
+    pub sent_bytes: u64,
+    pub total_bytes: u64,
+    pub current_path: Option<String>,
+    pub current_file_name: Option<String>,
     pub errors: Vec<ShelfSendError>,
+    pub file_progresses: Vec<ShelfFileProgress>,
 }
 
 #[derive(Clone, Debug, Serialize)]

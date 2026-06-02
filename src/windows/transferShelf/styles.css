@@ -302,6 +302,7 @@ button {
 }
 
 .shelf-file {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -309,6 +310,7 @@ button {
   border-radius: 8px;
   background: var(--qc-surface, #ffffff);
   border: 1px solid var(--qc-border, rgba(17, 24, 39, 0.06));
+  overflow: hidden;
 }
 
 .shelf-file.is-draggable {
@@ -427,6 +429,26 @@ button {
   color: #dc2626;
   font-size: 10px;
   font-weight: 600;
+}
+
+.shelf-file__progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  transform-origin: left center;
+  background: var(--qc-accent, #2f7bff);
+  pointer-events: none;
+  transition: transform 160ms linear, background-color 160ms ease;
+}
+
+.shelf-file.is-progress-done .shelf-file__progress {
+  background: #16a34a;
+}
+
+.shelf-file.is-progress-failed .shelf-file__progress {
+  background: #dc2626;
 }
 
 .shelf-file.is-failed {

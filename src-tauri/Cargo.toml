@@ -40,6 +40,7 @@ blake3 = "1.5"
 rodio = "0.17"
 if-addrs = "0.13"
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "time", "fs", "io-util", "net"] }
+tokio-util = { version = "0.7", features = ["io"] }
 fastrand = "2.0"
 regex = "1.11.1"
 zip = "2.1"

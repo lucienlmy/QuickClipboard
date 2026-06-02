@@ -75,9 +75,10 @@ export async function pushSyncTransferLanPeer(deviceId) {
   });
 }
 
-export async function sendSyncTransferLanFileToPeer(deviceId, filePath) {
+export async function sendSyncTransferLanFileToPeer(deviceId, filePath, transferId = null) {
   return await invoke('sync_transfer_lan_send_file_to_peer', {
     deviceId,
     filePath,
+    transferId,
   });
 }

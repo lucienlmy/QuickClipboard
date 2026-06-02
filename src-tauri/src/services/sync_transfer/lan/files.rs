@@ -1,9 +1,21 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+use once_cell::sync::Lazy;
+use uuid::Uuid;
 
 use crate::services::webdav_sync::types::CloudRecord;
 
 pub const MAX_DIRECT_TRANSFER_FILE_SIZE: u64 = 512 * 1024 * 1024;
+
+static RESERVED_RECEIVED_FILE_PATHS: Lazy<Mutex<HashSet<PathBuf>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+#[derive(Debug, Clone)]
+pub struct ReceivedFileReservation {
+    pub final_path: PathBuf,
+    pub temp_path: PathBuf,
+}
 
 pub fn collect_record_image_ids(records: &[CloudRecord]) -> Vec<String> {
     let mut ids = HashSet::new();
@@ -34,31 +46,62 @@ pub fn save_image_file(image_id: &str, bytes: &[u8]) -> Result<(), String> {
     std::fs::write(path, bytes).map_err(|e| format!("保存局域网同步图片失败: {}", e))
 }
 
-pub fn read_outgoing_file(path: &str) -> Result<(String, Vec<u8>), String> {
+pub fn outgoing_file_info(path: &str) -> Result<(String, PathBuf, u64), String> {
     let path = PathBuf::from(path);
     let metadata = std::fs::metadata(&path).map_err(|e| format!("读取待传输文件信息失败: {}", e))?;
     if !metadata.is_file() {
         return Err("只能传输普通文件".to_string());
-    }
-    if metadata.len() > MAX_DIRECT_TRANSFER_FILE_SIZE {
-        return Err("文件超过 512MB，第一版直传暂不支持超大文件".to_string());
     }
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| "文件名无效".to_string())?
         .to_string();
-    let bytes = std::fs::read(&path).map_err(|e| format!("读取待传输文件失败: {}", e))?;
-    Ok((file_name, bytes))
+    Ok((file_name, path, metadata.len()))
 }
 
-pub fn save_received_file(file_name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
+pub fn prepare_received_file(file_name: &str) -> Result<ReceivedFileReservation, String> {
     let safe_name = sanitize_file_name(file_name)?;
     let dir = received_files_dir()?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建接收文件目录失败: {}", e))?;
-    let path = unique_path(&dir, &safe_name);
-    std::fs::write(&path, bytes).map_err(|e| format!("保存接收文件失败: {}", e))?;
-    Ok(path)
+    let mut reserved = RESERVED_RECEIVED_FILE_PATHS
+        .lock()
+        .map_err(|_| "接收文件路径状态异常".to_string())?;
+    let final_path = unique_path(&dir, &safe_name, &reserved);
+    reserved.insert(final_path.clone());
+    let temp_path = dir.join(format!(".{}.qcpart", Uuid::new_v4()));
+    Ok(ReceivedFileReservation { final_path, temp_path })
+}
+
+pub fn commit_received_file(reservation: &ReceivedFileReservation) -> Result<PathBuf, String> {
+    let mut reserved = RESERVED_RECEIVED_FILE_PATHS
+        .lock()
+        .map_err(|_| "接收文件路径状态异常".to_string())?;
+    let dir = reservation
+        .final_path
+        .parent()
+        .ok_or_else(|| "接收文件目录无效".to_string())?;
+    let file_name = reservation
+        .final_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "文件名无效".to_string())?;
+    let final_path = if reservation.final_path.exists() {
+        unique_path(dir, file_name, &reserved)
+    } else {
+        reservation.final_path.clone()
+    };
+    std::fs::rename(&reservation.temp_path, &final_path)
+        .map_err(|e| format!("完成接收文件保存失败: {}", e))?;
+    reserved.remove(&reservation.final_path);
+    Ok(final_path)
+}
+
+pub fn discard_received_file(reservation: &ReceivedFileReservation) {
+    if let Ok(mut reserved) = RESERVED_RECEIVED_FILE_PATHS.lock() {
+        reserved.remove(&reservation.final_path);
+    }
+    let _ = std::fs::remove_file(&reservation.temp_path);
 }
 
 pub fn file_name_from_transfer_path(path: &str) -> Result<String, String> {
@@ -132,7 +175,7 @@ fn percent_decode(raw: &str) -> Result<String, String> {
     String::from_utf8(out).map_err(|_| "文件名编码无效".to_string())
 }
 
-fn unique_path(dir: &Path, file_name: &str) -> PathBuf {
+fn unique_path(dir: &Path, file_name: &str, reserved: &HashSet<PathBuf>) -> PathBuf {
     let base = Path::new(file_name)
         .file_stem()
         .and_then(|name| name.to_str())
@@ -141,7 +184,7 @@ fn unique_path(dir: &Path, file_name: &str) -> PathBuf {
     let ext = Path::new(file_name).extension().and_then(|ext| ext.to_str());
     let mut path = dir.join(file_name);
     let mut index = 1u32;
-    while path.exists() {
+    while path.exists() || reserved.contains(&path) {
         let candidate = match ext {
             Some(ext) if !ext.is_empty() => format!("{} ({}).{}", base, index, ext),
             _ => format!("{} ({})", base, index),
