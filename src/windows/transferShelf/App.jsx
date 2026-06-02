@@ -159,11 +159,31 @@ function drawRoundRect(ctx, x, y, width, height, radius) {
   ctx.arcTo(x, y, x + width, y, r);
 }
 
+function drawTablerPath(ctx, path, x, y, size) {
+  if (typeof Path2D !== 'function') return false;
+  try {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(size / 24, size / 24);
+    ctx.stroke(new Path2D(path));
+    ctx.restore();
+    return true;
+  } catch {
+    ctx.restore();
+    return false;
+  }
+}
+
+function getDragPreviewSize(count) {
+  return count > 1
+    ? { width: 84, height: 72 }
+    : { width: 68, height: 68 };
+}
+
 function createDragPreviewIcon(icon, count, mode, labels = { copy: 'Copy', move: 'Move' }) {
   try {
     const canvas = document.createElement('canvas');
-    const width = count > 1 ? 88 : 66;
-    const height = 58;
+    const { width, height } = getDragPreviewSize(count);
     const ratio = window.devicePixelRatio || 1;
     canvas.width = width * ratio;
     canvas.height = height * ratio;
@@ -171,75 +191,134 @@ function createDragPreviewIcon(icon, count, mode, labels = { copy: 'Copy', move:
     if (!ctx) return icon;
     ctx.scale(ratio, ratio);
 
-    ctx.shadowColor = 'rgba(15, 23, 42, 0.2)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 4;
-
-    const drawFallbackFile = (x, y, alpha) => {
+    const drawFallbackFile = (x, y, alpha, size = 25) => {
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = 'rgba(47, 123, 255, 0.5)';
-      ctx.lineWidth = 1.4;
+      ctx.fillStyle = 'rgba(47, 123, 255, 0.1)';
+      ctx.strokeStyle = 'rgba(47, 123, 255, 0.55)';
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      drawRoundRect(ctx, x, y, 30, 36, 8);
+      drawRoundRect(ctx, x, y, size, size + 6, 6);
       ctx.fill();
       ctx.stroke();
+      ctx.fillStyle = 'rgba(47, 123, 255, 0.2)';
+      ctx.beginPath();
+      ctx.moveTo(x + size - 8, y);
+      ctx.lineTo(x + size, y + 8);
+      ctx.lineTo(x + size - 8, y + 8);
+      ctx.closePath();
+      ctx.fill();
       ctx.globalAlpha = 1;
     };
 
-    const drawIconTile = (x, y, alpha) => {
+    const drawFileCard = (x, y, alpha) => {
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-      ctx.strokeStyle = 'rgba(47, 123, 255, 0.24)';
-      ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.16)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+      ctx.strokeStyle = 'rgba(47, 123, 255, 0.18)';
+      ctx.lineWidth = 1.1;
       ctx.beginPath();
-      drawRoundRect(ctx, x, y, 36, 36, 9);
+      drawRoundRect(ctx, x, y, 46, 54, 9);
       ctx.fill();
       ctx.stroke();
+      ctx.shadowColor = 'transparent';
+
+      ctx.fillStyle = 'rgba(47, 123, 255, 0.08)';
+      ctx.beginPath();
+      drawRoundRect(ctx, x + 7, y + 36, 32, 4, 2);
+      ctx.fill();
+      ctx.beginPath();
+      drawRoundRect(ctx, x + 7, y + 44, 24, 4, 2);
+      ctx.fill();
+
+      const iconSize = 26;
+      const iconX = x + 10;
+      const iconY = y + 9;
       if (icon?.startsWith('data:image/')) {
         const image = new Image();
         image.src = icon;
         if (image.complete) {
-          ctx.drawImage(image, x + 7, y + 7, 22, 22);
+          ctx.drawImage(image, iconX, iconY, iconSize, iconSize);
         } else {
-          drawFallbackFile(x + 5, y + 3, 1);
+          drawFallbackFile(iconX, iconY - 1, 1, 23);
         }
       } else {
-        drawFallbackFile(x + 5, y + 3, 1);
+        drawFallbackFile(iconX, iconY - 1, 1, 23);
       }
       ctx.globalAlpha = 1;
     };
 
+    const drawActionBadge = (x, y) => {
+      const label = mode === 'move' ? labels.move : labels.copy;
+      const badgeWidth = label.length > 2 ? 46 : 40;
+      const badgeHeight = 19;
+      ctx.fillStyle = mode === 'move' ? '#16a34a' : '#2f7bff';
+      ctx.beginPath();
+      drawRoundRect(ctx, x, y, badgeWidth, badgeHeight, badgeHeight / 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.7;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      if (mode === 'move') {
+        const drawn = drawTablerPath(ctx, 'M5 12l14 0M13 18l6 -6M13 6l6 6', x + 3.5, y + 3.5, 12);
+        if (!drawn) {
+          const iconX = x + 8;
+          const iconY = y + badgeHeight / 2;
+          ctx.moveTo(iconX - 3, iconY);
+          ctx.lineTo(iconX + 4, iconY);
+          ctx.moveTo(iconX + 1, iconY - 3);
+          ctx.lineTo(iconX + 4, iconY);
+          ctx.lineTo(iconX + 1, iconY + 3);
+          ctx.stroke();
+        }
+      } else {
+        const copied = [
+          'M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z',
+          'M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1',
+        ].every((path) => drawTablerPath(ctx, path, x + 2.5, y + 2.5, 13));
+        if (!copied) {
+          const iconX = x + 6;
+          const iconY = y + 5;
+          drawRoundRect(ctx, iconX + 3, iconY, 8, 9, 2);
+          drawRoundRect(ctx, iconX, iconY + 3, 8, 9, 2);
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 10px "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x + 18, y + badgeHeight / 2 + 0.5);
+    };
+
     if (count > 1) {
-      drawIconTile(16, 7, 0.72);
-      drawIconTile(9, 14, 1);
+      drawFileCard(24, 5, 0.42);
+      drawFileCard(16, 10, 0.66);
+      drawFileCard(8, 15, 1);
     } else {
-      drawIconTile(9, 12, 1);
+      drawFileCard(8, 8, 1);
     }
 
     ctx.shadowColor = 'transparent';
     if (count > 1) {
       ctx.fillStyle = mode === 'move' ? '#16a34a' : '#2f7bff';
       ctx.beginPath();
-      ctx.arc(46, 14, 13, 0, Math.PI * 2);
+      ctx.arc(55, 16, 11, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = '700 13px "Microsoft YaHei", sans-serif';
+      ctx.font = '700 12px "Microsoft YaHei", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(Math.min(count, 99)), 46, 14.5);
+      ctx.fillText(String(Math.min(count, 99)), 55, 16.5);
     }
 
-    ctx.fillStyle = mode === 'move' ? 'rgba(22, 163, 74, 0.92)' : 'rgba(47, 123, 255, 0.92)';
-    ctx.beginPath();
-    drawRoundRect(ctx, count > 1 ? 43 : 24, 33, 38, 18, 9);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 10px "Microsoft YaHei", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(mode === 'move' ? labels.move : labels.copy, count > 1 ? 62 : 43, 42.5);
+    drawActionBadge(count > 1 ? 43 : 28, count > 1 ? 53 : 50);
 
     return canvas.toDataURL('image/png');
   } catch {
@@ -249,8 +328,7 @@ function createDragPreviewIcon(icon, count, mode, labels = { copy: 'Copy', move:
 
 function getDragPreviewPlacement(event, root, count) {
   const rect = root?.getBoundingClientRect();
-  const width = count > 1 ? 88 : 66;
-  const height = 58;
+  const { width, height } = getDragPreviewSize(count);
   const gap = 12;
   if (!rect) {
     return { x: event.clientX + gap, y: event.clientY + gap };

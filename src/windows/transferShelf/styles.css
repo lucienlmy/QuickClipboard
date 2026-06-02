@@ -66,8 +66,8 @@ button {
 .shelf-drag-preview img {
   width: auto;
   height: auto;
-  max-width: 88px;
-  max-height: 58px;
+  max-width: 84px;
+  max-height: 72px;
   display: block;
 }
 
