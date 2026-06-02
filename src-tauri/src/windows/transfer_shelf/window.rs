@@ -15,6 +15,7 @@ pub const DEFAULT_HEIGHT: u32 = 480;
 pub const MIN_WIDTH: u32 = 280;
 pub const MIN_HEIGHT: u32 = 320;
 pub const STAGGER_OFFSET: i32 = 24;
+const CURSOR_MARGIN: i32 = 16;
 
 /// 创建一个 shelf 窗口实例。
 ///
@@ -85,26 +86,56 @@ fn place_initial_position(app: &AppHandle, window: &WebviewWindow, stagger_index
         Err(_) => return,
     };
 
+    let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let stagger = STAGGER_OFFSET.saturating_mul(stagger_index as i32);
-    let margin = 24_i32;
+    let target_x = position_axis_at_cursor(
+        cursor_x,
+        outer_size.width as i32,
+        work_area.position.x,
+        work_area.size.width as i32,
+        stagger,
+    );
+    let target_y = position_axis_at_cursor(
+        cursor_y,
+        outer_size.height as i32,
+        work_area.position.y,
+        work_area.size.height as i32,
+        stagger,
+    );
 
-    let base_x = work_area
-        .position
-        .x
-        .saturating_add(work_area.size.width as i32)
-        .saturating_sub(outer_size.width as i32)
-        .saturating_sub(margin);
-    let base_y = work_area
-        .position
-        .y
-        .saturating_add(work_area.size.height as i32)
-        .saturating_sub(outer_size.height as i32)
-        .saturating_sub(margin);
+    let _ = window.set_position(PhysicalPosition::new(target_x, target_y));
+}
 
-    let target_x = base_x.saturating_sub(stagger);
-    let target_y = base_y.saturating_sub(stagger);
+fn position_axis_at_cursor(
+    cursor: i32,
+    window_size: i32,
+    area_start: i32,
+    area_size: i32,
+    stagger: i32,
+) -> i32 {
+    let area_end = area_start.saturating_add(area_size);
+    let mut value = cursor
+        .saturating_add(CURSOR_MARGIN)
+        .saturating_add(stagger);
 
-    let _ = window.set_position(PhysicalPosition::new(target_x.max(work_area.position.x), target_y.max(work_area.position.y)));
+    if value.saturating_add(window_size) > area_end {
+        value = cursor
+            .saturating_sub(window_size)
+            .saturating_sub(CURSOR_MARGIN)
+            .saturating_sub(stagger);
+    }
+
+    clamp_window_axis(value, area_start, area_size, window_size)
+}
+
+fn clamp_window_axis(value: i32, area_start: i32, area_size: i32, window_size: i32) -> i32 {
+    let max_start = area_start
+        .saturating_add(area_size)
+        .saturating_sub(window_size);
+    if max_start <= area_start {
+        return area_start;
+    }
+    value.max(area_start).min(max_start)
 }
 
 fn bind_drop_events(window: &WebviewWindow, app: AppHandle) {

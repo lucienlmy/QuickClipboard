@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
@@ -18,8 +20,12 @@ struct ShelfRecord {
 }
 
 static SHELVES: Lazy<Mutex<Vec<ShelfRecord>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static SHELF_MUTATION_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static STARTUP_RESTORE_STARTED: AtomicBool = AtomicBool::new(false);
 
 const DEFAULT_SHELF_NAME_PREFIX: &str = "文件盒_";
+const STARTUP_RESTORE_DELAY_MS: u64 = 350;
+const STARTUP_RESTORE_INTERVAL_MS: u64 = 120;
 
 fn ensure_state_loaded() -> ShelfStatePersisted {
     storage::load()
@@ -55,6 +61,7 @@ fn next_default_shelf_name(persisted: &[ShelfPersisted], active: &[ShelfRecord])
 
 /// 创建一个新的文件盒窗口，自动分配 id 与默认名称。
 pub fn open_or_create_shelf(app: &AppHandle) -> Result<ShelfSummary, String> {
+    let _mutation_guard = SHELF_MUTATION_LOCK.lock();
     let state = ensure_state_loaded();
 
     let id = Uuid::new_v4().to_string();
@@ -88,26 +95,41 @@ pub fn open_or_create_shelf(app: &AppHandle) -> Result<ShelfSummary, String> {
     })
 }
 
-/// 应用启动时恢复持久化的 shelf 列表。
-pub fn restore_persisted_shelves(app: &AppHandle) {
-    let state = ensure_state_loaded();
-    if state.shelves.is_empty() {
+/// 启动后延迟恢复，避免在 setup 阶段连续创建多个 WebView 导致首个窗口偶发不可见。
+pub fn schedule_startup_restore_persisted_shelves(app: AppHandle) {
+    if STARTUP_RESTORE_STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
 
-    for (index, persisted) in state.shelves.iter().enumerate() {
-        if SHELVES.lock().iter().any(|item| item.id == persisted.id) {
-            continue;
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(STARTUP_RESTORE_DELAY_MS)).await;
+
+        let state = ensure_state_loaded();
+        for (index, persisted) in state.shelves.into_iter().enumerate() {
+            if let Err(err) = restore_persisted_shelf(&app, &persisted, index) {
+                eprintln!("[transfer_shelf] 恢复文件盒窗口失败 {}: {}", persisted.id, err);
+            }
+            tokio::time::sleep(Duration::from_millis(STARTUP_RESTORE_INTERVAL_MS)).await;
         }
-        if let Err(err) = create_shelf_window(app, &persisted.id, &persisted.name, index as u32) {
-            eprintln!("[transfer_shelf] 恢复文件盒窗口失败 {}: {}", persisted.id, err);
-            continue;
-        }
-        SHELVES.lock().push(ShelfRecord {
-            id: persisted.id.clone(),
-            name: persisted.name.clone(),
-        });
+    });
+}
+
+fn restore_persisted_shelf(
+    app: &AppHandle,
+    persisted: &ShelfPersisted,
+    index: usize,
+) -> Result<(), String> {
+    let _mutation_guard = SHELF_MUTATION_LOCK.lock();
+    if SHELVES.lock().iter().any(|item| item.id == persisted.id) {
+        return Ok(());
     }
+
+    create_shelf_window(app, &persisted.id, &persisted.name, index as u32)?;
+    SHELVES.lock().push(ShelfRecord {
+        id: persisted.id.clone(),
+        name: persisted.name.clone(),
+    });
+    Ok(())
 }
 
 pub fn list_shelves() -> Vec<ShelfSummary> {

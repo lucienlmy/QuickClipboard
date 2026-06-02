@@ -436,8 +436,6 @@ pub fn run() {
                     });
                 }
 
-                windows::transfer_shelf::restore_persisted_shelves(app.handle());
-
                 if settings.clipboard_monitor {
                     let _ = start_clipboard_monitor();
                 }
@@ -456,6 +454,9 @@ pub fn run() {
     startup_diagnostics::set_startup_stage("运行应用事件循环");
     app.run(|app, event| {
             match event {
+                tauri::RunEvent::Ready => {
+                    windows::transfer_shelf::schedule_startup_restore_persisted_shelves(app.clone());
+                }
                 tauri::RunEvent::ExitRequested { api, .. } => {
                     if services::low_memory::is_low_memory_mode() 
                         && !services::low_memory::is_user_requested_exit() 

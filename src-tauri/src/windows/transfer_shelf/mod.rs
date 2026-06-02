@@ -9,4 +9,4 @@ mod storage;
 mod types;
 mod window;
 
-pub use manager::{open_or_create_shelf, restore_persisted_shelves};
+pub use manager::{open_or_create_shelf, schedule_startup_restore_persisted_shelves};
