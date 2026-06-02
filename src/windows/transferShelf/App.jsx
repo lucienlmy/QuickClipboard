@@ -3,7 +3,10 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { useTranslation } from 'react-i18next';
 import { showConfirm } from '@shared/utils/dialog';
+import { initSettings } from '@shared/store/settingsStore';
+import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import {
   applyTransferShelfGeometry,
   closeTransferShelf,
@@ -28,6 +31,8 @@ const PEERS_MAX_INNER = 90;
 const PEERS_PADDING_TOP = 8;
 const PEERS_BLOCK_FALLBACK = PEERS_MAX_INNER + PEERS_PADDING_TOP;
 const TOGGLE_ANIM_MS = 160;
+const DEFAULT_SHELF_NAME_PATTERN = /^(?:文件盒_|File Box_)([1-9]\d*)$/;
+const DEFAULT_SHELF_NAMES = new Set(['文件盒', 'File Box']);
 
 function getShelfIdFromUrl() {
   try {
@@ -130,6 +135,18 @@ function readStoredPeersCollapsed() {
   }
 }
 
+function formatShelfDisplayName(name, t) {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (!trimmed || DEFAULT_SHELF_NAMES.has(trimmed)) {
+    return t('transferShelf.defaultName');
+  }
+  const match = trimmed.match(DEFAULT_SHELF_NAME_PATTERN);
+  if (match) {
+    return t('transferShelf.defaultNameWithIndex', { index: Number(match[1]) });
+  }
+  return trimmed;
+}
+
 function drawRoundRect(ctx, x, y, width, height, radius) {
   if (typeof ctx.roundRect === 'function') {
     ctx.roundRect(x, y, width, height, radius);
@@ -143,7 +160,7 @@ function drawRoundRect(ctx, x, y, width, height, radius) {
   ctx.arcTo(x, y, x + width, y, r);
 }
 
-function createDragPreviewIcon(icon, count, mode) {
+function createDragPreviewIcon(icon, count, mode, labels = { copy: 'Copy', move: 'Move' }) {
   try {
     const canvas = document.createElement('canvas');
     const width = count > 1 ? 88 : 66;
@@ -223,7 +240,7 @@ function createDragPreviewIcon(icon, count, mode) {
     ctx.font = '700 10px "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(mode === 'move' ? '移动' : '复制', count > 1 ? 62 : 43, 42.5);
+    ctx.fillText(mode === 'move' ? labels.move : labels.copy, count > 1 ? 62 : 43, 42.5);
 
     return canvas.toDataURL('image/png');
   } catch {
@@ -252,7 +269,9 @@ function getDragPreviewPlacement(event, root, count) {
 }
 
 export default function App() {
+  const { t } = useTranslation();
   const shelfId = useMemo(() => getShelfIdFromUrl(), []);
+  const defaultShelfName = t('transferShelf.defaultName');
   const [files, setFiles] = useState([]);
   const [peers, setPeers] = useState([]);
   const [selectedPeerIds, setSelectedPeerIds] = useState([]);
@@ -272,9 +291,9 @@ export default function App() {
   const [restored, setRestored] = useState(false);
   const [viewMode, setViewMode] = useState(readStoredViewMode);
   const [peersCollapsed, setPeersCollapsed] = useState(readStoredPeersCollapsed);
-  const [shelfName, setShelfName] = useState('文件盒');
+  const [shelfName, setShelfName] = useState(defaultShelfName);
   const [editingName, setEditingName] = useState(false);
-  const [draftName, setDraftName] = useState('文件盒');
+  const [draftName, setDraftName] = useState(defaultShelfName);
   const [selectedFilePaths, setSelectedFilePaths] = useState([]);
   const [lastSelectedPath, setLastSelectedPath] = useState('');
   const [dragPreview, setDragPreview] = useState(null);
@@ -286,6 +305,12 @@ export default function App() {
   const peersHeightRef = useRef(PEERS_BLOCK_FALLBACK);
   const animatingRef = useRef(false);
   const rootRef = useRef(null);
+  const displayShelfName = useMemo(
+    () => formatShelfDisplayName(shelfName, t),
+    [shelfName, t],
+  );
+
+  useSettingsSync();
 
   const stagedSize = useMemo(
     () => files.reduce((total, file) => total + (Number(file.size) || 0), 0),
@@ -312,8 +337,10 @@ export default function App() {
   const selectedPeers = peers.filter((peer) => selectedPeerIds.includes(peer.device_id));
   const peersCountLabel = `${selectedPeers.length}/${peers.length}`;
   const sendTitle = !canSend
-    ? (files.length === 0 ? '请先添加文件' : '请选择目标设备')
-    : `发送 ${activeFiles.length} 个文件到 ${selectedPeers.length} 台设备`;
+    ? (files.length === 0
+      ? t('transferShelf.sendTitleNoFiles')
+      : t('transferShelf.sendTitleNoPeers'))
+    : t('transferShelf.sendTitle', { fileCount: activeFiles.length, peerCount: selectedPeers.length });
 
   const addPaths = async (paths) => {
     const uniquePaths = [...new Set(paths.filter((path) => typeof path === 'string' && path.length > 0))];
@@ -330,6 +357,10 @@ export default function App() {
     });
     setErrorText('');
   };
+
+  useEffect(() => {
+    initSettings().catch(() => { });
+  }, []);
 
   // 启动时恢复持久化的暂存与窗口几何
   useEffect(() => {
@@ -349,7 +380,6 @@ export default function App() {
         if (typeof snapshot.name === 'string' && snapshot.name.trim()) {
           setShelfName(snapshot.name);
           setDraftName(snapshot.name);
-          getCurrentWindow().setTitle(snapshot.name).catch(() => { });
         }
         if (Array.isArray(snapshot.selectedPeerIds) && snapshot.selectedPeerIds.length > 0) {
           setSelectedPeerIds(snapshot.selectedPeerIds);
@@ -369,6 +399,10 @@ export default function App() {
       cancelled = true;
     };
   }, [shelfId]);
+
+  useEffect(() => {
+    getCurrentWindow().setTitle(displayShelfName).catch(() => { });
+  }, [displayShelfName]);
 
   useEffect(() => {
     if (!shelfId) return;
@@ -597,8 +631,8 @@ export default function App() {
   const handleClose = async () => {
     if (files.length > 0) {
       const confirmed = await showConfirm(
-        `文件盒里还有 ${files.length} 个暂存文件，关闭后会移除这些暂存引用，是否继续？`,
-        '关闭文件盒',
+        t('transferShelf.closeConfirmMessage', { count: files.length }),
+        t('transferShelf.closeConfirmTitle'),
       );
       if (!confirmed) return;
     }
@@ -654,12 +688,12 @@ export default function App() {
   };
 
   const startEditName = () => {
-    setDraftName(shelfName);
+    setDraftName(displayShelfName);
     setEditingName(true);
   };
 
   const cancelEditName = () => {
-    setDraftName(shelfName);
+    setDraftName(displayShelfName);
     setEditingName(false);
   };
 
@@ -669,7 +703,7 @@ export default function App() {
       cancelEditName();
       return;
     }
-    if (nextName === shelfName) {
+    if (nextName === displayShelfName) {
       setEditingName(false);
       return;
     }
@@ -677,8 +711,7 @@ export default function App() {
       const summary = await renameTransferShelf(shelfId, nextName);
       const savedName = summary?.name || nextName;
       setShelfName(savedName);
-      setDraftName(savedName);
-      await getCurrentWindow().setTitle(savedName).catch(() => { });
+      setDraftName(formatShelfDisplayName(savedName, t));
       setEditingName(false);
     } catch (error) {
       setErrorText(error?.message || String(error));
@@ -859,7 +892,7 @@ export default function App() {
 
     const validTargets = targets.filter((target) => fileMap.has(target.path) && peerSet.has(target.peerId));
     if (validTargets.length === 0) {
-      setErrorText('暂存或目标设备已变化，请检查后重试');
+      setErrorText(t('transferShelf.invalidTargets'));
       return;
     }
 
@@ -955,7 +988,7 @@ export default function App() {
             <button
               type="button"
               className="shelf-header__rename"
-              title="重命名"
+              title={t('common.rename')}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={startEditName}
             >
@@ -982,23 +1015,23 @@ export default function App() {
               }}
             />
           ) : (
-            <span className="shelf-header__title" title={shelfName}>
-              {shelfName}
+            <span className="shelf-header__title" title={displayShelfName}>
+              {displayShelfName}
             </span>
           )}
           <div className="shelf-header__actions" onPointerDown={(event) => event.stopPropagation()}>
             <button
               type="button"
               className="shelf-icon-btn"
-              title={viewMode === 'list' ? '切换到宫格视图' : '切换到列表视图'}
+              title={viewMode === 'list' ? t('transferShelf.switchToGrid') : t('transferShelf.switchToList')}
               onClick={toggleViewMode}
             >
               <i className={`ti ${viewMode === 'list' ? 'ti-layout-grid' : 'ti-layout-list'}`} />
             </button>
-            <button type="button" className="shelf-icon-btn" title="最小化" onClick={handleMinimize}>
+            <button type="button" className="shelf-icon-btn" title={t('common.minimize')} onClick={handleMinimize}>
               <i className="ti ti-minus" />
             </button>
-            <button type="button" className="shelf-icon-btn is-danger" title="关闭" onClick={handleClose}>
+            <button type="button" className="shelf-icon-btn is-danger" title={t('common.close')} onClick={handleClose}>
               <i className="ti ti-x" />
             </button>
           </div>
@@ -1010,7 +1043,7 @@ export default function App() {
               <span className="shelf-files__empty-icon">
                 <i className="ti ti-cloud-upload" />
               </span>
-              <span className="shelf-files__empty-title">把文件拖到这里</span>
+              <span className="shelf-files__empty-title">{t('transferShelf.dropFilesHere')}</span>
             </div>
           ) : (
             <div className={`shelf-files__list ${viewMode === 'grid' ? 'is-grid' : ''}`}>
@@ -1039,15 +1072,25 @@ export default function App() {
                   progress?.status ? `is-progress-${progress.status}` : '',
                 ].filter(Boolean).join(' ');
                 const sizeLabel = missing
-                  ? '文件不存在'
+                  ? t('clipboard.fileNotFound')
                   : progressVisible && progress.totalBytes > 0
                     ? `${formatSize(progress.sentBytes)} / ${formatSize(progress.totalBytes)}`
                     : formatSize(file.size);
+                const dragAction = selected && dragPaths.length > 1
+                  ? t('transferShelf.dragSelectedFiles', { count: dragPaths.length })
+                  : t('transferShelf.dragToExternal');
+                const fileTitle = canExternalDrag
+                  ? t('transferShelf.fileDragTitle', {
+                    name: file.name,
+                    action: dragAction,
+                    hint: t('transferShelf.shiftMoveHint'),
+                  })
+                  : file.name;
                 return (
                   <div
                     className={className}
                     key={file.path}
-                    title={canExternalDrag ? `${file.name}\n${selected && dragPaths.length > 1 ? `拖出 ${dragPaths.length} 个选中文件` : '拖到外部程序'}，Shift 拖拽为移动` : file.name}
+                    title={fileTitle}
                     onClick={(event) => selectFile(event, file.path)}
                     onMouseDown={canExternalDrag
                       ? (event) => {
@@ -1056,6 +1099,10 @@ export default function App() {
                           dragFiles.find((item) => item.icon)?.icon || '',
                           dragPaths.length,
                           dragMode,
+                          {
+                            copy: t('common.copy'),
+                            move: t('transferShelf.move'),
+                          },
                         ) || dragPaths[0];
                         handleExternalDragMouseDown(event, dragPaths, dragIcon, dragMode);
                       }
@@ -1072,13 +1119,17 @@ export default function App() {
                       <span className="shelf-file__name">{file.name}</span>
                       <span className="shelf-file__size">
                         {sizeLabel}
-                        {failedCount > 0 && <span className="shelf-file__badge">失败 {failedCount}</span>}
+                        {failedCount > 0 && (
+                          <span className="shelf-file__badge">
+                            {t('transferShelf.failedBadge', { count: failedCount })}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <button
                       type="button"
                       className="shelf-icon-btn shelf-file__remove"
-                      title="移除"
+                      title={t('transferShelf.remove')}
                       onMouseDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -1112,13 +1163,13 @@ export default function App() {
             >
               <i className={`ti ${isSending ? 'ti-loader-2 shelf-spin' : 'ti-send'}`} />
             </button>
-            <button type="button" className="shelf-icon-btn" title="添加文件" onClick={selectFiles}>
+            <button type="button" className="shelf-icon-btn" title={t('transferShelf.addFiles')} onClick={selectFiles}>
               <i className="ti ti-plus" />
             </button>
             <button
               type="button"
               className="shelf-icon-btn is-danger"
-              title="清空"
+              title={t('transferShelf.clear')}
               disabled={files.length === 0}
               onClick={clearFiles}
             >
@@ -1129,7 +1180,9 @@ export default function App() {
                 <button
                   type="button"
                   className="shelf-icon-btn"
-                  title={canRetry ? `重试 ${failedTargets.length} 个失败项` : '重置传输状态'}
+                  title={canRetry
+                    ? t('transferShelf.retryFailed', { count: failedTargets.length })
+                    : t('transferShelf.resetStatus')}
                   onClick={canRetry ? retryFailed : resetTransferState}
                 >
                   <i className={`ti ${canRetry ? 'ti-refresh' : 'ti-eraser'}`} />
@@ -1139,7 +1192,7 @@ export default function App() {
                     <button
                       type="button"
                       className="shelf-icon-btn"
-                      title="重置传输状态"
+                      title={t('transferShelf.resetStatus')}
                       onClick={resetTransferState}
                     >
                       <i className="ti ti-refresh-alert" />
@@ -1149,23 +1202,25 @@ export default function App() {
               </div>
             )}
             <span className="shelf-dock__progress">
-              {task.status === 'idle' && validSelectedFileCount > 0 && `已选 ${validSelectedFileCount}`}
+              {task.status === 'idle' && validSelectedFileCount > 0 && (
+                t('transferShelf.selectedCount', { count: validSelectedFileCount })
+              )}
               {task.status !== 'idle' && (
                 isSending
                   ? task.totalBytes > 0
                     ? `${formatSize(task.sentBytes)} / ${formatSize(task.totalBytes)}`
                     : `${task.done}/${task.total}`
                   : task.status === 'done'
-                    ? '完成'
-                    : `失败 ${task.failed}/${task.total}`
+                    ? t('transferShelf.done')
+                    : t('transferShelf.failedProgress', { failed: task.failed, total: task.total })
               )}
             </span>
             <button
               type="button"
               className="shelf-icon-btn shelf-dock__toggle"
               title={peersCollapsed
-                ? `展开设备列表（已选 ${peersCountLabel}）`
-                : `折叠设备列表（已选 ${peersCountLabel}）`}
+                ? t('transferShelf.expandPeers', { count: peersCountLabel })
+                : t('transferShelf.collapsePeers', { count: peersCountLabel })}
               onClick={togglePeersCollapsed}
             >
               <i className={`ti ${peersCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'}`} />
@@ -1179,11 +1234,11 @@ export default function App() {
           >
             <div className="shelf-peers__inner" ref={peersRef}>
               {peers.length === 0 ? (
-                <div className="shelf-peers__empty">暂无配对设备</div>
+                <div className="shelf-peers__empty">{t('transferShelf.noPeers')}</div>
               ) : (
                 peers.map((peer) => {
                   const selected = selectedPeerIds.includes(peer.device_id);
-                  const name = peer.device_name || peer.name || '未命名';
+                  const name = peer.device_name || peer.name || t('transferShelf.unnamedPeer');
                   return (
                     <button
                       type="button"
