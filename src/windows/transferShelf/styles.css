@@ -529,6 +529,63 @@ button {
   margin-left: auto;
 }
 
+.shelf-status-actions {
+  position: relative;
+  flex-shrink: 0;
+  --shelf-status-action-bg: color-mix(in srgb, var(--qc-surface, #ffffff) 86%, var(--qc-panel, #f3f4f6));
+  --shelf-status-action-hover: color-mix(in srgb, var(--qc-surface, #ffffff) 84%, var(--qc-accent, #2f7bff) 16%);
+}
+
+.shelf-status-actions:hover > .shelf-icon-btn,
+.shelf-status-actions:focus-within > .shelf-icon-btn {
+  border-radius: 0 0 7px 7px;
+  background: var(--shelf-status-action-bg);
+  color: var(--qc-fg, #1f2933);
+  box-shadow: inset 0 0 0 1px var(--qc-border, rgba(17, 24, 39, 0.08));
+}
+
+.shelf-status-actions__menu {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 1px);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 3px) scale(0.98);
+  transform-origin: bottom center;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.shelf-status-actions:hover .shelf-status-actions__menu,
+.shelf-status-actions:focus-within .shelf-status-actions__menu {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.shelf-status-actions__menu .shelf-icon-btn {
+  border-radius: 7px 7px 0 0;
+  background: var(--shelf-status-action-bg);
+  color: var(--qc-fg, #1f2933);
+  box-shadow: inset 0 0 0 1px var(--qc-border, rgba(17, 24, 39, 0.08));
+}
+
+.shelf-status-actions__menu .shelf-icon-btn:hover {
+  background: var(--shelf-status-action-hover);
+  color: #1d5bd6;
+}
+
+.shelf-status-actions > .shelf-icon-btn:hover {
+  background: var(--shelf-status-action-hover);
+  color: #1d5bd6;
+}
+
 .shelf-send {
   flex-shrink: 0;
   display: inline-flex;

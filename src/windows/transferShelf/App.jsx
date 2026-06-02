@@ -294,6 +294,12 @@ export default function App() {
   const isSending = task.status === 'sending';
   const canSend = files.length > 0 && selectedPeerIds.length > 0 && !isSending;
   const canRetry = !isSending && failedTargets.length > 0;
+  const canResetTransferState = !isSending && (
+    task.status !== 'idle'
+    || failedTargets.length > 0
+    || errorText.trim().length > 0
+    || Object.keys(fileProgresses).length > 0
+  );
   const selectedFileSet = useMemo(() => new Set(selectedFilePaths), [selectedFilePaths]);
   const activeFiles = useMemo(
     () => {
@@ -933,6 +939,14 @@ export default function App() {
     await runSendBatch(failedTargets);
   };
 
+  const resetTransferState = () => {
+    if (!canResetTransferState) return;
+    setErrorText('');
+    setFailedTargets([]);
+    setFileProgresses({});
+    setTask({ status: 'idle', total: 0, done: 0, failed: 0, sentBytes: 0, totalBytes: 0, currentFileName: '' });
+  };
+
   return (
     <main ref={rootRef} className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`} onPointerDown={handleStartDrag}>
       <section className="shelf-shell">
@@ -1110,15 +1124,29 @@ export default function App() {
             >
               <i className="ti ti-trash" />
             </button>
-            {canRetry && (
-              <button
-                type="button"
-                className="shelf-icon-btn"
-                title={`重试 ${failedTargets.length} 个失败项`}
-                onClick={retryFailed}
-              >
-                <i className="ti ti-refresh" />
-              </button>
+            {(canRetry || canResetTransferState) && (
+              <div className="shelf-status-actions">
+                <button
+                  type="button"
+                  className="shelf-icon-btn"
+                  title={canRetry ? `重试 ${failedTargets.length} 个失败项` : '重置传输状态'}
+                  onClick={canRetry ? retryFailed : resetTransferState}
+                >
+                  <i className={`ti ${canRetry ? 'ti-refresh' : 'ti-eraser'}`} />
+                </button>
+                {canRetry && canResetTransferState && (
+                  <div className="shelf-status-actions__menu">
+                    <button
+                      type="button"
+                      className="shelf-icon-btn"
+                      title="重置传输状态"
+                      onClick={resetTransferState}
+                    >
+                      <i className="ti ti-refresh-alert" />
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             <span className="shelf-dock__progress">
               {task.status === 'idle' && validSelectedFileCount > 0 && `已选 ${validSelectedFileCount}`}
