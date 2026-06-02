@@ -52,6 +52,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-updater",
  "tokio",
+ "tokio-util",
  "tungstenite",
  "uuid",
  "windows 0.62.2",

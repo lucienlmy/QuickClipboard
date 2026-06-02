@@ -19,5 +19,5 @@ pub use peer_store::PairedPeerInfo;
 pub use runtime::{LanRuntimeStatus, PairingCodeView};
 pub use snapshot::{LanGroupBatch, LanRecordBatch, LanSyncSnapshot, LanTombstoneBatch};
 pub use discovery::DiscoveredLanPeer;
-pub use transfer::FileTransferResult;
+pub use transfer::{FileTransferProgress, FileTransferProgressCallback, FileTransferResult};
 pub use auto_sync::{LanAutoSyncSettings, LanAutoSyncStatus};

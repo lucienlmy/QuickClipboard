@@ -1,7 +1,15 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use std::time::Duration;
+use tokio::io::AsyncRead;
+use tokio_util::io::ReaderStream;
 
 pub const LAN_UNAUTHORIZED: &str = "局域网设备未授权（配对已失效）";
+const FILE_TRANSFER_BUFFER_SIZE: usize = 1024 * 1024;
 
 fn build_client() -> reqwest::Client {
     reqwest::Client::builder()
@@ -204,12 +212,28 @@ pub async fn push_peer_image(peer: &super::peer_store::PairedPeer, image_id: &st
     Ok(())
 }
 
-pub async fn send_peer_file(peer: &super::peer_store::PairedPeer, file_name: &str, bytes: Vec<u8>) -> Result<super::FileTransferResult, String> {
+pub async fn send_peer_file_stream(
+    peer: &super::peer_store::PairedPeer,
+    file_name: &str,
+    path: PathBuf,
+    size: u64,
+    reporter: Option<super::transfer::FileTransferProgressReporter>,
+) -> Result<super::FileTransferResult, String> {
     let client = build_transfer_client();
     let config = LanHttpClientConfig {
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
     };
+    let file = tokio::fs::File::open(&path)
+        .await
+        .map_err(|e| format!("打开待传输文件失败: {}", e))?;
+    if let Some(reporter) = reporter.as_ref() {
+        reporter.emit("sending", 0);
+    }
+    let hasher = Arc::new(Mutex::new(Sha256::new()));
+    let reader = ProgressHashReader::new(file, size, reporter.clone(), hasher.clone());
+    let stream = ReaderStream::with_capacity(reader, FILE_TRANSFER_BUFFER_SIZE);
+    let body = reqwest::Body::wrap_stream(stream);
     let response = client
         .put(format!(
             "{}/qc-transfer/files/{}",
@@ -218,17 +242,101 @@ pub async fn send_peer_file(peer: &super::peer_store::PairedPeer, file_name: &st
         ))
         .header("Authorization", config.authorization_header())
         .header("X-Device-Id", super::runtime::device_id())
-        .body(bytes)
+        .header("Content-Length", size)
+        .body(body)
         .send()
         .await
         .map_err(|e| format!("发送局域网文件失败: {}", e))?;
     if !response.status().is_success() {
+        if let Some(reporter) = reporter.as_ref() {
+            reporter.emit("failed", 0);
+        }
         return Err(format!("发送局域网文件失败: {}", response.status()));
     }
-    response
+    let mut result = response
         .json::<super::FileTransferResult>()
         .await
-        .map_err(|e| format!("解析局域网文件传输结果失败: {}", e))
+        .map_err(|e| format!("解析局域网文件传输结果失败: {}", e))?;
+    let local_sha256 = {
+        let guard = hasher.lock().map_err(|_| "局域网文件校验状态异常".to_string())?;
+        hex::encode(guard.clone().finalize())
+    };
+    if result.size != 0 && result.size != size {
+        if let Some(reporter) = reporter.as_ref() {
+            reporter.emit("failed", size);
+        }
+        return Err(format!("局域网文件大小校验失败: 本地 {} 字节，对方 {} 字节", size, result.size));
+    }
+    if let Some(remote_sha256) = result.sha256.as_deref() {
+        if !remote_sha256.eq_ignore_ascii_case(&local_sha256) {
+            if let Some(reporter) = reporter.as_ref() {
+                reporter.emit("failed", size);
+            }
+            return Err("局域网文件内容校验失败，请重新发送".to_string());
+        }
+    } else {
+        result.sha256 = Some(local_sha256);
+    }
+    if let Some(reporter) = reporter.as_ref() {
+        reporter.emit("done", size);
+    }
+    Ok(result)
+}
+
+struct ProgressHashReader<R> {
+    inner: R,
+    sent: u64,
+    total: u64,
+    last_reported: u64,
+    reporter: Option<super::transfer::FileTransferProgressReporter>,
+    hasher: Arc<Mutex<Sha256>>,
+}
+
+impl<R> ProgressHashReader<R> {
+    fn new(
+        inner: R,
+        total: u64,
+        reporter: Option<super::transfer::FileTransferProgressReporter>,
+        hasher: Arc<Mutex<Sha256>>,
+    ) -> Self {
+        Self {
+            inner,
+            sent: 0,
+            total,
+            last_reported: 0,
+            reporter,
+            hasher,
+        }
+    }
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for ProgressHashReader<R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let before = buf.filled().len();
+        let poll = Pin::new(&mut self.inner).poll_read(cx, buf);
+        if let Poll::Ready(Ok(())) = &poll {
+            let read = buf.filled().len().saturating_sub(before) as u64;
+            if read > 0 {
+                if let Ok(mut hasher) = self.hasher.lock() {
+                    hasher.update(&buf.filled()[before..]);
+                }
+                self.sent = self.sent.saturating_add(read);
+                let should_report = self.sent == self.total
+                    || self.sent.saturating_sub(self.last_reported) >= FILE_TRANSFER_BUFFER_SIZE as u64;
+                if should_report {
+                    self.last_reported = self.sent;
+                    if let Some(reporter) = self.reporter.as_ref() {
+                        reporter.emit("sending", self.sent);
+                    }
+                }
+            }
+        }
+        poll
+    }
 }
 
 async fn authorized_get<T: serde::de::DeserializeOwned>(peer: &super::peer_store::PairedPeer, path: &str) -> Result<T, String> {

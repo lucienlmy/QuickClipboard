@@ -92,3 +92,14 @@ pub async fn lan_send_file_to_peer(device_id: &str, file_path: &str) -> Result<l
     let _ = lan::peer_store::mark_peer_seen(device_id);
     Ok(result)
 }
+
+pub async fn lan_send_file_to_peer_with_progress(
+    device_id: &str,
+    file_path: &str,
+    transfer_id: Option<String>,
+    progress: Option<lan::FileTransferProgressCallback>,
+) -> Result<lan::FileTransferResult, String> {
+    let result = lan::transfer::send_file_to_peer_with_progress(device_id, file_path, transfer_id, progress).await?;
+    let _ = lan::peer_store::mark_peer_seen(device_id);
+    Ok(result)
+}
