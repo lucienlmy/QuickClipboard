@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::task::JoinSet;
 
 use super::manager::{
@@ -13,6 +13,7 @@ use super::types::{
     describe_path, label_for, ShelfFileInfo, ShelfFileProgress, ShelfSendError, ShelfSendTarget,
     ShelfSendTaskPayload, ShelfStateSnapshot, ShelfSummary, TASK_PROGRESS_EVENT,
 };
+use super::window::{apply_shelf_geometry, resolve_shelf_geometry};
 
 const FILE_SEND_CONCURRENCY: usize = 4;
 
@@ -407,21 +408,23 @@ pub fn transfer_shelf_save_geometry(
     let window = app
         .get_webview_window(&label)
         .ok_or_else(|| format!("找不到文件盒窗口: {}", id))?;
+    if window.is_minimized().unwrap_or(false) {
+        return Ok(());
+    }
     let position = window
         .outer_position()
         .map_err(|e| format!("读取窗口位置失败: {}", e))?;
     let size = window
         .outer_size()
         .map_err(|e| format!("读取窗口尺寸失败: {}", e))?;
-    storage::upsert_geometry(
-        &id,
-        ShelfGeometryPersisted {
-            x: position.x,
-            y: position.y,
-            width: size.width,
-            height: size.height,
-        },
-    )
+    let geometry = ShelfGeometryPersisted {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+    };
+    let geometry = resolve_shelf_geometry(&app, &geometry).unwrap_or(geometry);
+    storage::upsert_geometry(&id, geometry)
 }
 
 #[tauri::command]
@@ -434,9 +437,7 @@ pub fn transfer_shelf_apply_geometry(app: AppHandle, id: String) -> Result<bool,
     let window = app
         .get_webview_window(&label)
         .ok_or_else(|| format!("找不到文件盒窗口: {}", id))?;
-    if geometry.width > 0 && geometry.height > 0 {
-        let _ = window.set_size(PhysicalSize::new(geometry.width, geometry.height));
-    }
-    let _ = window.set_position(PhysicalPosition::new(geometry.x, geometry.y));
+    let resolved = apply_shelf_geometry(&app, &window, &geometry)?;
+    let _ = storage::upsert_geometry(&id, resolved);
     Ok(true)
 }

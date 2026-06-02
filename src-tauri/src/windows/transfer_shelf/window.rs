@@ -1,21 +1,31 @@
 use std::path::PathBuf;
 
 use tauri::{
-    AppHandle, DragDropEvent, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow,
-    WebviewWindowBuilder, WindowEvent,
+    AppHandle, DragDropEvent, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl,
+    WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
 
+use super::storage::ShelfGeometryPersisted;
 use super::types::{
     id_from_label, label_for, DROP_ACTIVE_EVENT, FILES_DROPPED_EVENT, ShelfDropActivePayload,
     ShelfDroppedFilesPayload,
 };
 
-pub const DEFAULT_WIDTH: u32 = 360;
-pub const DEFAULT_HEIGHT: u32 = 480;
-pub const MIN_WIDTH: u32 = 280;
-pub const MIN_HEIGHT: u32 = 320;
+pub const DEFAULT_WIDTH: u32 = 240;
+pub const DEFAULT_HEIGHT: u32 = 280;
+pub const MIN_WIDTH: u32 = 180;
+pub const MIN_HEIGHT: u32 = 230;
 pub const STAGGER_OFFSET: i32 = 24;
 const CURSOR_MARGIN: i32 = 16;
+
+#[derive(Clone, Copy)]
+struct WorkArea {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    scale_factor: f64,
+}
 
 /// 创建一个 shelf 窗口实例。
 ///
@@ -26,28 +36,29 @@ pub fn create_shelf_window(
     id: &str,
     title: &str,
     stagger_index: u32,
+    geometry: Option<&ShelfGeometryPersisted>,
+    focus: bool,
 ) -> Result<WebviewWindow, String> {
     let label = label_for(id);
 
     if let Some(existing) = app.get_webview_window(&label) {
+        if let Some(geometry) = geometry {
+            let _ = apply_shelf_geometry(app, &existing, geometry);
+        }
+        let _ = existing.unminimize();
+        let _ = existing.show();
+        if focus {
+            let _ = existing.set_focus();
+        }
         return Ok(existing);
     }
-
-    let scale_factor = crate::utils::screen::ScreenUtils::get_monitor_at_cursor(app)
-        .map(|monitor| monitor.scale_factor())
-        .unwrap_or(1.0)
-        .max(0.1);
-    let logical_width = DEFAULT_WIDTH as f64 / scale_factor;
-    let logical_height = DEFAULT_HEIGHT as f64 / scale_factor;
-    let logical_min_width = MIN_WIDTH as f64 / scale_factor;
-    let logical_min_height = MIN_HEIGHT as f64 / scale_factor;
 
     let url = format!("windows/transferShelf/index.html?shelfId={}", id);
 
     let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url.into()))
         .title(title)
-        .inner_size(logical_width, logical_height)
-        .min_inner_size(logical_min_width, logical_min_height)
+        .inner_size(DEFAULT_WIDTH as f64, DEFAULT_HEIGHT as f64)
+        .min_inner_size(MIN_WIDTH as f64, MIN_HEIGHT as f64)
         .resizable(true)
         .maximizable(false)
         .minimizable(true)
@@ -56,22 +67,177 @@ pub fn create_shelf_window(
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(false)
-        .focused(true)
+        .focused(focus)
         .visible(false)
         .drag_and_drop(true)
         .build()
         .map_err(|e| format!("创建文件盒窗口失败: {}", e))?;
 
-    place_initial_position(app, &window, stagger_index);
+    if let Some(geometry) = geometry {
+        if let Err(error) = apply_shelf_geometry(app, &window, geometry) {
+            eprintln!("[transfer_shelf] 应用恢复几何失败: {}", error);
+            place_initial_position(app, &window, stagger_index);
+        }
+    } else {
+        place_initial_position(app, &window, stagger_index);
+    }
     bind_drop_events(&window, app.clone());
 
+    let _ = window.unminimize();
     let _ = window.show();
-    let _ = window.set_focus();
+    if focus {
+        let _ = window.set_focus();
+    }
 
     #[cfg(debug_assertions)]
-    let _ = window.open_devtools();
+    if focus {
+        let _ = window.open_devtools();
+    }
 
     Ok(window)
+}
+
+pub fn apply_shelf_geometry(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    geometry: &ShelfGeometryPersisted,
+) -> Result<ShelfGeometryPersisted, String> {
+    let resolved = resolve_shelf_geometry(app, geometry)?;
+    let scale_factor = scale_factor_for_geometry(app, &resolved).unwrap_or(1.0).max(0.1);
+    let logical_width = (resolved.width as f64 / scale_factor).max(1.0);
+    let logical_height = (resolved.height as f64 / scale_factor).max(1.0);
+    window
+        .set_size(LogicalSize::new(logical_width, logical_height))
+        .map_err(|e| format!("设置文件盒窗口尺寸失败: {}", e))?;
+    window
+        .set_position(PhysicalPosition::new(resolved.x, resolved.y))
+        .map_err(|e| format!("设置文件盒窗口位置失败: {}", e))?;
+    Ok(resolved)
+}
+
+pub fn resolve_shelf_geometry(
+    app: &AppHandle,
+    geometry: &ShelfGeometryPersisted,
+) -> Result<ShelfGeometryPersisted, String> {
+    let work_areas = get_work_areas(app)?;
+    let Some(area) = choose_work_area(&work_areas, geometry) else {
+        return Ok(ShelfGeometryPersisted {
+            x: geometry.x.max(0),
+            y: geometry.y.max(0),
+            width: geometry.width.max(MIN_WIDTH),
+            height: geometry.height.max(MIN_HEIGHT),
+        });
+    };
+
+    let max_width = area.width.max(1) as u32;
+    let max_height = area.height.max(1) as u32;
+    let min_width = logical_to_physical(MIN_WIDTH, area.scale_factor).min(max_width);
+    let min_height = logical_to_physical(MIN_HEIGHT, area.scale_factor).min(max_height);
+    let width = geometry.width.max(min_width).min(max_width);
+    let height = geometry.height.max(min_height).min(max_height);
+    let x = clamp_axis(geometry.x, area.x, area.width, width as i32);
+    let y = clamp_axis(geometry.y, area.y, area.height, height as i32);
+
+    Ok(ShelfGeometryPersisted {
+        x,
+        y,
+        width,
+        height,
+    })
+}
+
+fn get_work_areas(app: &AppHandle) -> Result<Vec<WorkArea>, String> {
+    let monitors = app
+        .available_monitors()
+        .map_err(|e| format!("获取显示器列表失败: {}", e))?;
+
+    Ok(monitors
+        .into_iter()
+        .map(|monitor| {
+            let work_area = monitor.work_area();
+            WorkArea {
+                x: work_area.position.x,
+                y: work_area.position.y,
+                width: work_area.size.width as i32,
+                height: work_area.size.height as i32,
+                scale_factor: monitor.scale_factor(),
+            }
+        })
+        .collect())
+}
+
+fn scale_factor_for_geometry(
+    app: &AppHandle,
+    geometry: &ShelfGeometryPersisted,
+) -> Result<f64, String> {
+    let work_areas = get_work_areas(app)?;
+    Ok(choose_work_area(&work_areas, geometry)
+        .map(|area| area.scale_factor)
+        .unwrap_or(1.0))
+}
+
+fn logical_to_physical(value: u32, scale_factor: f64) -> u32 {
+    ((value as f64) * scale_factor.max(0.1)).round().max(1.0) as u32
+}
+
+fn choose_work_area(
+    work_areas: &[WorkArea],
+    geometry: &ShelfGeometryPersisted,
+) -> Option<WorkArea> {
+    let width = geometry.width.max(MIN_WIDTH) as i32;
+    let height = geometry.height.max(MIN_HEIGHT) as i32;
+
+    work_areas
+        .iter()
+        .copied()
+        .max_by_key(|area| intersection_area(*area, geometry.x, geometry.y, width, height))
+        .filter(|area| intersection_area(*area, geometry.x, geometry.y, width, height) > 0)
+        .or_else(|| {
+            work_areas
+                .iter()
+                .copied()
+                .min_by_key(|area| distance_to_area_center(*area, geometry.x, geometry.y, width, height))
+        })
+}
+
+fn intersection_area(area: WorkArea, x: i32, y: i32, width: i32, height: i32) -> i64 {
+    let left = area.x.max(x);
+    let top = area.y.max(y);
+    let right = area.right().min(x.saturating_add(width));
+    let bottom = area.bottom().min(y.saturating_add(height));
+    let width = right.saturating_sub(left).max(0) as i64;
+    let height = bottom.saturating_sub(top).max(0) as i64;
+    width * height
+}
+
+fn distance_to_area_center(area: WorkArea, x: i32, y: i32, width: i32, height: i32) -> i64 {
+    let rect_center_x = x as i64 + width as i64 / 2;
+    let rect_center_y = y as i64 + height as i64 / 2;
+    let area_center_x = area.x as i64 + area.width as i64 / 2;
+    let area_center_y = area.y as i64 + area.height as i64 / 2;
+    let dx = rect_center_x - area_center_x;
+    let dy = rect_center_y - area_center_y;
+    dx * dx + dy * dy
+}
+
+fn clamp_axis(value: i32, area_start: i32, area_size: i32, window_size: i32) -> i32 {
+    let max_start = area_start
+        .saturating_add(area_size)
+        .saturating_sub(window_size);
+    if max_start <= area_start {
+        return area_start;
+    }
+    value.max(area_start).min(max_start)
+}
+
+impl WorkArea {
+    fn right(self) -> i32 {
+        self.x.saturating_add(self.width)
+    }
+
+    fn bottom(self) -> i32 {
+        self.y.saturating_add(self.height)
+    }
 }
 
 fn place_initial_position(app: &AppHandle, window: &WebviewWindow, stagger_index: u32) {

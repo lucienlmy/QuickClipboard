@@ -8,7 +8,6 @@ import { showConfirm } from '@shared/utils/dialog';
 import { initSettings } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import {
-  applyTransferShelfGeometry,
   closeTransferShelf,
   describeTransferShelfPaths,
   listSyncTransferLanPairedPeers,
@@ -387,11 +386,6 @@ export default function App() {
       } catch {
         // 持久化数据无效时静默忽略
       } finally {
-        try {
-          await applyTransferShelfGeometry(shelfId);
-        } catch {
-          // 几何无记录时正常
-        }
         if (!cancelled) setRestored(true);
       }
     })();
@@ -510,7 +504,7 @@ export default function App() {
 
   // 监听窗口位置 / 尺寸变化并防抖保存
   useEffect(() => {
-    if (!shelfId) return;
+    if (!shelfId || !restored) return;
     const win = getCurrentWindow();
     let unlistenMove = null;
     let unlistenResize = null;
@@ -537,7 +531,7 @@ export default function App() {
         window.clearTimeout(geometryTimerRef.current);
       }
     };
-  }, [shelfId]);
+  }, [shelfId, restored]);
 
   // 视图模式持久化
   useEffect(() => {

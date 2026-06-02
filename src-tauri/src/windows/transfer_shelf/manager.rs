@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
@@ -8,7 +9,7 @@ use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
 use super::storage::{
-    self, ShelfFilePersisted, ShelfPersisted, ShelfStatePersisted,
+    self, ShelfFilePersisted, ShelfGeometryPersisted, ShelfPersisted, ShelfStatePersisted,
 };
 use super::types::{label_for, ShelfFileInfo, ShelfSummary};
 use super::window::create_shelf_window;
@@ -24,8 +25,8 @@ static SHELF_MUTATION_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 static STARTUP_RESTORE_STARTED: AtomicBool = AtomicBool::new(false);
 
 const DEFAULT_SHELF_NAME_PREFIX: &str = "文件盒_";
-const STARTUP_RESTORE_DELAY_MS: u64 = 350;
-const STARTUP_RESTORE_INTERVAL_MS: u64 = 120;
+const STARTUP_RESTORE_DELAY_MS: u64 = 800;
+const STARTUP_RESTORE_INTERVAL_MS: u64 = 220;
 
 fn ensure_state_loaded() -> ShelfStatePersisted {
     storage::load()
@@ -73,7 +74,7 @@ pub fn open_or_create_shelf(app: &AppHandle) -> Result<ShelfSummary, String> {
         )
     };
 
-    create_shelf_window(app, &id, &name, stagger_index)?;
+    create_shelf_window(app, &id, &name, stagger_index, None, true)?;
 
     let record = ShelfRecord {
         id: id.clone(),
@@ -105,8 +106,15 @@ pub fn schedule_startup_restore_persisted_shelves(app: AppHandle) {
         tokio::time::sleep(Duration::from_millis(STARTUP_RESTORE_DELAY_MS)).await;
 
         let state = ensure_state_loaded();
+        let geometries = state.geometries;
         for (index, persisted) in state.shelves.into_iter().enumerate() {
-            if let Err(err) = restore_persisted_shelf(&app, &persisted, index) {
+            let geometry = geometries.get(&persisted.id).cloned();
+            if let Err(err) = restore_persisted_shelf_on_main_thread(
+                app.clone(),
+                persisted.clone(),
+                index,
+                geometry,
+            ) {
                 eprintln!("[transfer_shelf] 恢复文件盒窗口失败 {}: {}", persisted.id, err);
             }
             tokio::time::sleep(Duration::from_millis(STARTUP_RESTORE_INTERVAL_MS)).await;
@@ -114,17 +122,52 @@ pub fn schedule_startup_restore_persisted_shelves(app: AppHandle) {
     });
 }
 
+fn restore_persisted_shelf_on_main_thread(
+    app: AppHandle,
+    persisted: ShelfPersisted,
+    index: usize,
+    geometry: Option<ShelfGeometryPersisted>,
+) -> Result<(), String> {
+    let (sender, receiver) = mpsc::channel();
+    let app_for_restore = app.clone();
+    app.run_on_main_thread(move || {
+        let result = restore_persisted_shelf(
+            &app_for_restore,
+            &persisted,
+            index,
+            geometry.as_ref(),
+        );
+        let _ = sender.send(result);
+    })
+    .map_err(|e| format!("调度文件盒恢复到主线程失败: {}", e))?;
+
+    receiver
+        .recv_timeout(Duration::from_secs(8))
+        .map_err(|e| format!("等待文件盒恢复结果超时: {}", e))?
+}
+
 fn restore_persisted_shelf(
     app: &AppHandle,
     persisted: &ShelfPersisted,
     index: usize,
+    geometry: Option<&ShelfGeometryPersisted>,
 ) -> Result<(), String> {
     let _mutation_guard = SHELF_MUTATION_LOCK.lock();
+    if persisted.id.trim().is_empty() {
+        return Err("文件盒 id 为空".to_string());
+    }
     if SHELVES.lock().iter().any(|item| item.id == persisted.id) {
         return Ok(());
     }
 
-    create_shelf_window(app, &persisted.id, &persisted.name, index as u32)?;
+    create_shelf_window(
+        app,
+        &persisted.id,
+        &persisted.name,
+        index as u32,
+        geometry,
+        false,
+    )?;
     SHELVES.lock().push(ShelfRecord {
         id: persisted.id.clone(),
         name: persisted.name.clone(),
