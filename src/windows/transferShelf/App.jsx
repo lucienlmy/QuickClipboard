@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
@@ -8,22 +8,36 @@ import { showConfirm } from '@shared/utils/dialog';
 import { initSettings } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import {
+  ensureDropProxy,
+  cleanupDropProxyOrphanResources,
   closeTransferShelf,
   describeTransferShelfPaths,
+  hideDropProxy,
   listSyncTransferLanPairedPeers,
   loadTransferShelfState,
   renameTransferShelf,
+  routeDropProxyPathsAtCursor,
+  saveDropProxyResource,
+  saveDropProxyUrl,
   saveTransferShelfGeometry,
   saveTransferShelfState,
   sendTransferShelf,
+  showDropProxy,
 } from '@shared/api';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 
-const FILES_DROPPED_EVENT = 'transfer-shelf-files-dropped';
-const DROP_ACTIVE_EVENT = 'transfer-shelf-drop-active';
+const DROP_PROXY_PATHS_EVENT = 'drop-proxy-paths';
+const DROP_PROXY_LEAVE_EVENT = 'drop-proxy-leave';
+const INTERNAL_DRAG_EVENT = 'transfer-shelf-internal-drag';
+const INTERNAL_DRAG_STORAGE_KEY = 'transferShelfInternalDrag';
+const INTERNAL_DRAG_STALE_MS = 30000;
 const TASK_PROGRESS_EVENT = 'transfer-shelf-task-progress';
+const HTML_DROP_PROXY_TYPES = new Set(['Files']);
+const URL_DROP_TYPES = ['text/uri-list', 'text/plain', 'text/html'];
 const PERSIST_DEBOUNCE_MS = 400;
 const GEOMETRY_DEBOUNCE_MS = 400;
+const DROP_RESOURCE_CLEANUP_MIN_AGE_MS = 5000;
+const DROP_RESOURCE_CLEANUP_DELAY_MS = DROP_RESOURCE_CLEANUP_MIN_AGE_MS + 1000;
 const VIEW_MODE_KEY = 'transferShelfViewMode';
 const PEERS_COLLAPSED_KEY = 'transferShelfPeersCollapsed';
 const PEERS_MAX_INNER = 90;
@@ -326,23 +340,146 @@ function createDragPreviewIcon(icon, count, mode, labels = { copy: 'Copy', move:
   }
 }
 
-function getDragPreviewPlacement(event, root, count) {
-  const rect = root?.getBoundingClientRect();
-  const { width, height } = getDragPreviewSize(count);
-  const gap = 12;
-  if (!rect) {
-    return { x: event.clientX + gap, y: event.clientY + gap };
+function getDataTransferTypes(dataTransfer) {
+  return Array.from(dataTransfer?.types || []);
+}
+
+function hasNativeFiles(dataTransfer) {
+  return getDataTransferTypes(dataTransfer).some((type) => HTML_DROP_PROXY_TYPES.has(type));
+}
+
+function hasUrlDropData(dataTransfer) {
+  const types = getDataTransferTypes(dataTransfer);
+  return types.some((type) => URL_DROP_TYPES.includes(type));
+}
+
+function shouldUseNativeDropProxy(dataTransfer) {
+  return hasNativeFiles(dataTransfer) && !hasUrlDropData(dataTransfer);
+}
+
+function hasSupportedDropPayload(dataTransfer) {
+  return hasNativeFiles(dataTransfer) || hasUrlDropData(dataTransfer);
+}
+
+function isHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
   }
+}
 
-  const placeLeft = event.clientX + gap + width > rect.right;
-  const placeTop = event.clientY + gap + height > rect.bottom;
-  const x = placeLeft ? event.clientX - width - gap : event.clientX + gap;
-  const y = placeTop ? event.clientY - height - gap : event.clientY + gap;
+function firstUrlFromText(value) {
+  if (!value) return '';
+  const lines = String(value)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+  return lines.find(isHttpUrl) || '';
+}
 
-  return {
-    x: Math.min(Math.max(x, rect.left + 4), rect.right - width - 4),
-    y: Math.min(Math.max(y, rect.top + 4), rect.bottom - height - 4),
+function extractImageUrlsFromHtml(html) {
+  if (!html) return [];
+  const urls = [];
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('img[src]').forEach((image) => {
+      const src = image.getAttribute('src') || '';
+      if (isHttpUrl(src) || src.startsWith('data:image/')) urls.push(src);
+    });
+  } catch {
+    // ignore
+  }
+  return urls;
+}
+
+function extractDropUrls(dataTransfer) {
+  const urls = [];
+  const uriList = firstUrlFromText(dataTransfer?.getData('text/uri-list'));
+  if (uriList) urls.push(uriList);
+
+  extractImageUrlsFromHtml(dataTransfer?.getData('text/html')).forEach((url) => {
+    if (!urls.includes(url)) urls.push(url);
+  });
+
+  const plainUrl = firstUrlFromText(dataTransfer?.getData('text/plain'));
+  if (plainUrl && !urls.includes(plainUrl)) urls.push(plainUrl);
+  return urls;
+}
+
+function extensionFromMime(mime) {
+  const normalized = String(mime || '').split(';')[0].trim().toLowerCase();
+  const map = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/bmp': 'bmp',
+    'image/svg+xml': 'svg',
   };
+  return map[normalized] || '';
+}
+
+function filenameFromUrl(url, fallbackExt = '') {
+  try {
+    const parsed = new URL(url);
+    const pathname = decodeURIComponent(parsed.pathname || '');
+    const name = pathname.split('/').filter(Boolean).pop() || 'drop-resource';
+    if (/\.[A-Za-z0-9]{1,8}$/.test(name)) return name;
+  } catch {
+    // ignore
+  }
+  return fallbackExt ? `drop-resource.${fallbackExt}` : 'drop-resource';
+}
+
+async function readBlobBytes(blob) {
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+function getCurrentWindowLabel() {
+  try {
+    return getCurrentWindow().label || '';
+  } catch {
+    return '';
+  }
+}
+
+function readStoredInternalDragSource() {
+  try {
+    const raw = localStorage.getItem(INTERNAL_DRAG_STORAGE_KEY);
+    if (!raw) return '';
+    const state = JSON.parse(raw);
+    const sourceLabel = typeof state?.sourceLabel === 'string' ? state.sourceLabel : '';
+    const startedAt = Number(state?.startedAt) || 0;
+    if (!sourceLabel || Date.now() - startedAt > INTERNAL_DRAG_STALE_MS) {
+      localStorage.removeItem(INTERNAL_DRAG_STORAGE_KEY);
+      return '';
+    }
+    return sourceLabel;
+  } catch {
+    return '';
+  }
+}
+
+function writeStoredInternalDragSource(sourceLabel) {
+  try {
+    localStorage.setItem(INTERNAL_DRAG_STORAGE_KEY, JSON.stringify({
+      sourceLabel,
+      startedAt: Date.now(),
+    }));
+  } catch {
+    // ignore
+  }
+}
+
+function clearStoredInternalDragSource() {
+  try {
+    localStorage.removeItem(INTERNAL_DRAG_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 export default function App() {
@@ -373,8 +510,8 @@ export default function App() {
   const [draftName, setDraftName] = useState(defaultShelfName);
   const [selectedFilePaths, setSelectedFilePaths] = useState([]);
   const [lastSelectedPath, setLastSelectedPath] = useState('');
-  const [dragPreview, setDragPreview] = useState(null);
   const persistTimerRef = useRef(null);
+  const cleanupDropResourceTimerRef = useRef(null);
   const geometryTimerRef = useRef(null);
   const filesPanelRef = useRef(null);
   const peersRef = useRef(null);
@@ -382,6 +519,12 @@ export default function App() {
   const peersHeightRef = useRef(PEERS_BLOCK_FALLBACK);
   const animatingRef = useRef(false);
   const rootRef = useRef(null);
+  const windowLabelRef = useRef(getCurrentWindowLabel());
+  const nativeDropProxyVisibleRef = useRef(false);
+  const nativeDropProxyPendingRef = useRef(false);
+  const selfExternalDragRef = useRef(false);
+  const selfExternalDragClearTimerRef = useRef(null);
+  const internalDragSourceLabelRef = useRef(readStoredInternalDragSource());
   const displayShelfName = useMemo(
     () => formatShelfDisplayName(shelfName, t),
     [shelfName, t],
@@ -389,10 +532,6 @@ export default function App() {
 
   useSettingsSync();
 
-  const stagedSize = useMemo(
-    () => files.reduce((total, file) => total + (Number(file.size) || 0), 0),
-    [files],
-  );
   const isSending = task.status === 'sending';
   const canSend = files.length > 0 && selectedPeerIds.length > 0 && !isSending;
   const canRetry = !isSending && failedTargets.length > 0;
@@ -439,6 +578,37 @@ export default function App() {
     initSettings().catch(() => { });
   }, []);
 
+  useEffect(() => () => {
+    if (selfExternalDragClearTimerRef.current) {
+      window.clearTimeout(selfExternalDragClearTimerRef.current);
+      selfExternalDragClearTimerRef.current = null;
+    }
+    if (cleanupDropResourceTimerRef.current) {
+      window.clearTimeout(cleanupDropResourceTimerRef.current);
+      cleanupDropResourceTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    let unlisten = null;
+    listen(INTERNAL_DRAG_EVENT, (event) => {
+      const payload = event.payload || {};
+      const sourceLabel = typeof payload.sourceLabel === 'string' ? payload.sourceLabel : '';
+      if (payload.active && sourceLabel) {
+        internalDragSourceLabelRef.current = sourceLabel;
+        return;
+      }
+      internalDragSourceLabelRef.current = '';
+      resetLocalDropLayer();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   // 启动时恢复持久化的暂存与窗口几何
   useEffect(() => {
     if (!shelfId) {
@@ -477,13 +647,12 @@ export default function App() {
   }, [displayShelfName]);
 
   useEffect(() => {
-    if (!shelfId) return;
     let unlisten = null;
-    listen(FILES_DROPPED_EVENT, async (event) => {
-      if (event.payload?.shelfId !== shelfId) return;
+    getCurrentWindow().listen(DROP_PROXY_PATHS_EVENT, async (event) => {
+      if (event.payload?.targetLabel !== windowLabelRef.current) return;
       const paths = Array.isArray(event.payload?.paths) ? event.payload.paths : [];
       if (paths.length === 0) return;
-      setDropActive(false);
+      resetLocalDropLayer();
       await addPaths(paths);
     }).then((fn) => {
       unlisten = fn;
@@ -492,7 +661,7 @@ export default function App() {
     return () => {
       if (unlisten) unlisten();
     };
-  }, [shelfId]);
+  }, []);
 
   useEffect(() => {
     if (!shelfId) return;
@@ -528,11 +697,10 @@ export default function App() {
   }, [shelfId]);
 
   useEffect(() => {
-    if (!shelfId) return;
     let unlisten = null;
-    listen(DROP_ACTIVE_EVENT, (event) => {
-      if (event.payload?.shelfId !== shelfId) return;
-      setDropActive(Boolean(event.payload?.active));
+    getCurrentWindow().listen(DROP_PROXY_LEAVE_EVENT, (event) => {
+      if (event.payload?.targetLabel !== windowLabelRef.current) return;
+      resetLocalDropLayer();
     }).then((fn) => {
       unlisten = fn;
     });
@@ -540,7 +708,7 @@ export default function App() {
     return () => {
       if (unlisten) unlisten();
     };
-  }, [shelfId]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -569,9 +737,20 @@ export default function App() {
       window.clearTimeout(persistTimerRef.current);
     }
     persistTimerRef.current = window.setTimeout(() => {
-      saveTransferShelfState(shelfId, files.map(toPersistedFile), selectedPeerIds).catch(() => {
-        // 持久化失败不影响内存状态
-      });
+      saveTransferShelfState(shelfId, files.map(toPersistedFile), selectedPeerIds)
+        .then(() => {
+          cleanupDropProxyOrphanResources(DROP_RESOURCE_CLEANUP_MIN_AGE_MS).catch(() => { });
+          if (cleanupDropResourceTimerRef.current) {
+            window.clearTimeout(cleanupDropResourceTimerRef.current);
+          }
+          cleanupDropResourceTimerRef.current = window.setTimeout(() => {
+            cleanupDropResourceTimerRef.current = null;
+            cleanupDropProxyOrphanResources(DROP_RESOURCE_CLEANUP_MIN_AGE_MS).catch(() => { });
+          }, DROP_RESOURCE_CLEANUP_DELAY_MS);
+        })
+        .catch(() => {
+          // 持久化失败不影响内存状态
+        });
     }, PERSIST_DEBOUNCE_MS);
     return () => {
       if (persistTimerRef.current) {
@@ -755,6 +934,203 @@ export default function App() {
     }
   };
 
+  const resetLocalDropLayer = () => {
+    nativeDropProxyVisibleRef.current = false;
+    nativeDropProxyPendingRef.current = false;
+    setDropActive(false);
+  };
+
+  const hideDropLayer = async () => {
+    resetLocalDropLayer();
+    try {
+      await hideDropProxy();
+    } catch {
+      // ignore
+    }
+  };
+
+  const getInternalDragSourceLabel = () => {
+    const sourceLabel = internalDragSourceLabelRef.current || readStoredInternalDragSource();
+    internalDragSourceLabelRef.current = sourceLabel;
+    return sourceLabel;
+  };
+
+  const isInternalDragFromAnotherShelf = () => {
+    const sourceLabel = getInternalDragSourceLabel();
+    return Boolean(sourceLabel && sourceLabel !== windowLabelRef.current);
+  };
+
+  const beginInternalShelfDrag = () => {
+    const sourceLabel = windowLabelRef.current;
+    internalDragSourceLabelRef.current = sourceLabel;
+    writeStoredInternalDragSource(sourceLabel);
+    emit(INTERNAL_DRAG_EVENT, { active: true, sourceLabel }).catch(() => { });
+  };
+
+  const finishInternalShelfDrag = () => {
+    const sourceLabel = windowLabelRef.current;
+    internalDragSourceLabelRef.current = '';
+    clearStoredInternalDragSource();
+    emit(INTERNAL_DRAG_EVENT, { active: false, sourceLabel }).catch(() => { });
+  };
+
+  const isPointerInsideRoot = (event) => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+    const x = Number(event.clientX);
+    const y = Number(event.clientY);
+    return Number.isFinite(x)
+      && Number.isFinite(y)
+      && x > rect.left
+      && x < rect.right
+      && y > rect.top
+      && y < rect.bottom;
+  };
+
+  const showNativeDropLayer = async () => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    if (nativeDropProxyPendingRef.current) return;
+    nativeDropProxyPendingRef.current = true;
+    try {
+      await ensureDropProxy();
+      if (!nativeDropProxyPendingRef.current) return;
+      await showDropProxy({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      });
+      if (!nativeDropProxyPendingRef.current) {
+        nativeDropProxyVisibleRef.current = false;
+        await hideDropProxy().catch(() => { });
+        return;
+      }
+      nativeDropProxyVisibleRef.current = true;
+    } catch (error) {
+      nativeDropProxyVisibleRef.current = false;
+      setErrorText(error?.message || String(error));
+    } finally {
+      nativeDropProxyPendingRef.current = false;
+    }
+  };
+
+  const handleHtmlDragEnter = async (event) => {
+    if (!hasSupportedDropPayload(event.dataTransfer)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDropActive(true);
+    if (isInternalDragFromAnotherShelf()) return;
+    if (shouldUseNativeDropProxy(event.dataTransfer) && !selfExternalDragRef.current) {
+      await showNativeDropLayer();
+    }
+  };
+
+  const handleHtmlDragOver = (event) => {
+    if (!hasSupportedDropPayload(event.dataTransfer)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+    setDropActive(true);
+    if (isInternalDragFromAnotherShelf()) return;
+    if (shouldUseNativeDropProxy(event.dataTransfer) && !selfExternalDragRef.current) {
+      showNativeDropLayer().catch(() => { });
+    }
+  };
+
+  const handleHtmlDragLeave = (event) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    if (isPointerInsideRoot(event)) return;
+    if (nativeDropProxyPendingRef.current) {
+      nativeDropProxyPendingRef.current = false;
+      setDropActive(false);
+      return;
+    }
+    if (nativeDropProxyVisibleRef.current) return;
+    hideDropLayer();
+  };
+
+  const saveDroppedFile = async (file) => {
+    if (!file) return '';
+    const bytes = await readBlobBytes(file);
+    const ext = extensionFromMime(file.type);
+    const filename = file.name || (ext ? `drop-resource.${ext}` : 'drop-resource');
+    const saved = await saveDropProxyResource(filename, bytes);
+    return saved?.path || '';
+  };
+
+  const saveDroppedUrl = async (url) => {
+    if (!url) return '';
+    if (url.startsWith('data:image/')) {
+      const blob = await (await fetch(url)).blob();
+      const ext = extensionFromMime(blob.type || 'image/png');
+      const filename = filenameFromUrl(url, ext);
+      const saved = await saveDropProxyResource(filename, await readBlobBytes(blob));
+      return saved?.path || '';
+    }
+    if (!isHttpUrl(url)) return '';
+    const filename = filenameFromUrl(url);
+    const saved = await saveDropProxyUrl(filename, url);
+    return saved?.path || '';
+  };
+
+  const handleHtmlDrop = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDropActive(false);
+
+    let shouldHideProxy = true;
+    try {
+      if (isInternalDragFromAnotherShelf()) {
+        return;
+      }
+
+      if (selfExternalDragRef.current && shouldUseNativeDropProxy(event.dataTransfer)) {
+        await hideDropProxy();
+        return;
+      }
+
+      if (shouldUseNativeDropProxy(event.dataTransfer)) {
+        shouldHideProxy = false;
+        return;
+      }
+
+      const filesFromHtml = Array.from(event.dataTransfer?.files || []);
+      if (filesFromHtml.length > 0) {
+        const paths = [];
+        for (const file of filesFromHtml) {
+          const path = await saveDroppedFile(file);
+          if (path) paths.push(path);
+        }
+        if (paths.length > 0) {
+          await addPaths(paths);
+        }
+        await hideDropProxy();
+        return;
+      }
+
+      const urls = extractDropUrls(event.dataTransfer);
+      if (urls.length > 0) {
+        const paths = [];
+        for (const url of urls) {
+          const path = await saveDroppedUrl(url);
+          if (path) paths.push(path);
+        }
+        if (paths.length > 0) {
+          await addPaths(paths);
+        }
+      }
+    } catch (error) {
+      setErrorText(error?.message || String(error));
+    } finally {
+      if (shouldHideProxy) {
+        await hideDropProxy().catch(() => { });
+      }
+    }
+  };
+
   const toggleViewMode = () => {
     setViewMode((mode) => (mode === 'list' ? 'grid' : 'list'));
   };
@@ -791,70 +1167,83 @@ export default function App() {
   };
 
   const handleExternalDragMouseDown = useDragWithThreshold({
-    onDragPending: ({ event, paths, mode, iconPath }) => {
-      const placement = getDragPreviewPlacement(event, rootRef.current, paths.length);
-      setDragPreview({
-        x: placement.x,
-        y: placement.y,
-        count: paths.length,
-        mode,
-        iconPath,
-      });
-    },
-    shouldStartDrag: (event) => {
-      const rect = rootRef.current?.getBoundingClientRect();
-      if (!rect) return true;
-      return event.clientX < rect.left
-        || event.clientX > rect.right
-        || event.clientY < rect.top
-        || event.clientY > rect.bottom;
-    },
     onDragStart: () => {
-      setDragPreview(null);
-    },
-    onDragCancel: () => {
-      setDragPreview(null);
+      if (selfExternalDragClearTimerRef.current) {
+        window.clearTimeout(selfExternalDragClearTimerRef.current);
+        selfExternalDragClearTimerRef.current = null;
+      }
+      selfExternalDragRef.current = true;
+      beginInternalShelfDrag();
+      nativeDropProxyVisibleRef.current = false;
+      nativeDropProxyPendingRef.current = false;
+      setDropActive(false);
+      hideDropProxy().catch(() => { });
     },
     onDragEnd: async ({ paths, mode, result, cursorPos }) => {
-      setDragPreview(null);
-      if (mode !== 'move' || result !== 'Dropped' || !Array.isArray(paths) || paths.length === 0) return;
-      if (cursorPos && Number.isFinite(cursorPos.x) && Number.isFinite(cursorPos.y)) {
-        try {
-          const win = getCurrentWindow();
-          const position = await win.outerPosition();
-          const size = await win.outerSize();
-          const insideWindow = cursorPos.x >= position.x
-            && cursorPos.x <= position.x + size.width
-            && cursorPos.y >= position.y
-            && cursorPos.y <= position.y + size.height;
-          if (insideWindow) return;
-        } catch {
-          // 无法判断落点时继续按插件 Dropped 结果处理
-        }
-      }
-      let movedPaths = [];
+      resetLocalDropLayer();
+      selfExternalDragClearTimerRef.current = window.setTimeout(() => {
+        selfExternalDragRef.current = false;
+        selfExternalDragClearTimerRef.current = null;
+      }, 300);
       try {
-        await new Promise((resolve) => window.setTimeout(resolve, 500));
-        const infos = await describeTransferShelfPaths(paths);
-        movedPaths = Array.isArray(infos)
-          ? infos.filter((info) => info && info.exists === false).map((info) => info.path)
-          : [];
-      } catch {
-        movedPaths = [];
-      }
-      if (movedPaths.length === 0) return;
+        if (Array.isArray(paths) && paths.length > 0 && cursorPos) {
+          try {
+            const routeResult = await routeDropProxyPathsAtCursor(paths, cursorPos);
+            if (routeResult?.routed) return;
+          } catch {
+            // 兜底路由失败时继续按普通外部拖拽结果处理
+          }
+        }
+        if (mode !== 'move' || result !== 'Dropped' || !Array.isArray(paths) || paths.length === 0) return;
+        if (cursorPos && Number.isFinite(cursorPos.x) && Number.isFinite(cursorPos.y)) {
+          try {
+            const win = getCurrentWindow();
+            const position = await win.outerPosition();
+            const size = await win.outerSize();
+            const insideWindow = cursorPos.x >= position.x
+              && cursorPos.x <= position.x + size.width
+              && cursorPos.y >= position.y
+              && cursorPos.y <= position.y + size.height;
+            if (insideWindow) return;
+          } catch {
+            // 无法判断落点时继续按插件 Dropped 结果处理
+          }
+        }
+        let movedPaths = [];
+        try {
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+          const infos = await describeTransferShelfPaths(paths);
+          movedPaths = Array.isArray(infos)
+            ? infos.filter((info) => info && info.exists === false).map((info) => info.path)
+            : [];
+        } catch {
+          movedPaths = [];
+        }
+        if (movedPaths.length === 0) return;
 
-      const movedSet = new Set(movedPaths);
-      setFiles((current) => current.filter((file) => !movedSet.has(file.path)));
-      setFailedTargets((current) => current.filter((item) => !movedSet.has(item.path)));
-      setFileProgresses((current) => {
-        const next = { ...current };
-        movedSet.forEach((path) => delete next[path]);
-        return next;
-      });
-      setSelectedFilePaths((current) => current.filter((path) => !movedSet.has(path)));
-      setLastSelectedPath((current) => (movedSet.has(current) ? '' : current));
-      setErrorText('');
+        const movedSet = new Set(movedPaths);
+        setFiles((current) => current.filter((file) => !movedSet.has(file.path)));
+        setFailedTargets((current) => current.filter((item) => !movedSet.has(item.path)));
+        setFileProgresses((current) => {
+          const next = { ...current };
+          movedSet.forEach((path) => delete next[path]);
+          return next;
+        });
+        setSelectedFilePaths((current) => current.filter((path) => !movedSet.has(path)));
+        setLastSelectedPath((current) => (movedSet.has(current) ? '' : current));
+        setErrorText('');
+      } finally {
+        finishInternalShelfDrag();
+      }
+    },
+    onDragCancel: () => {
+      if (selfExternalDragClearTimerRef.current) {
+        window.clearTimeout(selfExternalDragClearTimerRef.current);
+        selfExternalDragClearTimerRef.current = null;
+      }
+      selfExternalDragRef.current = false;
+      resetLocalDropLayer();
+      finishInternalShelfDrag();
     },
   });
 
@@ -1053,7 +1442,15 @@ export default function App() {
   };
 
   return (
-    <main ref={rootRef} className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`} onPointerDown={handleStartDrag}>
+    <main
+      ref={rootRef}
+      className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`}
+      onPointerDown={handleStartDrag}
+      onDragEnter={handleHtmlDragEnter}
+      onDragOver={handleHtmlDragOver}
+      onDragLeave={handleHtmlDragLeave}
+      onDrop={handleHtmlDrop}
+    >
       <section className="shelf-shell">
         <header className="shelf-header">
           {!editingName && (
@@ -1334,22 +1731,6 @@ export default function App() {
           {errorText && <div className="shelf-error" title={errorText}>{errorText}</div>}
         </footer>
       </section>
-      {dragPreview && (
-        <div
-          className="shelf-drag-preview"
-          style={{
-            transform: `translate3d(${dragPreview.x}px, ${dragPreview.y}px, 0)`,
-          }}
-        >
-          {dragPreview.iconPath?.startsWith('data:image/') ? (
-            <img src={dragPreview.iconPath} alt="" draggable={false} />
-          ) : (
-            <span className="shelf-drag-preview__fallback">
-              <i className="ti ti-file" />
-            </span>
-          )}
-        </div>
-      )}
     </main>
   );
 }

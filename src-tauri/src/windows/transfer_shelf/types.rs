@@ -3,8 +3,6 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 pub const LABEL_PREFIX: &str = "transfer-shelf-";
-pub const FILES_DROPPED_EVENT: &str = "transfer-shelf-files-dropped";
-pub const DROP_ACTIVE_EVENT: &str = "transfer-shelf-drop-active";
 pub const TASK_PROGRESS_EVENT: &str = "transfer-shelf-task-progress";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,21 +24,7 @@ pub struct ShelfSummary {
     pub name: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ShelfDroppedFilesPayload {
-    pub shelf_id: String,
-    pub paths: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ShelfDropActivePayload {
-    pub shelf_id: String,
-    pub active: bool,
-}
-
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShelfSendTarget {
     pub peer_id: String,
@@ -94,10 +78,6 @@ pub struct ShelfStateSnapshot {
 
 pub fn label_for(id: &str) -> String {
     format!("{}{}", LABEL_PREFIX, id)
-}
-
-pub fn id_from_label(label: &str) -> Option<&str> {
-    label.strip_prefix(LABEL_PREFIX)
 }
 
 pub fn describe_path(path: &str) -> ShelfFileInfo {

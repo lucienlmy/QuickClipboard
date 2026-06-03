@@ -27,6 +27,8 @@ static STARTUP_RESTORE_STARTED: AtomicBool = AtomicBool::new(false);
 const DEFAULT_SHELF_NAME_PREFIX: &str = "文件盒_";
 const STARTUP_RESTORE_DELAY_MS: u64 = 800;
 const STARTUP_RESTORE_INTERVAL_MS: u64 = 220;
+const DROP_PROXY_RESOURCE_CLEANUP_MIN_AGE_MS: u64 = 5000;
+const DROP_PROXY_RESOURCE_CLEANUP_DELAY_MS: u64 = DROP_PROXY_RESOURCE_CLEANUP_MIN_AGE_MS + 1000;
 
 fn ensure_state_loaded() -> ShelfStatePersisted {
     storage::load()
@@ -247,6 +249,10 @@ pub fn close_shelf(app: &AppHandle, id: &str) -> Result<(), String> {
     }
 
     let _ = storage::remove_shelf(id);
+    crate::windows::drop_proxy::schedule_cleanup_orphan_resources(
+        DROP_PROXY_RESOURCE_CLEANUP_MIN_AGE_MS,
+        DROP_PROXY_RESOURCE_CLEANUP_DELAY_MS,
+    );
     Ok(())
 }
 
@@ -260,6 +266,15 @@ pub fn load_shelf_state(id: &str) -> ShelfPersisted {
             id: id.to_string(),
             ..Default::default()
         })
+}
+
+pub fn persisted_file_paths() -> Vec<String> {
+    storage::load()
+        .shelves
+        .into_iter()
+        .flat_map(|shelf| shelf.files.into_iter().map(|file| file.path))
+        .filter(|path| !path.trim().is_empty())
+        .collect()
 }
 
 /// 写入 shelf 文件队列与目标设备。

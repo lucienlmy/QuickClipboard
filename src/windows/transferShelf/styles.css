@@ -53,41 +53,6 @@ button {
     0 0 5px 1px rgba(0, 0, 0, 0.3);
 }
 
-.shelf-drag-preview {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 9999;
-  display: block;
-  pointer-events: none;
-  user-select: none;
-}
-
-.shelf-drag-preview img {
-  width: auto;
-  height: auto;
-  max-width: 84px;
-  max-height: 72px;
-  display: block;
-}
-
-.shelf-drag-preview__fallback {
-  width: 42px;
-  height: 42px;
-  border-radius: 9px;
-  border: 1px solid rgba(47, 123, 255, 0.28);
-  background: rgba(255, 255, 255, 0.96);
-  color: #2f7bff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.22);
-}
-
-.shelf-drag-preview__fallback i {
-  font-size: 20px;
-}
-
 /* ===== header ===== */
 .shelf-header {
   display: flex;

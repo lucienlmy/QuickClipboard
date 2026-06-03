@@ -1,15 +1,10 @@
-use std::path::PathBuf;
-
 use tauri::{
-    AppHandle, DragDropEvent, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl,
-    WebviewWindow, WebviewWindowBuilder, WindowEvent,
+    AppHandle, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent,
 };
 
 use super::storage::ShelfGeometryPersisted;
-use super::types::{
-    id_from_label, label_for, DROP_ACTIVE_EVENT, FILES_DROPPED_EVENT, ShelfDropActivePayload,
-    ShelfDroppedFilesPayload,
-};
+use super::types::label_for;
 
 pub const DEFAULT_WIDTH: u32 = 240;
 pub const DEFAULT_HEIGHT: u32 = 280;
@@ -69,7 +64,7 @@ pub fn create_shelf_window(
         .skip_taskbar(false)
         .focused(focus)
         .visible(false)
-        .drag_and_drop(true)
+        .disable_drag_drop_handler()
         .build()
         .map_err(|e| format!("创建文件盒窗口失败: {}", e))?;
 
@@ -81,7 +76,7 @@ pub fn create_shelf_window(
     } else {
         place_initial_position(app, &window, stagger_index);
     }
-    bind_drop_events(&window, app.clone());
+    bind_window_events(&window);
 
     let _ = window.unminimize();
     let _ = window.show();
@@ -304,66 +299,10 @@ fn clamp_window_axis(value: i32, area_start: i32, area_size: i32, window_size: i
     value.max(area_start).min(max_start)
 }
 
-fn bind_drop_events(window: &WebviewWindow, app: AppHandle) {
-    let label = window.label().to_string();
-    window.on_window_event(move |event| {
-        match event {
-            WindowEvent::Focused(false) => {
-                crate::services::memory::schedule_cleanup_after_window_inactive();
-            }
-            WindowEvent::DragDrop(drag_event) => {
-                let shelf_id = match id_from_label(&label) {
-                    Some(value) => value.to_string(),
-                    None => return,
-                };
-
-                match drag_event {
-                    DragDropEvent::Enter { .. } | DragDropEvent::Over { .. } => {
-                        emit_drop_active(&app, &shelf_id, true);
-                    }
-                    DragDropEvent::Drop { paths, .. } => {
-                        emit_drop_active(&app, &shelf_id, false);
-                        let strings = paths_to_strings(paths);
-                        if strings.is_empty() {
-                            return;
-                        }
-                        if let Some(window) = app.get_webview_window(&label) {
-                            let _ = window.emit(
-                                FILES_DROPPED_EVENT,
-                                ShelfDroppedFilesPayload {
-                                    shelf_id: shelf_id.clone(),
-                                    paths: strings,
-                                },
-                            );
-                        }
-                    }
-                    DragDropEvent::Leave => {
-                        emit_drop_active(&app, &shelf_id, false);
-                    }
-                    _ => {}
-                }
-            }
-            _ => {}
+fn bind_window_events(window: &WebviewWindow) {
+    window.on_window_event(|event| {
+        if let WindowEvent::Focused(false) = event {
+            crate::services::memory::schedule_cleanup_after_window_inactive();
         }
     });
-}
-
-fn emit_drop_active(app: &AppHandle, shelf_id: &str, active: bool) {
-    if let Some(window) = app.get_webview_window(&label_for(shelf_id)) {
-        let _ = window.emit(
-            DROP_ACTIVE_EVENT,
-            ShelfDropActivePayload {
-                shelf_id: shelf_id.to_string(),
-                active,
-            },
-        );
-    }
-}
-
-fn paths_to_strings(paths: &[PathBuf]) -> Vec<String> {
-    paths
-        .iter()
-        .map(|path| path.to_string_lossy().to_string())
-        .filter(|value| !value.is_empty())
-        .collect()
 }
