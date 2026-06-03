@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::AppHandle;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use uuid::Uuid;
 
 use super::pairing::PairingConfirmResponse;
 
@@ -31,6 +32,33 @@ struct SavedTransferFile {
     path: std::path::PathBuf,
     size: u64,
     sha256: String,
+}
+
+#[derive(Clone)]
+struct ReceiveTransferProgressReporter {
+    app: AppHandle,
+    transfer_id: String,
+    file_name: String,
+    total_bytes: u64,
+    source_device_id: String,
+    source_device_name: String,
+}
+
+impl ReceiveTransferProgressReporter {
+    fn emit(&self, status: &str, received_bytes: u64) {
+        crate::windows::receive_box::emit_lan_file_progress(
+            &self.app,
+            crate::windows::receive_box::ReceiveBoxLanFileProgress {
+                transfer_id: self.transfer_id.clone(),
+                name: self.file_name.clone(),
+                received_bytes: received_bytes.min(self.total_bytes),
+                total_bytes: self.total_bytes,
+                source_device_id: self.source_device_id.clone(),
+                source_device_name: self.source_device_name.clone(),
+                status: status.to_string(),
+            },
+        );
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,7 +170,7 @@ pub async fn stop() {
 async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net::SocketAddr, app: AppHandle) -> Result<(), String> {
     let mut request = read_request(&mut stream).await?;
     let response = if request.method == "PUT" && request.path.starts_with(TRANSFER_FILES_PREFIX) {
-        receive_transfer_file_stream(&request, &mut stream).await
+        receive_transfer_file_stream(&request, &mut stream, &app).await
     } else {
         read_request_body(&mut request, &mut stream, MAX_REQUEST_BODY_SIZE).await?;
         match (request.method.as_str(), request.path.as_str()) {
@@ -337,7 +365,7 @@ fn save_file(path: &str, bytes: &[u8]) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "saved": true }))
 }
 
-async fn receive_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::net::TcpStream) -> HttpResponse {
+async fn receive_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::net::TcpStream, app: &AppHandle) -> HttpResponse {
     if !super::auto_sync::can_receive() {
         return json_response(403, serde_json::json!({ "message": "局域网接收已关闭" }));
     }
@@ -345,19 +373,55 @@ async fn receive_transfer_file_stream(request: &HttpRequest, stream: &mut tokio:
         return json_response(403, serde_json::json!({ "message": "未授权的局域网同步请求" }));
     }
 
-    match save_transfer_file_stream(request, stream).await {
-        Ok(saved) => json_response(200, serde_json::json!({
-            "saved": true,
-            "path": saved.path.to_string_lossy().to_string(),
-            "size": saved.size,
-            "sha256": saved.sha256,
-        })),
-        Err(message) => json_response(500, serde_json::json!({ "message": message })),
+    let file_name = match super::files::file_name_from_transfer_path(&request.path) {
+        Ok(value) => value,
+        Err(message) => return json_response(500, serde_json::json!({ "message": message })),
+    };
+    let source_device_id = request_header(request, "x-device-id").unwrap_or_default();
+    let source_device_name = source_device_name(&source_device_id);
+    let reporter = ReceiveTransferProgressReporter {
+        app: app.clone(),
+        transfer_id: format!("lan-receive:{}", Uuid::new_v4()),
+        file_name: file_name.clone(),
+        total_bytes: request.content_length as u64,
+        source_device_id: source_device_id.clone(),
+        source_device_name: source_device_name.clone(),
+    };
+    reporter.emit("receiving", 0);
+
+    match save_transfer_file_stream(
+        request,
+        stream,
+        file_name,
+        &source_device_id,
+        &source_device_name,
+        &reporter,
+    ).await {
+        Ok(saved) => {
+            reporter.emit("done", saved.size);
+            crate::windows::receive_box::emit_lan_files_changed(app);
+            json_response(200, serde_json::json!({
+                "saved": true,
+                "path": saved.path.to_string_lossy().to_string(),
+                "size": saved.size,
+                "sha256": saved.sha256,
+            }))
+        }
+        Err(message) => {
+            reporter.emit("failed", 0);
+            json_response(500, serde_json::json!({ "message": message }))
+        }
     }
 }
 
-async fn save_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::net::TcpStream) -> Result<SavedTransferFile, String> {
-    let file_name = super::files::file_name_from_transfer_path(&request.path)?;
+async fn save_transfer_file_stream(
+    request: &HttpRequest,
+    stream: &mut tokio::net::TcpStream,
+    file_name: String,
+    source_device_id: &str,
+    source_device_name: &str,
+    reporter: &ReceiveTransferProgressReporter,
+) -> Result<SavedTransferFile, String> {
     let reservation = super::files::prepare_received_file(&file_name)?;
     let result = async {
         let mut file = tokio::fs::File::create(&reservation.temp_path)
@@ -371,13 +435,14 @@ async fn save_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::ne
                 .map_err(|e| format!("保存接收文件失败: {}", e))?;
             hasher.update(&request.body);
             written = request.body.len();
+            reporter.emit("receiving", written as u64);
         }
         let remaining = request
             .content_length
             .checked_sub(written)
             .ok_or_else(|| "请求体长度异常".to_string())?;
         if remaining > 0 {
-            copy_exact_to_file(stream, &mut file, &mut hasher, remaining).await?;
+            copy_exact_to_file(stream, &mut file, &mut hasher, remaining, written as u64, reporter).await?;
         }
         file.flush().await.map_err(|e| format!("保存接收文件失败: {}", e))?;
         drop(file);
@@ -398,10 +463,20 @@ async fn save_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::ne
         })
         .await
         .map_err(|e| format!("完成接收文件保存失败: {}", e))??;
+        let sha256 = hex::encode(hasher.finalize());
+        if let Err(message) = super::files::record_received_file(
+            &saved_path,
+            saved_len,
+            &sha256,
+            source_device_id,
+            source_device_name,
+        ) {
+            eprintln!("[局域网文件接收] 写入接收文件索引失败: {}", message);
+        }
         Ok(SavedTransferFile {
             path: saved_path,
             size: saved_len,
-            sha256: hex::encode(hasher.finalize()),
+            sha256,
         })
     }.await;
 
@@ -414,11 +489,33 @@ async fn save_transfer_file_stream(request: &HttpRequest, stream: &mut tokio::ne
     }
 }
 
+fn request_header(request: &HttpRequest, name: &str) -> Option<String> {
+    request
+        .headers
+        .iter()
+        .find(|(header_name, _)| header_name.eq_ignore_ascii_case(name))
+        .map(|(_, value)| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn source_device_name(device_id: &str) -> String {
+    if device_id.trim().is_empty() {
+        return String::new();
+    }
+    super::peer_store::list_peers()
+        .into_iter()
+        .find(|peer| peer.device_id == device_id)
+        .map(|peer| peer.device_name)
+        .unwrap_or_default()
+}
+
 async fn copy_exact_to_file(
     stream: &mut tokio::net::TcpStream,
     file: &mut tokio::fs::File,
     hasher: &mut Sha256,
     mut remaining: usize,
+    mut received: u64,
+    reporter: &ReceiveTransferProgressReporter,
 ) -> Result<(), String> {
     let mut buffer = vec![0u8; FILE_TRANSFER_BUFFER_SIZE];
     while remaining > 0 {
@@ -434,6 +531,8 @@ async fn copy_exact_to_file(
             .map_err(|e| format!("保存接收文件失败: {}", e))?;
         hasher.update(&buffer[..read]);
         remaining -= read;
+        received = received.saturating_add(read as u64);
+        reporter.emit("receiving", received);
     }
     Ok(())
 }

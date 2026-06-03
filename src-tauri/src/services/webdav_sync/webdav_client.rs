@@ -1,8 +1,17 @@
+use std::path::Path;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+
 use reqwest::{Client, Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use tokio::io::{AsyncRead, AsyncWriteExt};
 
 use super::types::{SyncCollection, WebdavConfig};
+
+const WEBDAV_FILE_UPLOAD_BUFFER_SIZE: usize = 256 * 1024;
+pub type WebdavUploadProgressCallback = Arc<dyn Fn(u64) + Send + Sync + 'static>;
 
 #[derive(Clone)]
 pub struct WebdavClient {
@@ -56,6 +65,12 @@ impl WebdavClient {
     pub async fn ensure_files_dir(&self) -> Result<(), String> {
         self.mkcol("").await?;
         self.mkcol("files").await
+    }
+
+    pub async fn ensure_cloud_files_dir(&self) -> Result<(), String> {
+        self.mkcol("").await?;
+        self.mkcol("cloud_files").await?;
+        self.mkcol("cloud_files/objects").await
     }
 
     pub async fn ensure_tombstones_dir(&self) -> Result<(), String> {
@@ -117,7 +132,77 @@ impl WebdavClient {
         }
     }
 
-    async fn mkcol(&self, path: &str) -> Result<(), String> {
+    pub async fn put_file_with_progress(
+        &self,
+        path: &str,
+        source: &Path,
+        progress: Option<WebdavUploadProgressCallback>,
+    ) -> Result<(), String> {
+        let size = tokio::fs::metadata(source)
+            .await
+            .map_err(|e| format!("读取待上传文件信息失败: {}", e))?
+            .len();
+        let file = tokio::fs::File::open(source)
+            .await
+            .map_err(|e| format!("打开待上传文件失败: {}", e))?;
+        if let Some(callback) = progress.as_ref() {
+            callback(0);
+        }
+        let reader = UploadProgressReader::new(file, size, progress);
+        let stream = tokio_util::io::ReaderStream::with_capacity(reader, WEBDAV_FILE_UPLOAD_BUFFER_SIZE);
+        let body = reqwest::Body::wrap_stream(stream);
+        let resp = self
+            .request(Method::PUT, path)
+            .header("Content-Length", size)
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("上传 WebDAV 文件失败: {}", resp.status()))
+        }
+    }
+
+    pub async fn download_file(&self, path: &str, destination: &Path) -> Result<(), String> {
+        if let Some(parent) = destination.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| format!("创建下载目录失败: {}", e))?;
+        }
+
+        let mut resp = self.request(Method::GET, path).send().await.map_err(|e| e.to_string())?;
+        if resp.status() == StatusCode::NOT_FOUND {
+            return Err("云端文件不存在".to_string());
+        }
+        if !resp.status().is_success() {
+            return Err(format!("下载 WebDAV 文件失败: {}", resp.status()));
+        }
+
+        let mut file = tokio::fs::File::create(destination)
+            .await
+            .map_err(|e| format!("创建本地下载文件失败: {}", e))?;
+        while let Some(chunk) = resp.chunk().await.map_err(|e| e.to_string())? {
+            file.write_all(&chunk)
+                .await
+                .map_err(|e| format!("写入本地下载文件失败: {}", e))?;
+        }
+        file.flush()
+            .await
+            .map_err(|e| format!("写入本地下载文件失败: {}", e))
+    }
+
+    pub async fn delete_path(&self, path: &str) -> Result<(), String> {
+        let resp = self.request(Method::DELETE, path).send().await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() || resp.status() == StatusCode::NOT_FOUND {
+            Ok(())
+        } else {
+            Err(format!("删除 WebDAV 文件失败: {} {}", path, resp.status()))
+        }
+    }
+
+    pub async fn mkcol(&self, path: &str) -> Result<(), String> {
         let method = Method::from_bytes(b"MKCOL").map_err(|e| e.to_string())?;
         let resp = self.request(method, path).send().await.map_err(|e| e.to_string())?;
         if resp.status().is_success()
@@ -147,6 +232,52 @@ impl WebdavClient {
         } else {
             format!("{}/{}", self.base_url, path)
         }
+    }
+}
+
+struct UploadProgressReader<R> {
+    inner: R,
+    sent: u64,
+    total: u64,
+    last_reported: u64,
+    callback: Option<WebdavUploadProgressCallback>,
+}
+
+impl<R> UploadProgressReader<R> {
+    fn new(inner: R, total: u64, callback: Option<WebdavUploadProgressCallback>) -> Self {
+        Self {
+            inner,
+            sent: 0,
+            total,
+            last_reported: 0,
+            callback,
+        }
+    }
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for UploadProgressReader<R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let before = buf.filled().len();
+        let poll = Pin::new(&mut self.inner).poll_read(cx, buf);
+        if let Poll::Ready(Ok(())) = &poll {
+            let read = buf.filled().len().saturating_sub(before) as u64;
+            if read > 0 {
+                self.sent = self.sent.saturating_add(read).min(self.total);
+                let should_report = self.sent == self.total
+                    || self.sent.saturating_sub(self.last_reported) >= WEBDAV_FILE_UPLOAD_BUFFER_SIZE as u64;
+                if should_report {
+                    self.last_reported = self.sent;
+                    if let Some(callback) = self.callback.as_ref() {
+                        callback(self.sent);
+                    }
+                }
+            }
+        }
+        poll
     }
 }
 

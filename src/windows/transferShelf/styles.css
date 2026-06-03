@@ -644,10 +644,23 @@ button {
   background: var(--qc-hover, rgba(17, 24, 39, 0.04));
 }
 
+.shelf-peer[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.shelf-peer[disabled]:hover {
+  background: var(--qc-surface, #ffffff);
+}
+
 .shelf-peer.is-selected {
   background: rgba(47, 123, 255, 0.14);
   border-color: rgba(47, 123, 255, 0.4);
   color: #1d5bd6;
+}
+
+.shelf-peer--cloud {
+  border-color: rgba(47, 123, 255, 0.24);
 }
 
 .shelf-peer__icon {

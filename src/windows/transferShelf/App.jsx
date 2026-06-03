@@ -4,8 +4,10 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
+import { useSnapshot } from 'valtio';
 import { showConfirm } from '@shared/utils/dialog';
-import { initSettings } from '@shared/store/settingsStore';
+import { createDragPreviewIcon } from '@shared/utils/dragPreviewIcon';
+import { initSettings, settingsStore } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import {
   ensureDropProxy,
@@ -23,15 +25,18 @@ import {
   saveTransferShelfState,
   sendTransferShelf,
   showDropProxy,
+  uploadTransferShelfCloud,
 } from '@shared/api';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 
+const CLOUD_TARGET_ID = '__quickclipboard_cloud__';
 const DROP_PROXY_PATHS_EVENT = 'drop-proxy-paths';
 const DROP_PROXY_LEAVE_EVENT = 'drop-proxy-leave';
 const INTERNAL_DRAG_EVENT = 'transfer-shelf-internal-drag';
 const INTERNAL_DRAG_STORAGE_KEY = 'transferShelfInternalDrag';
 const INTERNAL_DRAG_STALE_MS = 30000;
 const TASK_PROGRESS_EVENT = 'transfer-shelf-task-progress';
+const STATE_CHANGED_EVENT = 'transfer-shelf-state-changed';
 const HTML_DROP_PROXY_TYPES = new Set(['Files']);
 const URL_DROP_TYPES = ['text/uri-list', 'text/plain', 'text/html'];
 const PERSIST_DEBOUNCE_MS = 400;
@@ -158,186 +163,6 @@ function formatShelfDisplayName(name, t) {
     return t('transferShelf.defaultNameWithIndex', { index: Number(match[1]) });
   }
   return trimmed;
-}
-
-function drawRoundRect(ctx, x, y, width, height, radius) {
-  if (typeof ctx.roundRect === 'function') {
-    ctx.roundRect(x, y, width, height, radius);
-    return;
-  }
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-}
-
-function drawTablerPath(ctx, path, x, y, size) {
-  if (typeof Path2D !== 'function') return false;
-  try {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(size / 24, size / 24);
-    ctx.stroke(new Path2D(path));
-    ctx.restore();
-    return true;
-  } catch {
-    ctx.restore();
-    return false;
-  }
-}
-
-function getDragPreviewSize(count) {
-  return count > 1
-    ? { width: 84, height: 72 }
-    : { width: 68, height: 68 };
-}
-
-function createDragPreviewIcon(icon, count, mode, labels = { copy: 'Copy', move: 'Move' }) {
-  try {
-    const canvas = document.createElement('canvas');
-    const { width, height } = getDragPreviewSize(count);
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return icon;
-    ctx.scale(ratio, ratio);
-
-    const drawFallbackFile = (x, y, alpha, size = 25) => {
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = 'rgba(47, 123, 255, 0.1)';
-      ctx.strokeStyle = 'rgba(47, 123, 255, 0.55)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      drawRoundRect(ctx, x, y, size, size + 6, 6);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(47, 123, 255, 0.2)';
-      ctx.beginPath();
-      ctx.moveTo(x + size - 8, y);
-      ctx.lineTo(x + size, y + 8);
-      ctx.lineTo(x + size - 8, y + 8);
-      ctx.closePath();
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    };
-
-    const drawFileCard = (x, y, alpha) => {
-      ctx.globalAlpha = alpha;
-      ctx.shadowColor = 'rgba(15, 23, 42, 0.16)';
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 3;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
-      ctx.strokeStyle = 'rgba(47, 123, 255, 0.18)';
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      drawRoundRect(ctx, x, y, 46, 54, 9);
-      ctx.fill();
-      ctx.stroke();
-      ctx.shadowColor = 'transparent';
-
-      ctx.fillStyle = 'rgba(47, 123, 255, 0.08)';
-      ctx.beginPath();
-      drawRoundRect(ctx, x + 7, y + 36, 32, 4, 2);
-      ctx.fill();
-      ctx.beginPath();
-      drawRoundRect(ctx, x + 7, y + 44, 24, 4, 2);
-      ctx.fill();
-
-      const iconSize = 26;
-      const iconX = x + 10;
-      const iconY = y + 9;
-      if (icon?.startsWith('data:image/')) {
-        const image = new Image();
-        image.src = icon;
-        if (image.complete) {
-          ctx.drawImage(image, iconX, iconY, iconSize, iconSize);
-        } else {
-          drawFallbackFile(iconX, iconY - 1, 1, 23);
-        }
-      } else {
-        drawFallbackFile(iconX, iconY - 1, 1, 23);
-      }
-      ctx.globalAlpha = 1;
-    };
-
-    const drawActionBadge = (x, y) => {
-      const label = mode === 'move' ? labels.move : labels.copy;
-      const badgeWidth = label.length > 2 ? 46 : 40;
-      const badgeHeight = 19;
-      ctx.fillStyle = mode === 'move' ? '#16a34a' : '#2f7bff';
-      ctx.beginPath();
-      drawRoundRect(ctx, x, y, badgeWidth, badgeHeight, badgeHeight / 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.7;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      if (mode === 'move') {
-        const drawn = drawTablerPath(ctx, 'M5 12l14 0M13 18l6 -6M13 6l6 6', x + 3.5, y + 3.5, 12);
-        if (!drawn) {
-          const iconX = x + 8;
-          const iconY = y + badgeHeight / 2;
-          ctx.moveTo(iconX - 3, iconY);
-          ctx.lineTo(iconX + 4, iconY);
-          ctx.moveTo(iconX + 1, iconY - 3);
-          ctx.lineTo(iconX + 4, iconY);
-          ctx.lineTo(iconX + 1, iconY + 3);
-          ctx.stroke();
-        }
-      } else {
-        const copied = [
-          'M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z',
-          'M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1',
-        ].every((path) => drawTablerPath(ctx, path, x + 2.5, y + 2.5, 13));
-        if (!copied) {
-          const iconX = x + 6;
-          const iconY = y + 5;
-          drawRoundRect(ctx, iconX + 3, iconY, 8, 9, 2);
-          drawRoundRect(ctx, iconX, iconY + 3, 8, 9, 2);
-          ctx.stroke();
-        }
-      }
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '700 10px "Microsoft YaHei", sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, x + 18, y + badgeHeight / 2 + 0.5);
-    };
-
-    if (count > 1) {
-      drawFileCard(24, 5, 0.42);
-      drawFileCard(16, 10, 0.66);
-      drawFileCard(8, 15, 1);
-    } else {
-      drawFileCard(8, 8, 1);
-    }
-
-    ctx.shadowColor = 'transparent';
-    if (count > 1) {
-      ctx.fillStyle = mode === 'move' ? '#16a34a' : '#2f7bff';
-      ctx.beginPath();
-      ctx.arc(55, 16, 11, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '700 12px "Microsoft YaHei", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(Math.min(count, 99)), 55, 16.5);
-    }
-
-    drawActionBadge(count > 1 ? 43 : 28, count > 1 ? 53 : 50);
-
-    return canvas.toDataURL('image/png');
-  } catch {
-    return icon;
-  }
 }
 
 function getDataTransferTypes(dataTransfer) {
@@ -484,6 +309,7 @@ function clearStoredInternalDragSource() {
 
 export default function App() {
   const { t } = useTranslation();
+  const settings = useSnapshot(settingsStore);
   const shelfId = useMemo(() => getShelfIdFromUrl(), []);
   const defaultShelfName = t('transferShelf.defaultName');
   const [files, setFiles] = useState([]);
@@ -525,6 +351,7 @@ export default function App() {
   const selfExternalDragRef = useRef(false);
   const selfExternalDragClearTimerRef = useRef(null);
   const internalDragSourceLabelRef = useRef(readStoredInternalDragSource());
+  const isBusyRef = useRef(false);
   const displayShelfName = useMemo(
     () => formatShelfDisplayName(shelfName, t),
     [shelfName, t],
@@ -533,9 +360,15 @@ export default function App() {
   useSettingsSync();
 
   const isSending = task.status === 'sending';
-  const canSend = files.length > 0 && selectedPeerIds.length > 0 && !isSending;
-  const canRetry = !isSending && failedTargets.length > 0;
-  const canResetTransferState = !isSending && (
+  const isUploading = task.status === 'uploading';
+  const isBusy = isSending || isUploading;
+  isBusyRef.current = isBusy;
+  const cloudEnabled = Boolean(settings.webdavEnabled) && Boolean(String(settings.webdavUrl || '').trim());
+  const cloudSelected = selectedPeerIds.includes(CLOUD_TARGET_ID);
+  const selectedLanPeerIds = selectedPeerIds.filter((id) => id !== CLOUD_TARGET_ID);
+  const canSend = files.length > 0 && selectedPeerIds.length > 0 && !isBusy && (!cloudSelected || cloudEnabled);
+  const canRetry = !isBusy && failedTargets.length > 0;
+  const canResetTransferState = !isBusy && (
     task.status !== 'idle'
     || failedTargets.length > 0
     || errorText.trim().length > 0
@@ -550,15 +383,20 @@ export default function App() {
     [files, selectedFileSet],
   );
   const validSelectedFileCount = files.filter((file) => selectedFileSet.has(file.path)).length;
-  const selectedPeers = peers.filter((peer) => selectedPeerIds.includes(peer.device_id));
-  const peersCountLabel = `${selectedPeers.length}/${peers.length}`;
+  const selectedPeers = peers.filter((peer) => selectedLanPeerIds.includes(peer.device_id));
+  const peersCountLabel = `${selectedPeers.length + (cloudSelected ? 1 : 0)}/${peers.length + 1}`;
   const sendTitle = !canSend
     ? (files.length === 0
       ? t('transferShelf.sendTitleNoFiles')
-      : t('transferShelf.sendTitleNoPeers'))
-    : t('transferShelf.sendTitle', { fileCount: activeFiles.length, peerCount: selectedPeers.length });
+      : cloudSelected && !cloudEnabled
+        ? t('transferShelf.cloudDisabled')
+        : t('transferShelf.sendTitleNoPeers'))
+    : cloudSelected
+      ? t('transferShelf.uploadCloudTitle', { fileCount: activeFiles.length })
+      : t('transferShelf.sendTitle', { fileCount: activeFiles.length, peerCount: selectedPeers.length });
 
   const addPaths = async (paths) => {
+    if (isBusyRef.current) return;
     const uniquePaths = [...new Set(paths.filter((path) => typeof path === 'string' && path.length > 0))];
     if (uniquePaths.length === 0) return;
 
@@ -645,6 +483,32 @@ export default function App() {
   useEffect(() => {
     getCurrentWindow().setTitle(displayShelfName).catch(() => { });
   }, [displayShelfName]);
+
+  useEffect(() => {
+    if (!shelfId) return;
+    let unlisten = null;
+    listen(STATE_CHANGED_EVENT, async (event) => {
+      if (event.payload?.shelfId !== shelfId) return;
+      try {
+        const snapshot = await loadTransferShelfState(shelfId);
+        const restoredFiles = Array.isArray(snapshot.files)
+          ? snapshot.files.filter((info) => info && !info.isDir).map(createFileItem)
+          : [];
+        setFiles(restoredFiles);
+        if (Array.isArray(snapshot.selectedPeerIds)) {
+          setSelectedPeerIds(snapshot.selectedPeerIds);
+        }
+      } catch {
+        // 外部追加失败时保持当前列表
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [shelfId]);
 
   useEffect(() => {
     let unlisten = null;
@@ -815,6 +679,7 @@ export default function App() {
   }, [files]);
 
   const removeFile = (path) => {
+    if (isBusy) return;
     setFiles((current) => current.filter((file) => file.path !== path));
     setFailedTargets((current) => current.filter((item) => item.path !== path));
     setFileProgresses((current) => {
@@ -827,6 +692,7 @@ export default function App() {
   };
 
   const clearFiles = () => {
+    if (isBusy) return;
     setFiles([]);
     setErrorText('');
     setFailedTargets([]);
@@ -837,6 +703,7 @@ export default function App() {
   };
 
   const selectFile = (event, path) => {
+    if (isBusy) return;
     if (event.shiftKey && lastSelectedPath) {
       const startIndex = files.findIndex((file) => file.path === lastSelectedPath);
       const endIndex = files.findIndex((file) => file.path === path);
@@ -864,14 +731,23 @@ export default function App() {
   };
 
   const togglePeer = (deviceId) => {
+    if (isBusy) return;
+    if (deviceId === CLOUD_TARGET_ID) {
+      if (!cloudEnabled) return;
+      setSelectedPeerIds((current) => (
+        current.includes(CLOUD_TARGET_ID) ? [] : [CLOUD_TARGET_ID]
+      ));
+      return;
+    }
     setSelectedPeerIds((current) => (
       current.includes(deviceId)
-        ? current.filter((id) => id !== deviceId)
-        : [...current, deviceId]
+        ? current.filter((id) => id !== deviceId && id !== CLOUD_TARGET_ID)
+        : [...current.filter((id) => id !== CLOUD_TARGET_ID), deviceId]
     ));
   };
 
   const selectFiles = async () => {
+    if (isBusy) return;
     const selected = await openFileDialog({ multiple: true, directory: false });
     const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
     if (paths.length > 0) {
@@ -1016,6 +892,10 @@ export default function App() {
   };
 
   const handleHtmlDragEnter = async (event) => {
+    if (isBusyRef.current) {
+      setDropActive(false);
+      return;
+    }
     if (!hasSupportedDropPayload(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -1027,6 +907,10 @@ export default function App() {
   };
 
   const handleHtmlDragOver = (event) => {
+    if (isBusyRef.current) {
+      setDropActive(false);
+      return;
+    }
     if (!hasSupportedDropPayload(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -1080,6 +964,11 @@ export default function App() {
     event.preventDefault();
     event.stopPropagation();
     setDropActive(false);
+
+    if (isBusyRef.current) {
+      await hideDropProxy().catch(() => { });
+      return;
+    }
 
     let shouldHideProxy = true;
     try {
@@ -1417,10 +1306,95 @@ export default function App() {
     }
   };
 
+  const runCloudUploadBatch = async (targets) => {
+    if (!Array.isArray(targets) || targets.length === 0) return;
+    const fileMap = new Map(files.map((file) => [file.path, file]));
+
+    const validTargets = targets
+      .filter((target) => fileMap.has(target.path))
+      .map((target) => ({ path: target.path }));
+    if (validTargets.length === 0) {
+      setErrorText(t('transferShelf.invalidTargets'));
+      return;
+    }
+
+    setErrorText('');
+    setFailedTargets([]);
+    const initialFileProgresses = buildInitialFileProgresses(
+      validTargets.map((target) => ({ ...target, peerId: 'cloud' })),
+      fileMap,
+    );
+    setFileProgresses(initialFileProgresses);
+    const totalBytes = validTargets.reduce((sum, target) => {
+      const file = fileMap.get(target.path);
+      return sum + (Number(file?.size) || 0);
+    }, 0);
+    setTask({
+      status: 'uploading',
+      total: validTargets.length,
+      done: 0,
+      failed: 0,
+      sentBytes: 0,
+      totalBytes,
+      currentFileName: '',
+    });
+
+    try {
+      const result = await uploadTransferShelfCloud(shelfId, validTargets);
+      const errors = Array.isArray(result?.errors) ? result.errors : [];
+      setFailedTargets(errors.map((item) => ({
+        peerId: item.peerId || 'cloud',
+        path: item.path,
+        message: item.message || '',
+      })));
+      setTask({
+        status: result?.status || (errors.length > 0 ? 'failed' : 'done'),
+        total: Number(result?.total) || validTargets.length,
+        done: Number(result?.done) || 0,
+        failed: Number(result?.failed) || errors.length,
+        sentBytes: Number(result?.sentBytes) || totalBytes,
+        totalBytes: Number(result?.totalBytes) || totalBytes,
+        currentFileName: '',
+      });
+      setFileProgresses(normalizeFileProgresses(result?.fileProgresses));
+      setErrorText(errors.length > 0 ? errors[errors.length - 1].message || '' : '');
+    } catch (error) {
+      const message = error?.message || String(error);
+      setErrorText(message);
+      setTask({
+        status: 'failed',
+        total: validTargets.length,
+        done: 0,
+        failed: validTargets.length,
+        sentBytes: 0,
+        totalBytes,
+        currentFileName: '',
+      });
+      setFailedTargets(validTargets.map((target) => ({
+        peerId: 'cloud',
+        path: target.path,
+        message,
+      })));
+      setFileProgresses(Object.fromEntries(Object.entries(initialFileProgresses).map(([path, progress]) => [
+        path,
+        {
+          ...progress,
+          status: 'failed',
+          failed: progress.total,
+        },
+      ])));
+    }
+  };
+
   const sendFiles = async () => {
     if (!canSend) return;
+    if (cloudSelected) {
+      await runCloudUploadBatch(activeFiles.map((file) => ({ path: file.path })));
+      return;
+    }
+
     const targets = [];
-    for (const peerId of selectedPeerIds) {
+    for (const peerId of selectedLanPeerIds) {
       for (const file of activeFiles) {
         targets.push({ peerId, path: file.path });
       }
@@ -1430,6 +1404,10 @@ export default function App() {
 
   const retryFailed = async () => {
     if (!canRetry) return;
+    if (failedTargets.some((target) => target.peerId === 'cloud')) {
+      await runCloudUploadBatch(failedTargets.map((target) => ({ path: target.path })));
+      return;
+    }
     await runSendBatch(failedTargets);
   };
 
@@ -1523,10 +1501,10 @@ export default function App() {
                   ? Math.min(1, Math.max(0, progress.sentBytes / progress.totalBytes))
                   : 0;
                 const progressVisible = Boolean(progress)
-                  && (isSending || progress.status === 'done' || progress.status === 'failed');
+                  && (isBusy || progress.status === 'done' || progress.status === 'failed');
                 const missing = file.exists === false;
                 const selected = selectedFileSet.has(file.path);
-                const canExternalDrag = !missing;
+                const canExternalDrag = !missing && !isBusy;
                 const dragFiles = selected
                   ? files.filter((item) => selectedFileSet.has(item.path) && item.exists !== false)
                   : [file];
@@ -1560,7 +1538,9 @@ export default function App() {
                     className={className}
                     key={file.path}
                     title={fileTitle}
-                    onClick={(event) => selectFile(event, file.path)}
+                    onClick={(event) => {
+                      if (!isBusy) selectFile(event, file.path);
+                    }}
                     onMouseDown={canExternalDrag
                       ? (event) => {
                         const dragMode = event.shiftKey ? 'move' : 'copy';
@@ -1599,6 +1579,7 @@ export default function App() {
                       type="button"
                       className="shelf-icon-btn shelf-file__remove"
                       title={t('transferShelf.remove')}
+                      disabled={isBusy}
                       onMouseDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -1630,16 +1611,22 @@ export default function App() {
               title={sendTitle}
               aria-label={sendTitle}
             >
-              <i className={`ti ${isSending ? 'ti-loader-2 shelf-spin' : 'ti-send'}`} />
+              <i className={`ti ${isBusy ? 'ti-loader-2 shelf-spin' : cloudSelected ? 'ti-cloud-up' : 'ti-send'}`} />
             </button>
-            <button type="button" className="shelf-icon-btn" title={t('transferShelf.addFiles')} onClick={selectFiles}>
+            <button
+              type="button"
+              className="shelf-icon-btn"
+              title={t('transferShelf.addFiles')}
+              disabled={isBusy}
+              onClick={selectFiles}
+            >
               <i className="ti ti-plus" />
             </button>
             <button
               type="button"
               className="shelf-icon-btn is-danger"
               title={t('transferShelf.clear')}
-              disabled={files.length === 0}
+              disabled={files.length === 0 || isBusy}
               onClick={clearFiles}
             >
               <i className="ti ti-trash" />
@@ -1675,7 +1662,7 @@ export default function App() {
                 t('transferShelf.selectedCount', { count: validSelectedFileCount })
               )}
               {task.status !== 'idle' && (
-                isSending
+                isBusy
                   ? task.totalBytes > 0
                     ? `${formatSize(task.sentBytes)} / ${formatSize(task.totalBytes)}`
                     : `${task.done}/${task.total}`
@@ -1702,11 +1689,24 @@ export default function App() {
             ref={peersWrapperRef}
           >
             <div className="shelf-peers__inner" ref={peersRef}>
+              <button
+                type="button"
+                className={`shelf-peer shelf-peer--cloud ${cloudSelected ? 'is-selected' : ''}`}
+                title={cloudEnabled ? t('transferShelf.cloudTarget') : t('transferShelf.cloudDisabled')}
+                disabled={!cloudEnabled || isBusy}
+                onClick={() => togglePeer(CLOUD_TARGET_ID)}
+                tabIndex={peersCollapsed ? -1 : 0}
+              >
+                <span className="shelf-peer__icon">
+                  <i className={`ti ${cloudSelected ? 'ti-check' : 'ti-cloud'}`} />
+                </span>
+                <span className="shelf-peer__name">{t('transferShelf.cloudTarget')}</span>
+              </button>
               {peers.length === 0 ? (
                 <div className="shelf-peers__empty">{t('transferShelf.noPeers')}</div>
               ) : (
                 peers.map((peer) => {
-                  const selected = selectedPeerIds.includes(peer.device_id);
+                  const selected = selectedLanPeerIds.includes(peer.device_id);
                   const name = peer.device_name || peer.name || t('transferShelf.unnamedPeer');
                   return (
                     <button
@@ -1714,6 +1714,7 @@ export default function App() {
                       key={peer.device_id}
                       className={`shelf-peer ${selected ? 'is-selected' : ''}`}
                       title={name}
+                      disabled={isBusy}
                       onClick={() => togglePeer(peer.device_id)}
                       tabIndex={peersCollapsed ? -1 : 0}
                     >

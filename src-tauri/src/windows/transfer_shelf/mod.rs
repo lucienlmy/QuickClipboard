@@ -10,5 +10,6 @@ mod types;
 mod window;
 
 pub use manager::{
-    open_or_create_shelf, persisted_file_paths, schedule_startup_restore_persisted_shelves,
+    append_files_to_recent_or_new_shelf, open_or_create_shelf, persisted_file_paths,
+    schedule_startup_restore_persisted_shelves,
 };

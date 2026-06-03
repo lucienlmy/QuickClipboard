@@ -12,6 +12,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { hideMainWindow } from '@shared/api/window';
 import { clearClipboardHistory } from '@shared/api';
 import { createTransferShelf } from '@shared/api/transferShelf';
+import { openReceiveBox } from '@shared/api/receiveBox';
 import {
   startScreenshot,
   startScreenshotQuickSave,
@@ -145,6 +146,17 @@ const TitleBar = forwardRef(({
     } catch (error) {
       console.error('标题栏新建文件盒失败:', error);
       toast.error(`新建文件盒失败：${error?.message || String(error)}`, TOAST_CONFIG);
+    }
+  };
+
+  const handleOpenReceiveBox = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await openReceiveBox();
+    } catch (error) {
+      console.error('标题栏打开收件盒失败:', error);
+      toast.error(`打开收件盒失败：${error?.message || String(error)}`, TOAST_CONFIG);
     }
   };
 
@@ -460,6 +472,17 @@ const TitleBar = forwardRef(({
               onClick={handleOpenTransferShelf}
             >
               <i className="ti ti-package" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
+          <Tooltip content={t('receiveBox.title')} placement={tooltipPlacement} asChild>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
+              aria-label={t('receiveBox.title')}
+              type="button"
+              onClick={handleOpenReceiveBox}
+            >
+              <i className="ti ti-inbox" style={{ fontSize: 16 }} data-stroke="1.5"></i>
             </button>
           </Tooltip>
 

@@ -1,4 +1,5 @@
 pub mod chunk_manager;
+pub mod cloud_files;
 pub mod downloader;
 pub mod groups_sync;
 pub mod index_manager;
@@ -37,6 +38,30 @@ pub async fn upload_parts(upload_clipboard: bool, upload_favorites: bool, upload
     let client = build_client()?;
     let device_id = crate::services::sync_transfer::device_id();
     uploader::upload_parts(&client, &device_id, upload_clipboard, upload_favorites, upload_groups).await
+}
+
+pub async fn upload_cloud_file_with_progress(
+    path: &str,
+    transfer_id: Option<String>,
+    progress: Option<cloud_files::CloudFileUploadProgressCallback>,
+) -> Result<cloud_files::CloudFileUploadResult, String> {
+    let client = build_client()?;
+    cloud_files::upload_file_with_progress(&client, path, transfer_id, progress).await
+}
+
+pub async fn list_cloud_files() -> Result<Vec<cloud_files::CloudFileListItem>, String> {
+    let client = build_client()?;
+    cloud_files::list_files(&client).await
+}
+
+pub async fn download_cloud_file(file_id: &str) -> Result<cloud_files::CloudFileDownloadResult, String> {
+    let client = build_client()?;
+    cloud_files::download_file(&client, file_id).await
+}
+
+pub async fn delete_cloud_file(file_id: &str) -> Result<(), String> {
+    let client = build_client()?;
+    cloud_files::delete_file(&client, file_id).await
 }
 
 pub fn status() -> WebdavStatus {

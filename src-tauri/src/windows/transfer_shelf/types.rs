@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub const LABEL_PREFIX: &str = "transfer-shelf-";
 pub const TASK_PROGRESS_EVENT: &str = "transfer-shelf-task-progress";
+pub const STATE_CHANGED_EVENT: &str = "transfer-shelf-state-changed";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +29,12 @@ pub struct ShelfSummary {
 #[serde(rename_all = "camelCase")]
 pub struct ShelfSendTarget {
     pub peer_id: String,
+    pub path: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShelfCloudUploadTarget {
     pub path: String,
 }
 
@@ -81,24 +88,48 @@ pub fn label_for(id: &str) -> String {
 }
 
 pub fn describe_path(path: &str) -> ShelfFileInfo {
-    let path_buf = PathBuf::from(path);
+    let normalized_path = normalize_shell_path(path);
+    let effective_path = if normalized_path != path && std::fs::metadata(&normalized_path).is_ok() {
+        normalized_path.as_str()
+    } else {
+        path
+    };
+    let path_buf = PathBuf::from(effective_path);
     let metadata = std::fs::metadata(&path_buf).ok();
-    let name = Path::new(path)
+    let name = Path::new(effective_path)
         .file_name()
         .and_then(|value| value.to_str())
         .filter(|value| !value.is_empty())
-        .unwrap_or(path)
+        .unwrap_or(effective_path)
         .to_string();
+    let icon = metadata
+        .as_ref()
+        .filter(|value| value.is_file())
+        .and_then(|_| crate::utils::icon::get_file_icon_base64(effective_path)
+            .or_else(|| crate::utils::icon::get_file_icon_base64(path)));
 
     ShelfFileInfo {
-        path: path.to_string(),
+        path: effective_path.to_string(),
         name,
         size: metadata.as_ref().map(|value| value.len()).unwrap_or(0),
         is_dir: metadata.as_ref().map(|value| value.is_dir()).unwrap_or(false),
         exists: metadata.is_some(),
-        icon: metadata
-            .as_ref()
-            .filter(|value| value.is_file())
-            .and_then(|_| crate::utils::icon::get_file_icon_base64(path)),
+        icon,
     }
+}
+
+#[cfg(windows)]
+fn normalize_shell_path(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        format!("\\\\{}", rest)
+    } else if let Some(rest) = path.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        path.to_string()
+    }
+}
+
+#[cfg(not(windows))]
+fn normalize_shell_path(path: &str) -> String {
+    path.to_string()
 }

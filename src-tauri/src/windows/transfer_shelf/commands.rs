@@ -10,12 +10,14 @@ use super::manager::{
 };
 use super::storage::{self, ShelfGeometryPersisted};
 use super::types::{
-    describe_path, label_for, ShelfFileInfo, ShelfFileProgress, ShelfSendError, ShelfSendTarget,
-    ShelfSendTaskPayload, ShelfStateSnapshot, ShelfSummary, TASK_PROGRESS_EVENT,
+    describe_path, label_for, ShelfCloudUploadTarget, ShelfFileInfo, ShelfFileProgress,
+    ShelfSendError, ShelfSendTarget, ShelfSendTaskPayload, ShelfStateSnapshot, ShelfSummary,
+    TASK_PROGRESS_EVENT,
 };
 use super::window::{apply_shelf_geometry, resolve_shelf_geometry};
 
 const FILE_SEND_CONCURRENCY: usize = 4;
+const CLOUD_UPLOAD_CONCURRENCY: usize = 2;
 
 #[derive(Clone)]
 struct SendTargetContext {
@@ -171,6 +173,101 @@ pub async fn transfer_shelf_send(
     Ok(payload)
 }
 
+#[tauri::command]
+pub async fn transfer_shelf_upload_cloud(
+    app: AppHandle,
+    id: String,
+    targets: Vec<ShelfCloudUploadTarget>,
+) -> Result<ShelfSendTaskPayload, String> {
+    if targets.is_empty() {
+        return Err("没有可上传的文件".to_string());
+    }
+
+    let contexts = targets
+        .into_iter()
+        .map(|target| {
+            let file_size = std::fs::metadata(&target.path)
+                .map(|metadata| metadata.len())
+                .unwrap_or(0);
+            let file_name = std::path::Path::new(&target.path)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.to_string());
+            SendTargetContext {
+                target: ShelfSendTarget {
+                    peer_id: "cloud".to_string(),
+                    path: target.path,
+                },
+                file_size,
+                file_name,
+            }
+        })
+        .collect::<Vec<_>>();
+    let total = contexts.len();
+    let total_bytes = contexts.iter().map(|item| item.file_size).sum::<u64>();
+    let state = Arc::new(Mutex::new(SendProgressState {
+        file_progresses: initial_file_progresses(&contexts),
+        ..SendProgressState::default()
+    }));
+
+    emit_state_progress(&app, &id, "uploading", total, total_bytes, state.clone(), None, None);
+
+    let mut pending = contexts.into_iter();
+    let mut tasks = JoinSet::new();
+    for _ in 0..CLOUD_UPLOAD_CONCURRENCY {
+        let Some(context) = pending.next() else { break; };
+        spawn_cloud_upload_target(&mut tasks, app.clone(), id.clone(), total, total_bytes, state.clone(), context);
+    }
+
+    while let Some(result) = tasks.join_next().await {
+        if let Err(error) = result {
+            if let Ok(mut guard) = state.lock() {
+                guard.failed = guard.failed.saturating_add(1);
+                guard.errors.push(ShelfSendError {
+                    peer_id: "cloud".to_string(),
+                    path: String::new(),
+                    message: format!("云端上传任务异常: {}", error),
+                });
+            }
+        }
+        emit_state_progress(&app, &id, "uploading", total, total_bytes, state.clone(), None, None);
+        if let Some(context) = pending.next() {
+            spawn_cloud_upload_target(&mut tasks, app.clone(), id.clone(), total, total_bytes, state.clone(), context);
+        }
+    }
+
+    let (done, failed, sent_bytes, errors, file_progresses) = match state.lock() {
+        Ok(guard) => (
+            guard.done,
+            guard.failed,
+            guard.completed_bytes.saturating_add(guard.active_transfers.values().map(|item| item.sent_bytes).sum::<u64>()),
+            guard.errors.clone(),
+            file_progress_payloads(&guard),
+        ),
+        Err(_) => (0, total, 0, vec![ShelfSendError {
+            peer_id: "cloud".to_string(),
+            path: String::new(),
+            message: "云端上传状态异常".to_string(),
+        }], Vec::new()),
+    };
+    let status = if failed > 0 { "failed" } else { "done" };
+    let payload = ShelfSendTaskPayload {
+        shelf_id: id.clone(),
+        status: status.to_string(),
+        total,
+        done,
+        failed,
+        sent_bytes: sent_bytes.min(total_bytes),
+        total_bytes,
+        current_path: None,
+        current_file_name: None,
+        errors,
+        file_progresses,
+    };
+    let _ = app.emit(TASK_PROGRESS_EVENT, payload.clone());
+    Ok(payload)
+}
+
 fn spawn_send_target(
     tasks: &mut JoinSet<()>,
     app: AppHandle,
@@ -260,6 +357,107 @@ fn spawn_send_target(
             }
         }
         emit_state_progress(&app, &id, "sending", total, total_bytes, state, None, None);
+    });
+}
+
+fn spawn_cloud_upload_target(
+    tasks: &mut JoinSet<()>,
+    app: AppHandle,
+    id: String,
+    total: usize,
+    total_bytes: u64,
+    state: Arc<Mutex<SendProgressState>>,
+    context: SendTargetContext,
+) {
+    tasks.spawn(async move {
+        let current_path = context.target.path.clone();
+        let current_file_name = context
+            .file_name
+            .clone()
+            .or_else(|| std::path::Path::new(&current_path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.to_string()));
+        let transfer_id = format!("{}:cloud:{}", id, current_path);
+        let progress_app = app.clone();
+        let progress_id = id.clone();
+        let progress_path = current_path.clone();
+        let progress_name = current_file_name.clone();
+        let progress_state = state.clone();
+        let callback: crate::services::webdav_sync::cloud_files::CloudFileUploadProgressCallback = Arc::new(move |progress| {
+            if let Ok(mut guard) = progress_state.lock() {
+                let sent_bytes = guard
+                    .active_transfers
+                    .get(&progress.transfer_id)
+                    .map(|item| item.sent_bytes)
+                    .unwrap_or(0)
+                    .max(progress.sent_bytes.min(progress.total_bytes));
+                guard.active_transfers.insert(progress.transfer_id.clone(), ActiveTransferProgress {
+                    path: progress.file_path.clone(),
+                    sent_bytes,
+                });
+            }
+            emit_state_progress(
+                &progress_app,
+                &progress_id,
+                &progress.status,
+                total,
+                total_bytes,
+                progress_state.clone(),
+                Some(progress_path.clone()),
+                progress_name.clone(),
+            );
+        });
+        if let Ok(mut guard) = state.lock() {
+            guard.active_transfers.insert(transfer_id.clone(), ActiveTransferProgress {
+                path: current_path.clone(),
+                sent_bytes: 0,
+            });
+        }
+        emit_state_progress(
+            &app,
+            &id,
+            "uploading",
+            total,
+            total_bytes,
+            state.clone(),
+            Some(current_path.clone()),
+            current_file_name.clone(),
+        );
+
+        match crate::services::webdav_sync::upload_cloud_file_with_progress(
+            &current_path,
+            Some(transfer_id.clone()),
+            Some(callback),
+        ).await {
+            Ok(_) => {
+                if let Ok(mut guard) = state.lock() {
+                    guard.done = guard.done.saturating_add(1);
+                    guard.completed_bytes = guard.completed_bytes.saturating_add(context.file_size);
+                    guard.active_transfers.remove(&transfer_id);
+                    if let Some(file_progress) = guard.file_progresses.get_mut(&current_path) {
+                        file_progress.done = file_progress.done.saturating_add(1);
+                        file_progress.completed_bytes = file_progress.completed_bytes.saturating_add(context.file_size);
+                    }
+                }
+                crate::windows::receive_box::emit_cloud_files_changed(&app);
+            }
+            Err(error) => {
+                if let Ok(mut guard) = state.lock() {
+                    guard.active_transfers.remove(&transfer_id);
+                    guard.failed = guard.failed.saturating_add(1);
+                    if let Some(file_progress) = guard.file_progresses.get_mut(&current_path) {
+                        file_progress.failed = file_progress.failed.saturating_add(1);
+                    }
+                    guard.errors.push(ShelfSendError {
+                        peer_id: "cloud".to_string(),
+                        path: current_path,
+                        message: error,
+                    });
+                }
+            }
+        }
+        emit_state_progress(&app, &id, "uploading", total, total_bytes, state, None, None);
     });
 }
 
@@ -357,7 +555,7 @@ fn file_progress_payloads(state: &SendProgressState) -> Vec<ShelfFileProgress> {
             let status = if finished {
                 if progress.failed > 0 { "failed" } else { "done" }
             } else if active.0 > 0 || progress.done > 0 || progress.failed > 0 {
-                "sending"
+                active_status_for_progress(state)
             } else {
                 "pending"
             };
@@ -372,6 +570,18 @@ fn file_progress_payloads(state: &SendProgressState) -> Vec<ShelfFileProgress> {
             }
         })
         .collect()
+}
+
+fn active_status_for_progress(state: &SendProgressState) -> &'static str {
+    if state
+        .active_transfers
+        .keys()
+        .any(|transfer_id| transfer_id.contains(":cloud:"))
+    {
+        "uploading"
+    } else {
+        "sending"
+    }
 }
 
 #[tauri::command]

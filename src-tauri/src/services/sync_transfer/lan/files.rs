@@ -1,8 +1,9 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::services::webdav_sync::types::CloudRecord;
@@ -10,11 +11,32 @@ use crate::services::webdav_sync::types::CloudRecord;
 pub const MAX_DIRECT_TRANSFER_FILE_SIZE: u64 = 512 * 1024 * 1024;
 
 static RESERVED_RECEIVED_FILE_PATHS: Lazy<Mutex<HashSet<PathBuf>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+static RECEIVED_FILE_INDEX_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+const RECEIVED_FILE_INDEX_NAME: &str = "index.json";
 
 #[derive(Debug, Clone)]
 pub struct ReceivedFileReservation {
     pub final_path: PathBuf,
     pub temp_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReceivedFileMetadata {
+    pub path: String,
+    pub name: String,
+    pub size: u64,
+    pub sha256: String,
+    pub source_device_id: String,
+    pub source_device_name: String,
+    pub received_at: i64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct ReceivedFileIndex {
+    #[serde(default)]
+    files: HashMap<String, ReceivedFileMetadata>,
 }
 
 pub fn collect_record_image_ids(records: &[CloudRecord]) -> Vec<String> {
@@ -67,7 +89,9 @@ pub fn prepare_received_file(file_name: &str) -> Result<ReceivedFileReservation,
     let mut reserved = RESERVED_RECEIVED_FILE_PATHS
         .lock()
         .map_err(|_| "接收文件路径状态异常".to_string())?;
-    let final_path = unique_path(&dir, &safe_name, &reserved);
+    let mut reserved_paths = reserved.clone();
+    reserved_paths.insert(received_file_index_path()?);
+    let final_path = unique_path(&dir, &safe_name, &reserved_paths);
     reserved.insert(final_path.clone());
     let temp_path = dir.join(format!(".{}.qcpart", Uuid::new_v4()));
     Ok(ReceivedFileReservation { final_path, temp_path })
@@ -104,6 +128,59 @@ pub fn discard_received_file(reservation: &ReceivedFileReservation) {
     let _ = std::fs::remove_file(&reservation.temp_path);
 }
 
+pub fn record_received_file(
+    path: &Path,
+    size: u64,
+    sha256: &str,
+    source_device_id: &str,
+    source_device_name: &str,
+) -> Result<(), String> {
+    let _guard = RECEIVED_FILE_INDEX_LOCK
+        .lock()
+        .map_err(|_| "接收文件索引状态异常".to_string())?;
+    let mut index = load_received_file_index()?;
+    let path_key = received_file_path_key(path);
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("file")
+        .to_string();
+    index.files.insert(path_key.clone(), ReceivedFileMetadata {
+        path: path_key,
+        name,
+        size,
+        sha256: sha256.to_string(),
+        source_device_id: source_device_id.trim().to_string(),
+        source_device_name: source_device_name.trim().to_string(),
+        received_at: chrono::Utc::now().timestamp_millis(),
+    });
+    save_received_file_index(&index)
+}
+
+pub fn list_received_file_metadata() -> Result<Vec<ReceivedFileMetadata>, String> {
+    let _guard = RECEIVED_FILE_INDEX_LOCK
+        .lock()
+        .map_err(|_| "接收文件索引状态异常".to_string())?;
+    let index = load_received_file_index()?;
+    Ok(index.files.into_values().collect())
+}
+
+pub fn remove_received_file_metadata(path: &Path) -> Result<(), String> {
+    let _guard = RECEIVED_FILE_INDEX_LOCK
+        .lock()
+        .map_err(|_| "接收文件索引状态异常".to_string())?;
+    let mut index = load_received_file_index()?;
+    let path_key = received_file_path_key(path);
+    let before = index.files.len();
+    index.files.remove(&path_key);
+    index.files.retain(|_, item| item.path != path_key);
+    if index.files.len() != before {
+        save_received_file_index(&index)?;
+    }
+    Ok(())
+}
+
 pub fn file_name_from_transfer_path(path: &str) -> Result<String, String> {
     let raw = path
         .strip_prefix("/qc-transfer/files/")
@@ -123,8 +200,49 @@ pub fn image_id_from_file_path(path: &str) -> Result<String, String> {
     Ok(raw.to_string())
 }
 
-fn received_files_dir() -> Result<PathBuf, String> {
+pub fn received_files_dir() -> Result<PathBuf, String> {
     Ok(crate::services::get_data_directory()?.join("sync_transfer_files"))
+}
+
+pub fn is_received_file_internal(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .map(|name| name == RECEIVED_FILE_INDEX_NAME || name.starts_with('.') || name.ends_with(".qcpart"))
+        .unwrap_or(false)
+}
+
+fn received_file_index_path() -> Result<PathBuf, String> {
+    Ok(received_files_dir()?.join(RECEIVED_FILE_INDEX_NAME))
+}
+
+fn load_received_file_index() -> Result<ReceivedFileIndex, String> {
+    let path = received_file_index_path()?;
+    if !path.exists() {
+        return Ok(ReceivedFileIndex::default());
+    }
+    let bytes = std::fs::read(&path)
+        .map_err(|e| format!("读取接收文件索引失败: {}", e))?;
+    serde_json::from_slice(&bytes)
+        .map_err(|e| format!("解析接收文件索引失败: {}", e))
+}
+
+fn save_received_file_index(index: &ReceivedFileIndex) -> Result<(), String> {
+    let path = received_file_index_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("创建接收文件索引目录失败: {}", e))?;
+    }
+    let bytes = serde_json::to_vec_pretty(index)
+        .map_err(|e| format!("序列化接收文件索引失败: {}", e))?;
+    std::fs::write(&path, bytes)
+        .map_err(|e| format!("保存接收文件索引失败: {}", e))
+}
+
+fn received_file_path_key(path: &Path) -> String {
+    path.canonicalize()
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .to_string()
 }
 
 fn image_path(image_id: &str) -> Result<PathBuf, String> {

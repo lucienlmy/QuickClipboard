@@ -12,4 +12,5 @@ export * from './previewWindow'
 export * from './webdavSync'
 export * from './syncTransfer'
 export * from './transferShelf'
+export * from './receiveBox'
 

@@ -5,13 +5,13 @@ use std::time::Duration;
 
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
 use super::storage::{
     self, ShelfFilePersisted, ShelfGeometryPersisted, ShelfPersisted, ShelfStatePersisted,
 };
-use super::types::{label_for, ShelfFileInfo, ShelfSummary};
+use super::types::{describe_path, label_for, ShelfFileInfo, ShelfSummary, STATE_CHANGED_EVENT};
 use super::window::create_shelf_window;
 
 #[derive(Clone, Debug)]
@@ -187,6 +187,53 @@ pub fn list_shelves() -> Vec<ShelfSummary> {
             name: item.name.clone(),
         })
         .collect()
+}
+
+pub fn append_files_to_recent_or_new_shelf(
+    app: &AppHandle,
+    paths: Vec<String>,
+) -> Result<ShelfSummary, String> {
+    let paths = paths
+        .into_iter()
+        .filter(|path| !path.trim().is_empty())
+        .collect::<Vec<_>>();
+    if paths.is_empty() {
+        return Err("没有可加入文件盒的文件".to_string());
+    }
+
+    let summary = match SHELVES.lock().last().cloned() {
+        Some(record) => ShelfSummary {
+            label: label_for(&record.id),
+            id: record.id,
+            name: record.name,
+        },
+        None => open_or_create_shelf(app)?,
+    };
+
+    let mut persisted = load_shelf_state(&summary.id);
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut existing = persisted
+        .files
+        .iter()
+        .map(|item| item.path.clone())
+        .collect::<HashSet<_>>();
+    for path in paths {
+        let info = describe_path(&path);
+        if !info.exists || info.is_dir || !existing.insert(info.path.clone()) {
+            continue;
+        }
+        persisted.files.push(ShelfFilePersisted {
+            path: info.path,
+            added_at_ms: now,
+        });
+    }
+    storage::upsert_shelf(persisted)?;
+
+    let _ = app.emit(STATE_CHANGED_EVENT, serde_json::json!({
+        "shelfId": summary.id,
+    }));
+    let _ = focus_shelf(app, &summary.id);
+    Ok(summary)
 }
 
 pub fn focus_shelf(app: &AppHandle, id: &str) -> Result<(), String> {
