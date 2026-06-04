@@ -103,9 +103,21 @@ impl WebdavClient {
     }
 
     pub async fn ensure_cloud_files_dir(&self) -> Result<(), String> {
-        self.mkcol("").await?;
-        self.mkcol("cloud_files").await?;
-        self.mkcol("cloud_files/objects").await
+        if let Err(error) = self.mkcol("cloud_files").await {
+            if !is_webdav_conflict(&error) {
+                return Err(error);
+            }
+            self.mkcol("").await?;
+            self.mkcol("cloud_files").await?;
+        }
+        if let Err(error) = self.mkcol("cloud_files/objects").await {
+            if !is_webdav_conflict(&error) {
+                return Err(error);
+            }
+            self.mkcol("cloud_files").await?;
+            self.mkcol("cloud_files/objects").await?;
+        }
+        Ok(())
     }
 
     pub async fn ensure_tombstones_dir(&self) -> Result<(), String> {
@@ -311,4 +323,8 @@ fn normalize_path(path: &str) -> String {
         .filter(|p| !p.trim().is_empty())
         .collect::<Vec<_>>()
         .join("/")
+}
+
+fn is_webdav_conflict(error: &str) -> bool {
+    error.contains("409") || error.contains("Conflict")
 }

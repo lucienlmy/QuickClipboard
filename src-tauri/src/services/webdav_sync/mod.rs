@@ -41,13 +41,11 @@ pub async fn upload_parts(upload_clipboard: bool, upload_favorites: bool, upload
     uploader::upload_parts(&client, &device_id, upload_clipboard, upload_favorites, upload_groups).await
 }
 
-pub async fn upload_cloud_file_with_progress(
-    path: &str,
-    transfer_id: Option<String>,
-    progress: Option<cloud_files::CloudFileUploadProgressCallback>,
-) -> Result<cloud_files::CloudFileUploadResult, String> {
+pub async fn upload_cloud_files_with_progress(
+    requests: Vec<cloud_files::CloudFileUploadRequest>,
+) -> Result<Vec<cloud_files::CloudFileUploadBatchItem>, String> {
     let client = build_client().await?;
-    cloud_files::upload_file_with_progress(&client, path, transfer_id, progress).await
+    cloud_files::upload_files_with_progress(&client, requests).await
 }
 
 pub async fn list_cloud_files() -> Result<Vec<cloud_files::CloudFileListItem>, String> {

@@ -35,6 +35,18 @@ pub struct CloudFileUploadResult {
     pub manifest: CloudFileManifest,
 }
 
+pub struct CloudFileUploadRequest {
+    pub path: String,
+    pub transfer_id: Option<String>,
+    pub progress: Option<CloudFileUploadProgressCallback>,
+}
+
+pub struct CloudFileUploadBatchItem {
+    pub path: String,
+    pub result: Result<CloudFileUploadResult, String>,
+    pub uploaded: bool,
+}
+
 #[derive(Clone)]
 pub struct CloudFileUploadProgress {
     pub transfer_id: String,
@@ -88,87 +100,102 @@ const DOWNLOAD_FILES_DIR: &str = "files";
 const DOWNLOAD_INDEX_NAME: &str = "index.json";
 static CLOUD_FILES_DIR_READY: AtomicBool = AtomicBool::new(false);
 
-pub async fn upload_file_with_progress(
+pub async fn upload_files_with_progress(
     client: &WebdavClient,
-    path: &str,
-    transfer_id: Option<String>,
-    progress: Option<CloudFileUploadProgressCallback>,
-) -> Result<CloudFileUploadResult, String> {
-    let source = PathBuf::from(path);
-    let metadata = std::fs::metadata(&source)
-        .map_err(|e| format!("读取待上传文件信息失败: {}", e))?;
-    if !metadata.is_file() {
-        return Err("只能上传普通文件".to_string());
-    }
-
-    let name = source
-        .file_name()
-        .and_then(|value| value.to_str())
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| "文件名无效".to_string())?
-        .to_string();
-    let size = metadata.len();
-    let sha256 = sha256_file(&source)?;
+    requests: Vec<CloudFileUploadRequest>,
+) -> Result<Vec<CloudFileUploadBatchItem>, String> {
+    let pending = requests
+        .into_iter()
+        .map(prepare_upload_request)
+        .collect::<Vec<_>>();
     let mut index = load_index(client).await?;
-    if let Some(existing) = index
-        .files
-        .values()
-        .find(|file| file.sha256 == sha256 && file.size == size)
-        .cloned()
-    {
-        return Ok(CloudFileUploadResult { manifest: existing });
-    }
+    let mut results = Vec::with_capacity(pending.len());
+    let mut uploaded_objects = Vec::<String>::new();
+    let mut new_result_indices = Vec::<usize>::new();
+    let mut index_changed = false;
+    let mut dirs_ready = false;
 
-    let id = Uuid::new_v4().to_string();
-    let object_path = cloud_file_object_path(&id);
+    for item in pending {
+        let upload = match item {
+            Ok(upload) => upload,
+            Err((path, error)) => {
+                results.push(CloudFileUploadBatchItem {
+                    path,
+                    result: Err(error),
+                    uploaded: false,
+                });
+                continue;
+            }
+        };
 
-    ensure_cloud_files_dir_once(client).await?;
-
-    let upload_progress = progress.map(|callback| {
-        let transfer_id = transfer_id.unwrap_or_else(|| format!("cloud:{}", source.to_string_lossy()));
-        let file_path = source.to_string_lossy().to_string();
-        Arc::new(move |sent_bytes| {
-            callback(CloudFileUploadProgress {
-                transfer_id: transfer_id.clone(),
-                file_path: file_path.clone(),
-                sent_bytes,
-                total_bytes: size,
-                status: "uploading".to_string(),
+        if let Some(existing) = index
+            .files
+            .values()
+            .find(|file| file.sha256 == upload.sha256 && file.size == upload.size)
+            .cloned()
+        {
+            results.push(CloudFileUploadBatchItem {
+                path: upload.path,
+                result: Ok(CloudFileUploadResult { manifest: existing }),
+                uploaded: false,
             });
-        }) as Arc<dyn Fn(u64) + Send + Sync + 'static>
-    });
+            continue;
+        }
 
-    if let Err(error) = client
-        .upload_encrypted_file_with_progress(
-            &object_path,
-            &source,
-            size,
-            CLOUD_FILE_STREAM_CHUNK_SIZE,
-            upload_progress,
-        )
-        .await
-    {
-        let _ = client.delete_path(&object_path).await;
-        return Err(error);
+        if !dirs_ready {
+            ensure_cloud_files_dir_once(client).await?;
+            dirs_ready = true;
+        }
+
+        let id = Uuid::new_v4().to_string();
+        let object_path = cloud_file_object_path(&id);
+        if let Err(error) = upload_cloud_file_object(client, &object_path, &upload).await {
+            let _ = client.delete_path(&object_path).await;
+            results.push(CloudFileUploadBatchItem {
+                path: upload.path,
+                result: Err(error),
+                uploaded: false,
+            });
+            continue;
+        }
+
+        let manifest = CloudFileManifest {
+            id: id.clone(),
+            name: upload.name,
+            size: upload.size,
+            sha256: upload.sha256,
+            source_device_id: crate::services::sync_transfer::device_id(),
+            source_device_name: crate::services::sync_transfer::lan::runtime::device_name(),
+            uploaded_at: chrono::Utc::now().timestamp_millis(),
+        };
+
+        index.files.insert(id, manifest.clone());
+        uploaded_objects.push(object_path);
+        index_changed = true;
+        let result_index = results.len();
+        new_result_indices.push(result_index);
+        results.push(CloudFileUploadBatchItem {
+            path: upload.path,
+            result: Ok(CloudFileUploadResult { manifest }),
+            uploaded: true,
+        });
     }
 
-    let manifest = CloudFileManifest {
-        id: id.clone(),
-        name: name.clone(),
-        size,
-        sha256,
-        source_device_id: crate::services::sync_transfer::device_id(),
-        source_device_name: crate::services::sync_transfer::lan::runtime::device_name(),
-        uploaded_at: chrono::Utc::now().timestamp_millis(),
-    };
-
-    index.files.insert(id, manifest.clone());
-    if let Err(error) = save_index(client, &index).await {
-        let _ = client.delete_path(&object_path).await;
-        return Err(error);
+    if index_changed {
+        if let Err(error) = save_index(client, &index).await {
+            for object_path in uploaded_objects {
+                let _ = client.delete_path(&object_path).await;
+            }
+            for result_index in new_result_indices {
+                if let Some(item) = results.get_mut(result_index) {
+                    item.result = Err(error.clone());
+                    item.uploaded = false;
+                }
+            }
+        }
     }
 
-    Ok(CloudFileUploadResult { manifest })
+    Ok(results)
 }
 
 pub async fn list_files(client: &WebdavClient) -> Result<Vec<CloudFileListItem>, String> {
@@ -262,7 +289,13 @@ pub async fn delete_file(client: &WebdavClient, file_id: &str) -> Result<(), Str
 }
 
 pub async fn load_index(client: &WebdavClient) -> Result<CloudFileIndex, String> {
-    Ok(client.get_json(INDEX_PATH).await?.unwrap_or_default())
+    match client.get_json(INDEX_PATH).await? {
+        Some(index) => Ok(index),
+        None => {
+            reset_cloud_files_dir_ready();
+            Ok(CloudFileIndex::default())
+        }
+    }
 }
 
 async fn save_index(client: &WebdavClient, index: &CloudFileIndex) -> Result<(), String> {
@@ -279,6 +312,106 @@ async fn ensure_cloud_files_dir_once(client: &WebdavClient) -> Result<(), String
 
 fn cloud_file_object_path(file_id: &str) -> String {
     format!("cloud_files/objects/{}.qcf", file_id)
+}
+
+async fn upload_cloud_file_object(
+    client: &WebdavClient,
+    object_path: &str,
+    upload: &PreparedCloudFileUpload,
+) -> Result<(), String> {
+    let result = client
+        .upload_encrypted_file_with_progress(
+            object_path,
+            &upload.source,
+            upload.size,
+            CLOUD_FILE_STREAM_CHUNK_SIZE,
+            upload_progress_callback(upload),
+        )
+        .await;
+    match result {
+        Ok(()) => Ok(()),
+        Err(error) if is_webdav_conflict_error(&error) => {
+            reset_cloud_files_dir_ready();
+            ensure_cloud_files_dir_once(client).await?;
+            client
+                .upload_encrypted_file_with_progress(
+                    object_path,
+                    &upload.source,
+                    upload.size,
+                    CLOUD_FILE_STREAM_CHUNK_SIZE,
+                    upload_progress_callback(upload),
+                )
+                .await
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn reset_cloud_files_dir_ready() {
+    CLOUD_FILES_DIR_READY.store(false, Ordering::Release);
+}
+
+fn is_webdav_conflict_error(error: &str) -> bool {
+    error.contains("409") || error.contains("Conflict")
+}
+
+struct PreparedCloudFileUpload {
+    path: String,
+    source: PathBuf,
+    name: String,
+    size: u64,
+    sha256: String,
+    transfer_id: Option<String>,
+    progress: Option<CloudFileUploadProgressCallback>,
+}
+
+fn prepare_upload_request(request: CloudFileUploadRequest) -> Result<PreparedCloudFileUpload, (String, String)> {
+    let path = request.path;
+    let source = PathBuf::from(&path);
+    let metadata = std::fs::metadata(&source)
+        .map_err(|e| (path.clone(), format!("读取待上传文件信息失败: {}", e)))?;
+    if !metadata.is_file() {
+        return Err((path, "只能上传普通文件".to_string()));
+    }
+
+    let name = source
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| (path.clone(), "文件名无效".to_string()))?
+        .to_string();
+    let size = metadata.len();
+    let sha256 = sha256_file(&source)
+        .map_err(|error| (path.clone(), error))?;
+    Ok(PreparedCloudFileUpload {
+        path,
+        source,
+        name,
+        size,
+        sha256,
+        transfer_id: request.transfer_id,
+        progress: request.progress,
+    })
+}
+
+fn upload_progress_callback(upload: &PreparedCloudFileUpload) -> Option<Arc<dyn Fn(u64) + Send + Sync + 'static>> {
+    upload.progress.clone().map(|callback| {
+        let transfer_id = upload
+            .transfer_id
+            .clone()
+            .unwrap_or_else(|| format!("cloud:{}", upload.path));
+        let file_path = upload.path.clone();
+        let total_bytes = upload.size;
+        Arc::new(move |sent_bytes| {
+            callback(CloudFileUploadProgress {
+                transfer_id: transfer_id.clone(),
+                file_path: file_path.clone(),
+                sent_bytes,
+                total_bytes,
+                status: "uploading".to_string(),
+            });
+        }) as Arc<dyn Fn(u64) + Send + Sync + 'static>
+    })
 }
 
 fn to_list_item(file: CloudFileManifest, download_index: &CloudFileDownloadIndex) -> CloudFileListItem {
