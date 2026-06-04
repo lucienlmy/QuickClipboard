@@ -285,7 +285,7 @@ fn save_history_records(request: &HttpRequest, app: &AppHandle) -> Result<super:
     if !changed.is_empty() {
         crate::windows::main_window::mark_clipboard_refresh_pending();
         emit_refresh_if_visible(app);
-        super::auto_sync::notify_local_change(app.clone(), "relay");
+        crate::services::sync_transfer::lan_notify_local_change(app.clone(), "relay");
     }
     Ok(super::LanRecordBatch {
         collection: "history".to_string(),
@@ -304,7 +304,7 @@ fn save_favorite_records(request: &HttpRequest, app: &AppHandle) -> Result<super
     if !changed.is_empty() {
         crate::windows::main_window::mark_favorites_refresh_pending();
         emit_refresh_if_visible(app);
-        super::auto_sync::notify_local_change(app.clone(), "relay");
+        crate::services::sync_transfer::lan_notify_local_change(app.clone(), "relay");
     }
     Ok(super::LanRecordBatch {
         collection: "favorites".to_string(),
@@ -321,7 +321,7 @@ fn save_groups(request: &HttpRequest, app: &AppHandle) -> Result<super::LanGroup
         crate::windows::main_window::mark_groups_refresh_pending();
         crate::windows::main_window::mark_favorites_refresh_pending();
         emit_refresh_if_visible(app);
-        super::auto_sync::notify_local_change(app.clone(), "relay");
+        crate::services::sync_transfer::lan_notify_local_change(app.clone(), "relay");
     }
     Ok(super::LanGroupBatch { groups: changed })
 }
@@ -333,7 +333,7 @@ fn save_tombstones(request: &HttpRequest, app: &AppHandle) -> Result<super::LanT
     let report = crate::services::database::apply_sync_tombstones(&batch.tombstones)?;
     mark_tombstone_refresh(&report, app);
     if !changed.is_empty() || report.total() > 0 {
-        super::auto_sync::notify_local_change(app.clone(), "relay");
+        crate::services::sync_transfer::lan_notify_local_change(app.clone(), "relay");
     }
     Ok(super::LanTombstoneBatch { tombstones: changed })
 }

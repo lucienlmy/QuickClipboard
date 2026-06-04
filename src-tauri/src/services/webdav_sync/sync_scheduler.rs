@@ -1,17 +1,24 @@
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::Serialize;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+
+use crate::services::database::WebdavLocalSyncSignature;
 
 use super::types::{SyncReport, WebdavStatus};
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static STOP_FLAG: AtomicBool = AtomicBool::new(false);
+static AUTO_PUSH_VERSION: AtomicU64 = AtomicU64::new(0);
+static AUTO_PUSH_RUNNING: AtomicBool = AtomicBool::new(false);
+static AUTO_PUSH_PENDING: AtomicBool = AtomicBool::new(false);
 static START_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 static LAST_REPORT: Lazy<Mutex<Option<WebdavSyncReportEvent>>> = Lazy::new(|| Mutex::new(None));
+static LAST_UPLOADED_SIGNATURE: Lazy<Mutex<WebdavLocalSyncSignature>> =
+    Lazy::new(|| Mutex::new(WebdavLocalSyncSignature::default()));
 
 #[derive(Clone, Serialize)]
 pub struct WebdavSyncReportEvent {
@@ -29,6 +36,9 @@ pub fn get_last_report() -> Option<WebdavSyncReportEvent> {
 }
 
 pub fn store_manual_report(mode: &'static str, result: SyncReport) -> SyncReport {
+    if mode == "push" && result.errors.is_empty() {
+        mark_uploaded_signature_current();
+    }
     store_report(mode, result.clone(), false);
     result
 }
@@ -39,10 +49,13 @@ pub fn is_running() -> bool {
 
 pub fn stop() {
     STOP_FLAG.store(true, Ordering::SeqCst);
+    AUTO_PUSH_VERSION.fetch_add(1, Ordering::SeqCst);
+    AUTO_PUSH_PENDING.store(false, Ordering::SeqCst);
 }
 
 pub fn start() {
     let _guard = START_LOCK.lock();
+    mark_uploaded_signature_current();
     if RUNNING.load(Ordering::SeqCst) {
         STOP_FLAG.store(false, Ordering::SeqCst);
         return;
@@ -53,7 +66,6 @@ pub fn start() {
 
     tauri::async_runtime::spawn(async move {
         let mut seconds_since_pull: u64 = 0;
-        let mut last_uploaded_signature = crate::services::database::WebdavLocalSyncSignature::default();
         loop {
             if STOP_FLAG.load(Ordering::SeqCst) {
                 break;
@@ -63,25 +75,6 @@ pub fn start() {
             if !settings.webdav_enabled {
                 tokio::time::sleep(Duration::from_secs(5)).await;
                 continue;
-            }
-
-            if settings.webdav_auto_push {
-                let delay = settings.webdav_push_delay_secs.max(1);
-                if seconds_since_pull % delay == 0 {
-                    if let Ok(signature) = crate::services::database::webdav_local_sync_parts_signature() {
-                        let upload_clipboard = signature.clipboard != last_uploaded_signature.clipboard;
-                        let upload_favorites = signature.favorites != last_uploaded_signature.favorites;
-                        let upload_groups = signature.groups != last_uploaded_signature.groups;
-                        let upload_tombstones = signature.tombstones != last_uploaded_signature.tombstones;
-                        if let Ok(report) = super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await {
-                            last_uploaded_signature = crate::services::database::webdav_local_sync_parts_signature()
-                                .unwrap_or(signature);
-                            if upload_clipboard || upload_favorites || upload_groups || upload_tombstones || report.pulled > 0 || report.pushed > 0 {
-                                store_report("push", report, true);
-                            }
-                        }
-                    }
-                }
             }
 
             if settings.webdav_auto_pull {
@@ -100,6 +93,23 @@ pub fn start() {
     });
 }
 
+pub fn notify_local_change(app: AppHandle, reason: &'static str) {
+    let settings = crate::services::get_settings();
+    if !settings.webdav_enabled || !settings.webdav_auto_push {
+        return;
+    }
+
+    let version = AUTO_PUSH_VERSION.fetch_add(1, Ordering::SeqCst).saturating_add(1);
+    let delay_secs = settings.webdav_push_delay_secs.max(1);
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(delay_secs)).await;
+        if AUTO_PUSH_VERSION.load(Ordering::SeqCst) != version {
+            return;
+        }
+        run_auto_push(app, reason).await;
+    });
+}
+
 pub fn status() -> WebdavStatus {
     let settings = crate::services::get_settings();
     WebdavStatus {
@@ -108,6 +118,63 @@ pub fn status() -> WebdavStatus {
         auto_push: settings.webdav_auto_push,
         auto_pull: settings.webdav_auto_pull,
         running: is_running(),
+    }
+}
+
+async fn run_auto_push(app: AppHandle, reason: &'static str) {
+    let settings = crate::services::get_settings();
+    if !settings.webdav_enabled || !settings.webdav_auto_push {
+        return;
+    }
+
+    if AUTO_PUSH_RUNNING.swap(true, Ordering::SeqCst) {
+        AUTO_PUSH_PENDING.store(true, Ordering::SeqCst);
+        return;
+    }
+
+    match upload_changed_parts().await {
+        Ok(Some(report)) => store_report("push", report, true),
+        Ok(None) => {}
+        Err(e) => {
+            eprintln!("[WebDAV同步] 自动推送失败 reason={} 错误={}", reason, e);
+        }
+    }
+
+    AUTO_PUSH_RUNNING.store(false, Ordering::SeqCst);
+    if AUTO_PUSH_PENDING.swap(false, Ordering::SeqCst) {
+        notify_local_change(app, reason);
+    }
+}
+
+async fn upload_changed_parts() -> Result<Option<SyncReport>, String> {
+    let signature = crate::services::database::webdav_local_sync_parts_signature()?;
+    let last_uploaded_signature = LAST_UPLOADED_SIGNATURE.lock().clone();
+    let upload_clipboard = signature.clipboard != last_uploaded_signature.clipboard;
+    let upload_favorites = signature.favorites != last_uploaded_signature.favorites;
+    let upload_groups = signature.groups != last_uploaded_signature.groups;
+    let upload_tombstones = signature.tombstones != last_uploaded_signature.tombstones;
+
+    if !upload_clipboard && !upload_favorites && !upload_groups && !upload_tombstones {
+        return Ok(None);
+    }
+
+    let report = super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await?;
+    if report.errors.is_empty() {
+        let uploaded_signature = signature.clone();
+        *LAST_UPLOADED_SIGNATURE.lock() = uploaded_signature;
+        if crate::services::database::webdav_local_sync_parts_signature()
+            .map(|current_signature| current_signature != signature)
+            .unwrap_or(false)
+        {
+            AUTO_PUSH_PENDING.store(true, Ordering::SeqCst);
+        }
+    }
+    Ok(Some(report))
+}
+
+fn mark_uploaded_signature_current() {
+    if let Ok(signature) = crate::services::database::webdav_local_sync_parts_signature() {
+        *LAST_UPLOADED_SIGNATURE.lock() = signature;
     }
 }
 

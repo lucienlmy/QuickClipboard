@@ -75,6 +75,10 @@ pub fn stop_scheduler() {
     sync_scheduler::stop();
 }
 
+pub fn notify_local_change(app: tauri::AppHandle, reason: &'static str) {
+    sync_scheduler::notify_local_change(app, reason);
+}
+
 async fn build_client() -> Result<WebdavClient, String> {
     let settings = crate::services::get_settings();
     let webdav_url = settings.webdav_url.clone();

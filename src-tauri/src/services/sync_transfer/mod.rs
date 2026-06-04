@@ -64,6 +64,7 @@ pub fn lan_update_auto_sync_settings(settings: lan::LanAutoSyncSettings) -> Resu
 }
 
 pub fn lan_notify_local_change(app: tauri::AppHandle, reason: &'static str) {
+    crate::services::webdav_sync::notify_local_change(app.clone(), reason);
     lan::auto_sync::notify_local_change(app, reason);
 }
 
