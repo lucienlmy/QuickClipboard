@@ -7,6 +7,7 @@ import Select from '@shared/components/ui/Select';
 import { setAutoStart, getAutoStartStatus, setRunAsAdmin, getRunAsAdminStatus, restartAsAdmin, isRunningAsAdmin } from '@shared/api/settings';
 import { toast } from '@shared/store/toastStore';
 import { showConfirm } from '@shared/utils/dialog';
+import { formatUserMessage } from '@shared/utils/userMessages';
 import { getAvailableLanguages } from '@shared/i18n';
 import i18n from '@shared/i18n';
 function GeneralSection({
@@ -101,8 +102,7 @@ function GeneralSection({
       toast.success(checked ? t('settings.general.autoStartEnabled') : t('settings.general.autoStartDisabled'));
     } catch (error) {
       console.error('设置开机自启动失败:', error);
-      const errorMsg = typeof error === 'string' ? error : (error?.message || t('settings.general.autoStartFailed'));
-      toast.error(errorMsg);
+      toast.error(formatUserMessage(error, t, 'settings.general.autoStartFailed'));
     } finally {
       setAutoStartLoading(false);
     }
@@ -130,8 +130,7 @@ function GeneralSection({
       }
     } catch (error) {
       console.error('设置管理员权限失败:', error);
-      const errorMsg = typeof error === 'string' ? error : (error?.message || t('settings.general.runAsAdminFailed'));
-      toast.error(errorMsg);
+      toast.error(formatUserMessage(error, t, 'settings.general.runAsAdminFailed'));
     } finally {
       setRunAsAdminLoading(false);
     }

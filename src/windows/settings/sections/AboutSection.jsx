@@ -9,6 +9,7 @@ import SettingItem from '../components/SettingItem';
 import Button from '@shared/components/ui/Button';
 import Select from '@shared/components/ui/Select';
 import Toggle from '@shared/components/ui/Toggle';
+import { formatUserMessage } from '@shared/utils/userMessages';
 import logoIcon from '@/assets/icon1024.png';
 import wxzsm from '@/assets/wxzsm.png';
 import appLinks from '@shared/config/appLinks.json';
@@ -66,7 +67,9 @@ function AboutSection({
         toast.info(t('updater.noUpdate'));
       }
     } catch (e) {
-      toast.error(t('updater.checkFailed', { msg: (e?.message || String(e)) }));
+      toast.error(t('updater.checkFailed', {
+        msg: formatUserMessage(e, t, 'errors.operationFailed'),
+      }));
     } finally {
       setCheckingUpdate(false);
     }

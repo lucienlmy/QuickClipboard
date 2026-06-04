@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSnapshot } from 'valtio';
 import { showConfirm } from '@shared/utils/dialog';
 import { createDragPreviewIcon } from '@shared/utils/dragPreviewIcon';
+import { formatUserMessage } from '@shared/utils/userMessages';
 import { initSettings, settingsStore } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import {
@@ -374,6 +375,9 @@ export default function App() {
     || errorText.trim().length > 0
     || Object.keys(fileProgresses).length > 0
   );
+  const formatError = (error, fallbackKey = 'errors.operationFailed') => formatUserMessage(error, t, fallbackKey);
+  const formatSendError = (error) => formatError(error, 'errors.transferShelf.sendFailed');
+  const formatUploadError = (error) => formatError(error, 'errors.transferShelf.uploadFailed');
   const selectedFileSet = useMemo(() => new Set(selectedFilePaths), [selectedFilePaths]);
   const activeFiles = useMemo(
     () => {
@@ -548,9 +552,9 @@ export default function App() {
       setFailedTargets(errors.map((item) => ({
         peerId: item.peerId,
         path: item.path,
-        message: item.message || '',
+        message: item.message ? formatSendError(item.message) : '',
       })));
-      setErrorText(errors.length > 0 ? errors[errors.length - 1].message || '' : '');
+      setErrorText(errors.length > 0 ? formatSendError(errors[errors.length - 1].message || '') : '');
     }).then((fn) => {
       unlisten = fn;
     });
@@ -885,7 +889,7 @@ export default function App() {
       nativeDropProxyVisibleRef.current = true;
     } catch (error) {
       nativeDropProxyVisibleRef.current = false;
-      setErrorText(error?.message || String(error));
+      setErrorText(formatError(error));
     } finally {
       nativeDropProxyPendingRef.current = false;
     }
@@ -1012,7 +1016,7 @@ export default function App() {
         }
       }
     } catch (error) {
-      setErrorText(error?.message || String(error));
+      setErrorText(formatError(error, 'errors.file.saveFailed'));
     } finally {
       if (shouldHideProxy) {
         await hideDropProxy().catch(() => { });
@@ -1051,7 +1055,7 @@ export default function App() {
       setDraftName(formatShelfDisplayName(savedName, t));
       setEditingName(false);
     } catch (error) {
-      setErrorText(error?.message || String(error));
+      setErrorText(formatError(error));
     }
   };
 
@@ -1270,7 +1274,7 @@ export default function App() {
       setFailedTargets(errors.map((item) => ({
         peerId: item.peerId,
         path: item.path,
-        message: item.message || '',
+        message: item.message ? formatSendError(item.message) : '',
       })));
       setTask({
         status: result?.status || (errors.length > 0 ? 'failed' : 'done'),
@@ -1282,9 +1286,9 @@ export default function App() {
         currentFileName: '',
       });
       setFileProgresses(normalizeFileProgresses(result?.fileProgresses));
-      setErrorText(errors.length > 0 ? errors[errors.length - 1].message || '' : '');
+      setErrorText(errors.length > 0 ? formatSendError(errors[errors.length - 1].message || '') : '');
     } catch (error) {
-      const message = error?.message || String(error);
+      const message = formatSendError(error);
       setErrorText(message);
       setTask({
         status: 'failed',
@@ -1345,7 +1349,7 @@ export default function App() {
       setFailedTargets(errors.map((item) => ({
         peerId: item.peerId || 'cloud',
         path: item.path,
-        message: item.message || '',
+        message: item.message ? formatUploadError(item.message) : '',
       })));
       setTask({
         status: result?.status || (errors.length > 0 ? 'failed' : 'done'),
@@ -1357,9 +1361,9 @@ export default function App() {
         currentFileName: '',
       });
       setFileProgresses(normalizeFileProgresses(result?.fileProgresses));
-      setErrorText(errors.length > 0 ? errors[errors.length - 1].message || '' : '');
+      setErrorText(errors.length > 0 ? formatUploadError(errors[errors.length - 1].message || '') : '');
     } catch (error) {
-      const message = error?.message || String(error);
+      const message = formatUploadError(error);
       setErrorText(message);
       setTask({
         status: 'failed',

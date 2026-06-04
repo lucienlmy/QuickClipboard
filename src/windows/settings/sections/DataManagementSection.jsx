@@ -13,6 +13,7 @@ import { reloadAllWindows } from '@shared/api/window';
 import { resetSettingsToDefault } from '@shared/api/settings';
 import { isPortableMode } from '@shared/api/system';
 import { clearClipboardHistory } from '@shared/api/clipboard';
+import { formatUserMessage } from '@shared/utils/userMessages';
 function DataManagementSection() {
   const {
     t
@@ -24,6 +25,7 @@ function DataManagementSection() {
   const [busyText, setBusyText] = useState('');
   const [migrationDialog, setMigrationDialog] = useState(null); // { type: 'change' | 'reset', targetPath?: string, targetInfo?: object }
   const [backupDialog, setBackupDialog] = useState(null); // { backups: [] }
+  const messageOf = (error) => formatUserMessage(error, t, 'errors.operationFailed');
 
   const formatSize = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -65,7 +67,7 @@ function DataManagementSection() {
       const out = await exportDataZip(targetPath);
       await showMessage(t('settings.dataManagement.exportSuccess', { path: out }));
     } catch (e) {
-      await showError(t('settings.dataManagement.exportFailed', { message: e?.message || e }));
+      await showError(t('settings.dataManagement.exportFailed', { message: messageOf(e) }));
     } finally {
       setBusy(false);
       setBusyText('');
@@ -78,7 +80,7 @@ function DataManagementSection() {
       if (!file) return;
       await doImport(file);
     } catch (e) {
-      await showError(t('settings.dataManagement.importFailed', { message: e?.message || e }));
+      await showError(t('settings.dataManagement.importFailed', { message: messageOf(e) }));
     }
   };
 
@@ -91,7 +93,7 @@ function DataManagementSection() {
       }
       setBackupDialog({ backups });
     } catch (e) {
-      await showError(e?.message || e);
+      await showError(messageOf(e));
     }
   };
 
@@ -110,7 +112,7 @@ function DataManagementSection() {
       await showMessage(t('settings.dataManagement.importSuccess', { path: resultPath }));
       try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
-      await showError(t('settings.dataManagement.importFailed', { message: e?.message || e }));
+      await showError(t('settings.dataManagement.importFailed', { message: messageOf(e) }));
     } finally {
       setBusy(false);
       setBusyText('');
@@ -146,7 +148,7 @@ function DataManagementSection() {
       await showMessage(t('settings.dataManagement.updateSuccess'));
       try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
-      await showError(t('settings.dataManagement.changeFailed', { message: e?.message || e }));
+      await showError(t('settings.dataManagement.changeFailed', { message: messageOf(e) }));
     }
     finally {
       setBusy(false);
@@ -180,7 +182,7 @@ function DataManagementSection() {
       const errorKey = dialog.type === 'change'
         ? 'settings.dataManagement.changeFailed'
         : 'settings.dataManagement.resetFailed';
-      await showError(t(errorKey, { message: e?.message || e }));
+      await showError(t(errorKey, { message: messageOf(e) }));
     } finally {
       setBusy(false);
       setBusyText('');
@@ -212,7 +214,7 @@ function DataManagementSection() {
       await showMessage(t('settings.dataManagement.resetSuccess'));
       try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
-      await showError(t('settings.dataManagement.resetFailed', { message: e?.message || e }));
+      await showError(t('settings.dataManagement.resetFailed', { message: messageOf(e) }));
     }
     finally {
       setBusy(false);
@@ -230,7 +232,7 @@ function DataManagementSection() {
       await showMessage(t('settings.dataManagement.clearSuccess') || t('common.success'));
       try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
-      await showError(t('settings.dataManagement.clearFailed', { message: e?.message || e }) || String(e));
+      await showError(t('settings.dataManagement.clearFailed', { message: messageOf(e) }));
     } finally {
       setBusy(false);
       setBusyText('');
@@ -248,7 +250,7 @@ function DataManagementSection() {
       await showMessage(t('settings.dataManagement.resetSettingsSuccess') || t('common.success'));
       try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
-      await showError(t('settings.dataManagement.resetSettingsFailed', { message: e?.message || e }) || String(e));
+      await showError(t('settings.dataManagement.resetSettingsFailed', { message: messageOf(e) }));
     } finally {
       setBusy(false);
       setBusyText('');
@@ -268,7 +270,7 @@ function DataManagementSection() {
       await showMessage(t('settings.dataManagement.resetAllSuccess', { path: dir }) || t('common.success'));
       try { await reloadAllWindows(); } catch (_) {}
     } catch (e) {
-      await showError(t('settings.dataManagement.resetAllFailed', { message: e?.message || e }) || String(e));
+      await showError(t('settings.dataManagement.resetAllFailed', { message: messageOf(e) }));
     } finally {
       setBusy(false);
       setBusyText('');

@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useTranslation } from 'react-i18next';
 import { showConfirm } from '@shared/utils/dialog';
 import { createDragPreviewIcon } from '@shared/utils/dragPreviewIcon';
+import { formatUserMessage } from '@shared/utils/userMessages';
 import { initSettings } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
 import {
@@ -109,6 +110,7 @@ export default function App() {
   );
   const receivingLanCount = lanProgressItems.filter((file) => file.status !== 'failed').length;
   const currentFiles = activeTab === TAB_LAN ? [...lanProgressItems, ...lanFiles] : cloudFiles;
+  const formatError = (error, fallbackKey = 'errors.operationFailed') => formatUserMessage(error, t, fallbackKey);
   const emptyText = activeTab === TAB_LAN
     ? t('receiveBox.noLanFiles')
     : t('receiveBox.noCloudFiles');
@@ -136,7 +138,10 @@ export default function App() {
         setCloudFiles(Array.isArray(result) ? result : []);
       }
     } catch (error) {
-      setErrorText(error?.message || String(error));
+      setErrorText(formatError(
+        error,
+        tab === TAB_LAN ? 'errors.receiveBox.listLanFailed' : 'errors.webdav.operationFailed',
+      ));
     } finally {
       setLoading(false);
     }
@@ -228,7 +233,7 @@ export default function App() {
         )));
       }
     } catch (error) {
-      setErrorText(error?.message || String(error));
+      setErrorText(formatError(error, 'errors.webdav.operationFailed'));
     } finally {
       setDownloadingIds([]);
     }
@@ -242,7 +247,7 @@ export default function App() {
       await operation();
       return true;
     } catch (error) {
-      setErrorText(error?.message || String(error));
+      setErrorText(formatError(error, 'errors.operationFailed'));
       return false;
     } finally {
       setOperatingKeys([]);
@@ -350,7 +355,7 @@ export default function App() {
             : file
         )));
       } catch (error) {
-        setErrorText(error?.message || String(error));
+        setErrorText(formatError(error, 'errors.operationFailed'));
       }
     },
   });

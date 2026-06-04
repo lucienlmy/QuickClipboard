@@ -25,6 +25,7 @@ import {
 } from '@shared/api/syncTransfer';
 import { toast } from '@shared/store/toastStore';
 import WebdavSection from './WebdavSection';
+import { formatUserMessage } from '@shared/utils/userMessages';
 
 function SyncTransferSection({ settings, onSettingChange }) {
   const { t } = useTranslation();
@@ -41,6 +42,7 @@ function SyncTransferSection({ settings, onSettingChange }) {
   const [peerPairingCode, setPeerPairingCode] = useState('');
   const [transferFilePath, setTransferFilePath] = useState('');
   const [pairingCodeVisible, setPairingCodeVisible] = useState(true);
+  const lanError = (error) => formatUserMessage(error, t, 'errors.lan.connectFailed');
 
   useEffect(() => {
     let mounted = true;
@@ -78,7 +80,7 @@ function SyncTransferSection({ settings, onSettingChange }) {
   useEffect(() => {
     if (activeMode !== 'lan') return;
     loadLanState().catch(e => {
-      toast.error(e?.message || String(e), { duration: 5000 });
+      toast.error(lanError(e), { duration: 5000 });
     });
   }, [activeMode]);
 
@@ -111,7 +113,7 @@ function SyncTransferSection({ settings, onSettingChange }) {
       await action();
       await loadLanState();
     } catch (e) {
-      toast.error(e?.message || String(e), { duration: 5000 });
+      toast.error(lanError(e), { duration: 5000 });
     } finally {
       setLanBusy('');
     }
@@ -125,7 +127,7 @@ function SyncTransferSection({ settings, onSettingChange }) {
         setTransferFilePath(selectedPath);
       }
     } catch (e) {
-      toast.error(e?.message || String(e), { duration: 5000 });
+      toast.error(formatUserMessage(e, t, 'errors.file.notFound'), { duration: 5000 });
     }
   };
 

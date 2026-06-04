@@ -26,6 +26,7 @@ import {
   getOneTimePasteEventName
 } from '@shared/services/oneTimePaste';
 import { normalizeDisplayPriorityValue } from '@shared/utils/displayFormatPriority';
+import { formatUserMessage } from '@shared/utils/userMessages';
 import logoIcon from '@/assets/icon1024.png';
 import TitleBarSearch from './TitleBarSearch';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
@@ -133,7 +134,7 @@ const TitleBar = forwardRef(({
     } catch (error) {
       console.error('标题栏打开更新窗口失败:', error);
       toast.error(t('updater.checkFailed', {
-        msg: error?.message || String(error)
+        msg: formatUserMessage(error, t, 'errors.operationFailed')
       }), TOAST_CONFIG);
     }
   };
@@ -145,7 +146,9 @@ const TitleBar = forwardRef(({
       await createTransferShelf();
     } catch (error) {
       console.error('标题栏新建文件盒失败:', error);
-      toast.error(`新建文件盒失败：${error?.message || String(error)}`, TOAST_CONFIG);
+      toast.error(t('transferShelf.createFailed', {
+        reason: formatUserMessage(error, t, 'errors.operationFailed'),
+      }), TOAST_CONFIG);
     }
   };
 
@@ -156,7 +159,9 @@ const TitleBar = forwardRef(({
       await openReceiveBox();
     } catch (error) {
       console.error('标题栏打开收件盒失败:', error);
-      toast.error(`打开收件盒失败：${error?.message || String(error)}`, TOAST_CONFIG);
+      toast.error(t('receiveBox.openFailed', {
+        reason: formatUserMessage(error, t, 'errors.operationFailed'),
+      }), TOAST_CONFIG);
     }
   };
 

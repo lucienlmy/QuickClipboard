@@ -11,6 +11,8 @@ use tokio_util::io::ReaderStream;
 use super::crypto::{self, WebdavCryptoContext};
 use super::types::{SyncCollection, WebdavConfig};
 
+const WEBDAV_NETWORK_ERROR: &str = "无法连接 WebDAV 服务，请检查地址、网络或服务器状态";
+
 #[derive(Clone)]
 pub struct WebdavClient {
     client: Client,
@@ -208,14 +210,14 @@ impl WebdavClient {
     }
 
     async fn get_raw_bytes(&self, path: &str) -> Result<Option<Vec<u8>>, String> {
-        let resp = self.request(Method::GET, path).send().await.map_err(|e| e.to_string())?;
+        let resp = self.request(Method::GET, path).send().await.map_err(map_reqwest_error)?;
         if resp.status() == StatusCode::NOT_FOUND {
             return Ok(None);
         }
         if !resp.status().is_success() {
-            return Err(format!("读取 WebDAV 文件失败: {}", resp.status()));
+            return Err(format_webdav_status_error("读取 WebDAV 文件失败", resp.status()));
         }
-        Ok(Some(resp.bytes().await.map_err(|e| e.to_string())?.to_vec()))
+        Ok(Some(resp.bytes().await.map_err(map_reqwest_error)?.to_vec()))
     }
 
     async fn put_raw_bytes(&self, path: &str, bytes: Vec<u8>) -> Result<(), String> {
@@ -224,11 +226,11 @@ impl WebdavClient {
             .body(bytes)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(map_reqwest_error)?;
         if resp.status().is_success() {
             Ok(())
         } else {
-            Err(format!("写入 WebDAV 文件失败: {}", resp.status()))
+            Err(format_webdav_status_error("写入 WebDAV 文件失败", resp.status()))
         }
     }
 
@@ -240,11 +242,11 @@ impl WebdavClient {
             .body(Body::wrap_stream(stream))
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(map_reqwest_error)?;
         if resp.status().is_success() {
             Ok(())
         } else {
-            Err(format!("写入 WebDAV 文件失败: {}", resp.status()))
+            Err(format_webdav_status_error("写入 WebDAV 文件失败", resp.status()))
         }
     }
 
@@ -256,12 +258,12 @@ impl WebdavClient {
                 .map_err(|e| format!("创建下载目录失败: {}", e))?;
         }
 
-        let resp = self.request(Method::GET, path).send().await.map_err(|e| e.to_string())?;
+        let resp = self.request(Method::GET, path).send().await.map_err(map_reqwest_error)?;
         if resp.status() == StatusCode::NOT_FOUND {
             return Err("云端文件不存在".to_string());
         }
         if !resp.status().is_success() {
-            return Err(format!("读取 WebDAV 文件失败: {}", resp.status()));
+            return Err(format_webdav_status_error("读取 WebDAV 文件失败", resp.status()));
         }
 
         let stream = resp
@@ -277,24 +279,24 @@ impl WebdavClient {
     }
 
     pub async fn delete_path(&self, path: &str) -> Result<(), String> {
-        let resp = self.request(Method::DELETE, path).send().await.map_err(|e| e.to_string())?;
+        let resp = self.request(Method::DELETE, path).send().await.map_err(map_reqwest_error)?;
         if resp.status().is_success() || resp.status() == StatusCode::NOT_FOUND {
             Ok(())
         } else {
-            Err(format!("删除 WebDAV 文件失败: {} {}", path, resp.status()))
+            Err(format_webdav_status_error("删除 WebDAV 文件失败", resp.status()))
         }
     }
 
     pub async fn mkcol(&self, path: &str) -> Result<(), String> {
         let method = Method::from_bytes(b"MKCOL").map_err(|e| e.to_string())?;
-        let resp = self.request(method, path).send().await.map_err(|e| e.to_string())?;
+        let resp = self.request(method, path).send().await.map_err(map_reqwest_error)?;
         if resp.status().is_success()
             || resp.status() == StatusCode::METHOD_NOT_ALLOWED
             || resp.status().as_u16() == 405
         {
             Ok(())
         } else {
-            Err(format!("创建 WebDAV 目录失败: {} {}", path, resp.status()))
+            Err(format_webdav_status_error("创建 WebDAV 目录失败", resp.status()))
         }
     }
 
@@ -332,4 +334,27 @@ fn normalize_path(path: &str) -> String {
 
 fn is_webdav_conflict(error: &str) -> bool {
     error.contains("409") || error.contains("Conflict")
+}
+
+fn map_reqwest_error(error: reqwest::Error) -> String {
+    if error.is_timeout() {
+        return "WebDAV 请求超时".to_string();
+    }
+    if error.is_connect() || error.is_request() {
+        return WEBDAV_NETWORK_ERROR.to_string();
+    }
+    format!("WebDAV 请求失败: {}", error)
+}
+
+fn format_webdav_status_error(action: &str, status: StatusCode) -> String {
+    let hint = match status {
+        StatusCode::UNAUTHORIZED => "账号或密码不正确",
+        StatusCode::FORBIDDEN => "当前账号没有访问权限",
+        StatusCode::NOT_FOUND => "路径不存在",
+        StatusCode::CONFLICT => "目标目录不存在或路径冲突",
+        _ if status.as_u16() == 507 => "存储空间不足",
+        _ if status.is_server_error() => "服务器返回异常",
+        _ => "请求被服务器拒绝",
+    };
+    format!("{}: {} ({})", action, hint, status.as_u16())
 }

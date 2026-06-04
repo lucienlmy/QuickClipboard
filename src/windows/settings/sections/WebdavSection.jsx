@@ -7,6 +7,7 @@ import Button from '@shared/components/ui/Button';
 import Input from '@shared/components/ui/Input';
 import Toggle from '@shared/components/ui/Toggle';
 import { showConfirm } from '@shared/utils/dialog';
+import { formatUserMessage, formatUserMessages } from '@shared/utils/userMessages';
 import { toast } from '@shared/store/toastStore';
 import {
   downloadAllWebdav,
@@ -135,6 +136,8 @@ function WebdavSection({ settings, onSettingChange }) {
     return t('settings.webdav.syncResultDetail', { total, clipboard, favorites, groups });
   };
 
+  const webdavError = (error) => formatUserMessage(error, t, 'errors.webdav.operationFailed');
+
   const saveWebdavPasswordDraft = async () => {
     if (!passwordDraft) return true;
     try {
@@ -145,7 +148,7 @@ function WebdavSection({ settings, onSettingChange }) {
       toast.success(t('settings.webdav.passwordSaved'));
       return true;
     } catch (e) {
-      toast.error(e?.message || String(e), { duration: 6000 });
+      toast.error(webdavError(e), { duration: 6000 });
       return false;
     } finally {
       setPasswordBusy(false);
@@ -160,7 +163,7 @@ function WebdavSection({ settings, onSettingChange }) {
       setPasswordSaved(false);
       toast.success(t('settings.webdav.passwordCleared'));
     } catch (e) {
-      toast.error(e?.message || String(e), { duration: 6000 });
+      toast.error(webdavError(e), { duration: 6000 });
     } finally {
       setPasswordBusy(false);
     }
@@ -181,7 +184,7 @@ function WebdavSection({ settings, onSettingChange }) {
       toast.success(t('settings.webdav.encryptionPasswordSaved'));
       return true;
     } catch (e) {
-      toast.error(e?.message || String(e), { duration: 6000 });
+      toast.error(webdavError(e), { duration: 6000 });
       return false;
     } finally {
       setEncryptionPasswordBusy(false);
@@ -196,7 +199,7 @@ function WebdavSection({ settings, onSettingChange }) {
       setEncryptionPasswordSaved(false);
       toast.success(t('settings.webdav.encryptionPasswordCleared'));
     } catch (e) {
-      toast.error(e?.message || String(e), { duration: 6000 });
+      toast.error(webdavError(e), { duration: 6000 });
     } finally {
       setEncryptionPasswordBusy(false);
     }
@@ -210,16 +213,23 @@ function WebdavSection({ settings, onSettingChange }) {
       const result = await action();
       if (result && typeof result === 'object' && ('pulled' in result || 'pushed' in result)) {
         setLastReport({ actionId, mode, result, time: Date.now() });
-        toast.success(`${t(successKey)}：${formatReport(result, mode)}`, { duration: 5000 });
+        toast.success(t('settings.webdav.successWithDetail', {
+          title: t(successKey),
+          detail: formatReport(result, mode),
+        }), { duration: 5000 });
         if (Array.isArray(result.errors) && result.errors.length > 0) {
-          toast.warning(result.errors.join('；'), { duration: 6000 });
+          toast.warning(
+            formatUserMessages(result.errors, t, 'errors.webdav.operationFailed')
+              .join(t('settings.webdav.warningSeparator')),
+            { duration: 6000 },
+          );
         }
       } else {
         setLastReport(null);
         toast.success(t(successKey));
       }
     } catch (e) {
-      toast.error(e?.message || String(e), { duration: 6000 });
+      toast.error(webdavError(e), { duration: 6000 });
     } finally {
       setBusy('');
     }
