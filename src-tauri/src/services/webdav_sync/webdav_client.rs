@@ -2,9 +2,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 use futures_util::TryStreamExt;
+use parking_lot::Mutex;
 use reqwest::{Body, Client, Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::collections::HashSet;
 use tokio::io::DuplexStream;
 use tokio_util::io::ReaderStream;
 
@@ -19,6 +21,7 @@ pub struct WebdavClient {
     config: WebdavConfig,
     base_url: String,
     crypto: Option<WebdavCryptoContext>,
+    ensured_dirs: Arc<Mutex<HashSet<String>>>,
 }
 
 impl WebdavClient {
@@ -38,6 +41,7 @@ impl WebdavClient {
             config,
             base_url,
             crypto: None,
+            ensured_dirs: Arc::new(Mutex::new(HashSet::new())),
         })
     }
 
@@ -89,19 +93,19 @@ impl WebdavClient {
     }
 
     pub async fn ensure_collection_dirs(&self, collection: SyncCollection) -> Result<(), String> {
-        self.mkcol("").await?;
-        self.mkcol(collection.dir()).await?;
-        self.mkcol(&format!("{}/chunks", collection.dir())).await
+        self.ensure_dir_cached("").await?;
+        self.ensure_dir_cached(collection.dir()).await?;
+        self.ensure_dir_cached(&format!("{}/chunks", collection.dir())).await
     }
 
     pub async fn ensure_groups_dir(&self) -> Result<(), String> {
-        self.mkcol("").await?;
-        self.mkcol("groups").await
+        self.ensure_dir_cached("").await?;
+        self.ensure_dir_cached("groups").await
     }
 
     pub async fn ensure_files_dir(&self) -> Result<(), String> {
-        self.mkcol("").await?;
-        self.mkcol("files").await
+        self.ensure_dir_cached("").await?;
+        self.ensure_dir_cached("files").await
     }
 
     pub async fn ensure_cloud_files_dir(&self) -> Result<(), String> {
@@ -123,8 +127,8 @@ impl WebdavClient {
     }
 
     pub async fn ensure_tombstones_dir(&self) -> Result<(), String> {
-        self.mkcol("").await?;
-        self.mkcol("tombstones").await
+        self.ensure_dir_cached("").await?;
+        self.ensure_dir_cached("tombstones").await
     }
 
     pub async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, String> {
@@ -298,6 +302,20 @@ impl WebdavClient {
         } else {
             Err(format_webdav_status_error("创建 WebDAV 目录失败", resp.status()))
         }
+    }
+
+    pub fn mark_dir_ensured(&self, path: &str) {
+        self.ensured_dirs.lock().insert(normalize_path(path));
+    }
+
+    async fn ensure_dir_cached(&self, path: &str) -> Result<(), String> {
+        let path = normalize_path(path);
+        if self.ensured_dirs.lock().contains(&path) {
+            return Ok(());
+        }
+        self.mkcol(&path).await?;
+        self.ensured_dirs.lock().insert(path);
+        Ok(())
     }
 
     fn request(&self, method: Method, path: &str) -> reqwest::RequestBuilder {

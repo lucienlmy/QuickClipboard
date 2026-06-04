@@ -71,7 +71,12 @@ pub async fn remote_tombstone_states(client: &WebdavClient) -> Result<HashMap<St
 async fn load_remote_tombstones(
     client: &WebdavClient,
 ) -> Result<HashMap<String, crate::services::database::SyncTombstone>, String> {
-    let Some(remote) = client.get_json::<TombstoneList>(TOMBSTONES_PATH).await? else {
+    let remote = client.get_json::<TombstoneList>(TOMBSTONES_PATH).await?;
+    if remote.is_some() {
+        client.mark_dir_ensured("");
+        client.mark_dir_ensured("tombstones");
+    }
+    let Some(remote) = remote else {
         return Ok(HashMap::new());
     };
     Ok(remote

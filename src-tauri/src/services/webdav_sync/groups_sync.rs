@@ -8,9 +8,12 @@ pub async fn upload_groups_with_tombstones(
     device_id: &str,
     tombstone_states: &HashMap<String, i64>,
 ) -> Result<Vec<CloudGroup>, String> {
-    let mut remote = client
-        .get_json::<GroupList>("groups/groups.json")
-        .await?
+    let remote_list = client.get_json::<GroupList>("groups/groups.json").await?;
+    if remote_list.is_some() {
+        client.mark_dir_ensured("");
+        client.mark_dir_ensured("groups");
+    }
+    let mut remote = remote_list
         .unwrap_or_default()
         .groups
         .into_iter()

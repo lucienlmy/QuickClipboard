@@ -43,7 +43,7 @@ pub fn webdav_local_sync_parts_signature() -> Result<WebdavLocalSyncSignature, S
     })
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WebdavLocalSyncSignature {
     pub clipboard: String,
     pub favorites: String,

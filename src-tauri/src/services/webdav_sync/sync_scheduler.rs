@@ -9,6 +9,8 @@ use crate::services::database::WebdavLocalSyncSignature;
 
 use super::types::{SyncReport, WebdavStatus};
 
+const LAST_UPLOADED_SIGNATURE_KEY_PREFIX: &str = "webdav_last_uploaded_signature";
+
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static STOP_FLAG: AtomicBool = AtomicBool::new(false);
 static AUTO_PUSH_VERSION: AtomicU64 = AtomicU64::new(0);
@@ -36,9 +38,6 @@ pub fn get_last_report() -> Option<WebdavSyncReportEvent> {
 }
 
 pub fn store_manual_report(mode: &'static str, result: SyncReport) -> SyncReport {
-    if mode == "push" && result.errors.is_empty() {
-        mark_uploaded_signature_current();
-    }
     store_report(mode, result.clone(), false);
     result
 }
@@ -55,7 +54,7 @@ pub fn stop() {
 
 pub fn start() {
     let _guard = START_LOCK.lock();
-    mark_uploaded_signature_current();
+    load_uploaded_signature();
     if RUNNING.load(Ordering::SeqCst) {
         STOP_FLAG.store(false, Ordering::SeqCst);
         return;
@@ -147,21 +146,40 @@ async fn run_auto_push(app: AppHandle, reason: &'static str) {
 }
 
 async fn upload_changed_parts() -> Result<Option<SyncReport>, String> {
+    upload_selected_parts(false).await
+}
+
+pub async fn upload_selected_parts(force_all: bool) -> Result<Option<SyncReport>, String> {
+    load_uploaded_signature();
+    let settings = crate::services::get_settings();
     let signature = crate::services::database::webdav_local_sync_parts_signature()?;
     let last_uploaded_signature = LAST_UPLOADED_SIGNATURE.lock().clone();
-    let upload_clipboard = signature.clipboard != last_uploaded_signature.clipboard;
-    let upload_favorites = signature.favorites != last_uploaded_signature.favorites;
-    let upload_groups = signature.groups != last_uploaded_signature.groups;
-    let upload_tombstones = signature.tombstones != last_uploaded_signature.tombstones;
+    let sync_clipboard = settings.webdav_sync_clipboard;
+    let sync_favorites = settings.webdav_sync_favorites;
+    let upload_clipboard = sync_clipboard
+        && (force_all || signature.clipboard != last_uploaded_signature.clipboard);
+    let upload_favorites = sync_favorites
+        && (force_all || signature.favorites != last_uploaded_signature.favorites);
+    let upload_groups = sync_favorites
+        && (force_all || signature.groups != last_uploaded_signature.groups);
+    let upload_tombstones = (sync_clipboard || sync_favorites)
+        && (force_all || signature.tombstones != last_uploaded_signature.tombstones);
 
     if !upload_clipboard && !upload_favorites && !upload_groups && !upload_tombstones {
         return Ok(None);
     }
 
-    let report = super::upload_parts(upload_clipboard, upload_favorites, upload_groups).await?;
+    let report = super::upload_parts(upload_clipboard, upload_favorites, upload_groups, upload_tombstones).await?;
     if report.errors.is_empty() {
-        let uploaded_signature = signature.clone();
-        *LAST_UPLOADED_SIGNATURE.lock() = uploaded_signature;
+        let uploaded_signature = merged_uploaded_signature(
+            &last_uploaded_signature,
+            &signature,
+            upload_clipboard,
+            upload_favorites,
+            upload_groups,
+            upload_tombstones,
+        );
+        store_uploaded_signature(&uploaded_signature);
         if crate::services::database::webdav_local_sync_parts_signature()
             .map(|current_signature| current_signature != signature)
             .unwrap_or(false)
@@ -172,10 +190,52 @@ async fn upload_changed_parts() -> Result<Option<SyncReport>, String> {
     Ok(Some(report))
 }
 
-fn mark_uploaded_signature_current() {
-    if let Ok(signature) = crate::services::database::webdav_local_sync_parts_signature() {
-        *LAST_UPLOADED_SIGNATURE.lock() = signature;
+fn merged_uploaded_signature(
+    previous: &WebdavLocalSyncSignature,
+    current: &WebdavLocalSyncSignature,
+    upload_clipboard: bool,
+    upload_favorites: bool,
+    upload_groups: bool,
+    upload_tombstones: bool,
+) -> WebdavLocalSyncSignature {
+    let mut signature = previous.clone();
+    if upload_clipboard {
+        signature.clipboard = current.clipboard.clone();
     }
+    if upload_favorites {
+        signature.favorites = current.favorites.clone();
+    }
+    if upload_groups {
+        signature.groups = current.groups.clone();
+    }
+    if upload_tombstones {
+        signature.tombstones = current.tombstones.clone();
+    }
+    signature
+}
+
+fn load_uploaded_signature() {
+    let key = last_uploaded_signature_key();
+    let signature =
+        crate::services::store::get::<WebdavLocalSyncSignature>(&key).unwrap_or_default();
+    *LAST_UPLOADED_SIGNATURE.lock() = signature;
+}
+
+fn store_uploaded_signature(signature: &WebdavLocalSyncSignature) {
+    let key = last_uploaded_signature_key();
+    *LAST_UPLOADED_SIGNATURE.lock() = signature.clone();
+    let _ = crate::services::store::set(&key, signature);
+}
+
+fn last_uploaded_signature_key() -> String {
+    let settings = crate::services::get_settings();
+    [
+        LAST_UPLOADED_SIGNATURE_KEY_PREFIX,
+        settings.webdav_url.trim().trim_end_matches('/'),
+        settings.webdav_username.trim(),
+        settings.webdav_root_path.trim(),
+    ]
+    .join("|")
 }
 
 fn store_report(mode: &'static str, result: SyncReport, automatic: bool) {

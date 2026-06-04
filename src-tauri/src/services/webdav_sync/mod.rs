@@ -22,9 +22,9 @@ pub async fn test_connection() -> Result<(), String> {
 }
 
 pub async fn upload() -> Result<SyncReport, String> {
-    let client = build_client().await?;
-    let device_id = crate::services::sync_transfer::device_id();
-    let report = uploader::upload_all(&client, &device_id).await?;
+    let report = sync_scheduler::upload_selected_parts(false)
+        .await?
+        .unwrap_or_default();
     Ok(sync_scheduler::store_manual_report("push", report))
 }
 
@@ -35,10 +35,22 @@ pub async fn download(force_download: bool) -> Result<SyncReport, String> {
     Ok(sync_scheduler::store_manual_report("pull", report))
 }
 
-pub async fn upload_parts(upload_clipboard: bool, upload_favorites: bool, upload_groups: bool) -> Result<SyncReport, String> {
+pub async fn upload_parts(
+    upload_clipboard: bool,
+    upload_favorites: bool,
+    upload_groups: bool,
+    upload_tombstones: bool,
+) -> Result<SyncReport, String> {
     let client = build_client().await?;
     let device_id = crate::services::sync_transfer::device_id();
-    uploader::upload_parts(&client, &device_id, upload_clipboard, upload_favorites, upload_groups).await
+    uploader::upload_parts(
+        &client,
+        &device_id,
+        upload_clipboard,
+        upload_favorites,
+        upload_groups,
+        upload_tombstones,
+    ).await
 }
 
 pub async fn upload_cloud_files_with_progress(

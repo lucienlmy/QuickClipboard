@@ -6,7 +6,7 @@ use super::types::{CloudRecord, ImageFileIndex, ImageFileIndexEntry, RecordChunk
 use super::webdav_client::WebdavClient;
 
 pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncReport, String> {
-    upload_parts(client, device_id, true, true, true).await
+    upload_parts(client, device_id, true, true, true, true).await
 }
 
 pub async fn upload_parts(
@@ -15,23 +15,28 @@ pub async fn upload_parts(
     upload_clipboard: bool,
     upload_favorites: bool,
     upload_groups: bool,
+    upload_tombstones: bool,
 ) -> Result<SyncReport, String> {
     let mut report = SyncReport::default();
     let settings = crate::services::get_settings();
     let mut uploaded_records = Vec::new();
 
-    let tombstone_states = match super::tombstones_sync::upload_tombstones(client).await {
-        Ok(result) => {
-            report.pulled_clipboard += result.applied.history;
-            report.pulled_favorites += result.applied.favorites;
-            report.pulled_groups += result.applied.groups;
-            report.pulled += result.applied.total();
-            result.states
+    let tombstone_states = if upload_tombstones {
+        match super::tombstones_sync::upload_tombstones(client).await {
+            Ok(result) => {
+                report.pulled_clipboard += result.applied.history;
+                report.pulled_favorites += result.applied.favorites;
+                report.pulled_groups += result.applied.groups;
+                report.pulled += result.applied.total();
+                result.states
+            }
+            Err(e) => {
+                report.errors.push(format!("删除墓碑推送失败: {}", e));
+                crate::services::database::sync_tombstone_states().unwrap_or_default()
+            }
         }
-        Err(e) => {
-            report.errors.push(format!("删除墓碑推送失败: {}", e));
-            crate::services::database::sync_tombstone_states().unwrap_or_default()
-        }
+    } else {
+        crate::services::database::sync_tombstone_states().unwrap_or_default()
     };
 
     let history_records = if settings.webdav_sync_clipboard && upload_clipboard {
@@ -108,12 +113,6 @@ pub async fn upload_parts(
     }
 
     if settings.webdav_sync_images {
-        if upload_clipboard {
-            uploaded_records.extend(history_records);
-        }
-        if upload_favorites {
-            uploaded_records.extend(favorite_records);
-        }
         upload_images(client, &uploaded_records)
             .await
             .map_err(|e| format!("上传图片失败: {}", e))?;
@@ -303,7 +302,12 @@ async fn upload_images(client: &WebdavClient, records: &[CloudRecord]) -> Result
 }
 
 async fn load_image_file_index(client: &WebdavClient) -> Result<ImageFileIndex, String> {
-    Ok(client.get_json("files/index.json").await?.unwrap_or_default())
+    let index = client.get_json("files/index.json").await?;
+    if index.is_some() {
+        client.mark_dir_ensured("");
+        client.mark_dir_ensured("files");
+    }
+    Ok(index.unwrap_or_default())
 }
 
 async fn save_image_file_index(client: &WebdavClient, index: &ImageFileIndex) -> Result<(), String> {
