@@ -44,6 +44,7 @@ impl WebdavClient {
     }
 
     pub async fn enable_encryption(&mut self, password: &str) -> Result<(), String> {
+        self.mkcol("").await?;
         let config = match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await? {
             Some(config) => config,
             None => {
