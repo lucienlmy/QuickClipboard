@@ -41,3 +41,24 @@ pub fn webdav_stop_scheduler() -> Result<(), String> {
     services::webdav_sync::stop_scheduler();
     Ok(())
 }
+
+#[tauri::command]
+pub fn webdav_has_saved_password(url: String, username: String) -> Result<bool, String> {
+    if url.trim().is_empty() || username.trim().is_empty() {
+        return Ok(false);
+    }
+    services::secure_credentials::has_webdav_password(&url, &username)
+}
+
+#[tauri::command]
+pub fn webdav_set_password(url: String, username: String, password: String) -> Result<bool, String> {
+    if password.is_empty() {
+        if url.trim().is_empty() || username.trim().is_empty() {
+            return Ok(false);
+        }
+        services::secure_credentials::delete_webdav_password(&url, &username)?;
+        return Ok(false);
+    }
+    services::secure_credentials::set_webdav_password(&url, &username, &password)?;
+    Ok(true)
+}

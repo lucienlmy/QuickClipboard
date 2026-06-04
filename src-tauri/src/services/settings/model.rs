@@ -183,6 +183,7 @@ pub struct AppSettings {
     pub webdav_enabled: bool,
     pub webdav_url: String,
     pub webdav_username: String,
+    #[serde(default, skip_serializing)]
     pub webdav_password: String,
     pub webdav_root_path: String,
     pub webdav_auto_push: bool,

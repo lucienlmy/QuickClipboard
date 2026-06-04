@@ -38,6 +38,14 @@ pub fn reload_settings() -> Result<AppSettings, String> {
 #[tauri::command]
 pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result<(), String> {
     let old_settings = get_settings();
+    let webdav_password = std::mem::take(&mut settings.webdav_password);
+    if !webdav_password.is_empty() {
+        crate::services::secure_credentials::set_webdav_password(
+            &settings.webdav_url,
+            &settings.webdav_username,
+            &webdav_password,
+        )?;
+    }
     if settings.settings_migration_version.is_none()
         || settings.settings_migration_version < old_settings.settings_migration_version
     {

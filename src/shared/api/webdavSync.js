@@ -31,3 +31,11 @@ export async function startWebdavScheduler() {
 export async function stopWebdavScheduler() {
   return await invoke('webdav_stop_scheduler');
 }
+
+export async function hasSavedWebdavPassword(url, username) {
+  return await invoke('webdav_has_saved_password', { url, username });
+}
+
+export async function setWebdavPassword(url, username, password) {
+  return await invoke('webdav_set_password', { url, username, password });
+}

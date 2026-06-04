@@ -288,6 +288,8 @@ pub fn run() {
                 commands::webdav_get_last_report,
                 commands::webdav_start_scheduler,
                 commands::webdav_stop_scheduler,
+                commands::webdav_has_saved_password,
+                commands::webdav_set_password,
                 commands::sync_transfer_get_mode_infos,
                 commands::sync_transfer_lan_get_status,
                 commands::sync_transfer_lan_start_http_server,

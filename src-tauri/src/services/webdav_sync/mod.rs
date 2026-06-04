@@ -78,10 +78,19 @@ pub fn stop_scheduler() {
 
 fn build_client() -> Result<WebdavClient, String> {
     let settings = crate::services::get_settings();
+    let password = if settings.webdav_username.trim().is_empty() {
+        String::new()
+    } else {
+        crate::services::secure_credentials::get_webdav_password(
+            &settings.webdav_url,
+            &settings.webdav_username,
+        )?
+        .ok_or_else(|| "请先在设置中保存 WebDAV 密码".to_string())?
+    };
     let config = WebdavConfig {
         url: settings.webdav_url,
         username: settings.webdav_username,
-        password: settings.webdav_password,
+        password,
         root_path: if settings.webdav_root_path.trim().is_empty() {
             "quickclipboard".to_string()
         } else {

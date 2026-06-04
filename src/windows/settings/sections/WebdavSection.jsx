@@ -12,6 +12,8 @@ import {
   downloadAllWebdav,
   downloadWebdav,
   getWebdavLastReport,
+  hasSavedWebdavPassword,
+  setWebdavPassword,
   startWebdavScheduler,
   stopWebdavScheduler,
   testWebdavConnection,
@@ -34,6 +36,12 @@ function WebdavSection({ settings, onSettingChange }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState('');
   const [lastReport, setLastReport] = useState(null);
+  const [passwordDraft, setPasswordDraft] = useState('');
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+
+  const webdavUrl = String(settings.webdavUrl || '').trim();
+  const webdavUsername = String(settings.webdavUsername || '').trim();
 
   useEffect(() => {
     let mounted = true;
@@ -61,6 +69,26 @@ function WebdavSection({ settings, onSettingChange }) {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    if (!webdavUrl || !webdavUsername) {
+      setPasswordSaved(false);
+      return () => {
+        mounted = false;
+      };
+    }
+    hasSavedWebdavPassword(webdavUrl, webdavUsername)
+      .then(saved => {
+        if (mounted) setPasswordSaved(Boolean(saved));
+      })
+      .catch(() => {
+        if (mounted) setPasswordSaved(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [webdavUrl, webdavUsername]);
+
   const update = async (key, value) => {
     await onSettingChange(key, value);
     if (key === 'webdavEnabled') {
@@ -81,7 +109,39 @@ function WebdavSection({ settings, onSettingChange }) {
     return t('settings.webdav.syncResultDetail', { total, clipboard, favorites, groups });
   };
 
+  const saveWebdavPasswordDraft = async () => {
+    if (!passwordDraft) return true;
+    try {
+      setPasswordBusy(true);
+      const saved = await setWebdavPassword(webdavUrl, webdavUsername, passwordDraft);
+      setPasswordSaved(Boolean(saved));
+      setPasswordDraft('');
+      toast.success(t('settings.webdav.passwordSaved'));
+      return true;
+    } catch (e) {
+      toast.error(e?.message || String(e), { duration: 6000 });
+      return false;
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
+  const clearWebdavPassword = async () => {
+    try {
+      setPasswordBusy(true);
+      await setWebdavPassword(webdavUrl, webdavUsername, '');
+      setPasswordDraft('');
+      setPasswordSaved(false);
+      toast.success(t('settings.webdav.passwordCleared'));
+    } catch (e) {
+      toast.error(e?.message || String(e), { duration: 6000 });
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
   const runAction = async (actionId, action, successKey, mode) => {
+    if (!(await saveWebdavPasswordDraft())) return;
     try {
       setBusy(actionId);
       const result = await action();
@@ -166,7 +226,33 @@ function WebdavSection({ settings, onSettingChange }) {
       </SettingItem>
 
       <SettingItem label={t('settings.webdav.password')}>
-        <Input type="password" value={settings.webdavPassword || ''} commitOnBlur onCommit={v => update('webdavPassword', String(v))} placeholder={t('settings.webdav.passwordPlaceholder')} className="w-80" />
+        <div className="flex items-center gap-2">
+          <Input
+            type="password"
+            value={passwordDraft}
+            onChange={e => setPasswordDraft(e.target.value)}
+            onBlur={saveWebdavPasswordDraft}
+            onKeyDown={e => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+            placeholder={passwordSaved ? t('settings.webdav.passwordSavedPlaceholder') : t('settings.webdav.passwordPlaceholder')}
+            className="w-64"
+            disabled={passwordBusy}
+          />
+          {passwordSaved && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={clearWebdavPassword}
+              disabled={passwordBusy}
+              loading={passwordBusy}
+              icon={<i className="ti ti-key-off" />}
+            >
+              {t('settings.webdav.clearPassword')}
+            </Button>
+          )}
+        </div>
       </SettingItem>
 
       <SettingItem label={t('settings.webdav.rootPath')}>
