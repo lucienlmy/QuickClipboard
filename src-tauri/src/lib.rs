@@ -290,6 +290,8 @@ pub fn run() {
                 commands::webdav_stop_scheduler,
                 commands::webdav_has_saved_password,
                 commands::webdav_set_password,
+                commands::webdav_has_saved_encryption_password,
+                commands::webdav_set_encryption_password,
                 commands::sync_transfer_get_mode_infos,
                 commands::sync_transfer_lan_get_status,
                 commands::sync_transfer_lan_start_http_server,
@@ -483,10 +485,13 @@ pub fn run() {
                         && !services::low_memory::is_user_requested_exit() 
                     {
                         api.prevent_exit();
+                    } else {
+                        services::webdav_sync::crypto::clear_cached_keys();
                     }
                 }
                 tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } => {
                     if label == "main" && !services::low_memory::is_low_memory_mode() {
+                        services::webdav_sync::crypto::clear_cached_keys();
                         app.exit(0);
                     }
                 }

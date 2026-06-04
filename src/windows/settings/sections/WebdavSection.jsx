@@ -12,7 +12,9 @@ import {
   downloadAllWebdav,
   downloadWebdav,
   getWebdavLastReport,
+  hasSavedWebdavEncryptionPassword,
   hasSavedWebdavPassword,
+  setWebdavEncryptionPassword,
   setWebdavPassword,
   startWebdavScheduler,
   stopWebdavScheduler,
@@ -39,9 +41,13 @@ function WebdavSection({ settings, onSettingChange }) {
   const [passwordDraft, setPasswordDraft] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
+  const [encryptionPasswordDraft, setEncryptionPasswordDraft] = useState('');
+  const [encryptionPasswordSaved, setEncryptionPasswordSaved] = useState(false);
+  const [encryptionPasswordBusy, setEncryptionPasswordBusy] = useState(false);
 
   const webdavUrl = String(settings.webdavUrl || '').trim();
   const webdavUsername = String(settings.webdavUsername || '').trim();
+  const webdavRootPath = String(settings.webdavRootPath || 'quickclipboard').trim() || 'quickclipboard';
 
   useEffect(() => {
     let mounted = true;
@@ -88,6 +94,26 @@ function WebdavSection({ settings, onSettingChange }) {
       mounted = false;
     };
   }, [webdavUrl, webdavUsername]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!webdavUrl) {
+      setEncryptionPasswordSaved(false);
+      return () => {
+        mounted = false;
+      };
+    }
+    hasSavedWebdavEncryptionPassword(webdavUrl, webdavUsername, webdavRootPath)
+      .then(saved => {
+        if (mounted) setEncryptionPasswordSaved(Boolean(saved));
+      })
+      .catch(() => {
+        if (mounted) setEncryptionPasswordSaved(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [webdavUrl, webdavUsername, webdavRootPath]);
 
   const update = async (key, value) => {
     await onSettingChange(key, value);
@@ -140,8 +166,45 @@ function WebdavSection({ settings, onSettingChange }) {
     }
   };
 
+  const saveWebdavEncryptionPasswordDraft = async () => {
+    if (!encryptionPasswordDraft) return true;
+    try {
+      setEncryptionPasswordBusy(true);
+      const saved = await setWebdavEncryptionPassword(
+        webdavUrl,
+        webdavUsername,
+        webdavRootPath,
+        encryptionPasswordDraft
+      );
+      setEncryptionPasswordSaved(Boolean(saved));
+      setEncryptionPasswordDraft('');
+      toast.success(t('settings.webdav.encryptionPasswordSaved'));
+      return true;
+    } catch (e) {
+      toast.error(e?.message || String(e), { duration: 6000 });
+      return false;
+    } finally {
+      setEncryptionPasswordBusy(false);
+    }
+  };
+
+  const clearWebdavEncryptionPassword = async () => {
+    try {
+      setEncryptionPasswordBusy(true);
+      await setWebdavEncryptionPassword(webdavUrl, webdavUsername, webdavRootPath, '');
+      setEncryptionPasswordDraft('');
+      setEncryptionPasswordSaved(false);
+      toast.success(t('settings.webdav.encryptionPasswordCleared'));
+    } catch (e) {
+      toast.error(e?.message || String(e), { duration: 6000 });
+    } finally {
+      setEncryptionPasswordBusy(false);
+    }
+  };
+
   const runAction = async (actionId, action, successKey, mode) => {
     if (!(await saveWebdavPasswordDraft())) return;
+    if (!(await saveWebdavEncryptionPasswordDraft())) return;
     try {
       setBusy(actionId);
       const result = await action();
@@ -257,6 +320,43 @@ function WebdavSection({ settings, onSettingChange }) {
 
       <SettingItem label={t('settings.webdav.rootPath')}>
         <Input value={settings.webdavRootPath || 'quickclipboard'} commitOnBlur onCommit={v => update('webdavRootPath', String(v))} placeholder={t('settings.webdav.rootPathPlaceholder')} className="w-80" />
+      </SettingItem>
+
+      <div className="pt-5">
+        <SubGroupTitle
+          icon="ti ti-lock"
+          title={t('settings.webdav.encryptionTitle')}
+          description={t('settings.webdav.encryptionDesc')}
+        />
+      </div>
+      <SettingItem label={t('settings.webdav.encryptionPassword')} description={t('settings.webdav.encryptionPasswordDesc')}>
+        <div className="flex items-center gap-2">
+          <Input
+            type="password"
+            value={encryptionPasswordDraft}
+            onChange={e => setEncryptionPasswordDraft(e.target.value)}
+            onBlur={saveWebdavEncryptionPasswordDraft}
+            onKeyDown={e => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+            placeholder={encryptionPasswordSaved ? t('settings.webdav.encryptionPasswordSavedPlaceholder') : t('settings.webdav.encryptionPasswordPlaceholder')}
+            className="w-64"
+            disabled={encryptionPasswordBusy}
+          />
+          {encryptionPasswordSaved && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={clearWebdavEncryptionPassword}
+              disabled={encryptionPasswordBusy}
+              loading={encryptionPasswordBusy}
+              icon={<i className="ti ti-lock-off" />}
+            >
+              {t('settings.webdav.clearEncryptionPassword')}
+            </Button>
+          )}
+        </div>
       </SettingItem>
 
       {/* 子区 2：同步操作 */}

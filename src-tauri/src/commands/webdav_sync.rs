@@ -62,3 +62,34 @@ pub fn webdav_set_password(url: String, username: String, password: String) -> R
     services::secure_credentials::set_webdav_password(&url, &username, &password)?;
     Ok(true)
 }
+
+#[tauri::command]
+pub fn webdav_has_saved_encryption_password(
+    url: String,
+    username: String,
+    root_path: String,
+) -> Result<bool, String> {
+    if url.trim().is_empty() {
+        return Ok(false);
+    }
+    services::secure_credentials::has_webdav_encryption_password(&url, &username, &root_path)
+}
+
+#[tauri::command]
+pub fn webdav_set_encryption_password(
+    url: String,
+    username: String,
+    root_path: String,
+    password: String,
+) -> Result<bool, String> {
+    services::webdav_sync::crypto::clear_cached_keys();
+    if password.is_empty() {
+        if url.trim().is_empty() {
+            return Ok(false);
+        }
+        services::secure_credentials::delete_webdav_encryption_password(&url, &username, &root_path)?;
+        return Ok(false);
+    }
+    services::secure_credentials::set_webdav_encryption_password(&url, &username, &root_path, &password)?;
+    Ok(true)
+}

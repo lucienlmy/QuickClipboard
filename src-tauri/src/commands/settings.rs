@@ -54,6 +54,9 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
     let edge_hide_changed = old_settings.edge_hide_enabled != settings.edge_hide_enabled;
     let quickpaste_enabled_changed = old_settings.quickpaste_enabled != settings.quickpaste_enabled;
+    let webdav_crypto_scope_changed = old_settings.webdav_url != settings.webdav_url
+        || old_settings.webdav_username != settings.webdav_username
+        || old_settings.webdav_root_path != settings.webdav_root_path;
 
     if edge_hide_changed && !settings.edge_hide_enabled {
         settings.edge_snap_position = None;
@@ -64,6 +67,9 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     }
 
     settings.update_check_interval = normalize_update_check_interval(&settings.update_check_interval);
+    if webdav_crypto_scope_changed {
+        crate::services::webdav_sync::crypto::clear_cached_keys();
+    }
     
     update_settings(settings.clone())?;
     

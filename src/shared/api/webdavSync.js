@@ -39,3 +39,11 @@ export async function hasSavedWebdavPassword(url, username) {
 export async function setWebdavPassword(url, username, password) {
   return await invoke('webdav_set_password', { url, username, password });
 }
+
+export async function hasSavedWebdavEncryptionPassword(url, username, rootPath) {
+  return await invoke('webdav_has_saved_encryption_password', { url, username, rootPath });
+}
+
+export async function setWebdavEncryptionPassword(url, username, rootPath, password) {
+  return await invoke('webdav_set_encryption_password', { url, username, rootPath, password });
+}
