@@ -1,9 +1,12 @@
 use std::path::Path;
+use std::sync::Arc;
 
-use reqwest::{Client, Method, StatusCode};
+use futures_util::TryStreamExt;
+use reqwest::{Body, Client, Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use tokio::io::AsyncWriteExt;
+use tokio::io::DuplexStream;
+use tokio_util::io::ReaderStream;
 
 use super::crypto::{self, WebdavCryptoContext};
 use super::types::{SyncCollection, WebdavConfig};
@@ -141,6 +144,39 @@ impl WebdavClient {
         self.put_raw_bytes(path, bytes).await
     }
 
+    pub async fn upload_encrypted_file_with_progress(
+        &self,
+        path: &str,
+        source: &Path,
+        plain_size: u64,
+        chunk_size: usize,
+        progress: Option<Arc<dyn Fn(u64) + Send + Sync + 'static>>,
+    ) -> Result<(), String> {
+        let crypto = self.crypto.clone().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
+        let remote_path = normalize_path(path);
+        let encrypted_size = crypto.encrypted_file_size(plain_size, chunk_size)?;
+        let source = source.to_path_buf();
+        let (writer, reader) = tokio::io::duplex(chunk_size.min(1024 * 1024).max(64 * 1024));
+        let encrypt_task = tokio::spawn(async move {
+            let file = tokio::fs::File::open(&source)
+                .await
+                .map_err(|e| format!("打开待上传文件失败: {}", e))?;
+            crypto
+                .write_encrypted_file(&remote_path, file, writer, plain_size, chunk_size, progress)
+                .await
+        });
+
+        let upload_result = self.put_raw_stream(path, reader, encrypted_size).await;
+        let encrypt_result = encrypt_task
+            .await
+            .map_err(|e| format!("云端文件加密任务失败: {}", e))?;
+        match (upload_result, encrypt_result) {
+            (Err(error), _) => Err(error),
+            (Ok(()), Err(error)) => Err(error),
+            (Ok(()), Ok(())) => Ok(()),
+        }
+    }
+
     pub(crate) async fn get_plain_json<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, String> {
         let Some(bytes) = self.get_raw_bytes(path).await? else {
             return Ok(None);
@@ -179,26 +215,48 @@ impl WebdavClient {
         }
     }
 
-    pub async fn download_file(&self, path: &str, destination: &Path) -> Result<(), String> {
+    async fn put_raw_stream(&self, path: &str, reader: DuplexStream, content_length: u64) -> Result<(), String> {
+        let stream = ReaderStream::new(reader);
+        let resp = self
+            .request(Method::PUT, path)
+            .header(reqwest::header::CONTENT_LENGTH, content_length)
+            .body(Body::wrap_stream(stream))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("写入 WebDAV 文件失败: {}", resp.status()))
+        }
+    }
+
+    pub async fn download_encrypted_file(&self, path: &str, destination: &Path) -> Result<(), String> {
+        let crypto = self.crypto.clone().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
         if let Some(parent) = destination.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
                 .map_err(|e| format!("创建下载目录失败: {}", e))?;
         }
 
-        let bytes = self
-            .get_bytes(path)
-            .await?
-            .ok_or_else(|| "云端文件不存在".to_string())?;
-        let mut file = tokio::fs::File::create(destination)
+        let resp = self.request(Method::GET, path).send().await.map_err(|e| e.to_string())?;
+        if resp.status() == StatusCode::NOT_FOUND {
+            return Err("云端文件不存在".to_string());
+        }
+        if !resp.status().is_success() {
+            return Err(format!("读取 WebDAV 文件失败: {}", resp.status()));
+        }
+
+        let stream = resp
+            .bytes_stream()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
+        let reader = tokio_util::io::StreamReader::new(stream);
+        let file = tokio::fs::File::create(destination)
             .await
             .map_err(|e| format!("创建本地下载文件失败: {}", e))?;
-        file.write_all(&bytes)
+        crypto
+            .read_encrypted_file(&normalize_path(path), reader, file)
             .await
-            .map_err(|e| format!("写入本地下载文件失败: {}", e))?;
-        file.flush()
-            .await
-            .map_err(|e| format!("写入本地下载文件失败: {}", e))
     }
 
     pub async fn delete_path(&self, path: &str) -> Result<(), String> {

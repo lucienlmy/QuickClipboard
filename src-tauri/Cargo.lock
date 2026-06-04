@@ -19,6 +19,7 @@ dependencies = [
  "enigo",
  "fastrand",
  "file_icon_provider",
+ "futures-util",
  "gpu-image-viewer",
  "hex",
  "hmac",

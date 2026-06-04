@@ -7,7 +7,6 @@ use std::sync::{
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
 use super::webdav_client::WebdavClient;
@@ -25,10 +24,6 @@ pub struct CloudFileManifest {
     pub name: String,
     pub size: u64,
     pub sha256: String,
-    #[serde(default = "default_cloud_file_chunk_size")]
-    pub chunk_size: u64,
-    #[serde(default)]
-    pub chunks: u32,
     pub source_device_id: String,
     pub source_device_name: String,
     pub uploaded_at: i64,
@@ -87,15 +82,11 @@ struct CloudFileDownloadRecord {
 }
 
 const INDEX_PATH: &str = "cloud_files/index.json";
-const CLOUD_FILE_CHUNK_SIZE: usize = 8 * 1024 * 1024;
+const CLOUD_FILE_STREAM_CHUNK_SIZE: usize = 1024 * 1024;
 const DOWNLOADS_DIR: &str = "cloud_file_downloads";
 const DOWNLOAD_FILES_DIR: &str = "files";
 const DOWNLOAD_INDEX_NAME: &str = "index.json";
 static CLOUD_FILES_DIR_READY: AtomicBool = AtomicBool::new(false);
-
-fn default_cloud_file_chunk_size() -> u64 {
-    CLOUD_FILE_CHUNK_SIZE as u64
-}
 
 pub async fn upload_file_with_progress(
     client: &WebdavClient,
@@ -129,9 +120,9 @@ pub async fn upload_file_with_progress(
     }
 
     let id = Uuid::new_v4().to_string();
-    let object_dir = format!("cloud_files/objects/{}", id);
+    let object_path = cloud_file_object_path(&id);
 
-    prepare_cloud_object_dir(client, &object_dir).await?;
+    ensure_cloud_files_dir_once(client).await?;
 
     let upload_progress = progress.map(|callback| {
         let transfer_id = transfer_id.unwrap_or_else(|| format!("cloud:{}", source.to_string_lossy()));
@@ -147,21 +138,25 @@ pub async fn upload_file_with_progress(
         }) as Arc<dyn Fn(u64) + Send + Sync + 'static>
     });
 
-    let chunks = match upload_file_chunks(client, &object_dir, &source, size, upload_progress).await {
-        Ok(chunks) => chunks,
-        Err(error) => {
-            let _ = delete_cloud_object(client, &object_dir, None).await;
-            return Err(error);
-        }
-    };
+    if let Err(error) = client
+        .upload_encrypted_file_with_progress(
+            &object_path,
+            &source,
+            size,
+            CLOUD_FILE_STREAM_CHUNK_SIZE,
+            upload_progress,
+        )
+        .await
+    {
+        let _ = client.delete_path(&object_path).await;
+        return Err(error);
+    }
 
     let manifest = CloudFileManifest {
         id: id.clone(),
         name: name.clone(),
         size,
         sha256,
-        chunk_size: CLOUD_FILE_CHUNK_SIZE as u64,
-        chunks,
         source_device_id: crate::services::sync_transfer::device_id(),
         source_device_name: crate::services::sync_transfer::lan::runtime::device_name(),
         uploaded_at: chrono::Utc::now().timestamp_millis(),
@@ -169,7 +164,7 @@ pub async fn upload_file_with_progress(
 
     index.files.insert(id, manifest.clone());
     if let Err(error) = save_index(client, &index).await {
-        let _ = delete_cloud_object(client, &object_dir, Some(chunks)).await;
+        let _ = client.delete_path(&object_path).await;
         return Err(error);
     }
 
@@ -219,17 +214,9 @@ pub async fn download_file(client: &WebdavClient, file_id: &str) -> Result<Cloud
         let _ = std::fs::remove_file(&temp);
     }
 
-    if manifest.chunks == 0 && manifest.size == 0 {
-        tokio::fs::write(&temp, b"")
-            .await
-            .map_err(|e| format!("保存空文件失败: {}", e))?;
-    } else if manifest.chunks == 0 {
-        client
-            .download_file(&format!("cloud_files/objects/{}/data", manifest.id), &temp)
-            .await?;
-    } else {
-        download_file_chunks(client, &manifest, &temp).await?;
-    }
+    client
+        .download_encrypted_file(&cloud_file_object_path(&manifest.id), &temp)
+        .await?;
 
     let actual_sha256 = sha256_file(&temp)?;
     if actual_sha256 != manifest.sha256 {
@@ -263,9 +250,8 @@ pub async fn delete_file(client: &WebdavClient, file_id: &str) -> Result<(), Str
         .files
         .remove(file_id)
         .ok_or_else(|| "云端文件不存在".to_string())?;
-    let object_dir = format!("cloud_files/objects/{}", manifest.id);
 
-    delete_cloud_object(client, &object_dir, Some(manifest.chunks)).await?;
+    client.delete_path(&cloud_file_object_path(&manifest.id)).await?;
     save_index(client, &index).await?;
 
     let mut download_index = load_download_index()?;
@@ -283,21 +269,6 @@ async fn save_index(client: &WebdavClient, index: &CloudFileIndex) -> Result<(),
     client.put_json(INDEX_PATH, index).await
 }
 
-async fn prepare_cloud_object_dir(client: &WebdavClient, object_dir: &str) -> Result<(), String> {
-    ensure_cloud_files_dir_once(client).await?;
-    match client.mkcol(object_dir).await {
-        Ok(()) => client.mkcol(&format!("{}/chunks", object_dir)).await,
-        Err(first_error) => {
-            CLOUD_FILES_DIR_READY.store(false, Ordering::Release);
-            ensure_cloud_files_dir_once(client).await?;
-            client.mkcol(object_dir).await.map_err(|second_error| {
-                format!("创建云端文件对象目录失败: {}; 重试后仍失败: {}", first_error, second_error)
-            })?;
-            client.mkcol(&format!("{}/chunks", object_dir)).await
-        }
-    }
-}
-
 async fn ensure_cloud_files_dir_once(client: &WebdavClient) -> Result<(), String> {
     if !CLOUD_FILES_DIR_READY.load(Ordering::Acquire) {
         client.ensure_cloud_files_dir().await?;
@@ -306,101 +277,8 @@ async fn ensure_cloud_files_dir_once(client: &WebdavClient) -> Result<(), String
     Ok(())
 }
 
-async fn delete_cloud_object(client: &WebdavClient, object_dir: &str, chunks: Option<u32>) -> Result<(), String> {
-    if client.delete_path(object_dir).await.is_ok() {
-        return Ok(());
-    }
-
-    if let Some(chunks) = chunks {
-        for index in 0..chunks {
-            let _ = client.delete_path(&cloud_file_chunk_path(object_dir, index)).await;
-        }
-    }
-    client.delete_path(&format!("{}/data", object_dir)).await?;
-    let _ = client.delete_path(&format!("{}/manifest.json", object_dir)).await;
-    let _ = client.delete_path(&format!("{}/chunks", object_dir)).await;
-    let _ = client.delete_path(object_dir).await;
-    Ok(())
-}
-
-async fn upload_file_chunks(
-    client: &WebdavClient,
-    object_dir: &str,
-    source: &Path,
-    size: u64,
-    progress: Option<Arc<dyn Fn(u64) + Send + Sync + 'static>>,
-) -> Result<u32, String> {
-    if let Some(callback) = progress.as_ref() {
-        callback(0);
-    }
-    if size == 0 {
-        return Ok(0);
-    }
-
-    let mut file = tokio::fs::File::open(source)
-        .await
-        .map_err(|e| format!("打开待上传文件失败: {}", e))?;
-    let mut buffer = vec![0u8; CLOUD_FILE_CHUNK_SIZE];
-    let mut chunk_index = 0u32;
-    let mut sent_bytes = 0u64;
-
-    loop {
-        let read = file
-            .read(&mut buffer)
-            .await
-            .map_err(|e| format!("读取待上传文件失败: {}", e))?;
-        if read == 0 {
-            break;
-        }
-        let path = cloud_file_chunk_path(object_dir, chunk_index);
-        if let Err(error) = client.put_bytes(&path, buffer[..read].to_vec()).await {
-            delete_uploaded_chunks(client, object_dir, chunk_index).await;
-            return Err(error);
-        }
-        sent_bytes = sent_bytes.saturating_add(read as u64).min(size);
-        if let Some(callback) = progress.as_ref() {
-            callback(sent_bytes);
-        }
-        chunk_index = chunk_index
-            .checked_add(1)
-            .ok_or_else(|| "云端文件分块数量过多".to_string())?;
-    }
-
-    Ok(chunk_index)
-}
-
-async fn download_file_chunks(
-    client: &WebdavClient,
-    manifest: &CloudFileManifest,
-    target: &Path,
-) -> Result<(), String> {
-    let object_dir = format!("cloud_files/objects/{}", manifest.id);
-    let mut file = tokio::fs::File::create(target)
-        .await
-        .map_err(|e| format!("创建本地下载文件失败: {}", e))?;
-    for index in 0..manifest.chunks {
-        let bytes = client
-            .get_bytes(&cloud_file_chunk_path(&object_dir, index))
-            .await?
-            .ok_or_else(|| format!("云端文件分块缺失: {}", index + 1))?;
-        file.write_all(&bytes)
-            .await
-            .map_err(|e| format!("写入本地下载文件失败: {}", e))?;
-    }
-    file.flush()
-        .await
-        .map_err(|e| format!("写入本地下载文件失败: {}", e))
-}
-
-async fn delete_uploaded_chunks(client: &WebdavClient, object_dir: &str, uploaded_chunks: u32) {
-    for index in 0..uploaded_chunks {
-        let _ = client.delete_path(&cloud_file_chunk_path(object_dir, index)).await;
-    }
-    let _ = client.delete_path(&format!("{}/chunks", object_dir)).await;
-}
-
-fn cloud_file_chunk_path(object_dir: &str, index: u32) -> String {
-    format!("{}/chunks/{:06}.bin", object_dir, index)
+fn cloud_file_object_path(file_id: &str) -> String {
+    format!("cloud_files/objects/{}.qcf", file_id)
 }
 
 fn to_list_item(file: CloudFileManifest, download_index: &CloudFileDownloadIndex) -> CloudFileListItem {
