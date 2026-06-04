@@ -37,14 +37,11 @@ impl WebdavClient {
     }
 
     pub async fn enable_encryption(&mut self, password: &str) -> Result<(), String> {
-        self.mkcol("").await?;
-        let config = match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await? {
-            Some(config) => config,
-            None => {
-                let config = crypto::create_config();
-                self.put_plain_json(crypto::CONFIG_PATH, &config).await?;
-                config
-            }
+        let config = match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await {
+            Ok(Some(config)) => config,
+            Ok(None) => self.create_or_load_encryption_config().await?,
+            Err(error) if error.contains("409") => self.create_or_load_encryption_config().await?,
+            Err(error) => return Err(error),
         };
         self.crypto = Some(crypto::context_for_config(
             &self.encryption_scope(),
@@ -52,6 +49,18 @@ impl WebdavClient {
             password,
         )?);
         Ok(())
+    }
+
+    async fn create_or_load_encryption_config(&self) -> Result<crypto::WebdavE2eeConfig, String> {
+        self.mkcol("").await?;
+        match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await? {
+            Some(config) => Ok(config),
+            None => {
+                let config = crypto::create_config();
+                self.put_plain_json(crypto::CONFIG_PATH, &config).await?;
+                Ok(config)
+            }
+        }
     }
 
     pub async fn test_connection(&self) -> Result<(), String> {
