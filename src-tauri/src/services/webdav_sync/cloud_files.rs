@@ -94,7 +94,7 @@ struct CloudFileDownloadRecord {
 }
 
 const INDEX_PATH: &str = "cloud_files/index.json";
-const CLOUD_FILE_STREAM_CHUNK_SIZE: usize = 1024 * 1024;
+const CLOUD_FILE_STREAM_CHUNK_SIZE: usize = 4 * 1024 * 1024;
 const DOWNLOADS_DIR: &str = "cloud_file_downloads";
 const DOWNLOAD_FILES_DIR: &str = "files";
 const DOWNLOAD_INDEX_NAME: &str = "index.json";
@@ -128,18 +128,33 @@ pub async fn upload_files_with_progress(
             }
         };
 
-        if let Some(existing) = index
-            .files
-            .values()
-            .find(|file| file.sha256 == upload.sha256 && file.size == upload.size)
-            .cloned()
-        {
-            results.push(CloudFileUploadBatchItem {
-                path: upload.path,
-                result: Ok(CloudFileUploadResult { manifest: existing }),
-                uploaded: false,
-            });
-            continue;
+        let mut precomputed_sha256 = None;
+        if index.files.values().any(|file| file.size == upload.size) {
+            let sha256 = match sha256_file(&upload.source) {
+                Ok(sha256) => sha256,
+                Err(error) => {
+                    results.push(CloudFileUploadBatchItem {
+                        path: upload.path,
+                        result: Err(error),
+                        uploaded: false,
+                    });
+                    continue;
+                }
+            };
+            if let Some(existing) = index
+                .files
+                .values()
+                .find(|file| file.sha256 == sha256 && file.size == upload.size)
+                .cloned()
+            {
+                results.push(CloudFileUploadBatchItem {
+                    path: upload.path,
+                    result: Ok(CloudFileUploadResult { manifest: existing }),
+                    uploaded: false,
+                });
+                continue;
+            }
+            precomputed_sha256 = Some(sha256);
         }
 
         if !dirs_ready {
@@ -149,21 +164,29 @@ pub async fn upload_files_with_progress(
 
         let id = Uuid::new_v4().to_string();
         let object_path = cloud_file_object_path(&id);
-        if let Err(error) = upload_cloud_file_object(client, &object_path, &upload).await {
-            let _ = client.delete_path(&object_path).await;
-            results.push(CloudFileUploadBatchItem {
-                path: upload.path,
-                result: Err(error),
-                uploaded: false,
-            });
-            continue;
-        }
+        let sha256 = match upload_cloud_file_object(client, &object_path, &upload).await {
+            Ok(sha256) => sha256,
+            Err(error) => {
+                let _ = client.delete_path(&object_path).await;
+                results.push(CloudFileUploadBatchItem {
+                    path: upload.path,
+                    result: Err(error),
+                    uploaded: false,
+                });
+                continue;
+            }
+        };
+        let sha256 = match precomputed_sha256 {
+            Some(precomputed) if precomputed != sha256 => sha256,
+            Some(precomputed) => precomputed,
+            None => sha256,
+        };
 
         let manifest = CloudFileManifest {
             id: id.clone(),
             name: upload.name,
             size: upload.size,
-            sha256: upload.sha256,
+            sha256,
             source_device_id: crate::services::sync_transfer::device_id(),
             source_device_name: crate::services::sync_transfer::lan::runtime::device_name(),
             uploaded_at: chrono::Utc::now().timestamp_millis(),
@@ -241,14 +264,19 @@ pub async fn download_file(client: &WebdavClient, file_id: &str) -> Result<Cloud
         let _ = std::fs::remove_file(&temp);
     }
 
-    client
+    let download_result = client
         .download_encrypted_file(&cloud_file_object_path(&manifest.id), &temp)
-        .await?;
-
-    let actual_sha256 = sha256_file(&temp)?;
-    if actual_sha256 != manifest.sha256 {
+        .await
+        .and_then(|sha256| {
+            if sha256 == manifest.sha256 {
+                Ok(())
+            } else {
+                Err("下载文件校验失败".to_string())
+            }
+        });
+    if let Err(error) = download_result {
         let _ = std::fs::remove_file(&temp);
-        return Err("下载文件校验失败".to_string());
+        return Err(error);
     }
 
     if target.exists() {
@@ -318,7 +346,7 @@ async fn upload_cloud_file_object(
     client: &WebdavClient,
     object_path: &str,
     upload: &PreparedCloudFileUpload,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let result = client
         .upload_encrypted_file_with_progress(
             object_path,
@@ -329,7 +357,7 @@ async fn upload_cloud_file_object(
         )
         .await;
     match result {
-        Ok(()) => Ok(()),
+        Ok(sha256) => Ok(sha256),
         Err(error) if is_webdav_conflict_error(&error) => {
             reset_cloud_files_dir_ready();
             ensure_cloud_files_dir_once(client).await?;
@@ -360,7 +388,6 @@ struct PreparedCloudFileUpload {
     source: PathBuf,
     name: String,
     size: u64,
-    sha256: String,
     transfer_id: Option<String>,
     progress: Option<CloudFileUploadProgressCallback>,
 }
@@ -381,14 +408,11 @@ fn prepare_upload_request(request: CloudFileUploadRequest) -> Result<PreparedClo
         .ok_or_else(|| (path.clone(), "文件名无效".to_string()))?
         .to_string();
     let size = metadata.len();
-    let sha256 = sha256_file(&source)
-        .map_err(|error| (path.clone(), error))?;
     Ok(PreparedCloudFileUpload {
         path,
         source,
         name,
         size,
-        sha256,
         transfer_id: request.transfer_id,
         progress: request.progress,
     })

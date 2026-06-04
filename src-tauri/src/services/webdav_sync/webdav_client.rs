@@ -163,7 +163,7 @@ impl WebdavClient {
         plain_size: u64,
         chunk_size: usize,
         progress: Option<Arc<dyn Fn(u64) + Send + Sync + 'static>>,
-    ) -> Result<(), String> {
+    ) -> Result<String, String> {
         let crypto = self.crypto.clone().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
         let remote_path = normalize_path(path);
         let encrypted_size = crypto.encrypted_file_size(plain_size, chunk_size)?;
@@ -179,13 +179,18 @@ impl WebdavClient {
         });
 
         let upload_result = self.put_raw_stream(path, reader, encrypted_size).await;
+        if let Err(error) = upload_result {
+            encrypt_task.abort();
+            let _ = encrypt_task.await;
+            return Err(error);
+        }
+
         let encrypt_result = encrypt_task
             .await
             .map_err(|e| format!("云端文件加密任务失败: {}", e))?;
-        match (upload_result, encrypt_result) {
-            (Err(error), _) => Err(error),
-            (Ok(()), Err(error)) => Err(error),
-            (Ok(()), Ok(())) => Ok(()),
+        match encrypt_result {
+            Err(error) => Err(error),
+            Ok(sha256) => Ok(sha256),
         }
     }
 
@@ -243,7 +248,7 @@ impl WebdavClient {
         }
     }
 
-    pub async fn download_encrypted_file(&self, path: &str, destination: &Path) -> Result<(), String> {
+    pub async fn download_encrypted_file(&self, path: &str, destination: &Path) -> Result<String, String> {
         let crypto = self.crypto.clone().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
         if let Some(parent) = destination.parent() {
             tokio::fs::create_dir_all(parent)

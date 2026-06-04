@@ -3,12 +3,13 @@ use std::sync::Arc;
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{engine::general_purpose, Engine as _};
-use chacha20poly1305::aead::{Aead, Payload};
-use chacha20poly1305::{KeyInit, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::aead::{Aead, AeadInPlace, Payload};
+use chacha20poly1305::{KeyInit, Tag, XChaCha20Poly1305, XNonce};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rand_core::{OsRng, RngCore};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use zeroize::Zeroize;
 
@@ -156,7 +157,7 @@ impl WebdavCryptoContext {
         plain_size: u64,
         chunk_size: usize,
         progress: Option<Arc<dyn Fn(u64) + Send + Sync + 'static>>,
-    ) -> Result<(), String>
+    ) -> Result<String, String>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
@@ -181,28 +182,25 @@ impl WebdavCryptoContext {
 
         let cipher = XChaCha20Poly1305::new_from_slice(&self.key.bytes)
             .map_err(|e| format!("初始化 WebDAV 加密器失败: {}", e))?;
+        let mut hasher = Sha256::new();
         let mut buffer = vec![0u8; chunk_size];
         let mut sent_bytes = 0u64;
         let mut frame_index = 0u64;
 
         loop {
-            let read = reader
-                .read(&mut buffer)
-                .await
-                .map_err(|e| format!("读取待上传文件失败: {}", e))?;
+            let read = read_file_chunk(&mut reader, &mut buffer).await?;
             if read == 0 {
                 break;
             }
+            hasher.update(&buffer[..read]);
             let plain_len = u32::try_from(read).map_err(|_| "云端文件分片过大".to_string())?;
             let mut nonce = [0u8; NONCE_LEN];
             OsRng.fill_bytes(&mut nonce);
-            let payload = cipher
-                .encrypt(
+            let tag = cipher
+                .encrypt_in_place_detached(
                     XNonce::from_slice(&nonce),
-                    Payload {
-                        msg: &buffer[..read],
-                        aad: &file_frame_aad(path, frame_index, plain_len),
-                    },
+                    &file_frame_aad(path, frame_index, plain_len),
+                    &mut buffer[..read],
                 )
                 .map_err(|_| "加密云端文件分片失败".to_string())?;
 
@@ -215,7 +213,11 @@ impl WebdavCryptoContext {
                 .await
                 .map_err(|e| format!("写入云端加密文件分片失败: {}", e))?;
             writer
-                .write_all(&payload)
+                .write_all(&buffer[..read])
+                .await
+                .map_err(|e| format!("写入云端加密文件分片失败: {}", e))?;
+            writer
+                .write_all(&tag)
                 .await
                 .map_err(|e| format!("写入云端加密文件分片失败: {}", e))?;
 
@@ -237,7 +239,8 @@ impl WebdavCryptoContext {
         writer
             .shutdown()
             .await
-            .map_err(|e| format!("结束云端加密上传流失败: {}", e))
+            .map_err(|e| format!("结束云端加密上传流失败: {}", e))?;
+        Ok(hex::encode(hasher.finalize()))
     }
 
     pub async fn read_encrypted_file<R, W>(
@@ -245,7 +248,7 @@ impl WebdavCryptoContext {
         path: &str,
         mut reader: R,
         mut writer: W,
-    ) -> Result<(), String>
+    ) -> Result<String, String>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
@@ -276,8 +279,10 @@ impl WebdavCryptoContext {
 
         let cipher = XChaCha20Poly1305::new_from_slice(&self.key.bytes)
             .map_err(|e| format!("初始化 WebDAV 解密器失败: {}", e))?;
+        let mut hasher = Sha256::new();
         let mut remaining = plain_size;
         let mut frame_index = 0u64;
+        let mut encrypted = vec![0u8; chunk_size_usize + TAG_LEN as usize];
         while remaining > 0 {
             let mut len_bytes = [0u8; 4];
             reader
@@ -295,26 +300,26 @@ impl WebdavCryptoContext {
                 .await
                 .map_err(|e| format!("读取云端加密文件分片失败: {}", e))?;
             let encrypted_len = plain_len as usize + TAG_LEN as usize;
-            let mut encrypted = vec![0u8; encrypted_len];
             reader
-                .read_exact(&mut encrypted)
+                .read_exact(&mut encrypted[..encrypted_len])
                 .await
                 .map_err(|e| format!("读取云端加密文件分片失败: {}", e))?;
 
-            let decrypted = cipher
-                .decrypt(
+            let (ciphertext, tag) = encrypted[..encrypted_len].split_at_mut(plain_len as usize);
+            cipher
+                .decrypt_in_place_detached(
                     XNonce::from_slice(&nonce),
-                    Payload {
-                        msg: &encrypted,
-                        aad: &file_frame_aad(path, frame_index, plain_len),
-                    },
+                    &file_frame_aad(path, frame_index, plain_len),
+                    ciphertext,
+                    Tag::from_slice(tag),
                 )
                 .map_err(|_| "WebDAV 云端文件解密失败，请检查云端加密密码".to_string())?;
-            if decrypted.len() != plain_len as usize {
+            if ciphertext.len() != plain_len as usize {
                 return Err("云端文件解密长度异常".to_string());
             }
+            hasher.update(&ciphertext[..]);
             writer
-                .write_all(&decrypted)
+                .write_all(&ciphertext[..])
                 .await
                 .map_err(|e| format!("写入本地下载文件失败: {}", e))?;
 
@@ -327,7 +332,8 @@ impl WebdavCryptoContext {
         writer
             .flush()
             .await
-            .map_err(|e| format!("写入本地下载文件失败: {}", e))
+            .map_err(|e| format!("写入本地下载文件失败: {}", e))?;
+        Ok(hex::encode(hasher.finalize()))
     }
 
     pub fn encrypt_bytes(&self, path: &str, plaintext: &[u8]) -> Result<Vec<u8>, String> {
@@ -437,6 +443,24 @@ fn file_frame_aad(path: &str, frame_index: u64, plain_len: u32) -> Vec<u8> {
     out.extend_from_slice(&frame_index.to_le_bytes());
     out.extend_from_slice(&plain_len.to_le_bytes());
     out
+}
+
+async fn read_file_chunk<R>(reader: &mut R, buffer: &mut [u8]) -> Result<usize, String>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut read_total = 0usize;
+    while read_total < buffer.len() {
+        let read = reader
+            .read(&mut buffer[read_total..])
+            .await
+            .map_err(|e| format!("读取待上传文件失败: {}", e))?;
+        if read == 0 {
+            break;
+        }
+        read_total = read_total.saturating_add(read);
+    }
+    Ok(read_total)
 }
 
 #[cfg(test)]
