@@ -25,6 +25,8 @@ const DEFAULT_PARALLELISM: u32 = 1;
 
 static MASTER_KEY_CACHE: Lazy<Mutex<HashMap<String, Arc<MasterKey>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static CONFIG_CACHE: Lazy<Mutex<HashMap<String, WebdavE2eeConfig>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebdavE2eeConfig {
@@ -108,8 +110,17 @@ pub fn context_for_config(
     Ok(WebdavCryptoContext { key })
 }
 
+pub fn cached_config(scope: &str) -> Option<WebdavE2eeConfig> {
+    CONFIG_CACHE.lock().get(scope).cloned()
+}
+
+pub fn cache_config(scope: &str, config: &WebdavE2eeConfig) {
+    CONFIG_CACHE.lock().insert(scope.to_string(), config.clone());
+}
+
 pub fn clear_cached_keys() {
     MASTER_KEY_CACHE.lock().clear();
+    CONFIG_CACHE.lock().clear();
 }
 
 impl WebdavCryptoContext {

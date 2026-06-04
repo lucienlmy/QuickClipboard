@@ -37,14 +37,22 @@ impl WebdavClient {
     }
 
     pub async fn enable_encryption(&mut self, password: &str) -> Result<(), String> {
-        let config = match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await {
-            Ok(Some(config)) => config,
-            Ok(None) => self.create_or_load_encryption_config().await?,
-            Err(error) if error.contains("409") => self.create_or_load_encryption_config().await?,
-            Err(error) => return Err(error),
+        let scope = self.encryption_scope();
+        let config = match crypto::cached_config(&scope) {
+            Some(config) => config,
+            None => {
+                let config = match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await {
+                    Ok(Some(config)) => config,
+                    Ok(None) => self.create_or_load_encryption_config().await?,
+                    Err(error) if error.contains("409") => self.create_or_load_encryption_config().await?,
+                    Err(error) => return Err(error),
+                };
+                crypto::cache_config(&scope, &config);
+                config
+            }
         };
         self.crypto = Some(crypto::context_for_config(
-            &self.encryption_scope(),
+            &scope,
             &config,
             password,
         )?);

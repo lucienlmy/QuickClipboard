@@ -87,7 +87,7 @@ struct CloudFileDownloadRecord {
 }
 
 const INDEX_PATH: &str = "cloud_files/index.json";
-const CLOUD_FILE_CHUNK_SIZE: usize = 1024 * 1024;
+const CLOUD_FILE_CHUNK_SIZE: usize = 8 * 1024 * 1024;
 const DOWNLOADS_DIR: &str = "cloud_file_downloads";
 const DOWNLOAD_FILES_DIR: &str = "files";
 const DOWNLOAD_INDEX_NAME: &str = "index.json";
