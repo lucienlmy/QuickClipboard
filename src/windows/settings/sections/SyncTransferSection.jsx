@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
-import { open } from '@tauri-apps/plugin-dialog';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Button from '@shared/components/ui/Button';
@@ -21,7 +20,6 @@ import {
   pushSyncTransferLanPeer,
   refreshSyncTransferLanPairingCode,
   removeSyncTransferLanPairedPeer,
-  sendSyncTransferLanFileToPeer,
   updateSyncTransferLanAutoSyncSettings,
 } from '@shared/api/syncTransfer';
 import { toast } from '@shared/store/toastStore';
@@ -41,7 +39,6 @@ function SyncTransferSection({ settings, onSettingChange }) {
   const [discoveredPeers, setDiscoveredPeers] = useState([]);
   const [peerBaseUrl, setPeerBaseUrl] = useState('');
   const [peerPairingCode, setPeerPairingCode] = useState('');
-  const [transferFilePath, setTransferFilePath] = useState('');
   const [pairingCodeVisible, setPairingCodeVisible] = useState(true);
   const lanError = (error) => formatUserMessage(error, t, 'errors.lan.connectFailed');
 
@@ -138,18 +135,6 @@ function SyncTransferSection({ settings, onSettingChange }) {
     }
   };
 
-  const selectTransferFile = async () => {
-    try {
-      const selected = await open({ multiple: false, directory: false });
-      const selectedPath = Array.isArray(selected) ? selected[0] : selected;
-      if (selectedPath) {
-        setTransferFilePath(selectedPath);
-      }
-    } catch (e) {
-      toast.error(formatUserMessage(e, t, 'errors.file.notFound'), { duration: 5000 });
-    }
-  };
-
   const recordReport = (kind, deviceId, payload) => {
     setLastActionReport({ kind, deviceId, payload, time: Date.now() });
   };
@@ -221,15 +206,8 @@ function SyncTransferSection({ settings, onSettingChange }) {
             const report = await pushSyncTransferLanPeer(deviceId);
             recordReport('push', deviceId, report);
           })}
-          transferFilePath={transferFilePath}
-          onTransferFilePathChange={setTransferFilePath}
-          onSelectTransferFile={selectTransferFile}
           pairingCodeVisible={pairingCodeVisible}
           onTogglePairingCodeVisible={() => setPairingCodeVisible(value => !value)}
-          onSendFile={deviceId => runLanAction(`sendFile-${deviceId}`, async () => {
-            const result = await sendSyncTransferLanFileToPeer(deviceId, transferFilePath);
-            recordReport('file', deviceId, result);
-          })}
           onRemovePeer={deviceId => runLanAction(`remove-${deviceId}`, () => removeSyncTransferLanPairedPeer(deviceId))}
           onUpdateAutoSync={settings => runLanAction('updateAutoSync', () => updateSyncTransferLanAutoSyncSettings(settings))}
           lastActionReport={lastActionReport}
@@ -257,12 +235,8 @@ function LanModePanel({
   onPairPeer,
   onFetchPeerSnapshot,
   onPushPeer,
-  transferFilePath,
-  onTransferFilePathChange,
-  onSelectTransferFile,
   pairingCodeVisible,
   onTogglePairingCodeVisible,
-  onSendFile,
   onRemovePeer,
   onUpdateAutoSync,
   lastActionReport,
@@ -468,36 +442,12 @@ function LanModePanel({
             </div>
           </div>
 
-          {/* 4) 已配对设备（含待发送文件） */}
+          {/* 4) 已配对设备 */}
           <div className="rounded-lg border border-qc-border bg-qc-surface/50 p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-qc-fg">{t('settings.syncTransfer.pairedPeers')}</div>
                 <div className="text-xs text-qc-fg-muted">{t('settings.syncTransfer.lanDevicesStepDesc')}</div>
-              </div>
-            </div>
-
-            {/* 待发送文件路径（与"发送文件"操作就近） */}
-            <div className="mb-3 rounded-lg border border-dashed border-qc-border bg-qc-panel-2 p-3">
-              <div className="mb-2 flex items-center gap-2 text-xs text-qc-fg-muted">
-                <i className="ti ti-paperclip" />
-                {t('settings.syncTransfer.filePanelTitle')}
-              </div>
-              <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]">
-                <Input
-                  value={transferFilePath}
-                  onChange={e => onTransferFilePathChange(e.target.value)}
-                  placeholder="C:\\Users\\You\\Desktop\\file.zip"
-                  className="min-w-0"
-                />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={onSelectTransferFile}
-                  icon={<i className="ti ti-file-search" />}
-                >
-                  {t('settings.syncTransfer.selectTransferFile')}
-                </Button>
               </div>
             </div>
 
@@ -534,13 +484,6 @@ function LanModePanel({
                         icon="ti ti-list-search"
                         onClick={() => onFetchPeerSnapshot(peer.device_id)}
                         loading={busy === `snapshot-${peer.device_id}`}
-                      />
-                      <IconActionButton
-                        tooltip={t('settings.syncTransfer.sendFile')}
-                        icon="ti ti-file-upload"
-                        onClick={() => onSendFile(peer.device_id)}
-                        loading={busy === `sendFile-${peer.device_id}`}
-                        disabled={!transferFilePath.trim()}
                       />
                       <IconActionButton
                         tooltip={t('common.delete')}
@@ -677,10 +620,6 @@ function ActionResultCard({ report, peers, onClear, t }) {
       favorites: report.payload?.pushed_favorites || 0,
       groups: report.payload?.pushed_groups || 0,
     });
-  } else if (report.kind === 'file') {
-    icon = 'ti ti-file-upload';
-    kindLabel = t('settings.syncTransfer.sendFile');
-    summary = t('settings.syncTransfer.fileTransferResult', { path: report.payload?.path || '-' });
   }
 
   let timeText = '';
