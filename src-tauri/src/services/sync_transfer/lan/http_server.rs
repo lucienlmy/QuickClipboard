@@ -337,7 +337,7 @@ fn save_groups(request: &HttpRequest, app: &AppHandle) -> Result<super::LanGroup
 
 fn save_tombstones(request: &HttpRequest, app: &AppHandle) -> Result<super::LanTombstoneBatch, String> {
     let batch = serde_json::from_slice::<super::LanTombstoneBatch>(&request.body)
-        .map_err(|e| format!("解析局域网删除墓碑失败: {}", e))?;
+        .map_err(|e| format!("解析局域网删除记录失败: {}", e))?;
     let changed = crate::services::database::upsert_sync_tombstones(&batch.tombstones)?;
     let report = crate::services::database::apply_sync_tombstones(&batch.tombstones)?;
     mark_tombstone_refresh(&report, app);

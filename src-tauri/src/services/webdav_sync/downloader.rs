@@ -15,7 +15,7 @@ pub async fn download_all(
     let remote_tombstone_report = match super::tombstones_sync::download_tombstones(client).await {
         Ok(report) => report,
         Err(e) => {
-            report.errors.push(format!("删除墓碑拉取失败: {}", e));
+            report.errors.push(format!("删除记录拉取失败: {}", e));
             SyncReport::default()
         }
     };

@@ -148,7 +148,7 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             PRIMARY KEY (collection, item_id)
         )",
         [],
-    ).map_err(|e| format!("创建同步删除墓碑表失败: {}", e))?;
+    ).map_err(|e| format!("创建同步删除状态表失败: {}", e))?;
 
     let color_exists = conn
         .prepare("PRAGMA table_info(groups)")
@@ -344,7 +344,7 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_sync_tombstones_deleted_at ON sync_tombstones(deleted_at)",
         [],
-    ).map_err(|e| format!("创建同步删除墓碑索引失败: {}", e))?;
+    ).map_err(|e| format!("创建同步删除状态索引失败: {}", e))?;
     migrate_favorites_auto_titles(conn);
 
     Ok(())

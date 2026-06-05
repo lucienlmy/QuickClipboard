@@ -31,7 +31,7 @@ pub async fn upload_parts(
                 result.states
             }
             Err(e) => {
-                report.errors.push(format!("删除墓碑推送失败: {}", e));
+                report.errors.push(format!("删除记录推送失败: {}", e));
                 crate::services::database::sync_tombstone_states().unwrap_or_default()
             }
         }
