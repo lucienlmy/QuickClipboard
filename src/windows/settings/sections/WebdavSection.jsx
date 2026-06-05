@@ -299,7 +299,7 @@ function WebdavSection({ settings, onSettingChange }) {
       </SettingItem>
 
       <SettingItem label={t('settings.webdav.password')}>
-        <div className="flex items-center gap-2">
+        <div className="flex w-80 items-center gap-2">
           <Input
             type="password"
             value={passwordDraft}
@@ -309,7 +309,7 @@ function WebdavSection({ settings, onSettingChange }) {
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
             placeholder={passwordSaved ? t('settings.webdav.passwordSavedPlaceholder') : t('settings.webdav.passwordPlaceholder')}
-            className="w-64"
+            className="min-w-0 flex-1"
             disabled={passwordBusy}
           />
           {passwordSaved && (
@@ -317,6 +317,7 @@ function WebdavSection({ settings, onSettingChange }) {
               type="button"
               size="sm"
               variant="secondary"
+              className="shrink-0"
               onClick={clearWebdavPassword}
               disabled={passwordBusy}
               loading={passwordBusy}
@@ -340,7 +341,7 @@ function WebdavSection({ settings, onSettingChange }) {
         />
       </div>
       <SettingItem label={t('settings.webdav.encryptionPassword')} description={t('settings.webdav.encryptionPasswordDesc')}>
-        <div className="flex items-center gap-2">
+        <div className="flex w-80 items-center gap-2">
           <Input
             type="password"
             value={encryptionPasswordDraft}
@@ -350,7 +351,7 @@ function WebdavSection({ settings, onSettingChange }) {
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
             placeholder={encryptionPasswordSaved ? t('settings.webdav.encryptionPasswordSavedPlaceholder') : t('settings.webdav.encryptionPasswordPlaceholder')}
-            className="w-64"
+            className="min-w-0 flex-1"
             disabled={encryptionPasswordBusy}
           />
           {encryptionPasswordSaved && (
@@ -358,6 +359,7 @@ function WebdavSection({ settings, onSettingChange }) {
               type="button"
               size="sm"
               variant="secondary"
+              className="shrink-0"
               onClick={clearWebdavEncryptionPassword}
               disabled={encryptionPasswordBusy}
               loading={encryptionPasswordBusy}
@@ -422,6 +424,10 @@ function WebdavSection({ settings, onSettingChange }) {
           description={t('settings.webdav.autoSyncDesc')}
         />
       </div>
+      <SettingItem label={t('settings.webdav.autoPullOnWindowShow')} description={t('settings.webdav.autoPullOnWindowShowDesc')}>
+        <Toggle checked={Boolean(settings.webdavAutoPullOnWindowShow)} onChange={checked => update('webdavAutoPullOnWindowShow', checked)} />
+      </SettingItem>
+
       <SettingItem label={t('settings.webdav.autoPush')} description={t('settings.webdav.autoPushDesc')}>
         <div className="flex flex-wrap items-center gap-3">
           <Toggle checked={Boolean(settings.webdavAutoPush)} onChange={checked => update('webdavAutoPush', checked)} />
@@ -430,7 +436,7 @@ function WebdavSection({ settings, onSettingChange }) {
         </div>
       </SettingItem>
 
-      <SettingItem label={t('settings.webdav.autoPull')} description={t('settings.webdav.autoPullDesc')}>
+      <SettingItem label={t('settings.webdav.pollingPull')} description={t('settings.webdav.pollingPullDesc')}>
         <div className="flex flex-wrap items-center gap-3">
           <Toggle checked={Boolean(settings.webdavAutoPull)} onChange={checked => update('webdavAutoPull', checked)} />
           <span className="text-sm text-qc-fg-muted">{t('settings.webdav.pullIntervalSecs')}</span>

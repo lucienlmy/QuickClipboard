@@ -18,6 +18,8 @@ import { getUpdateBannerState } from '@shared/api/settings';
 import { promptDisableWinVHotkeyIfNeeded } from '@shared/api/system';
 import { toggleWindowPin } from '@shared/services/titleBarActions';
 import { getVisibleMainTabs, isMainTabVisible } from '@shared/constants/tabVisibility';
+import { toast, TOAST_POSITIONS, TOAST_SIZES } from '@shared/store/toastStore';
+import { formatUserMessage } from '@shared/utils/userMessages';
 import TitleBar from './components/TitleBar';
 import TabNavigation from './components/TabNavigation';
 import ClipboardTab from './components/ClipboardTab';
@@ -29,6 +31,10 @@ import ToastContainer from '@shared/components/common/ToastContainer';
 const TAB_NAVIGATION_MODE = {
   HORIZONTAL: 'horizontal',
   SIDEBAR: 'sidebar'
+};
+const WEBDAV_TOAST_CONFIG = {
+  size: TOAST_SIZES.EXTRA_SMALL,
+  position: TOAST_POSITIONS.BOTTOM_RIGHT
 };
 
 function App() {
@@ -164,16 +170,39 @@ function App() {
           favoritesTabRef.current.executePlainTextPaste();
         }
       });
+      const unlisten4 = await listen('webdav-window-show-pull-report', event => {
+        const result = event.payload || {};
+        const pulled = result?.pulled || 0;
+        if (pulled <= 0) {
+          return;
+        }
+
+        toast.success(t('settings.webdav.successWithDetail', {
+          title: t('settings.webdav.autoPullOnWindowShowComplete'),
+          detail: t('settings.webdav.syncResultDetail', {
+            total: pulled,
+            clipboard: result?.pulled_clipboard || 0,
+            favorites: result?.pulled_favorites || 0,
+            groups: result?.pulled_groups || 0,
+          }),
+        }), { ...WEBDAV_TOAST_CONFIG, duration: 5000 });
+      });
+      const unlisten5 = await listen('webdav-window-show-pull-error', event => {
+        console.error('主窗口显示时 WebDAV 自动拉取失败:', event.payload);
+        toast.error(formatUserMessage(event.payload, t, 'errors.webdav.operationFailed'), { ...WEBDAV_TOAST_CONFIG, duration: 6000 });
+      });
       
       return () => {
         unlisten1();
         unlisten2();
         unlisten3();
+        unlisten4();
+        unlisten5();
       };
     };
     let cleanup = setupListeners();
     return () => cleanup.then(fn => fn());
-  }, [activeTab]);
+  }, [activeTab, t]);
 
   useEffect(() => {
     const handleMouseEnter = async () => {

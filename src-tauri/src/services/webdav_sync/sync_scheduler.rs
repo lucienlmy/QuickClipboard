@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 
 use crate::services::database::WebdavLocalSyncSignature;
@@ -10,12 +10,15 @@ use crate::services::database::WebdavLocalSyncSignature;
 use super::types::{SyncReport, WebdavStatus};
 
 const LAST_UPLOADED_SIGNATURE_KEY_PREFIX: &str = "webdav_last_uploaded_signature";
+const WINDOW_SHOW_PULL_COOLDOWN_MS: u64 = 1_000;
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static STOP_FLAG: AtomicBool = AtomicBool::new(false);
 static AUTO_PUSH_VERSION: AtomicU64 = AtomicU64::new(0);
 static AUTO_PUSH_RUNNING: AtomicBool = AtomicBool::new(false);
 static AUTO_PUSH_PENDING: AtomicBool = AtomicBool::new(false);
+static WINDOW_SHOW_PULL_RUNNING: AtomicBool = AtomicBool::new(false);
+static WINDOW_SHOW_PULL_LAST_AT_MS: AtomicU64 = AtomicU64::new(0);
 static START_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 static LAST_REPORT: Lazy<Mutex<Option<WebdavSyncReportEvent>>> = Lazy::new(|| Mutex::new(None));
@@ -79,7 +82,7 @@ pub fn start() {
             if settings.webdav_auto_pull {
                 let interval = settings.webdav_pull_interval_secs.max(10);
                 if seconds_since_pull % interval == 0 {
-                    if let Ok(report) = super::download(false).await {
+                    if let Ok(report) = super::download_raw(false).await {
                         store_report("pull", report, true);
                     }
                 }
@@ -109,6 +112,44 @@ pub fn notify_local_change(app: AppHandle, reason: &'static str) {
     });
 }
 
+pub fn notify_main_window_shown(app: AppHandle) {
+    let settings = crate::services::get_settings();
+    if !settings.webdav_enabled || !settings.webdav_auto_pull_on_window_show {
+        return;
+    }
+
+    if settings.webdav_url.trim().is_empty() {
+        return;
+    }
+
+    if WINDOW_SHOW_PULL_RUNNING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let now_ms = current_time_millis();
+    let last_at_ms = WINDOW_SHOW_PULL_LAST_AT_MS.load(Ordering::SeqCst);
+    if now_ms.saturating_sub(last_at_ms) < WINDOW_SHOW_PULL_COOLDOWN_MS {
+        WINDOW_SHOW_PULL_RUNNING.store(false, Ordering::SeqCst);
+        return;
+    }
+    WINDOW_SHOW_PULL_LAST_AT_MS.store(now_ms, Ordering::SeqCst);
+
+    tauri::async_runtime::spawn(async move {
+        match super::download_raw(false).await {
+            Ok(report) => {
+                store_report("pull", report.clone(), true);
+                let _ = app.emit("webdav-window-show-pull-report", report);
+            }
+            Err(error) => {
+                eprintln!("[WebDAV同步] 主窗口显示自动拉取失败: {}", error);
+                let _ = app.emit("webdav-window-show-pull-error", error);
+            }
+        }
+
+        WINDOW_SHOW_PULL_RUNNING.store(false, Ordering::SeqCst);
+    });
+}
+
 pub fn status() -> WebdavStatus {
     let settings = crate::services::get_settings();
     WebdavStatus {
@@ -118,6 +159,13 @@ pub fn status() -> WebdavStatus {
         auto_pull: settings.webdav_auto_pull,
         running: is_running(),
     }
+}
+
+fn current_time_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 async fn run_auto_push(app: AppHandle, reason: &'static str) {

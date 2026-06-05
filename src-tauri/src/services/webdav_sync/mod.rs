@@ -28,10 +28,14 @@ pub async fn upload() -> Result<SyncReport, String> {
     Ok(sync_scheduler::store_manual_report("push", report))
 }
 
-pub async fn download(force_download: bool) -> Result<SyncReport, String> {
+pub(super) async fn download_raw(force_download: bool) -> Result<SyncReport, String> {
     let client = build_client().await?;
     let device_id = crate::services::sync_transfer::device_id();
-    let report = downloader::download_all(&client, &device_id, force_download).await?;
+    downloader::download_all(&client, &device_id, force_download).await
+}
+
+pub async fn download(force_download: bool) -> Result<SyncReport, String> {
+    let report = download_raw(force_download).await?;
     Ok(sync_scheduler::store_manual_report("pull", report))
 }
 
@@ -89,6 +93,10 @@ pub fn stop_scheduler() {
 
 pub fn notify_local_change(app: tauri::AppHandle, reason: &'static str) {
     sync_scheduler::notify_local_change(app, reason);
+}
+
+pub fn notify_main_window_shown(app: tauri::AppHandle) {
+    sync_scheduler::notify_main_window_shown(app);
 }
 
 async fn build_client() -> Result<WebdavClient, String> {
