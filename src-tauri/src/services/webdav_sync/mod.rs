@@ -101,8 +101,8 @@ pub fn notify_main_window_shown(app: tauri::AppHandle) {
 
 async fn build_client() -> Result<WebdavClient, String> {
     let settings = crate::services::get_settings();
-    let webdav_url = settings.webdav_url.clone();
-    let webdav_username = settings.webdav_username.clone();
+    let webdav_url = settings.webdav_url.trim().to_string();
+    let webdav_username = settings.webdav_username.trim().to_string();
     let webdav_root_path = if settings.webdav_root_path.trim().is_empty() {
         "quickclipboard".to_string()
     } else {

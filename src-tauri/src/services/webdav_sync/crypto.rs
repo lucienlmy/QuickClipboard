@@ -35,7 +35,6 @@ static MASTER_KEY_CACHE: Lazy<Mutex<HashMap<String, Arc<MasterKey>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 static CONFIG_CACHE: Lazy<Mutex<HashMap<String, WebdavE2eeConfig>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebdavE2eeConfig {
     pub format: String,
@@ -106,7 +105,7 @@ pub fn context_for_config(
         return Err("请先设置 WebDAV 云端加密密码".to_string());
     }
 
-    let cache_key = cache_key(scope, config);
+    let cache_key = cache_key(scope, config, password);
     if let Some(key) = MASTER_KEY_CACHE.lock().get(&cache_key).cloned() {
         return Ok(WebdavCryptoContext { key });
     }
@@ -425,8 +424,10 @@ fn derive_master_key(config: &WebdavE2eeConfig, password: &str) -> Result<[u8; K
     Ok(key)
 }
 
-fn cache_key(scope: &str, config: &WebdavE2eeConfig) -> String {
-    format!("{}\n{}", scope, config.kdf.salt)
+fn cache_key(scope: &str, config: &WebdavE2eeConfig, password: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(password.as_bytes());
+    format!("{}\n{}\n{}", scope, config.kdf.salt, hex::encode(hasher.finalize()))
 }
 
 fn validate_file_chunk_size(chunk_size: usize) -> Result<(), String> {

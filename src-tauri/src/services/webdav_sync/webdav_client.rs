@@ -20,8 +20,14 @@ pub struct WebdavClient {
     client: Client,
     config: WebdavConfig,
     base_url: String,
-    crypto: Option<WebdavCryptoContext>,
+    crypto: Arc<Mutex<Option<EncryptionState>>>,
     ensured_dirs: Arc<Mutex<HashSet<String>>>,
+}
+
+#[derive(Clone)]
+struct EncryptionState {
+    context: WebdavCryptoContext,
+    password: String,
 }
 
 impl WebdavClient {
@@ -40,7 +46,7 @@ impl WebdavClient {
             client: Client::new(),
             config,
             base_url,
-            crypto: None,
+            crypto: Arc::new(Mutex::new(None)),
             ensured_dirs: Arc::new(Mutex::new(HashSet::new())),
         })
     }
@@ -49,23 +55,52 @@ impl WebdavClient {
         let scope = self.encryption_scope();
         let config = match crypto::cached_config(&scope) {
             Some(config) => config,
-            None => {
-                let config = match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await {
-                    Ok(Some(config)) => config,
-                    Ok(None) => self.create_or_load_encryption_config().await?,
-                    Err(error) if error.contains("409") => self.create_or_load_encryption_config().await?,
-                    Err(error) => return Err(error),
-                };
-                crypto::cache_config(&scope, &config);
-                config
-            }
+            None => self.load_or_create_encryption_config(&scope).await?,
         };
-        self.crypto = Some(crypto::context_for_config(
-            &scope,
-            &config,
-            password,
-        )?);
+        self.set_encryption_state(password, &config)?;
         Ok(())
+    }
+
+    async fn refresh_encryption_config(&self) -> Result<(), String> {
+        let password = self
+            .encryption_password()
+            .ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
+        let scope = self.encryption_scope();
+        let config = self.load_or_create_encryption_config(&scope).await?;
+        self.set_encryption_state(&password, &config)?;
+        Ok(())
+    }
+
+    fn set_encryption_state(&self, password: &str, config: &crypto::WebdavE2eeConfig) -> Result<(), String> {
+        let context = crypto::context_for_config(
+            &self.encryption_scope(),
+            config,
+            password,
+        )?;
+        *self.crypto.lock() = Some(EncryptionState {
+            context,
+            password: password.to_string(),
+        });
+        Ok(())
+    }
+
+    fn crypto_context(&self) -> Option<WebdavCryptoContext> {
+        self.crypto.lock().as_ref().map(|state| state.context.clone())
+    }
+
+    fn encryption_password(&self) -> Option<String> {
+        self.crypto.lock().as_ref().map(|state| state.password.clone())
+    }
+
+    async fn load_or_create_encryption_config(&self, scope: &str) -> Result<crypto::WebdavE2eeConfig, String> {
+        let config = match self.get_plain_json::<crypto::WebdavE2eeConfig>(crypto::CONFIG_PATH).await {
+            Ok(Some(config)) => config,
+            Ok(None) => self.create_or_load_encryption_config().await?,
+            Err(error) if error.contains("409") => self.create_or_load_encryption_config().await?,
+            Err(error) => return Err(error),
+        };
+        crypto::cache_config(scope, &config);
+        Ok(config)
     }
 
     async fn create_or_load_encryption_config(&self) -> Result<crypto::WebdavE2eeConfig, String> {
@@ -148,14 +183,23 @@ impl WebdavClient {
         let Some(bytes) = self.get_raw_bytes(path).await? else {
             return Ok(None);
         };
-        match self.crypto.as_ref() {
-            Some(crypto) => Ok(Some(crypto.decrypt_bytes(&normalize_path(path), &bytes)?)),
+        let path = normalize_path(path);
+        match self.crypto_context() {
+            Some(crypto) => match crypto.decrypt_bytes(&path, &bytes) {
+                Ok(bytes) => Ok(Some(bytes)),
+                Err(error) if should_refresh_encryption_config(&error) => {
+                    self.refresh_encryption_config().await?;
+                    let crypto = self.crypto_context().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
+                    Ok(Some(crypto.decrypt_bytes(&path, &bytes)?))
+                }
+                Err(error) => Err(error),
+            },
             None => Ok(Some(bytes)),
         }
     }
 
     pub async fn put_bytes(&self, path: &str, bytes: Vec<u8>) -> Result<(), String> {
-        let bytes = match self.crypto.as_ref() {
+        let bytes = match self.crypto_context() {
             Some(crypto) => crypto.encrypt_bytes(&normalize_path(path), &bytes)?,
             None => bytes,
         };
@@ -170,7 +214,7 @@ impl WebdavClient {
         chunk_size: usize,
         progress: Option<Arc<dyn Fn(u64) + Send + Sync + 'static>>,
     ) -> Result<String, String> {
-        let crypto = self.crypto.clone().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
+        let crypto = self.crypto_context().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
         let remote_path = normalize_path(path);
         let encrypted_size = crypto.encrypted_file_size(plain_size, chunk_size)?;
         let source = source.to_path_buf();
@@ -255,7 +299,24 @@ impl WebdavClient {
     }
 
     pub async fn download_encrypted_file(&self, path: &str, destination: &Path) -> Result<String, String> {
-        let crypto = self.crypto.clone().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
+        let crypto = self.crypto_context().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
+        match self.download_encrypted_file_with_context(path, destination, crypto).await {
+            Ok(sha256) => Ok(sha256),
+            Err(error) if should_refresh_encryption_config(&error) => {
+                self.refresh_encryption_config().await?;
+                let crypto = self.crypto_context().ok_or_else(|| "WebDAV 云端加密未启用".to_string())?;
+                self.download_encrypted_file_with_context(path, destination, crypto).await
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn download_encrypted_file_with_context(
+        &self,
+        path: &str,
+        destination: &Path,
+        crypto: WebdavCryptoContext,
+    ) -> Result<String, String> {
         if let Some(parent) = destination.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
@@ -324,7 +385,7 @@ impl WebdavClient {
         if self.config.username.trim().is_empty() {
             builder
         } else {
-            builder.basic_auth(self.config.username.clone(), Some(self.config.password.clone()))
+            builder.basic_auth(self.config.username.trim().to_string(), Some(self.config.password.clone()))
         }
     }
 
@@ -352,6 +413,12 @@ fn normalize_path(path: &str) -> String {
 
 fn is_webdav_conflict(error: &str) -> bool {
     error.contains("409") || error.contains("Conflict")
+}
+
+fn should_refresh_encryption_config(error: &str) -> bool {
+    error.contains("解密失败")
+        || error.contains("加密格式不兼容")
+        || error.contains("不是 QuickClipboard 加密格式")
 }
 
 fn map_reqwest_error(error: reqwest::Error) -> String {
