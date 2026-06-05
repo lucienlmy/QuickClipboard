@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
@@ -82,6 +83,24 @@ function SyncTransferSection({ settings, onSettingChange }) {
     loadLanState().catch(e => {
       toast.error(lanError(e), { duration: 5000 });
     });
+  }, [activeMode]);
+
+  useEffect(() => {
+    if (activeMode !== 'lan') return;
+    let disposed = false;
+    let unlisten = null;
+    listen('sync-transfer-lan-peers-changed', () => {
+      if (!disposed) {
+        loadLanState().catch(() => {});
+      }
+    }).then(fn => {
+      unlisten = fn;
+      if (disposed) fn();
+    });
+    return () => {
+      disposed = true;
+      if (unlisten) unlisten();
+    };
   }, [activeMode]);
 
   useEffect(() => {

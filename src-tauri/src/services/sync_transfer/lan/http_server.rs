@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
@@ -180,14 +180,7 @@ async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net:
             "protocol": "quickclipboard-sync-transfer-lan-http",
             "version": 1,
         })),
-        ("POST", PAIRING_CONFIRM_PATH) => {
-            let input = serde_json::from_slice::<HttpPairingConfirmRequest>(&request.body)
-                .map_err(|e| format!("解析配对请求失败: {}", e));
-            match input.map(|input| normalize_pairing_base_url(input, remote_addr)).and_then(confirm_pairing) {
-                Ok(output) => json_response(200, output),
-                Err(message) => json_response(400, serde_json::json!({ "message": message })),
-            }
-        }
+        ("POST", PAIRING_CONFIRM_PATH) => handle_pairing_confirm(&request, remote_addr, &app),
         ("GET", STATUS_PATH) => authorized_json(&request, || Ok(super::runtime::status())),
         ("GET", SNAPSHOT_PATH) => authorized_json(&request, super::snapshot::snapshot),
         ("GET", HISTORY_RECORDS_PATH) => authorized_json(&request, || {
@@ -210,6 +203,22 @@ async fn handle_client(mut stream: tokio::net::TcpStream, remote_addr: std::net:
         }
     };
     write_response(&mut stream, response).await
+}
+
+fn handle_pairing_confirm(
+    request: &HttpRequest,
+    remote_addr: std::net::SocketAddr,
+    app: &AppHandle,
+) -> HttpResponse {
+    let input = serde_json::from_slice::<HttpPairingConfirmRequest>(&request.body)
+        .map_err(|e| format!("解析配对请求失败: {}", e));
+    match input.map(|input| normalize_pairing_base_url(input, remote_addr)).and_then(confirm_pairing) {
+        Ok(output) => {
+            let _ = app.emit("sync-transfer-lan-peers-changed", serde_json::json!({}));
+            json_response(200, output)
+        }
+        Err(message) => json_response(400, serde_json::json!({ "message": message })),
+    }
 }
 
 fn authorized_json<T, F>(request: &HttpRequest, action: F) -> HttpResponse

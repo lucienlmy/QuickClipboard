@@ -45,7 +45,13 @@ impl PairedPeer {
 }
 
 pub fn list_peers() -> Vec<PairedPeer> {
-    crate::services::store::get::<Vec<PairedPeer>>(PAIRED_PEERS_KEY).unwrap_or_default()
+    let peers = crate::services::store::get::<Vec<PairedPeer>>(PAIRED_PEERS_KEY).unwrap_or_default();
+    let original_len = peers.len();
+    let peers = dedupe_peers(peers);
+    if peers.len() != original_len {
+        let _ = save_peers(&peers);
+    }
+    peers
 }
 
 pub fn list_peer_infos() -> Vec<PairedPeerInfo> {
@@ -58,12 +64,33 @@ pub fn save_peers(peers: &[PairedPeer]) -> Result<(), String> {
 
 pub fn upsert_peer(peer: PairedPeer) -> Result<(), String> {
     let mut peers = list_peers();
-    if let Some(existing) = peers.iter_mut().find(|item| item.device_id == peer.device_id) {
-        *existing = peer;
-    } else {
-        peers.push(peer);
-    }
+    peers.retain(|item| !same_peer_identity(item, &peer));
+    peers.push(peer);
     save_peers(&peers)
+}
+
+fn dedupe_peers(peers: Vec<PairedPeer>) -> Vec<PairedPeer> {
+    let mut out: Vec<PairedPeer> = Vec::new();
+    for peer in peers {
+        if let Some(index) = out.iter().position(|item| same_peer_identity(item, &peer)) {
+            out[index] = peer;
+        } else {
+            out.push(peer);
+        }
+    }
+    out
+}
+
+fn same_peer_identity(left: &PairedPeer, right: &PairedPeer) -> bool {
+    if left.device_id == right.device_id {
+        return true;
+    }
+    let left_base_url = normalized_base_url(&left.base_url);
+    !left_base_url.is_empty() && left_base_url == normalized_base_url(&right.base_url)
+}
+
+fn normalized_base_url(base_url: &str) -> String {
+    base_url.trim().trim_end_matches('/').to_ascii_lowercase()
 }
 
 pub fn mark_peer_seen(device_id: &str) -> Result<(), String> {
