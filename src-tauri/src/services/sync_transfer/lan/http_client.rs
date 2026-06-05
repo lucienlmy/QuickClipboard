@@ -10,6 +10,9 @@ use tokio_util::io::ReaderStream;
 
 pub const LAN_UNAUTHORIZED: &str = "局域网设备未授权（配对已失效）";
 const FILE_TRANSFER_BUFFER_SIZE: usize = 1024 * 1024;
+const TRANSFER_CONNECT_TIMEOUT_SECS: u64 = 10;
+const IMAGE_REQUEST_MAX_ATTEMPTS: usize = 3;
+const IMAGE_REQUEST_RETRY_DELAYS_MS: [u64; 2] = [300, 800];
 
 fn build_client() -> reqwest::Client {
     reqwest::Client::builder()
@@ -23,7 +26,7 @@ fn build_client() -> reqwest::Client {
 fn build_transfer_client() -> reqwest::Client {
     reqwest::Client::builder()
         .no_proxy()
-        .connect_timeout(Duration::from_secs(3))
+        .connect_timeout(Duration::from_secs(TRANSFER_CONNECT_TIMEOUT_SECS))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
 }
@@ -172,24 +175,38 @@ pub async fn fetch_peer_image(peer: &super::peer_store::PairedPeer, image_id: &s
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
     };
-    let response = client
-        .get(format!("{}/qc-sync/files/{}.png", config.base_url.trim_end_matches('/'), image_id))
-        .header("Authorization", config.authorization_header())
-        .header("X-Device-Id", super::runtime::device_id())
-        .send()
-        .await
-        .map_err(|e| format!("读取局域网图片失败: {}", e))?;
-    if response.status() == reqwest::StatusCode::NOT_FOUND {
-        return Ok(None);
+    let url = format!("{}/qc-sync/files/{}.png", config.base_url.trim_end_matches('/'), image_id);
+    for attempt in 0..IMAGE_REQUEST_MAX_ATTEMPTS {
+        let response = match client
+            .get(&url)
+            .header("Authorization", config.authorization_header())
+            .header("X-Device-Id", super::runtime::device_id())
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(e) if should_retry_transport_error(&e) && attempt + 1 < IMAGE_REQUEST_MAX_ATTEMPTS => {
+                wait_before_image_retry(attempt).await;
+                continue;
+            }
+            Err(e) => return Err(format!("读取局域网图片失败: {}", e)),
+        };
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !response.status().is_success() {
+            return Err(format!("读取局域网图片失败: {}", response.status()));
+        }
+        match response.bytes().await {
+            Ok(bytes) => return Ok(Some(bytes.to_vec())),
+            Err(e) if should_retry_transport_error(&e) && attempt + 1 < IMAGE_REQUEST_MAX_ATTEMPTS => {
+                wait_before_image_retry(attempt).await;
+                continue;
+            }
+            Err(e) => return Err(format!("读取局域网图片内容失败: {}", e)),
+        }
     }
-    if !response.status().is_success() {
-        return Err(format!("读取局域网图片失败: {}", response.status()));
-    }
-    response
-        .bytes()
-        .await
-        .map(|bytes| Some(bytes.to_vec()))
-        .map_err(|e| format!("读取局域网图片内容失败: {}", e))
+    Err("读取局域网图片失败: 多次重试后仍无法连接".to_string())
 }
 
 pub async fn push_peer_image(peer: &super::peer_store::PairedPeer, image_id: &str, bytes: Vec<u8>) -> Result<(), String> {
@@ -198,18 +215,29 @@ pub async fn push_peer_image(peer: &super::peer_store::PairedPeer, image_id: &st
         base_url: peer.base_url.clone(),
         peer_token: peer.peer_token.clone(),
     };
-    let response = client
-        .put(format!("{}/qc-sync/files/{}.png", config.base_url.trim_end_matches('/'), image_id))
-        .header("Authorization", config.authorization_header())
-        .header("X-Device-Id", super::runtime::device_id())
-        .body(bytes)
-        .send()
-        .await
-        .map_err(|e| format!("推送局域网图片失败: {}", e))?;
-    if !response.status().is_success() {
-        return Err(format!("推送局域网图片失败: {}", response.status()));
+    let url = format!("{}/qc-sync/files/{}.png", config.base_url.trim_end_matches('/'), image_id);
+    for attempt in 0..IMAGE_REQUEST_MAX_ATTEMPTS {
+        let response = match client
+            .put(&url)
+            .header("Authorization", config.authorization_header())
+            .header("X-Device-Id", super::runtime::device_id())
+            .body(bytes.clone())
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(e) if should_retry_transport_error(&e) && attempt + 1 < IMAGE_REQUEST_MAX_ATTEMPTS => {
+                wait_before_image_retry(attempt).await;
+                continue;
+            }
+            Err(e) => return Err(format!("推送局域网图片失败: {}", e)),
+        };
+        if !response.status().is_success() {
+            return Err(format!("推送局域网图片失败: {}", response.status()));
+        }
+        return Ok(());
     }
-    Ok(())
+    Err("推送局域网图片失败: 多次重试后仍无法连接".to_string())
 }
 
 pub async fn send_peer_file_stream(
@@ -383,6 +411,18 @@ where
         return Err(format!("推送局域网同步数据失败: {}", response.status()));
     }
     response.json::<T>().await.map_err(|e| format!("解析局域网推送结果失败: {}", e))
+}
+
+fn should_retry_transport_error(error: &reqwest::Error) -> bool {
+    error.is_connect() || error.is_timeout()
+}
+
+async fn wait_before_image_retry(attempt: usize) {
+    let delay_ms = IMAGE_REQUEST_RETRY_DELAYS_MS
+        .get(attempt)
+        .copied()
+        .unwrap_or(*IMAGE_REQUEST_RETRY_DELAYS_MS.last().unwrap_or(&800));
+    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 }
 
 fn normalize_base_url(raw: &str) -> Result<String, String> {
