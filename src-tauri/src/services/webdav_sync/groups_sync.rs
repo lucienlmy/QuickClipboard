@@ -69,11 +69,6 @@ pub async fn download_groups(
         .collect::<Vec<CloudGroup>>();
 
     if force_download {
-        let item_ids = groups.iter().map(|group| group.name.clone()).collect::<Vec<_>>();
-        crate::services::database::remove_sync_tombstones_for_items(
-            crate::services::database::COLLECTION_GROUPS,
-            &item_ids,
-        )?;
         crate::services::database::webdav_repair_groups(&groups)
     } else {
         crate::services::database::lan_save_groups(&groups)

@@ -47,14 +47,19 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
         let mut changed = Vec::new();
 
         for group in groups {
-            if !ignore_tombstones && super::tombstones::is_record_deleted_in_conn(
+            let tombstone_deleted_at = super::tombstones::sync_tombstone_deleted_at_in_conn(
                 &tx,
                 super::tombstones::COLLECTION_GROUPS,
                 &group.name,
-                group.updated_at,
-            )? {
+            )?;
+            if !ignore_tombstones && tombstone_deleted_at.map(|value| value >= group.updated_at).unwrap_or(false) {
                 continue;
             }
+            let restored_updated_at = if ignore_tombstones {
+                super::tombstones::restored_record_updated_at(group.updated_at, tombstone_deleted_at)
+            } else {
+                group.updated_at
+            };
 
             let existing = tx
                 .query_row(
@@ -80,9 +85,16 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                     && order == group.order
                     && source_device_id == group.source_device_id
                     && created_at == group.created_at
-                    && updated_at == group.updated_at;
+                    && updated_at == restored_updated_at;
 
-                if updated_at >= group.updated_at || same {
+                if updated_at >= restored_updated_at || same {
+                    if tombstone_deleted_at.map(|deleted_at| deleted_at < updated_at).unwrap_or(false) {
+                        super::tombstones::delete_sync_tombstone_in_conn(
+                            &tx,
+                            super::tombstones::COLLECTION_GROUPS,
+                            &group.name,
+                        )?;
+                    }
                     continue;
                 }
 
@@ -101,11 +113,20 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                         group.order,
                         group.source_device_id,
                         group.created_at,
-                        group.updated_at,
+                        restored_updated_at,
                         group.name,
                     ],
                 )?;
-                changed.push(group.clone());
+                if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                    super::tombstones::delete_sync_tombstone_in_conn(
+                        &tx,
+                        super::tombstones::COLLECTION_GROUPS,
+                        &group.name,
+                    )?;
+                }
+                let mut changed_group = group.clone();
+                changed_group.updated_at = restored_updated_at;
+                changed.push(changed_group);
                 continue;
             }
 
@@ -119,10 +140,19 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                     group.order,
                     group.source_device_id,
                     group.created_at,
-                    group.updated_at,
+                    restored_updated_at,
                 ],
             )?;
-            changed.push(group.clone());
+            if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                super::tombstones::delete_sync_tombstone_in_conn(
+                    &tx,
+                    super::tombstones::COLLECTION_GROUPS,
+                    &group.name,
+                )?;
+            }
+            let mut changed_group = group.clone();
+            changed_group.updated_at = restored_updated_at;
+            changed.push(changed_group);
         }
 
         tx.commit()?;

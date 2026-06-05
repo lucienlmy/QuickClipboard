@@ -54,20 +54,37 @@ pub(crate) fn record_sync_tombstone_in_conn(
     Ok(())
 }
 
-pub(crate) fn is_record_deleted_in_conn(
+pub(crate) fn sync_tombstone_deleted_at_in_conn(
     conn: &rusqlite::Connection,
     collection: &str,
     item_id: &str,
-    updated_at: i64,
-) -> Result<bool, rusqlite::Error> {
-    let deleted_at = conn
-        .query_row(
-            "SELECT deleted_at FROM sync_tombstones WHERE collection = ?1 AND item_id = ?2",
-            params![collection, item_id],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()?;
-    Ok(deleted_at.map(|value| value >= updated_at).unwrap_or(false))
+) -> Result<Option<i64>, rusqlite::Error> {
+    conn.query_row(
+        "SELECT deleted_at FROM sync_tombstones WHERE collection = ?1 AND item_id = ?2",
+        params![collection, item_id],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+}
+
+pub(crate) fn delete_sync_tombstone_in_conn(
+    conn: &rusqlite::Connection,
+    collection: &str,
+    item_id: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "DELETE FROM sync_tombstones WHERE collection = ?1 AND item_id = ?2",
+        params![collection, item_id],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn restored_record_updated_at(updated_at: i64, tombstone_deleted_at: Option<i64>) -> i64 {
+    let now = chrono::Utc::now().timestamp();
+    match tombstone_deleted_at {
+        Some(deleted_at) => updated_at.max(now).max(deleted_at.saturating_add(1)),
+        None => updated_at.max(now),
+    }
 }
 
 pub fn list_sync_tombstones_since(since_deleted_at: Option<i64>) -> Result<Vec<SyncTombstone>, String> {
@@ -115,27 +132,6 @@ pub fn sync_tombstone_states() -> Result<HashMap<String, i64>, String> {
             states.insert(tombstone_state_key(&collection, &item_id), deleted_at);
         }
         Ok(states)
-    })
-}
-
-pub fn remove_sync_tombstones_for_items(collection: &str, item_ids: &[String]) -> Result<(), String> {
-    if collection.trim().is_empty() || item_ids.is_empty() {
-        return Ok(());
-    }
-
-    with_connection(|conn| {
-        let tx = conn.unchecked_transaction()?;
-        for item_id in item_ids {
-            if item_id.trim().is_empty() {
-                continue;
-            }
-            tx.execute(
-                "DELETE FROM sync_tombstones WHERE collection = ?1 AND item_id = ?2",
-                params![collection, item_id],
-            )?;
-        }
-        tx.commit()?;
-        Ok(())
     })
 }
 

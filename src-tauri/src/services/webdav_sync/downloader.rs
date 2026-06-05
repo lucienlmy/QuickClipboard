@@ -48,11 +48,6 @@ pub async fn download_all(
                     Vec::new()
                 } else {
                     if force_download {
-                        let item_ids = records.iter().map(|record| record.uuid.clone()).collect::<Vec<_>>();
-                        crate::services::database::remove_sync_tombstones_for_items(
-                            crate::services::database::COLLECTION_HISTORY,
-                            &item_ids,
-                        )?;
                         crate::services::database::webdav_repair_history_records(&records)?
                     } else {
                         crate::services::database::lan_upsert_history_records(&records)?
@@ -92,11 +87,6 @@ pub async fn download_all(
                     Vec::new()
                 } else {
                     if force_download {
-                        let item_ids = records.iter().map(|record| record.uuid.clone()).collect::<Vec<_>>();
-                        crate::services::database::remove_sync_tombstones_for_items(
-                            crate::services::database::COLLECTION_FAVORITES,
-                            &item_ids,
-                        )?;
                         crate::services::database::webdav_repair_favorite_records(&records)?
                     } else {
                         crate::services::database::lan_upsert_favorite_records(&records)?

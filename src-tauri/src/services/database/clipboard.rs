@@ -460,14 +460,19 @@ fn upsert_history_records(records: &[CloudRecord], ignore_tombstones: bool) -> R
             if record.uuid.trim().is_empty() {
                 continue;
             }
-            if !ignore_tombstones && super::tombstones::is_record_deleted_in_conn(
+            let tombstone_deleted_at = super::tombstones::sync_tombstone_deleted_at_in_conn(
                 &tx,
                 super::tombstones::COLLECTION_HISTORY,
                 &record.uuid,
-                record.updated_at,
-            )? {
+            )?;
+            if !ignore_tombstones && tombstone_deleted_at.map(|value| value >= record.updated_at).unwrap_or(false) {
                 continue;
             }
+            let restored_updated_at = if ignore_tombstones {
+                super::tombstones::restored_record_updated_at(record.updated_at, tombstone_deleted_at)
+            } else {
+                record.updated_at
+            };
 
             let existing = tx
                 .query_row(
@@ -509,7 +514,7 @@ fn upsert_history_records(records: &[CloudRecord], ignore_tombstones: bool) -> R
                 created_at,
             )) = existing {
                 let same = source_device_id == record.source_device_id
-                    && updated_at == record.updated_at
+                    && updated_at == restored_updated_at
                     && content == record.content
                     && html_content == record.html_content
                     && content_type == record.content_type
@@ -521,7 +526,14 @@ fn upsert_history_records(records: &[CloudRecord], ignore_tombstones: bool) -> R
                     && char_count == record.char_count
                     && created_at == record.created_at;
 
-                if updated_at >= record.updated_at || same {
+                if updated_at >= restored_updated_at || same {
+                    if tombstone_deleted_at.map(|deleted_at| deleted_at < updated_at).unwrap_or(false) {
+                        super::tombstones::delete_sync_tombstone_in_conn(
+                            &tx,
+                            super::tombstones::COLLECTION_HISTORY,
+                            &record.uuid,
+                        )?;
+                    }
                     continue;
                 }
 
@@ -553,11 +565,20 @@ fn upsert_history_records(records: &[CloudRecord], ignore_tombstones: bool) -> R
                         record.source_icon_hash,
                         record.char_count,
                         record.created_at,
-                        record.updated_at,
+                        restored_updated_at,
                         record.uuid,
                     ],
                 )?;
-                changed.push(record.clone());
+                if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                    super::tombstones::delete_sync_tombstone_in_conn(
+                        &tx,
+                        super::tombstones::COLLECTION_HISTORY,
+                        &record.uuid,
+                    )?;
+                }
+                let mut changed_record = record.clone();
+                changed_record.updated_at = restored_updated_at;
+                changed.push(changed_record);
                 continue;
             }
 
@@ -580,10 +601,19 @@ fn upsert_history_records(records: &[CloudRecord], ignore_tombstones: bool) -> R
                     record.source_icon_hash,
                     record.char_count,
                     record.created_at,
-                    record.updated_at,
+                    restored_updated_at,
                 ],
             )?;
-            changed.push(record.clone());
+            if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                super::tombstones::delete_sync_tombstone_in_conn(
+                    &tx,
+                    super::tombstones::COLLECTION_HISTORY,
+                    &record.uuid,
+                )?;
+            }
+            let mut changed_record = record.clone();
+            changed_record.updated_at = restored_updated_at;
+            changed.push(changed_record);
         }
 
         tx.commit()?;
