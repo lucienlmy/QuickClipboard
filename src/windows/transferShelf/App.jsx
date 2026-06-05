@@ -10,6 +10,8 @@ import { createDragPreviewIcon } from '@shared/utils/dragPreviewIcon';
 import { formatUserMessage } from '@shared/utils/userMessages';
 import { initSettings, settingsStore } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
+import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
+import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
 import {
   ensureDropProxy,
   cleanupDropProxyOrphanResources,
@@ -311,6 +313,15 @@ function clearStoredInternalDragSource() {
 export default function App() {
   const { t } = useTranslation();
   const settings = useSnapshot(settingsStore);
+  const {
+    theme,
+    effectiveTheme,
+    isDark,
+    isBackground,
+    backgroundImagePath,
+    lightThemeStyle,
+    darkThemeStyle,
+  } = useTheme();
   const shelfId = useMemo(() => getShelfIdFromUrl(), []);
   const defaultShelfName = t('transferShelf.defaultName');
   const [files, setFiles] = useState([]);
@@ -359,6 +370,24 @@ export default function App() {
   );
 
   useSettingsSync();
+
+  useEffect(() => {
+    applyThemeToBody(theme, 'transfer-shelf');
+  }, [theme, lightThemeStyle, darkThemeStyle, effectiveTheme]);
+
+  useEffect(() => {
+    if (isBackground && backgroundImagePath) {
+      applyBackgroundImage({
+        containerSelector: '.shelf-shell',
+        backgroundImagePath,
+        windowName: 'transfer-shelf',
+      });
+      return () => clearBackgroundImage('.shelf-shell');
+    }
+
+    clearBackgroundImage('.shelf-shell');
+    return undefined;
+  }, [isBackground, backgroundImagePath]);
 
   const isSending = task.status === 'sending';
   const isUploading = task.status === 'uploading';
@@ -1426,7 +1455,12 @@ export default function App() {
   return (
     <main
       ref={rootRef}
-      className={`shelf-root ${dropActive ? 'is-drop-active' : ''}`}
+      className={[
+        'shelf-root',
+        dropActive ? 'is-drop-active' : '',
+        isDark ? 'dark' : '',
+        isBackground ? 'is-background-theme' : '',
+      ].filter(Boolean).join(' ')}
       onPointerDown={handleStartDrag}
       onDragEnter={handleHtmlDragEnter}
       onDragOver={handleHtmlDragOver}

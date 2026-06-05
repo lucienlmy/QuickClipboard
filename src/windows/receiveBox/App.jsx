@@ -7,6 +7,8 @@ import { createDragPreviewIcon } from '@shared/utils/dragPreviewIcon';
 import { formatUserMessage } from '@shared/utils/userMessages';
 import { initSettings } from '@shared/store/settingsStore';
 import { useSettingsSync } from '@shared/hooks/useSettingsSync';
+import { useTheme, applyThemeToBody } from '@shared/hooks/useTheme';
+import { applyBackgroundImage, clearBackgroundImage } from '@shared/utils/backgroundManager';
 import {
   addReceiveBoxFileToTransferShelf,
   deleteReceiveBoxCloudFile,
@@ -88,6 +90,15 @@ function toLanProgressFile(progress) {
 
 export default function App() {
   const { t } = useTranslation();
+  const {
+    theme,
+    effectiveTheme,
+    isDark,
+    isBackground,
+    backgroundImagePath,
+    lightThemeStyle,
+    darkThemeStyle,
+  } = useTheme();
   const [activeTab, setActiveTab] = useState(TAB_LAN);
   const [lanFiles, setLanFiles] = useState([]);
   const [lanProgresses, setLanProgresses] = useState({});
@@ -98,6 +109,24 @@ export default function App() {
   const [errorText, setErrorText] = useState('');
 
   useSettingsSync();
+
+  useEffect(() => {
+    applyThemeToBody(theme, 'receive-box');
+  }, [theme, lightThemeStyle, darkThemeStyle, effectiveTheme]);
+
+  useEffect(() => {
+    if (isBackground && backgroundImagePath) {
+      applyBackgroundImage({
+        containerSelector: '.receive-shell',
+        backgroundImagePath,
+        windowName: 'receive-box',
+      });
+      return () => clearBackgroundImage('.receive-shell');
+    }
+
+    clearBackgroundImage('.receive-shell');
+    return undefined;
+  }, [isBackground, backgroundImagePath]);
 
   const downloadInProgress = downloadingIds.length > 0;
   const operationInProgress = operatingKeys.length > 0;
@@ -388,7 +417,10 @@ export default function App() {
   };
 
   return (
-    <main className="receive-root" onPointerDown={handleStartDrag}>
+    <main
+      className={['receive-root', isDark ? 'dark' : '', isBackground ? 'is-background-theme' : ''].filter(Boolean).join(' ')}
+      onPointerDown={handleStartDrag}
+    >
       <section className="receive-shell">
         <header className="receive-header">
           <span className="receive-header__title">{t('receiveBox.title')}</span>

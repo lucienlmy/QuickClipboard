@@ -20,10 +20,28 @@ button {
 }
 
 .receive-root {
+  --receive-accent: var(--qc-accent, #3b82f6);
+  --receive-accent-hover: var(--qc-accent-hover, #2563eb);
+  --receive-accent-soft: color-mix(in srgb, var(--receive-accent) 14%, transparent);
+  --receive-accent-soft-strong: color-mix(in srgb, var(--receive-accent) 18%, transparent);
+  --receive-accent-border: color-mix(in srgb, var(--receive-accent) 42%, var(--qc-border, rgba(17, 24, 39, 0.08)));
+  --receive-success: #16a34a;
+  --receive-success-soft: color-mix(in srgb, var(--receive-success) 13%, transparent);
+  --receive-danger: #ef4444;
+  --receive-danger-strong: #b91c1c;
+  --receive-danger-soft: color-mix(in srgb, var(--receive-danger) 12%, transparent);
+  --receive-danger-border: color-mix(in srgb, var(--receive-danger) 34%, var(--qc-border, rgba(17, 24, 39, 0.08)));
+  --receive-neutral-soft: color-mix(in srgb, var(--qc-fg-muted, #6b7280) 14%, transparent);
   width: 100%;
   height: 100%;
   padding: 5px;
   cursor: grab;
+}
+
+body.theme-dark .receive-root {
+  --receive-success: #4ade80;
+  --receive-danger: #f87171;
+  --receive-danger-strong: #fca5a5;
 }
 
 .receive-root:active {
@@ -100,8 +118,8 @@ button {
 }
 
 .receive-icon-btn.is-danger:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  color: var(--receive-danger);
+  background: var(--receive-danger-soft);
 }
 
 .receive-icon-btn[disabled] {
@@ -134,9 +152,9 @@ button {
 }
 
 .receive-tab.is-active {
-  background: rgba(47, 123, 255, 0.14);
-  border-color: rgba(47, 123, 255, 0.42);
-  color: #1d5bd6;
+  background: var(--receive-accent-soft);
+  border-color: var(--receive-accent-border);
+  color: var(--receive-accent);
 }
 
 .receive-list {
@@ -169,8 +187,8 @@ button {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: rgba(47, 123, 255, 0.12);
-  color: #2f7bff;
+  background: var(--receive-accent-soft);
+  color: var(--receive-accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -201,11 +219,11 @@ button {
 }
 
 .receive-file.is-receiving {
-  border-color: rgba(47, 123, 255, 0.2);
+  border-color: color-mix(in srgb, var(--receive-accent) 24%, var(--qc-border, rgba(17, 24, 39, 0.06)));
 }
 
 .receive-file.is-progress-failed {
-  border-color: rgba(239, 68, 68, 0.24);
+  border-color: var(--receive-danger-border);
 }
 
 .receive-file + .receive-file {
@@ -218,8 +236,8 @@ button {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: rgba(47, 123, 255, 0.12);
-  color: #2f7bff;
+  background: var(--receive-accent-soft);
+  color: var(--receive-accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -273,7 +291,7 @@ button {
   line-height: 16px;
   padding: 0 5px;
   border-radius: 999px;
-  background: rgba(107, 114, 128, 0.12);
+  background: var(--receive-neutral-soft);
   color: var(--qc-fg-muted, #6b7280);
   font-size: 9px;
   font-weight: 600;
@@ -283,23 +301,23 @@ button {
 }
 
 .receive-file__status.is-downloaded {
-  color: #15803d;
-  background: rgba(34, 197, 94, 0.13);
+  color: var(--receive-success);
+  background: var(--receive-success-soft);
 }
 
 .receive-file__status.is-missing {
-  color: #b91c1c;
-  background: rgba(239, 68, 68, 0.13);
+  color: var(--receive-danger-strong);
+  background: var(--receive-danger-soft);
 }
 
 .receive-file__status.is-receiving {
-  color: #1d5bd6;
-  background: rgba(47, 123, 255, 0.13);
+  color: var(--receive-accent);
+  background: var(--receive-accent-soft);
 }
 
 .receive-file__status.is-failed {
-  color: #b91c1c;
-  background: rgba(239, 68, 68, 0.13);
+  color: var(--receive-danger-strong);
+  background: var(--receive-danger-soft);
 }
 
 .receive-file__actions {
@@ -325,13 +343,13 @@ button {
   right: 0;
   bottom: 0;
   height: 2px;
-  background: #2f7bff;
+  background: var(--receive-accent);
   transform-origin: left center;
   pointer-events: none;
 }
 
 .receive-file.is-progress-failed .receive-file__progress {
-  background: #ef4444;
+  background: var(--receive-danger);
 }
 
 .receive-footer {
@@ -347,8 +365,9 @@ button {
 .receive-error {
   margin: 0 8px 8px;
   font-size: 10px;
-  color: #b91c1c;
-  background: rgba(239, 68, 68, 0.12);
+  color: var(--receive-danger-strong);
+  background: var(--receive-danger-soft);
+  border: 1px solid var(--receive-danger-border);
   border-radius: 8px;
   padding: 6px 8px;
   line-height: 1.4;
@@ -374,6 +393,74 @@ button {
 .receive-list::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: var(--qc-border-strong, rgba(17, 24, 39, 0.2));
+}
+
+body.theme-background .receive-shell {
+  backdrop-filter: blur(var(--theme-superbg-blur-12, 12px));
+  -webkit-backdrop-filter: blur(var(--theme-superbg-blur-12, 12px));
+}
+
+body.theme-background :is(.receive-header, .receive-list, .receive-file, .receive-footer) {
+  backdrop-filter: blur(var(--theme-superbg-blur-8, 8px));
+  -webkit-backdrop-filter: blur(var(--theme-superbg-blur-8, 8px));
+}
+
+body.window-receive-box:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .receive-shell {
+  border: 2px solid var(--qc-border-strong);
+  border-radius: var(--sketch-radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent),
+    var(--paper-fibers),
+    var(--paper-noise),
+    var(--qc-surface);
+  box-shadow: var(--wf-container-shadow);
+  isolation: isolate;
+}
+
+body.window-receive-box:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .receive-shell::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1px solid var(--wf-before-border);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.9;
+  transform: rotate(-0.8deg) skew(-0.25deg);
+}
+
+body.window-receive-box:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) :is(
+  .receive-header,
+  .receive-list,
+  .receive-file,
+  .receive-empty__icon
+) {
+  border: 2px solid var(--qc-border-strong);
+  border-radius: var(--sketch-radius);
+  background-image:
+    linear-gradient(183deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03)),
+    var(--paper-noise);
+  box-shadow: var(--wf-panel-shadow);
+}
+
+body.window-receive-box:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .receive-file {
+  box-shadow: var(--wf-file-row-shadow);
+}
+
+body.window-receive-box:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .receive-file__icon {
+  border: 2px solid var(--qc-border-strong);
+  border-radius: var(--sketch-radius-sm);
+  box-shadow: var(--wf-icon-shell-shadow);
+}
+
+body.window-receive-box:is(.theme-light.theme-light-wireframe, .theme-dark.theme-dark-sketch) .receive-tab.is-active {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.14), transparent),
+    var(--wireframe-active-fill);
+  border-color: var(--qc-accent);
+  color: var(--qc-accent-fg);
+  box-shadow:
+    0 0 0 2px var(--wireframe-active-glow),
+    4px 4px 0 var(--wireframe-active-shadow);
 }
 
 @keyframes receive-spin {
