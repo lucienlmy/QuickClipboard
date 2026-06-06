@@ -185,12 +185,22 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
             preview_image: None,
         },
         separator_item(),
-        menu_item_with_state(
-            "transfer-shelf",
-            "新建文件盒",
-            Some("ti ti-package"),
-            is_force_update,
-        ),
+        CtxMenuItem {
+            id: "file-hub".to_string(),
+            label: "文件中转".to_string(),
+            icon: Some("ti ti-transfer".to_string()),
+            favicon: None,
+            icon_color: None,
+            disabled: is_force_update,
+            separator: false,
+            item_type: None,
+            buttons: None,
+            children: Some(vec![
+                menu_item("transfer-shelf", "新建文件盒", Some("ti ti-package")),
+                menu_item("receive-box", "打开收件盒", Some("ti ti-inbox")),
+            ]),
+            preview_image: None,
+        },
         separator_item(),
         menu_item_with_state("toggle-hotkeys", hotkeys_label, Some("ti ti-keyboard"), is_force_update),
         menu_item_with_state("toggle-clipboard-monitor", monitor_label, Some("ti ti-clipboard"), is_force_update),
@@ -310,6 +320,11 @@ fn handle_tray_menu_selection(app: &AppHandle, selected_id: &str) {
         "transfer-shelf" => {
             if let Err(e) = crate::windows::transfer_shelf::open_or_create_shelf(app) {
                 eprintln!("创建文件盒失败: {}", e);
+            }
+        }
+        "receive-box" => {
+            if let Err(e) = crate::windows::receive_box::open_receive_box(app) {
+                eprintln!("打开收件盒失败: {}", e);
             }
         }
         "toggle" => {

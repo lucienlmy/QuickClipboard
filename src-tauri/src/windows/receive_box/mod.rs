@@ -7,6 +7,7 @@ mod manager;
 mod types;
 mod window;
 
+pub use manager::open_receive_box;
 pub use types::ReceiveBoxLanFileProgress;
 
 pub const LAN_FILES_CHANGED_EVENT: &str = "receive-box-lan-files-changed";

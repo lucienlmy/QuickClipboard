@@ -1146,6 +1146,10 @@
     "formatToggle": "格式粘贴",
     "more": "更多",
     "moreMenu": {
+      "fileHub": "文件中转",
+      "webdav": "WebDAV 同步",
+      "newTransferShelf": "新建文件盒",
+      "openReceiveBox": "打开收件盒",
       "screenshot": "截屏",
       "contentPreview": "内容预览",
       "globalPaste": "全局粘贴",

@@ -304,7 +304,30 @@ const TitleBar = forwardRef(({
       createMenuItem('menu-paste-one-time', t('tools.oneTimePaste'), { icon: checkIcon(oneTimePasteEnabled) })
     ];
 
+    const fileHubItem = createMenuItem('menu-file-hub-group', t('tools.moreMenu.fileHub', '文件中转'), { icon: 'ti ti-transfer' });
+    fileHubItem.children = [
+      createMenuItem('menu-open-transfer-shelf', t('tools.moreMenu.newTransferShelf', '新建文件盒'), { icon: 'ti ti-package' }),
+      createMenuItem('menu-open-receive-box', t('tools.moreMenu.openReceiveBox', '打开收件盒'), { icon: 'ti ti-inbox' })
+    ];
+
+    const webdavItem = createMenuItem('menu-webdav-group', t('tools.moreMenu.webdav', 'WebDAV 同步'), {
+      icon: webdavBusy ? 'ti ti-loader-2' : 'ti ti-cloud'
+    });
+    webdavItem.children = [
+      createMenuItem('menu-webdav-upload', t('settings.webdav.upload'), {
+        icon: webdavBusy === 'push' ? 'ti ti-loader-2' : 'ti ti-cloud-up',
+        disabled: Boolean(webdavBusy)
+      }),
+      createMenuItem('menu-webdav-download', t('settings.webdav.download'), {
+        icon: webdavBusy === 'pull' ? 'ti ti-loader-2' : 'ti ti-cloud-down',
+        disabled: Boolean(webdavBusy)
+      })
+    ];
+
     const menuItems = [
+      fileHubItem,
+      webdavItem,
+      createSeparator(),
       screenshotItem,
       previewItem,
       displayPriorityItem,
@@ -388,6 +411,18 @@ const TitleBar = forwardRef(({
         } catch (error) {
           console.error('切换一次性粘贴失败:', error);
         }
+        break;
+      case 'menu-open-transfer-shelf':
+        await handleOpenTransferShelf(event);
+        break;
+      case 'menu-open-receive-box':
+        await handleOpenReceiveBox(event);
+        break;
+      case 'menu-webdav-upload':
+        await handleWebdavAction(event, 'push');
+        break;
+      case 'menu-webdav-download':
+        await handleWebdavAction(event, 'pull');
         break;
       case 'menu-clear-clipboard-history':
         try {
@@ -507,56 +542,6 @@ const TitleBar = forwardRef(({
               aria-label={t('tools.pin')}
             >
               <i className="ti ti-pin" style={{ fontSize: 16 }} data-stroke="1.5"></i>
-            </button>
-          </Tooltip>
-
-          <Tooltip content="新建文件盒" placement={tooltipPlacement} asChild>
-            <button
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
-              aria-label="新建文件盒"
-              type="button"
-              onClick={handleOpenTransferShelf}
-            >
-              <i className="ti ti-package" style={{ fontSize: 16 }} data-stroke="1.5"></i>
-            </button>
-          </Tooltip>
-
-          <Tooltip content={t('receiveBox.title')} placement={tooltipPlacement} asChild>
-            <button
-              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
-              aria-label={t('receiveBox.title')}
-              type="button"
-              onClick={handleOpenReceiveBox}
-            >
-              <i className="ti ti-inbox" style={{ fontSize: 16 }} data-stroke="1.5"></i>
-            </button>
-          </Tooltip>
-
-          <Tooltip content={t('settings.webdav.upload')} placement={tooltipPlacement} asChild>
-            <button
-              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
-                webdavBusy === 'push' ? 'text-blue-500 bg-qc-hover' : 'hover:bg-qc-hover text-qc-fg-muted'
-              }`}
-              aria-label={t('settings.webdav.upload')}
-              type="button"
-              onClick={event => handleWebdavAction(event, 'push')}
-              disabled={Boolean(webdavBusy)}
-            >
-              <i className={webdavBusy === 'push' ? 'ti ti-loader-2 animate-spin' : 'ti ti-cloud-up'} style={{ fontSize: 16 }} data-stroke="1.5"></i>
-            </button>
-          </Tooltip>
-
-          <Tooltip content={t('settings.webdav.download')} placement={tooltipPlacement} asChild>
-            <button
-              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
-                webdavBusy === 'pull' ? 'text-blue-500 bg-qc-hover' : 'hover:bg-qc-hover text-qc-fg-muted'
-              }`}
-              aria-label={t('settings.webdav.download')}
-              type="button"
-              onClick={event => handleWebdavAction(event, 'pull')}
-              disabled={Boolean(webdavBusy)}
-            >
-              <i className={webdavBusy === 'pull' ? 'ti ti-loader-2 animate-spin' : 'ti ti-cloud-down'} style={{ fontSize: 16 }} data-stroke="1.5"></i>
             </button>
           </Tooltip>
 

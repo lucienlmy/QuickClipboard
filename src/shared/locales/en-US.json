@@ -1145,6 +1145,10 @@
     "formatToggle": "Format Paste",
     "more": "More",
     "moreMenu": {
+      "fileHub": "File Hub",
+      "webdav": "WebDAV Sync",
+      "newTransferShelf": "New File Box",
+      "openReceiveBox": "Open Inbox",
       "screenshot": "Screenshot",
       "contentPreview": "Content Preview",
       "globalPaste": "Global Paste",
