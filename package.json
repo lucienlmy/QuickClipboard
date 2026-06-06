@@ -25,6 +25,7 @@
     "vite-plugin-wasm": "^3.4.1"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.7",
     "@codemirror/commands": "^6.10.0",
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",

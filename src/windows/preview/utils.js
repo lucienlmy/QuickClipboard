@@ -18,6 +18,8 @@ export const IMAGE_SCALE_STEP = 0.1;
 export const IMAGE_SCALE_MIN = 1;
 export const IMAGE_SCALE_MAX = 5;
 export const IMAGE_SCALE_INDICATOR_DURATION = 1500;
+export const TEXT_MIN_WIDTH = 48;
+export const HTML_MIN_WIDTH = 72;
 export const TEXT_MIN_HEIGHT = 46;
 export const TEXT_DEFAULT_HEIGHT = 46;
 export const IMAGE_STATUS_IDLE = 'idle';
@@ -28,6 +30,34 @@ export const IMAGE_STATUS_ERROR = 'error';
 export const isFiniteNumber = (value) => Number.isFinite(value) && !Number.isNaN(value);
 export const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 export const roundSize = (value, minValue = 120) => Math.max(minValue, Math.round(value));
+
+export function resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth) {
+  if (!isFiniteNumber(workAreaHeight) || workAreaHeight <= 0) {
+    return 420;
+  }
+
+  return clamp(
+    roundSize(workAreaHeight * 0.5, 260),
+    260,
+    Math.max(260, workAreaWidth - 24),
+  );
+}
+
+export function resolveHtmlPreviewMaxWidth(workAreaHeight, workAreaWidth) {
+  return resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth);
+}
+
+export function resolveTextPreviewMaxHeight(workAreaHeight) {
+  if (!isFiniteNumber(workAreaHeight) || workAreaHeight <= 0) {
+    return 560;
+  }
+
+  return clamp(
+    roundSize(workAreaHeight * (2 / 3), 300),
+    300,
+    Math.max(300, workAreaHeight - 24),
+  );
+}
 
 export function resolvePreviewMode(requestedMode, item) {
   const primaryType = getPrimaryType(item?.content_type);
@@ -184,38 +214,31 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
   if (mode === MODE_HTML) {
     const preferredWidth = Number(options.htmlWidth);
     const preferredHeight = Number(options.htmlHeight);
-    const baseWidth = clamp(
-      roundSize(workAreaHeight * 0.5, 260),
-      260,
-      Math.max(260, workAreaWidth - 24),
-    );
-    const maxHeight = clamp(
-      roundSize(workAreaHeight * (2 / 3), 300),
-      300,
-      Math.max(300, workAreaHeight - 24),
-    );
+    const maxWidth = resolveHtmlPreviewMaxWidth(workAreaHeight, workAreaWidth);
+    const maxHeight = resolveTextPreviewMaxHeight(workAreaHeight);
 
     const width = isFiniteNumber(preferredWidth) && preferredWidth > 0
       ? Math.round(preferredWidth)
-      : baseWidth;
+      : maxWidth;
     const height = isFiniteNumber(preferredHeight) && preferredHeight > 0
       ? Math.round(preferredHeight)
       : TEXT_DEFAULT_HEIGHT;
 
     return {
-      width: clamp(width, 260, baseWidth),
+      width: clamp(width, HTML_MIN_WIDTH, maxWidth),
       height: clamp(height, TEXT_MIN_HEIGHT, maxHeight),
     };
   }
 
-  const width = roundSize(workAreaHeight * 0.5, 260);
-  const maxHeight = clamp(
-    roundSize(workAreaHeight * (2 / 3), 300),
-    300,
-    Math.max(300, workAreaHeight - 24),
-  );
+  const maxWidth = resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth);
+  const maxHeight = resolveTextPreviewMaxHeight(workAreaHeight);
+  const preferredWidth = Number(options.textWidth);
   const preferredHeight = Number(options.textHeight);
-  const finalWidth = clamp(width, 260, Math.max(260, workAreaWidth - 24));
+  const finalWidth = clamp(
+    isFiniteNumber(preferredWidth) && preferredWidth > 0 ? Math.round(preferredWidth) : maxWidth,
+    TEXT_MIN_WIDTH,
+    maxWidth,
+  );
   const finalHeight = clamp(
     isFiniteNumber(preferredHeight) && preferredHeight > 0 ? Math.round(preferredHeight) : TEXT_DEFAULT_HEIGHT,
     TEXT_MIN_HEIGHT,
@@ -343,16 +366,6 @@ export function chooseContainerPosition(mouseX, mouseY, width, height, workArea,
     left: clamp(fallback.x, workLeft, Math.max(workLeft, workRight - width)),
     top: clamp(fallback.y, workTop, Math.max(workTop, workBottom - height)),
   };
-}
-
-export function estimateTextHeight(text) {
-  if (typeof text !== 'string' || text.length === 0) {
-    return TEXT_DEFAULT_HEIGHT;
-  }
-
-  const lines = text.split(/\r\n|\n|\r/).length;
-  const estimated = 22 + lines * 22;
-  return Math.max(TEXT_MIN_HEIGHT, estimated);
 }
 
 export function parseImageFilePath(content) {

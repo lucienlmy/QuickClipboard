@@ -1,9 +1,18 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { sanitizeHTML } from '@shared/utils/htmlProcessor';
+import {
+  HTML_MIN_WIDTH,
+  TEXT_MIN_HEIGHT,
+  clamp,
+  isFiniteNumber,
+} from '../utils';
 
 const PLACEHOLDER_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeGxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZjBmMGYwIi8+PC9zdmc+';
 const ERROR_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeGxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZmZlYmVlIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiNjNjI4MjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7lpb3ml7bplK7mj5DmnKzmiqUgPC90ZXh0Pjwvc3ZnPg==';
+const HTML_SURFACE_BORDER_SIZE = 2;
+const HTML_LAYOUT_WRAP = 'wrap';
+const HTML_LAYOUT_NOWRAP = 'nowrap';
 
 const RESPONSIVE_LAYOUT_TAGS = new Set([
   'DIV',
@@ -38,75 +47,98 @@ const MEDIA_TAGS = new Set(['IMG', 'VIDEO', 'CANVAS', 'SVG', 'IFRAME', 'OBJECT',
 const PRESERVE_INTRINSIC_WIDTH_TAGS = new Set(['TABLE', 'IMG', 'VIDEO', 'CANVAS', 'SVG', 'IFRAME', 'OBJECT', 'EMBED']);
 
 function setImportantStyle(style, property, value) {
+  if (
+    style.getPropertyValue(property) === value
+    && style.getPropertyPriority(property) === 'important'
+  ) {
+    return;
+  }
+
   style.setProperty(property, value, 'important');
 }
 
-function normalizeHtmlLayout(root) {
+function applyHtmlElementLayout(element, mode, isRoot = false) {
+  if (!element || !element.style) {
+    return;
+  }
+
+  const shouldWrap = mode !== HTML_LAYOUT_NOWRAP;
+  const tagName = element.tagName;
+
+  setImportantStyle(element.style, 'box-sizing', 'border-box');
+  setImportantStyle(element.style, 'min-width', '0');
+  setImportantStyle(element.style, 'white-space', shouldWrap ? 'normal' : 'pre');
+  setImportantStyle(element.style, 'overflow-wrap', shouldWrap ? 'anywhere' : 'normal');
+  setImportantStyle(element.style, 'word-break', shouldWrap ? 'break-word' : 'normal');
+
+  if (tagName === 'PRE' || tagName === 'CODE') {
+    setImportantStyle(element.style, 'white-space', shouldWrap ? 'pre-wrap' : 'pre');
+    setImportantStyle(element.style, 'overflow-x', 'auto');
+    setImportantStyle(element.style, 'width', 'auto');
+    setImportantStyle(element.style, 'max-width', 'none');
+  } else if (tagName === 'TABLE') {
+    setImportantStyle(element.style, 'width', '100%');
+    setImportantStyle(element.style, 'max-width', '100%');
+    setImportantStyle(element.style, 'table-layout', 'fixed');
+    setImportantStyle(element.style, 'border-collapse', 'collapse');
+  } else if (tagName === 'IMG') {
+    setImportantStyle(element.style, 'display', 'inline-block');
+    setImportantStyle(element.style, 'width', 'auto');
+    setImportantStyle(element.style, 'height', 'auto');
+    setImportantStyle(element.style, 'max-width', 'none');
+    setImportantStyle(element.style, 'object-fit', 'contain');
+  } else if (MEDIA_TAGS.has(tagName)) {
+    setImportantStyle(element.style, 'width', 'auto');
+    setImportantStyle(element.style, 'height', 'auto');
+    setImportantStyle(element.style, 'max-width', 'none');
+  } else if (RESPONSIVE_LAYOUT_TAGS.has(tagName)) {
+    setImportantStyle(element.style, 'width', 'auto');
+    if (shouldWrap) {
+      setImportantStyle(element.style, 'white-space', 'normal');
+    }
+  }
+
+  if (!isRoot) {
+    if (element.style.position && element.style.position !== 'static') {
+      setImportantStyle(element.style, 'position', 'static');
+      setImportantStyle(element.style, 'top', 'auto');
+      setImportantStyle(element.style, 'right', 'auto');
+      setImportantStyle(element.style, 'bottom', 'auto');
+      setImportantStyle(element.style, 'left', 'auto');
+    }
+
+    if (element.style.float && element.style.float !== 'none') {
+      setImportantStyle(element.style, 'float', 'none');
+    }
+
+    if (element.style.transform && element.style.transform !== 'none') {
+      setImportantStyle(element.style, 'transform', 'none');
+    }
+  }
+
+  if (!PRESERVE_INTRINSIC_WIDTH_TAGS.has(tagName)) {
+    element.removeAttribute('width');
+    element.removeAttribute('height');
+  }
+}
+
+function applyHtmlLayout(root, mode = HTML_LAYOUT_WRAP) {
   if (!root) {
     return;
   }
 
-  const elements = [root, ...root.querySelectorAll('*')];
+  applyHtmlElementLayout(root, mode, true);
+  root.querySelectorAll('*').forEach((element) => {
+    applyHtmlElementLayout(element, mode, false);
+  });
+}
 
-  for (const element of elements) {
-    if (!element || !element.style) {
-      continue;
-    }
-
-    const tagName = element.tagName;
-
-    setImportantStyle(element.style, 'box-sizing', 'border-box');
-    setImportantStyle(element.style, 'min-width', '0');
-    setImportantStyle(element.style, 'overflow-wrap', 'anywhere');
-    setImportantStyle(element.style, 'word-break', 'break-word');
-
-    if (tagName === 'PRE' || tagName === 'CODE') {
-      setImportantStyle(element.style, 'white-space', 'pre-wrap');
-      setImportantStyle(element.style, 'overflow-x', 'auto');
-      setImportantStyle(element.style, 'width', 'auto');
-      setImportantStyle(element.style, 'max-width', 'none');
-    } else if (tagName === 'TABLE') {
-      setImportantStyle(element.style, 'width', 'auto');
-      setImportantStyle(element.style, 'table-layout', 'auto');
-      setImportantStyle(element.style, 'border-collapse', 'collapse');
-    } else if (tagName === 'IMG') {
-      setImportantStyle(element.style, 'display', 'inline-block');
-      setImportantStyle(element.style, 'width', 'auto');
-      setImportantStyle(element.style, 'height', 'auto');
-      setImportantStyle(element.style, 'max-width', 'none');
-      setImportantStyle(element.style, 'object-fit', 'contain');
-    } else if (MEDIA_TAGS.has(tagName)) {
-      setImportantStyle(element.style, 'width', 'auto');
-      setImportantStyle(element.style, 'height', 'auto');
-      setImportantStyle(element.style, 'max-width', 'none');
-    } else if (RESPONSIVE_LAYOUT_TAGS.has(tagName)) {
-      setImportantStyle(element.style, 'width', 'auto');
-      setImportantStyle(element.style, 'white-space', 'normal');
-    }
-
-    if (element !== root) {
-      if (element.style.position && element.style.position !== 'static') {
-        setImportantStyle(element.style, 'position', 'static');
-        setImportantStyle(element.style, 'top', 'auto');
-        setImportantStyle(element.style, 'right', 'auto');
-        setImportantStyle(element.style, 'bottom', 'auto');
-        setImportantStyle(element.style, 'left', 'auto');
-      }
-
-      if (element.style.float && element.style.float !== 'none') {
-        setImportantStyle(element.style, 'float', 'none');
-      }
-
-      if (element.style.transform && element.style.transform !== 'none') {
-        setImportantStyle(element.style, 'transform', 'none');
-      }
-    }
-
-    if (!PRESERVE_INTRINSIC_WIDTH_TAGS.has(tagName)) {
-      element.removeAttribute('width');
-      element.removeAttribute('height');
-    }
-  }
+function copyChildNodes(source, target) {
+  const fragment = document.createDocumentFragment();
+  source.childNodes.forEach((node) => {
+    fragment.appendChild(node.cloneNode(true));
+  });
+  target.replaceChildren(fragment);
 }
 
 function resolveImageIdToAsset(imageId) {
@@ -116,9 +148,62 @@ function resolveImageIdToAsset(imageId) {
   });
 }
 
+function readHtmlMeasureSize(node) {
+  const rect = node.getBoundingClientRect();
+  return {
+    width: Math.ceil(Math.max(Number(node.scrollWidth) || 0, rect.width || 0)),
+    height: Math.ceil(Math.max(Number(node.scrollHeight) || 0, rect.height || 0)),
+  };
+}
+
+function applyHtmlMeasureLayout(node, maxWidth, mode) {
+  applyHtmlLayout(node, mode);
+
+  setImportantStyle(node.style, 'display', 'inline-block');
+  setImportantStyle(node.style, 'height', 'auto');
+  setImportantStyle(node.style, 'min-height', '0');
+
+  if (mode === HTML_LAYOUT_NOWRAP) {
+    setImportantStyle(node.style, 'width', 'max-content');
+    setImportantStyle(node.style, 'max-width', 'none');
+    return;
+  }
+
+  setImportantStyle(node.style, 'width', `${maxWidth}px`);
+  setImportantStyle(node.style, 'max-width', `${maxWidth}px`);
+}
+
+function measureHtmlNodeIntrinsicSize(node, maxWidth) {
+  const safeMaxWidth = Math.max(HTML_MIN_WIDTH, Math.round(maxWidth));
+
+  applyHtmlMeasureLayout(node, safeMaxWidth, HTML_LAYOUT_NOWRAP);
+  const naturalSize = readHtmlMeasureSize(node);
+  if (naturalSize.width <= safeMaxWidth) {
+    return {
+      ...naturalSize,
+      shouldWrap: false,
+    };
+  }
+
+  applyHtmlMeasureLayout(node, safeMaxWidth, HTML_LAYOUT_WRAP);
+  return {
+    ...readHtmlMeasureSize(node),
+    width: safeMaxWidth,
+    shouldWrap: true,
+  };
+}
+
+function toPreferredHtmlSize(size, maxWidth) {
+  return {
+    width: clamp(Math.ceil(size.width) + HTML_SURFACE_BORDER_SIZE, HTML_MIN_WIDTH, maxWidth),
+    height: Math.max(TEXT_MIN_HEIGHT, Math.ceil(size.height) + HTML_SURFACE_BORDER_SIZE),
+  };
+}
+
 const HtmlPreview = forwardRef(function HtmlPreview(
   {
     htmlContent,
+    maxWidth,
     onPreferredSizeChange,
     onScrollabilityChange,
   },
@@ -126,10 +211,14 @@ const HtmlPreview = forwardRef(function HtmlPreview(
 ) {
   const scrollContainerRef = useRef(null);
   const contentRef = useRef(null);
-  const [renderedHtml, setRenderedHtml] = useState('');
+  const measureRef = useRef(null);
+  const renderedHtml = useMemo(() => {
+    const html = typeof htmlContent === 'string' ? htmlContent : '';
+    return sanitizeHTML(html);
+  }, [htmlContent]);
   const onPreferredSizeChangeRef = useRef(onPreferredSizeChange);
   const onScrollabilityChangeRef = useRef(onScrollabilityChange);
-  const maxPreferredSizeRef = useRef({ width: 0, height: 0 });
+  const preferredSizeRef = useRef({ width: 0, height: 0 });
   const measureTimerRef = useRef(0);
 
   useImperativeHandle(
@@ -157,11 +246,52 @@ const HtmlPreview = forwardRef(function HtmlPreview(
     onScrollabilityChangeRef.current = onScrollabilityChange;
   }, [onScrollabilityChange]);
 
-  useEffect(() => {
-    const html = typeof htmlContent === 'string' ? htmlContent : '';
-    setRenderedHtml(sanitizeHTML(html));
-    maxPreferredSizeRef.current = { width: 0, height: 0 };
-  }, [htmlContent]);
+  const measurePreferredSize = (htmlSource = null) => {
+    const root = contentRef.current;
+    const measureRoot = measureRef.current;
+    if (!root || !measureRoot) {
+      return;
+    }
+
+    const widthLimit = Number(maxWidth);
+    const safeMaxWidth = isFiniteNumber(widthLimit) && widthLimit > 0
+      ? widthLimit
+      : Math.max(HTML_MIN_WIDTH, root.clientWidth || 420);
+
+    measureRoot.innerHTML = typeof htmlSource === 'string' ? htmlSource : root.innerHTML;
+
+    const measuredSize = measureHtmlNodeIntrinsicSize(measureRoot, safeMaxWidth);
+    const bestSize = measuredSize.height > 0
+      ? toPreferredHtmlSize(measuredSize, safeMaxWidth)
+      : null;
+
+    if (!bestSize) {
+      if (typeof htmlSource === 'string') {
+        copyChildNodes(measureRoot, root);
+        applyHtmlElementLayout(root, HTML_LAYOUT_WRAP, true);
+      }
+      return;
+    }
+
+    const layoutMode = measuredSize.shouldWrap ? HTML_LAYOUT_WRAP : HTML_LAYOUT_NOWRAP;
+    if (typeof htmlSource === 'string') {
+      copyChildNodes(measureRoot, root);
+      applyHtmlElementLayout(root, layoutMode, true);
+    } else {
+      applyHtmlLayout(root, layoutMode);
+    }
+
+    const previousSize = preferredSizeRef.current;
+    if (
+      bestSize.width === previousSize.width
+      && bestSize.height === previousSize.height
+    ) {
+      return;
+    }
+
+    preferredSizeRef.current = bestSize;
+    onPreferredSizeChangeRef.current?.(bestSize);
+  };
 
   const scheduleMeasure = () => {
     if (measureTimerRef.current) {
@@ -170,33 +300,7 @@ const HtmlPreview = forwardRef(function HtmlPreview(
 
     measureTimerRef.current = requestAnimationFrame(() => {
       measureTimerRef.current = 0;
-
-      const root = contentRef.current;
-      if (!root) {
-        return;
-      }
-
-      const width = Math.ceil(Number(root.scrollWidth) || 0);
-      const height = Math.ceil(Number(root.scrollHeight) || 0);
-      if (width <= 0 || height <= 0) {
-        return;
-      }
-
-      const nextWidth = Math.max(maxPreferredSizeRef.current.width, width + 2);
-      const nextHeight = height + 2;
-      if (nextWidth === maxPreferredSizeRef.current.width && nextHeight === maxPreferredSizeRef.current.height) {
-        return;
-      }
-
-      maxPreferredSizeRef.current = {
-        width: nextWidth,
-        height: nextHeight,
-      };
-
-      onPreferredSizeChangeRef.current?.({
-        width: nextWidth,
-        height: nextHeight,
-      });
+      measurePreferredSize();
     });
   };
 
@@ -206,10 +310,13 @@ const HtmlPreview = forwardRef(function HtmlPreview(
       return;
     }
 
-    root.innerHTML = renderedHtml;
-    normalizeHtmlLayout(root);
-    scheduleMeasure();
-  }, [renderedHtml]);
+    preferredSizeRef.current = { width: 0, height: 0 };
+    if (measureTimerRef.current) {
+      cancelAnimationFrame(measureTimerRef.current);
+      measureTimerRef.current = 0;
+    }
+    measurePreferredSize(renderedHtml);
+  }, [renderedHtml, maxWidth]);
 
   useEffect(() => {
     const root = contentRef.current;
@@ -351,12 +458,32 @@ const HtmlPreview = forwardRef(function HtmlPreview(
     <div ref={scrollContainerRef} className="w-full h-full min-h-0 min-w-0 overflow-auto">
       <div
         ref={contentRef}
-        className="w-full max-w-full min-w-0 text-sm text-qc-fg leading-relaxed html-content min-h-full"
+        className="w-full max-w-full min-w-0 text-sm text-qc-fg leading-relaxed html-content"
         style={{
           wordBreak: 'break-word',
           overflowWrap: 'anywhere',
           padding: '10px 12px',
           isolation: 'isolate',
+        }}
+      />
+      <div
+        ref={measureRef}
+        className="text-sm text-qc-fg leading-relaxed html-content"
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          left: '-10000px',
+          top: '0',
+          height: 'auto',
+          minHeight: '0',
+          overflow: 'hidden',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          wordBreak: 'break-word',
+          overflowWrap: 'anywhere',
+          padding: '10px 12px',
+          isolation: 'isolate',
+          contain: 'layout style',
         }}
       />
     </div>

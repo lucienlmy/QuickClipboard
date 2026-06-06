@@ -1,11 +1,18 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Compartment, EditorState } from '@codemirror/state';
-import { EditorView, lineNumbers } from '@codemirror/view';
-import { TEXT_MIN_HEIGHT, isFiniteNumber } from '../utils';
+import { EditorView, ViewPlugin } from '@codemirror/view';
+import {
+  TEXT_PREVIEW_FONT,
+  TEXT_PREVIEW_LINE_HEIGHT,
+  TEXT_PREVIEW_VERTICAL_PADDING,
+} from '../textMeasure';
+
+const TEXT_PREVIEW_FONT_SIZE = 14;
+const TEXT_PREVIEW_CONTENT_PADDING_Y = TEXT_PREVIEW_VERTICAL_PADDING / 2;
+const requestHeightOverflowMeasureEffect = Symbol('requestHeightOverflowMeasure');
 
 function createEditorTheme(isDark, isBackground) {
   const textColor = isBackground ? '#ffffff' : 'var(--qc-fg)';
-  const subtleTextColor = isBackground ? 'rgba(255, 255, 255, 0.85)' : 'var(--qc-fg-subtle)';
   const textBlendMode = 'normal';
 
   return EditorView.theme(
@@ -18,24 +25,18 @@ function createEditorTheme(isDark, isBackground) {
       },
       '.cm-scroller': {
         overflow: 'auto',
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-        lineHeight: '1.6',
+        fontFamily: TEXT_PREVIEW_FONT.replace(/^14px\s+/, ''),
+        fontSize: `${TEXT_PREVIEW_FONT_SIZE}px`,
+        lineHeight: `${TEXT_PREVIEW_LINE_HEIGHT}px`,
       },
       '.cm-content': {
-        padding: '10px 12px',
+        padding: `${TEXT_PREVIEW_CONTENT_PADDING_Y}px 12px`,
         color: textColor,
       },
       '.cm-line': {
         backgroundColor: 'transparent',
+        padding: '0',
         textShadow: 'none',
-      },
-      '.cm-lineNumbers': {
-        color: subtleTextColor,
-      },
-      '.cm-gutters': {
-        backgroundColor: 'color-mix(in srgb, var(--qc-panel) 78%, transparent)',
-        color: subtleTextColor,
-        border: 'none',
       },
       '&.cm-focused': {
         outline: 'none',
@@ -56,7 +57,7 @@ const TextPreview = forwardRef(function TextPreview(
     content,
     isDark,
     isBackground,
-    onPreferredHeightChange,
+    onHeightOverflowChange,
     onScrollabilityChange,
   },
   ref,
@@ -64,6 +65,8 @@ const TextPreview = forwardRef(function TextPreview(
   const editorRootRef = useRef(null);
   const editorViewRef = useRef(null);
   const themeCompartmentRef = useRef(new Compartment());
+  const measurePluginRef = useRef(null);
+  const onHeightOverflowChangeRef = useRef(onHeightOverflowChange);
   const onScrollabilityChangeRef = useRef(onScrollabilityChange);
 
   useImperativeHandle(
@@ -84,8 +87,9 @@ const TextPreview = forwardRef(function TextPreview(
   );
 
   useEffect(() => {
+    onHeightOverflowChangeRef.current = onHeightOverflowChange;
     onScrollabilityChangeRef.current = onScrollabilityChange;
-  }, [onScrollabilityChange]);
+  }, [onHeightOverflowChange, onScrollabilityChange]);
 
   useEffect(() => {
     const root = editorRootRef.current;
@@ -93,14 +97,22 @@ const TextPreview = forwardRef(function TextPreview(
       return undefined;
     }
 
+    measurePluginRef.current = ViewPlugin.fromClass(class {
+      update(update) {
+        if (update.docChanged || update.geometryChanged) {
+          update.view[requestHeightOverflowMeasureEffect]?.();
+        }
+      }
+    });
+
     const view = new EditorView({
       state: EditorState.create({
         doc: content || '',
         extensions: [
-          lineNumbers(),
           EditorState.readOnly.of(true),
           EditorView.editable.of(false),
           EditorView.lineWrapping,
+          measurePluginRef.current,
           themeCompartmentRef.current.of(createEditorTheme(isDark, isBackground)),
         ],
       }),
@@ -139,31 +151,63 @@ const TextPreview = forwardRef(function TextPreview(
   }, [isDark, isBackground]);
 
   useEffect(() => {
-    if (typeof onPreferredHeightChange !== 'function') {
-      return undefined;
+    const view = editorViewRef.current;
+    if (!view) return undefined;
+
+    let observer = null;
+    let previousOverflowHeight = null;
+    const measureRequest = {
+      read() {
+        const scrollDOM = view.scrollDOM;
+        return Math.ceil(
+          Math.max(0, (Number(scrollDOM?.scrollHeight) || 0) - (Number(scrollDOM?.clientHeight) || 0)),
+        );
+      },
+      write(nextOverflowHeight) {
+        if (nextOverflowHeight === previousOverflowHeight) {
+          return;
+        }
+        previousOverflowHeight = nextOverflowHeight;
+        onHeightOverflowChangeRef.current?.(nextOverflowHeight);
+      },
+    };
+
+    const requestHeightMeasure = () => {
+      view.requestMeasure(measureRequest);
+    };
+
+    view[requestHeightOverflowMeasureEffect] = requestHeightMeasure;
+    requestHeightMeasure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      let previousContentSize = { width: 0, height: 0 };
+      observer = new ResizeObserver((entries) => {
+        const rect = entries?.[0]?.contentRect;
+        const nextWidth = Math.round(Number(rect?.width) || 0);
+        const nextHeight = Math.round(Number(rect?.height) || 0);
+        if (
+          nextWidth <= 0
+          || (nextWidth === previousContentSize.width && nextHeight === previousContentSize.height)
+        ) {
+          return;
+        }
+        previousContentSize = { width: nextWidth, height: nextHeight };
+        requestHeightMeasure();
+      });
+      observer.observe(view.contentDOM);
+    } else {
+      window.addEventListener('resize', requestHeightMeasure);
     }
 
-    const timer = setTimeout(() => {
-      const view = editorViewRef.current;
-      if (!view) return;
-
-      const docHeight = Number(view.contentHeight) || 0;
-      const scrollerHeight = Number(view.scrollDOM?.scrollHeight) || 0;
-      let measured = docHeight > 0 ? docHeight : scrollerHeight;
-      if (docHeight > 0 && scrollerHeight > docHeight && scrollerHeight - docHeight <= 40) {
-        measured = scrollerHeight;
+    return () => {
+      delete view[requestHeightOverflowMeasureEffect];
+      if (observer) {
+        observer.disconnect();
+      } else {
+        window.removeEventListener('resize', requestHeightMeasure);
       }
-
-      if (!isFiniteNumber(measured) || measured <= 0) {
-        return;
-      }
-
-      const safeHeight = Math.max(TEXT_MIN_HEIGHT, Math.ceil(measured + 2));
-      onPreferredHeightChange(safeHeight);
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [content, isDark, isBackground, onPreferredHeightChange]);
+    };
+  }, [content, isDark, isBackground]);
 
   useEffect(() => {
     const view = editorViewRef.current;

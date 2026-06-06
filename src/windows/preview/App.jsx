@@ -48,8 +48,10 @@ import {
   clamp,
   isFiniteNumber,
   resolveBoxSize,
+  resolveHtmlPreviewMaxWidth,
   chooseContainerPosition,
-  estimateTextHeight,
+  resolveTextPreviewMaxHeight,
+  resolveTextPreviewMaxWidth,
   resolvePreviewMode,
   parsePreviewFiles,
   buildPreviewFileStats,
@@ -58,6 +60,10 @@ import {
   parseFirstImageId,
   parseImageDimensionsFromItem,
 } from './utils';
+import {
+  measureHtmlPreviewSize,
+  measurePlainTextPreviewSize,
+} from './textMeasure';
 
 async function loadItemData(source, itemId) {
   if (source === 'clipboard') {
@@ -289,8 +295,8 @@ function App() {
   const [formatKinds, setFormatKinds] = useState([]);
   const [textContent, setTextContent] = useState('');
   const [htmlContent, setHtmlContent] = useState('');
-  const [htmlPreferredSize, setHtmlPreferredSize] = useState(null);
-  const [textPreferredHeight, setTextPreferredHeight] = useState(null);
+  const [textHeightOverflow, setTextHeightOverflow] = useState(0);
+  const [htmlMeasuredSize, setHtmlMeasuredSize] = useState(null);
   const [imageUrl, setImageUrl] = useState('');
   const [imageLoadState, setImageLoadState] = useState(IMAGE_STATUS_IDLE);
   const [imageDimensions, setImageDimensions] = useState(null);
@@ -323,8 +329,8 @@ function App() {
     setPreviewMode(MODE_TEXT);
     setTextContent('');
     setHtmlContent('');
-    setHtmlPreferredSize(null);
-    setTextPreferredHeight(null);
+    setTextHeightOverflow(0);
+    setHtmlMeasuredSize(null);
     setImageUrl('');
     setImageLoadState(IMAGE_STATUS_IDLE);
     setImageDimensions(null);
@@ -465,8 +471,8 @@ function App() {
     );
     setTextContent('');
     setHtmlContent('');
-    setHtmlPreferredSize(null);
-    setTextPreferredHeight(null);
+    setTextHeightOverflow(0);
+    setHtmlMeasuredSize(null);
     setImageUrl('');
     setImageLoadState(IMAGE_STATUS_IDLE);
     setImageDimensions(null);
@@ -495,8 +501,8 @@ function App() {
         setFormatKinds(nextFormatKinds);
         setPreviewMode(initialMode);
         setTextContent(item?.content || '');
-        setTextPreferredHeight(estimateTextHeight(item?.content || ''));
-        setHtmlPreferredSize(null);
+        setTextHeightOverflow(0);
+        setHtmlMeasuredSize(null);
         setHtmlContent(item?.html_content || '');
       } catch (error) {
         console.error('加载预览内容失败:', error);
@@ -844,9 +850,47 @@ function App() {
     return { left, top, width, height };
   }, [previewData, scaleFactor]);
 
+  const viewportLogical = useMemo(() => {
+    const fallbackWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+    const fallbackHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+    return {
+      width: workAreaLogical.width > 0 ? workAreaLogical.width : fallbackWidth,
+      height: workAreaLogical.height > 0 ? workAreaLogical.height : fallbackHeight,
+    };
+  }, [workAreaLogical.width, workAreaLogical.height]);
+
+  const textPreferredSize = useMemo(() => {
+    if (previewMode !== MODE_TEXT) {
+      return null;
+    }
+
+    const maxWidth = resolveTextPreviewMaxWidth(workAreaLogical.height, workAreaLogical.width);
+    const measuredSize = measurePlainTextPreviewSize(textContent, { maxWidth });
+    return {
+      ...measuredSize,
+      height: measuredSize.height + Math.max(0, textHeightOverflow || 0),
+    };
+  }, [previewMode, textContent, textHeightOverflow, workAreaLogical.height, workAreaLogical.width]);
+
+  const htmlPreferredSize = useMemo(() => {
+    if (previewMode !== MODE_HTML || !htmlContent) {
+      return null;
+    }
+
+    const maxWidth = resolveHtmlPreviewMaxWidth(workAreaLogical.height, workAreaLogical.width);
+    const measuredSize = measureHtmlPreviewSize(htmlContent, { maxWidth });
+    if (htmlMeasuredSize?.width > 0 && htmlMeasuredSize?.height > 0) {
+      return htmlMeasuredSize;
+    }
+    return {
+      ...measuredSize,
+    };
+  }, [previewMode, htmlContent, htmlMeasuredSize, workAreaLogical.height, workAreaLogical.width]);
+
   const boxSize = useMemo(() => {
     return resolveBoxSize(previewMode, workAreaLogical.height, workAreaLogical.width, {
-      textHeight: textPreferredHeight,
+      textWidth: textPreferredSize?.width,
+      textHeight: textPreferredSize?.height,
       imageWidth: imageDimensions?.width,
       imageHeight: imageDimensions?.height,
       htmlWidth: htmlPreferredSize?.width,
@@ -859,7 +903,7 @@ function App() {
     previewMode,
     workAreaLogical.height,
     workAreaLogical.width,
-    textPreferredHeight,
+    textPreferredSize,
     imageDimensions,
     htmlPreferredSize,
     filePreviewStats,
@@ -878,15 +922,6 @@ function App() {
       height: boxSize.height,
     };
   }, [previewMode, boxSize, imageScale]);
-
-  const viewportLogical = useMemo(() => {
-    const fallbackWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
-    const fallbackHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-    return {
-      width: workAreaLogical.width > 0 ? workAreaLogical.width : fallbackWidth,
-      height: workAreaLogical.height > 0 ? workAreaLogical.height : fallbackHeight,
-    };
-  }, [workAreaLogical.width, workAreaLogical.height]);
 
   const mousePositionLogical = useMemo(() => ({
     x: mousePositionPhysical.x / scaleFactor,
@@ -1502,6 +1537,7 @@ function App() {
             className="preview-surface preview-text-surface relative z-10 w-full h-full border border-qc-border-strong overflow-hidden"
             style={{
               borderRadius: '8px',
+              boxSizing: 'border-box',
               backgroundColor: textContainerBackgroundColor,
               boxShadow: '0 0 5px 1px rgba(0, 0, 0, 0.3), 0 0 3px 0 rgba(0, 0, 0, 0.2)',
             }}
@@ -1510,9 +1546,28 @@ function App() {
             <div className="relative z-10 w-full h-full overflow-hidden">
               {previewMode === MODE_HTML ? (
                 <HtmlPreview
+                  key={currentRequestId}
                   ref={htmlPreviewRef}
                   htmlContent={htmlContent}
-                  onPreferredSizeChange={setHtmlPreferredSize}
+                  maxWidth={resolveHtmlPreviewMaxWidth(workAreaLogical.height, workAreaLogical.width)}
+                  maxHeight={resolveTextPreviewMaxHeight(workAreaLogical.height)}
+                  onPreferredSizeChange={(nextSize) => {
+                    const nextWidth = Number(nextSize?.width);
+                    const nextHeight = Number(nextSize?.height);
+                    if (
+                      !isFiniteNumber(nextWidth)
+                      || !isFiniteNumber(nextHeight)
+                      || nextWidth <= 0
+                      || nextHeight <= 0
+                    ) {
+                      return;
+                    }
+                    setHtmlMeasuredSize((current) => (
+                      current?.width === nextWidth && current?.height === nextHeight
+                        ? current
+                        : { width: nextWidth, height: nextHeight }
+                    ));
+                  }}
                   onScrollabilityChange={(nextValue) => {
                     setScrollability((current) => (current.html === nextValue
                       ? current
@@ -1525,7 +1580,13 @@ function App() {
                   content={textContent}
                   isDark={isDark}
                   isBackground={isBackground}
-                  onPreferredHeightChange={setTextPreferredHeight}
+                  onHeightOverflowChange={(nextOverflow) => {
+                    const overflow = Number(nextOverflow);
+                    if (!isFiniteNumber(overflow) || overflow < 0) {
+                      return;
+                    }
+                    setTextHeightOverflow((current) => Math.max(current, overflow));
+                  }}
                   onScrollabilityChange={(nextValue) => {
                     setScrollability((current) => (current.text === nextValue
                       ? current
