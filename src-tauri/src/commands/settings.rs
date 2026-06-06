@@ -27,6 +27,21 @@ fn normalize_update_check_interval(value: &str) -> String {
     }
 }
 
+fn capture_main_window_logical_size(app: &tauri::AppHandle) -> Option<(u32, u32)> {
+    let window = app.get_webview_window("main")?;
+    let size = window.inner_size().ok()?;
+    let scale_factor = window
+        .scale_factor()
+        .ok()
+        .filter(|value| *value > 0.0)
+        .unwrap_or(1.0);
+
+    Some((
+        ((size.width as f64) / scale_factor).round().max(1.0) as u32,
+        ((size.height as f64) / scale_factor).round().max(1.0) as u32,
+    ))
+}
+
 // 重新加载设置
 #[tauri::command]
 pub fn reload_settings() -> Result<AppSettings, String> {
@@ -54,6 +69,8 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
     let edge_hide_changed = old_settings.edge_hide_enabled != settings.edge_hide_enabled;
     let quickpaste_enabled_changed = old_settings.quickpaste_enabled != settings.quickpaste_enabled;
+    let remember_window_size_enabled =
+        !old_settings.remember_window_size && settings.remember_window_size;
     let webdav_crypto_scope_changed = old_settings.webdav_url != settings.webdav_url
         || old_settings.webdav_username != settings.webdav_username
         || old_settings.webdav_root_path != settings.webdav_root_path;
@@ -67,6 +84,11 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     }
 
     settings.update_check_interval = normalize_update_check_interval(&settings.update_check_interval);
+    if remember_window_size_enabled {
+        if let Some(size) = capture_main_window_logical_size(&app) {
+            settings.saved_window_size = Some(size);
+        }
+    }
     if webdav_crypto_scope_changed {
         crate::services::webdav_sync::crypto::clear_cached_keys();
     }

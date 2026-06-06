@@ -4,24 +4,11 @@ use tauri::{AppHandle, LogicalSize, Manager, WebviewWindow};
 const ALWAYS_ON_TOP_REFRESH_DELAY_MS: u64 = 10;
 
 pub(crate) fn normalize_saved_window_size_for_restore(
-    window: &WebviewWindow,
+    _window: &WebviewWindow,
     width: u32,
     height: u32,
 ) -> (f64, f64) {
-    let scale_factor = window
-        .scale_factor()
-        .ok()
-        .filter(|value| *value > 0.0)
-        .unwrap_or(1.0);
-
-    if scale_factor > 1.0 && (width >= 640 || height >= 900) {
-        (
-            (width as f64 / scale_factor).max(350.0),
-            (height as f64 / scale_factor).max(500.0),
-        )
-    } else {
-        (width.max(350) as f64, height.max(500) as f64)
-    }
+    (width.max(150) as f64, height.max(150) as f64)
 }
 
 pub(crate) fn apply_saved_window_size(window: &WebviewWindow, width: u32, height: u32) {
@@ -144,13 +131,6 @@ fn show_normal_window(window: &WebviewWindow) {
         }
     }
 
-    // 恢复窗口大小
-    if settings.remember_window_size {
-        if let Some((w, h)) = settings.saved_window_size {
-            apply_saved_window_size(window, w, h);
-        }
-    }
-
     let _ = window.show();
 
     if !was_visible {
@@ -199,19 +179,26 @@ fn hide_normal_window(window: &WebviewWindow) {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
 
+    let mut settings_to_save = None;
+
     if settings.window_position_mode == "remember" {
         if let Ok(position) = window.outer_position() {
-            let mut settings = crate::get_settings();
-            settings.saved_window_position = Some((position.x, position.y));
-
-            if settings.remember_window_size {
-                if let Ok(size) = capture_window_logical_size(window) {
-                    settings.saved_window_size = Some(size);
-                }
-            }
-
-            let _ = crate::services::update_settings(settings);
+            let mut updated = crate::get_settings();
+            updated.saved_window_position = Some((position.x, position.y));
+            settings_to_save = Some(updated);
         }
+    }
+
+    if settings.remember_window_size {
+        if let Ok(size) = capture_window_logical_size(window) {
+            let mut updated = settings_to_save.unwrap_or_else(crate::get_settings);
+            updated.saved_window_size = Some(size);
+            settings_to_save = Some(updated);
+        }
+    }
+
+    if let Some(updated) = settings_to_save {
+        let _ = crate::services::update_settings(updated);
     }
 
     if !super::state::is_pinned() {

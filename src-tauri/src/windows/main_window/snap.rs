@@ -280,18 +280,11 @@ fn resolve_saved_monitor_and_edge(
 }
 
 fn normalize_saved_logical_size_for_monitor(
-    monitor_scale_factor: f64,
+    _monitor_scale_factor: f64,
     width: u32,
     height: u32,
 ) -> (f64, f64) {
-    if monitor_scale_factor > 1.0 && (width >= 640 || height >= 900) {
-        (
-            (width as f64 / monitor_scale_factor).max(350.0),
-            (height as f64 / monitor_scale_factor).max(500.0),
-        )
-    } else {
-        (width.max(350) as f64, height.max(500) as f64)
-    }
+    (width.max(150) as f64, height.max(150) as f64)
 }
 
 fn resolve_startup_restore_window_size(
