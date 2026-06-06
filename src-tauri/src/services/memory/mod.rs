@@ -115,7 +115,7 @@ pub fn cleanup_memory() {
 }
 
 #[cfg(windows)]
-pub fn schedule_cleanup_after_main_window_hide() {
+pub fn schedule_cleanup_after_window_inactive() {
     if HIDE_CLEANUP_PENDING.swap(true, Ordering::SeqCst) {
         return;
     }
@@ -127,8 +127,16 @@ pub fn schedule_cleanup_after_main_window_hide() {
     });
 }
 
+#[cfg(windows)]
+pub fn schedule_cleanup_after_main_window_hide() {
+    schedule_cleanup_after_window_inactive();
+}
+
 #[cfg(not(windows))]
 pub fn cleanup_memory() {}
+
+#[cfg(not(windows))]
+pub fn schedule_cleanup_after_window_inactive() {}
 
 #[cfg(not(windows))]
 pub fn schedule_cleanup_after_main_window_hide() {}

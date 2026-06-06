@@ -64,8 +64,6 @@ pub fn restart_app_gracefully(app: &AppHandle) {
 
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::services::lan_sync::set_enabled(false).await;
-        let _ = crate::services::lan_sync::disconnect_peer().await;
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
         #[cfg(windows)]

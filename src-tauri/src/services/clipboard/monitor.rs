@@ -111,44 +111,6 @@ fn hash_clipboard_content(content: &RsClipboardContent) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-fn clipboard_item_to_lan_sync_record(
-    item: crate::services::database::ClipboardItem,
-) -> Option<lan_sync_core::ClipboardRecord> {
-    if item.is_remote {
-        return None;
-    }
-
-    let uuid = item.uuid.clone().filter(|u| !u.trim().is_empty())?;
-
-    Some(lan_sync_core::ClipboardRecord {
-        uuid,
-        source_device_id: crate::services::lan_sync::device_id(),
-        is_remote: false,
-        content: item.content,
-        html_content: item.html_content,
-        content_type: item.content_type,
-        image_id: item.image_id,
-        source_app: item.source_app,
-        source_icon_hash: item.source_icon_hash,
-        char_count: item.char_count,
-        raw_formats: crate::services::database::get_clipboard_data_items("clipboard", &item.id.to_string())
-            .map(|items| {
-                items
-                    .into_iter()
-                    .map(|raw| lan_sync_core::ClipboardRawFormat {
-                        format_name: raw.format_name,
-                        raw_data: raw.raw_data,
-                        is_primary: raw.is_primary,
-                        format_order: raw.format_order,
-                    })
-                    .collect()
-            })
-            .unwrap_or_default(),
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-    })
-}
-
 // 清除上一次内容缓存（用于删除剪贴板项后允许重新添加相同内容）
 pub fn clear_last_content_cache() {
     let mut last_hashes = LAST_CONTENT_HASHES.lock();
@@ -354,46 +316,6 @@ fn process_clipboard_change_once() {
                         }
                     }
 
-                    tauri::async_runtime::spawn(async move {
-                        let item = tokio::task::spawn_blocking(move || {
-                            crate::services::database::get_clipboard_item_by_id(id)
-                        })
-                        .await
-                        .ok()
-                        .and_then(|r| r.ok())
-                        .flatten();
-
-                        let Some(mut item) = item else {
-                            return;
-                        };
-
-                        if item
-                            .uuid
-                            .as_ref()
-                            .map(|u| u.trim().is_empty())
-                            .unwrap_or(true)
-                        {
-                            let ensured = tokio::task::spawn_blocking(move || {
-                                crate::services::database::ensure_clipboard_item_uuid(id)
-                            })
-                            .await
-                            .ok()
-                            .and_then(|r| r.ok());
-
-                            if let Some(uuid) = ensured {
-                                item.uuid = Some(uuid);
-                            }
-                        }
-
-                        let Some(record) = clipboard_item_to_lan_sync_record(item) else {
-                            return;
-                        };
-                        let settings = crate::services::get_settings();
-                        if !settings.lan_sync_send_enabled {
-                            return;
-                        }
-                        let _ = crate::services::lan_sync::send_clipboard_record(record).await;
-                    });
                 }
                 Err(e) if e.contains("重复内容") || e.contains("已禁止保存图片") => {}
                 Err(e) => eprintln!("存储剪贴板内容失败: {}", e),
@@ -403,6 +325,9 @@ fn process_clipboard_change_once() {
     }
 
     if any_stored {
+        if let Some(app) = get_app_handle() {
+            crate::services::sync_transfer::lan_notify_local_change(app, "clipboard");
+        }
         crate::AppSounds::play_copy_on_success();
     }
 }
@@ -493,20 +418,6 @@ mod tests {
             created_at: 1,
             updated_at: 1,
         }
-    }
-
-    #[test]
-    fn remote_item_never_produces_record() {
-        let mut item = mk_item();
-        item.is_remote = true;
-        assert!(clipboard_item_to_lan_sync_record(item).is_none());
-    }
-
-    #[test]
-    fn missing_uuid_never_produces_record() {
-        let mut item = mk_item();
-        item.uuid = None;
-        assert!(clipboard_item_to_lan_sync_record(item).is_none());
     }
 }
 

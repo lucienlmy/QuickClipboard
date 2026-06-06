@@ -103,28 +103,9 @@ function ClipboardItem({
   const [sourceIconUrl, setSourceIconUrl] = useState(null);
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
 
-  const isLanSyncRemote = Boolean(item?.is_remote);
-
-  const sourceTitle = (() => {
-    if (!isLanSyncRemote) return item.source_app || '';
-
-    const parts = [];
-    if (typeof item.source_device_id === 'string' && item.source_device_id.trim()) {
-      parts.push(`设备：${item.source_device_id.trim()}`);
-    }
-    if (typeof item.source_app === 'string' && item.source_app.trim()) {
-      parts.push(`应用：${item.source_app.trim()}`);
-    }
-    return parts.join('\n');
-  })();
+  const sourceTitle = item.source_app || '';
 
   useEffect(() => {
-    if (isLanSyncRemote) {
-      setSourceIconUrl(logoIcon);
-      setIconLoadFailed(false);
-      return;
-    }
-
     if (item.source_icon_hash) {
       setIconLoadFailed(false);
       invoke('get_data_directory').then(dataDir => {
@@ -137,7 +118,7 @@ function ClipboardItem({
       setSourceIconUrl(null);
       setIconLoadFailed(false);
     }
-  }, [item.source_icon_hash, isLanSyncRemote]);
+  }, [item.source_icon_hash]);
 
   const hasFileMissing = (() => {
     if (!isFileType && !isImageType) return false;
@@ -786,29 +767,15 @@ function ClipboardItem({
           </span>
         )}
         {/* 来源图标 */}
-        {settings.showSourceIcon !== false && !iconLoadFailed && (sourceIconUrl || isLanSyncRemote) && (
+        {settings.showSourceIcon !== false && !iconLoadFailed && sourceIconUrl && (
           <Tooltip content={sourceTitle} placement="bottom" asChild>
             <span className={iconBadgeClasses}>
-              {sourceIconUrl ? (
-                <img
-                  src={sourceIconUrl}
-                  alt=""
-                  className="w-full h-full object-cover pointer-events-none "
-                  onError={() => setIconLoadFailed(true)}
-                />
-              ) : (
-                <i className="ti ti-wifi" style={{ fontSize: 12 }}></i>
-              )}
-              {isLanSyncRemote && (
-                <span
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  style={{
-                    background: 'transparent'
-                  }}
-                >
-                  <i className="ti ti-wifi" style={{ fontSize: 13, color: 'rgba(59,130,246,1)', lineHeight: 1 }}></i>
-                </span>
-              )}
+              <img
+                src={sourceIconUrl}
+                alt=""
+                className="w-full h-full object-cover pointer-events-none "
+                onError={() => setIconLoadFailed(true)}
+              />
             </span>
           </Tooltip>
         )}

@@ -23,7 +23,7 @@ function Button({
   };
   const isDisabled = disabled || loading;
   return <button onClick={onClick} disabled={isDisabled} className={`${baseClasses} ${variantClasses[variant]} ${className}`} {...props}>
-      {loading ? <i className="ti ti-loader2 w-4 h-4 animate-spin"></i> : icon ? <span>{icon}</span> : null}
+      {loading ? <i className="ti ti-loader-2 h-4 w-4 animate-spin text-current"></i> : icon ? <span>{icon}</span> : null}
       {children}
     </button>;
 }

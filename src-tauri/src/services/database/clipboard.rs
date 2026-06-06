@@ -1,8 +1,9 @@
 use super::models::{ClipboardDataItem, ClipboardDataSeed, ClipboardItem, PaginatedResult, QueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
+use crate::services::webdav_sync::types::CloudRecord;
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use chrono;
 use uuid::Uuid;
 
@@ -340,6 +341,287 @@ pub fn query_clipboard_items(params: QueryParams) -> Result<PaginatedResult<Clip
     })
 }
 
+pub fn webdav_list_history_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type,
+                    image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
+                    char_count, created_at, updated_at
+             FROM clipboard
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let uuid_opt: Option<String> = row.get(1)?;
+            let uuid = uuid_opt.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| id.to_string());
+            let source_device_id = row
+                .get::<_, Option<String>>(2)?
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| device_id.to_string());
+
+            Ok(CloudRecord {
+                uuid,
+                source_device_id,
+                is_remote: row.get::<_, i64>(3)? != 0,
+                content: row.get(4)?,
+                html_content: row.get(5)?,
+                content_type: row.get(6)?,
+                image_id: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(10)?,
+                source_app: row.get(11)?,
+                source_icon_hash: row.get(12)?,
+                char_count: row.get(13)?,
+                title: String::new(),
+                group_name: "全部".to_string(),
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_list_own_history_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type,
+                    image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
+                    char_count, created_at, updated_at
+             FROM clipboard
+             WHERE source_device_id IS NULL OR source_device_id = '' OR source_device_id = ?1
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map(params![device_id], |row| {
+            let id: i64 = row.get(0)?;
+            let uuid_opt: Option<String> = row.get(1)?;
+            let uuid = uuid_opt.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| id.to_string());
+
+            Ok(CloudRecord {
+                uuid,
+                source_device_id: device_id.to_string(),
+                is_remote: row.get::<_, i64>(3)? != 0,
+                content: row.get(4)?,
+                html_content: row.get(5)?,
+                content_type: row.get(6)?,
+                image_id: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(10)?,
+                source_app: row.get(11)?,
+                source_icon_hash: row.get(12)?,
+                char_count: row.get(13)?,
+                title: String::new(),
+                group_name: "全部".to_string(),
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_history_record_states() -> Result<HashMap<String, i64>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT uuid, updated_at FROM clipboard WHERE uuid IS NOT NULL AND uuid != ''",
+        )?;
+        let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))?;
+        let mut states = HashMap::new();
+        for row in rows {
+            let (uuid, updated_at) = row?;
+            states.insert(uuid, updated_at);
+        }
+        Ok(states)
+    })
+}
+
+pub fn lan_upsert_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_history_records(records, false)
+}
+
+pub fn webdav_repair_history_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_history_records(records, true)
+}
+
+fn upsert_history_records(records: &[CloudRecord], ignore_tombstones: bool) -> Result<Vec<CloudRecord>, String> {
+    if records.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        let mut changed = Vec::new();
+
+        for record in records {
+            if record.uuid.trim().is_empty() {
+                continue;
+            }
+            let tombstone_deleted_at = super::tombstones::sync_tombstone_deleted_at_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_HISTORY,
+                &record.uuid,
+            )?;
+            if !ignore_tombstones && tombstone_deleted_at.map(|value| value >= record.updated_at).unwrap_or(false) {
+                continue;
+            }
+            let restored_updated_at = if ignore_tombstones {
+                super::tombstones::restored_record_updated_at(record.updated_at, tombstone_deleted_at)
+            } else {
+                record.updated_at
+            };
+
+            let existing = tx
+                .query_row(
+                    "SELECT COALESCE(source_device_id, ''), updated_at, content, html_content, content_type,
+                            image_id, item_order, paste_count, source_app, source_icon_hash, char_count, created_at
+                     FROM clipboard WHERE uuid = ?1 LIMIT 1",
+                    params![record.uuid],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, String>(2)?,
+                            row.get::<_, Option<String>>(3)?,
+                            row.get::<_, String>(4)?,
+                            row.get::<_, Option<String>>(5)?,
+                            row.get::<_, i64>(6)?,
+                            row.get::<_, i64>(7)?,
+                            row.get::<_, Option<String>>(8)?,
+                            row.get::<_, Option<String>>(9)?,
+                            row.get::<_, Option<i64>>(10)?,
+                            row.get::<_, i64>(11)?,
+                        ))
+                    },
+                )
+                .optional()?;
+
+            if let Some((
+                source_device_id,
+                updated_at,
+                content,
+                html_content,
+                content_type,
+                image_id,
+                item_order,
+                paste_count,
+                source_app,
+                source_icon_hash,
+                char_count,
+                created_at,
+            )) = existing {
+                let same = source_device_id == record.source_device_id
+                    && updated_at == restored_updated_at
+                    && content == record.content
+                    && html_content == record.html_content
+                    && content_type == record.content_type
+                    && image_id == record.image_id
+                    && item_order == record.item_order
+                    && paste_count == record.paste_count
+                    && source_app == record.source_app
+                    && source_icon_hash == record.source_icon_hash
+                    && char_count == record.char_count
+                    && created_at == record.created_at;
+
+                if updated_at >= restored_updated_at || same {
+                    if tombstone_deleted_at.map(|deleted_at| deleted_at < updated_at).unwrap_or(false) {
+                        super::tombstones::delete_sync_tombstone_in_conn(
+                            &tx,
+                            super::tombstones::COLLECTION_HISTORY,
+                            &record.uuid,
+                        )?;
+                    }
+                    continue;
+                }
+
+                tx.execute(
+                    "UPDATE clipboard SET
+                        source_device_id = ?1,
+                        is_remote = 1,
+                        content = ?2,
+                        html_content = ?3,
+                        content_type = ?4,
+                        image_id = ?5,
+                        item_order = ?6,
+                        paste_count = ?7,
+                        source_app = ?8,
+                        source_icon_hash = ?9,
+                        char_count = ?10,
+                        created_at = ?11,
+                        updated_at = ?12
+                     WHERE uuid = ?13",
+                    params![
+                        record.source_device_id,
+                        record.content,
+                        record.html_content,
+                        record.content_type,
+                        record.image_id,
+                        record.item_order,
+                        record.paste_count,
+                        record.source_app,
+                        record.source_icon_hash,
+                        record.char_count,
+                        record.created_at,
+                        restored_updated_at,
+                        record.uuid,
+                    ],
+                )?;
+                if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                    super::tombstones::delete_sync_tombstone_in_conn(
+                        &tx,
+                        super::tombstones::COLLECTION_HISTORY,
+                        &record.uuid,
+                    )?;
+                }
+                let mut changed_record = record.clone();
+                changed_record.updated_at = restored_updated_at;
+                changed.push(changed_record);
+                continue;
+            }
+
+            tx.execute(
+                "INSERT INTO clipboard (
+                    uuid, source_device_id, is_remote, content, html_content, content_type,
+                    image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
+                    char_count, created_at, updated_at
+                 ) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10, ?11, ?12, ?13)",
+                params![
+                    record.uuid,
+                    record.source_device_id,
+                    record.content,
+                    record.html_content,
+                    record.content_type,
+                    record.image_id,
+                    record.item_order,
+                    record.paste_count,
+                    record.source_app,
+                    record.source_icon_hash,
+                    record.char_count,
+                    record.created_at,
+                    restored_updated_at,
+                ],
+            )?;
+            if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                super::tombstones::delete_sync_tombstone_in_conn(
+                    &tx,
+                    super::tombstones::COLLECTION_HISTORY,
+                    &record.uuid,
+                )?;
+            }
+            let mut changed_record = record.clone();
+            changed_record.updated_at = restored_updated_at;
+            changed.push(changed_record);
+        }
+
+        tx.commit()?;
+        Ok(changed)
+    })
+}
+
+
 // 获取剪贴板总数
 pub fn get_clipboard_count() -> Result<i64, String> {
     with_connection(|conn| {
@@ -414,129 +696,6 @@ pub fn get_clipboard_item_id_by_uuid(uuid: &str) -> Result<Option<i64>, String> 
         .optional()
         .map_err(|e| e.into())
     })
-}
-
-pub fn insert_remote_clipboard_record(
-    record: &lan_sync_core::ClipboardRecord,
-) -> Result<i64, String> {
-    if record.uuid.trim().is_empty() {
-        return Err("远端记录缺少 uuid".to_string());
-    }
-
-    let raw_formats: Vec<ClipboardDataSeed> = record
-        .raw_formats
-        .iter()
-        .map(|item| ClipboardDataSeed {
-            format_name: item.format_name.clone(),
-            raw_data: item.raw_data.clone(),
-            is_primary: item.is_primary,
-            format_order: item.format_order,
-        })
-        .collect();
-
-    let inserted_or_existing: Option<i64> = with_connection(|conn| {
-        let existing: Option<i64> = conn
-            .query_row(
-                "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
-                params![record.uuid],
-                |row| row.get(0),
-            )
-            .optional()?;
-        if let Some(id) = existing {
-            let max_order: i64 = conn
-                .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| {
-                    row.get(0)
-                })
-                .unwrap_or(0);
-            let new_order = max_order + 1;
-
-            let now = chrono::Local::now().timestamp();
-
-            conn.execute(
-                "UPDATE clipboard SET 
-                    source_device_id = ?1,
-                    is_remote = 1,
-                    content = ?2,
-                    html_content = ?3,
-                    content_type = ?4,
-                    image_id = ?5,
-                    source_app = ?6,
-                    source_icon_hash = ?7,
-                    char_count = ?8,
-                    item_order = ?9,
-                    updated_at = ?10
-                 WHERE id = ?11",
-                params![
-                    record.source_device_id,
-                    record.content,
-                    record.html_content,
-                    record.content_type,
-                    record.image_id,
-                    record.source_app,
-                    record.source_icon_hash,
-                    record.char_count,
-                    new_order,
-                    now,
-                    id,
-                ],
-            )?;
-
-            return Ok(Some(id));
-        }
-
-        let max_order: i64 = conn
-            .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| {
-                row.get(0)
-            })
-            .unwrap_or(0);
-        let new_order = max_order + 1;
-
-        conn.execute(
-            "INSERT OR IGNORE INTO clipboard (uuid, source_device_id, is_remote, content, html_content, content_type, image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash, char_count, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
-            params![
-                record.uuid,
-                record.source_device_id,
-                1,
-                record.content,
-                record.html_content,
-                record.content_type,
-                record.image_id,
-                new_order,
-                0,
-                0,
-                record.source_app,
-                record.source_icon_hash,
-                record.char_count,
-                record.created_at,
-                record.updated_at,
-            ],
-        )?;
-
-        if conn.changes() > 0 {
-            return Ok(Some(conn.last_insert_rowid()));
-        }
-
-        let id: Option<i64> = conn
-            .query_row(
-                "SELECT id FROM clipboard WHERE uuid = ?1 LIMIT 1",
-                params![record.uuid],
-                |row| row.get(0),
-            )
-            .optional()?;
-
-        Ok(id)
-    })?;
-
-    let clipboard_id = inserted_or_existing.ok_or_else(|| "插入远端记录失败".to_string())?;
-
-    if !raw_formats.is_empty() {
-        let target_id = clipboard_id.to_string();
-        delete_clipboard_data_items("clipboard", &target_id)?;
-        save_clipboard_data_items("clipboard", &target_id, &raw_formats)?;
-    }
-
-    Ok(clipboard_id)
 }
 
 // 根据ID获取剪贴板项（指定截断长度）
@@ -681,14 +840,25 @@ pub fn limit_clipboard_history(max_count: u64) -> Result<(), String> {
 // 删除单个剪贴板项
 pub fn delete_clipboard_item(id: i64) -> Result<(), String> {
     let images_to_delete: Vec<String> = with_connection(|conn| {
-        let image_ids_opt: Option<Option<String>> = conn
+        let item: Option<(Option<String>, Option<String>)> = conn
             .query_row(
-                "SELECT image_id FROM clipboard WHERE id = ?",
+                "SELECT image_id, uuid FROM clipboard WHERE id = ?",
                 params![id],
-                |row| row.get::<_, Option<String>>(0),
+                |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
             )
             .optional()?;
-        let image_ids: Option<String> = image_ids_opt.flatten();
+        let Some((image_ids, uuid)) = item else {
+            return Ok(Vec::new());
+        };
+        let deleted_at = chrono::Local::now().timestamp();
+        let tombstone_id = uuid.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| id.to_string());
+        super::tombstones::record_sync_tombstone_in_conn(
+            conn,
+            super::tombstones::COLLECTION_HISTORY,
+            &tombstone_id,
+            &crate::services::sync_transfer::device_id(),
+            deleted_at,
+        )?;
 
         conn.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
 
@@ -721,23 +891,38 @@ pub fn delete_clipboard_items(ids: &[i64]) -> Result<(), String> {
 
     let images_to_delete: Vec<String> = with_connection(|conn| {
         let mut image_id_set: HashSet<String> = HashSet::new();
+        let mut tombstone_ids = Vec::new();
         for id in &unique_ids {
-            let image_ids_opt: Option<Option<String>> = conn
+            let item: Option<(Option<String>, Option<String>)> = conn
                 .query_row(
-                    "SELECT image_id FROM clipboard WHERE id = ?",
+                    "SELECT image_id, uuid FROM clipboard WHERE id = ?",
                     params![id],
-                    |row| row.get::<_, Option<String>>(0),
+                    |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
                 )
                 .optional()?;
 
-            if let Some(image_ids) = image_ids_opt.flatten() {
-                for image_id in split_image_ids(&image_ids) {
-                    image_id_set.insert(image_id);
+            if let Some((image_ids, uuid)) = item {
+                if let Some(image_ids) = image_ids {
+                    for image_id in split_image_ids(&image_ids) {
+                        image_id_set.insert(image_id);
+                    }
                 }
+                tombstone_ids.push(uuid.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| id.to_string()));
             }
         }
 
         let tx = conn.unchecked_transaction()?;
+        let deleted_at = chrono::Local::now().timestamp();
+        let local_device_id = crate::services::sync_transfer::device_id();
+        for uuid in &tombstone_ids {
+            super::tombstones::record_sync_tombstone_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_HISTORY,
+                uuid,
+                &local_device_id,
+                deleted_at,
+            )?;
+        }
         for id in &unique_ids {
             tx.execute("DELETE FROM clipboard WHERE id = ?1", params![id])?;
         }
@@ -763,20 +948,43 @@ pub fn delete_clipboard_items(ids: &[i64]) -> Result<(), String> {
 pub fn clear_clipboard_history() -> Result<(), String> {
     let images_to_delete: Vec<String> = with_connection(|conn| {
         let mut stmt = conn.prepare(
-            "SELECT image_id FROM clipboard WHERE image_id IS NOT NULL AND image_id <> ''",
+            "SELECT id, image_id, uuid FROM clipboard",
         )?;
-        let ids_iter = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let ids_iter = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })?;
         let mut set: HashSet<String> = HashSet::new();
+        let mut tombstone_ids = Vec::new();
         for r in ids_iter {
-            if let Ok(s) = r {
-                for iid in split_image_ids(&s) {
-                    set.insert(iid);
+            if let Ok((id, image_ids, uuid)) = r {
+                if let Some(image_ids) = image_ids {
+                    for iid in split_image_ids(&image_ids) {
+                        set.insert(iid);
+                    }
                 }
+                tombstone_ids.push(uuid.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| id.to_string()));
             }
         }
         drop(stmt);
 
-        conn.execute("DELETE FROM clipboard", [])?;
+        let tx = conn.unchecked_transaction()?;
+        let deleted_at = chrono::Local::now().timestamp();
+        let local_device_id = crate::services::sync_transfer::device_id();
+        for uuid in tombstone_ids {
+            super::tombstones::record_sync_tombstone_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_HISTORY,
+                &uuid,
+                &local_device_id,
+                deleted_at,
+            )?;
+        }
+        tx.execute("DELETE FROM clipboard", [])?;
+        tx.commit()?;
 
         let mut to_delete = Vec::new();
         for iid in set.into_iter() {
@@ -802,11 +1010,11 @@ fn reorder_items(conn: &rusqlite::Connection, from_idx: usize, to_idx: usize, it
 
     if from_idx < to_idx {
         for i in (from_idx + 1)..=to_idx {
-            tx.execute("UPDATE clipboard SET item_order = item_order + 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE clipboard SET item_order = item_order + 1, updated_at = ?1 WHERE id = ?2", params![now, items[i].0])?;
         }
     } else {
         for i in to_idx..from_idx {
-            tx.execute("UPDATE clipboard SET item_order = item_order - 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE clipboard SET item_order = item_order - 1, updated_at = ?1 WHERE id = ?2", params![now, items[i].0])?;
         }
     }
     tx.execute("UPDATE clipboard SET item_order = ?1, updated_at = ?2 WHERE id = ?3", params![target_order, now, moved_id])?;

@@ -30,6 +30,7 @@ pub struct MainWindowState {
     pub snap_ratio: Option<f64>,
     pub clipboard_refresh_pending: bool,
     pub favorites_refresh_pending: bool,
+    pub groups_refresh_pending: bool,
 }
 
 impl Default for MainWindowState {
@@ -46,6 +47,7 @@ impl Default for MainWindowState {
             snap_ratio: None,
             clipboard_refresh_pending: false,
             favorites_refresh_pending: false,
+            groups_refresh_pending: false,
         }
     }
 }
@@ -96,14 +98,20 @@ pub fn mark_favorites_refresh_pending() {
     WINDOW_STATE.write().favorites_refresh_pending = true;
 }
 
-pub fn take_pending_refresh_flags() -> (bool, bool) {
+pub fn mark_groups_refresh_pending() {
+    WINDOW_STATE.write().groups_refresh_pending = true;
+}
+
+pub fn take_pending_refresh_flags() -> (bool, bool, bool) {
     let mut state = WINDOW_STATE.write();
     let flags = (
         state.clipboard_refresh_pending,
         state.favorites_refresh_pending,
+        state.groups_refresh_pending,
     );
     state.clipboard_refresh_pending = false;
     state.favorites_refresh_pending = false;
+    state.groups_refresh_pending = false;
     flags
 }
 

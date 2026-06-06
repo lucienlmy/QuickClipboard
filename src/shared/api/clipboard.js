@@ -257,11 +257,6 @@ export async function mergePasteClipboardItems(ids) {
   return await invoke('merge_paste_clipboard_items', { ids })
 }
 
-// 手动同步单条剪贴板记录到局域网（LAN Sync）
-export async function syncClipboardItemToLanSync(clipboardId) {
-  return await invoke('lan_sync_sync_clipboard_item', { clipboardId })
-}
-
 // 切换剪贴板项置顶状态
 export async function togglePinClipboardItem(id) {
   const isPinned = await invoke('toggle_pin_clipboard_item', { id })

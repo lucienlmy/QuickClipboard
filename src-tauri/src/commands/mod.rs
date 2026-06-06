@@ -9,7 +9,9 @@ pub mod data_management;
 pub mod image_library;
 pub mod ocr;
 pub mod app_links;
-pub mod lan_sync;
+pub mod sync_transfer;
+pub mod webdav_sync;
+pub mod drop_proxy;
 
 pub use clipboard::*;
 pub use favorites::*;
@@ -22,4 +24,5 @@ pub use data_management::*;
 pub use image_library::*;
 pub use ocr::*;
 pub use app_links::*;
-pub use lan_sync::*;
+pub use sync_transfer::*;
+pub use webdav_sync::*;

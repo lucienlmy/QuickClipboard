@@ -12,7 +12,7 @@ import GeneralSection from './sections/GeneralSection';
 import AppearanceSection from './sections/AppearanceSection';
 import ShortcutsSection from './sections/ShortcutsSection';
 import ClipboardSection from './sections/ClipboardSection';
-import LanSyncSection from './sections/LanSyncSection';
+import SyncTransferSection from './sections/SyncTransferSection';
 import AIConfigSection from './sections/AIConfigSection';
 import TranslationSection from './sections/TranslationSection';
 import PreviewSection from './sections/PreviewSection';
@@ -136,8 +136,8 @@ function App() {
       case 'clipboard':
         content = <ClipboardSection settings={snap} onSettingChange={handleSettingChange} />;
         break;
-      case 'lanSync':
-        content = <LanSyncSection settings={snap} onSettingChange={handleSettingChange} />;
+      case 'syncTransfer':
+        content = <SyncTransferSection settings={snap} onSettingChange={handleSettingChange} />;
         break;
       case 'aiConfig':
         content = <AIConfigSection settings={snap} onSettingChange={handleSettingChange} />;

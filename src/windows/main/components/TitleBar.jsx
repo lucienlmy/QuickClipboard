@@ -11,6 +11,9 @@ import { showContextMenuFromEvent, createMenuItem, createSeparator } from '@/plu
 import { invoke } from '@tauri-apps/api/core';
 import { hideMainWindow } from '@shared/api/window';
 import { clearClipboardHistory } from '@shared/api';
+import { createTransferShelf } from '@shared/api/transferShelf';
+import { openReceiveBox } from '@shared/api/receiveBox';
+import { downloadWebdav, uploadWebdav } from '@shared/api/webdavSync';
 import {
   startScreenshot,
   startScreenshotQuickSave,
@@ -24,6 +27,7 @@ import {
   getOneTimePasteEventName
 } from '@shared/services/oneTimePaste';
 import { normalizeDisplayPriorityValue } from '@shared/utils/displayFormatPriority';
+import { formatUserMessage } from '@shared/utils/userMessages';
 import logoIcon from '@/assets/icon1024.png';
 import TitleBarSearch from './TitleBarSearch';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
@@ -50,6 +54,7 @@ const TitleBar = forwardRef(({
   const searchRef = useRef(null);
   const [isPinned, setIsPinned] = useState(() => Boolean(getWindowPinState()));
   const [oneTimePasteEnabled, setOneTimePasteEnabledState] = useState(() => getOneTimePasteEnabled());
+  const [webdavBusy, setWebdavBusy] = useState('');
   const isVertical = position === 'left' || position === 'right';
   const tooltipPlacement = isVertical ? (position === 'left' ? 'right' : 'left') : 'bottom';
   const showUpdateHint = Boolean(
@@ -131,8 +136,73 @@ const TitleBar = forwardRef(({
     } catch (error) {
       console.error('标题栏打开更新窗口失败:', error);
       toast.error(t('updater.checkFailed', {
-        msg: error?.message || String(error)
+        msg: formatUserMessage(error, t, 'errors.operationFailed')
       }), TOAST_CONFIG);
+    }
+  };
+
+  const handleOpenTransferShelf = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await createTransferShelf();
+    } catch (error) {
+      console.error('标题栏新建文件盒失败:', error);
+      toast.error(t('transferShelf.createFailed', {
+        reason: formatUserMessage(error, t, 'errors.operationFailed'),
+      }), TOAST_CONFIG);
+    }
+  };
+
+  const handleOpenReceiveBox = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await openReceiveBox();
+    } catch (error) {
+      console.error('标题栏打开收件盒失败:', error);
+      toast.error(t('receiveBox.openFailed', {
+        reason: formatUserMessage(error, t, 'errors.operationFailed'),
+      }), TOAST_CONFIG);
+    }
+  };
+
+  const formatWebdavReport = (result, mode) => {
+    const total = mode === 'push' ? result?.pushed || 0 : result?.pulled || 0;
+    const clipboard = mode === 'push' ? result?.pushed_clipboard || 0 : result?.pulled_clipboard || 0;
+    const favorites = mode === 'push' ? result?.pushed_favorites || 0 : result?.pulled_favorites || 0;
+    const groups = mode === 'push' ? result?.pushed_groups || 0 : result?.pulled_groups || 0;
+
+    return t('settings.webdav.syncResultDetail', { total, clipboard, favorites, groups });
+  };
+
+  const handleWebdavAction = async (event, mode) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (webdavBusy) {
+      return;
+    }
+
+    if (!settingsSnap.webdavEnabled || !String(settingsSnap.webdavUrl || '').trim()) {
+      toast.warning(t('settings.webdav.notReady'), TOAST_CONFIG);
+      return;
+    }
+
+    const action = mode === 'push' ? uploadWebdav : downloadWebdav;
+    const successKey = mode === 'push' ? 'settings.webdav.pushComplete' : 'settings.webdav.pullComplete';
+    try {
+      setWebdavBusy(mode);
+      const result = await action();
+      toast.success(t('settings.webdav.successWithDetail', {
+        title: t(successKey),
+        detail: formatWebdavReport(result, mode),
+      }), { ...TOAST_CONFIG, duration: 5000 });
+    } catch (error) {
+      console.error(`标题栏 WebDAV ${mode === 'push' ? '推送' : '拉取'}失败:`, error);
+      toast.error(formatUserMessage(error, t, 'errors.webdav.operationFailed'), { ...TOAST_CONFIG, duration: 6000 });
+    } finally {
+      setWebdavBusy('');
     }
   };
 
@@ -437,6 +507,56 @@ const TitleBar = forwardRef(({
               aria-label={t('tools.pin')}
             >
               <i className="ti ti-pin" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
+          <Tooltip content="新建文件盒" placement={tooltipPlacement} asChild>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
+              aria-label="新建文件盒"
+              type="button"
+              onClick={handleOpenTransferShelf}
+            >
+              <i className="ti ti-package" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
+          <Tooltip content={t('receiveBox.title')} placement={tooltipPlacement} asChild>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-qc-hover text-qc-fg-muted"
+              aria-label={t('receiveBox.title')}
+              type="button"
+              onClick={handleOpenReceiveBox}
+            >
+              <i className="ti ti-inbox" style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
+          <Tooltip content={t('settings.webdav.upload')} placement={tooltipPlacement} asChild>
+            <button
+              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
+                webdavBusy === 'push' ? 'text-blue-500 bg-qc-hover' : 'hover:bg-qc-hover text-qc-fg-muted'
+              }`}
+              aria-label={t('settings.webdav.upload')}
+              type="button"
+              onClick={event => handleWebdavAction(event, 'push')}
+              disabled={Boolean(webdavBusy)}
+            >
+              <i className={webdavBusy === 'push' ? 'ti ti-loader-2 animate-spin' : 'ti ti-cloud-up'} style={{ fontSize: 16 }} data-stroke="1.5"></i>
+            </button>
+          </Tooltip>
+
+          <Tooltip content={t('settings.webdav.download')} placement={tooltipPlacement} asChild>
+            <button
+              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${
+                webdavBusy === 'pull' ? 'text-blue-500 bg-qc-hover' : 'hover:bg-qc-hover text-qc-fg-muted'
+              }`}
+              aria-label={t('settings.webdav.download')}
+              type="button"
+              onClick={event => handleWebdavAction(event, 'pull')}
+              disabled={Boolean(webdavBusy)}
+            >
+              <i className={webdavBusy === 'pull' ? 'ti ti-loader-2 animate-spin' : 'ti ti-cloud-down'} style={{ fontSize: 16 }} data-stroke="1.5"></i>
             </button>
           </Tooltip>
 

@@ -1,7 +1,7 @@
 import { listen } from '@tauri-apps/api/event'
 import { refreshClipboardHistory, clipboardStore } from '@shared/store/clipboardStore'
 import { refreshFavorites, favoritesStore } from '@shared/store/favoritesStore'
-import { groupsStore } from '@shared/store/groupsStore'
+import { loadGroups, groupsStore } from '@shared/store/groupsStore'
 import { navigationStore } from '@shared/store/navigationStore'
 
 let unlisteners = []
@@ -118,12 +118,7 @@ export async function setupClipboardEventListener() {
 
     const unlisten4 = await listen('main-window-refresh-needed', (event) => {
       const payload = event.payload || {}
-      if (payload.clipboard) {
-        refreshClipboardHistory().catch(() => {})
-      }
-      if (payload.favorites) {
-        refreshFavorites(groupsStore.currentGroup).catch(() => {})
-      }
+      handleMainWindowRefreshNeeded(payload).catch(() => {})
     })
     unlisteners.push(unlisten4)
   } catch (error) {
@@ -141,4 +136,16 @@ export function cleanupEventListeners() {
     }
   })
   unlisteners = []
+}
+
+async function handleMainWindowRefreshNeeded(payload) {
+  if (payload.groups) {
+    await loadGroups()
+  }
+  if (payload.clipboard) {
+    await refreshClipboardHistory()
+  }
+  if (payload.favorites) {
+    await refreshFavorites(groupsStore.currentGroup)
+  }
 }

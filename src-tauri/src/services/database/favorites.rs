@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use super::models::{ClipboardDataSeed, FavoriteItem, PaginatedResult, FavoritesQueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
+use crate::services::webdav_sync::types::CloudRecord;
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use chrono;
@@ -35,6 +38,272 @@ pub fn update_missing_favorite_char_counts(items: Vec<(String, String, String)>)
             Ok(())
         });
     });
+}
+
+pub fn webdav_list_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, COALESCE(source_device_id, ''), title, content, html_content, content_type,
+                    image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+             FROM favorites
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let source_device_id = row
+                .get::<_, String>(1)?
+                .trim()
+                .to_string();
+            Ok(CloudRecord {
+                uuid: row.get(0)?,
+                source_device_id: if source_device_id.is_empty() { device_id.to_string() } else { source_device_id },
+                is_remote: false,
+                title: row.get(2)?,
+                content: row.get(3)?,
+                html_content: row.get(4)?,
+                content_type: row.get(5)?,
+                image_id: row.get(6)?,
+                group_name: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(9)?,
+                char_count: row.get(10)?,
+                source_app: None,
+                source_icon_hash: None,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_list_own_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, content, html_content, content_type,
+                    image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+             FROM favorites
+             WHERE source_device_id IS NULL OR source_device_id = '' OR source_device_id = ?1
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map(params![device_id], |row| {
+            Ok(CloudRecord {
+                uuid: row.get(0)?,
+                source_device_id: device_id.to_string(),
+                is_remote: false,
+                title: row.get(1)?,
+                content: row.get(2)?,
+                html_content: row.get(3)?,
+                content_type: row.get(4)?,
+                image_id: row.get(5)?,
+                group_name: row.get(6)?,
+                item_order: row.get(7)?,
+                paste_count: row.get(8)?,
+                char_count: row.get(9)?,
+                source_app: None,
+                source_icon_hash: None,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_favorite_record_states() -> Result<HashMap<String, i64>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare("SELECT id, updated_at FROM favorites")?;
+        let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))?;
+        let mut states = HashMap::new();
+        for row in rows {
+            let (id, updated_at) = row?;
+            states.insert(id, updated_at);
+        }
+        Ok(states)
+    })
+}
+
+pub fn lan_upsert_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_favorite_records(records, false)
+}
+
+pub fn webdav_repair_favorite_records(records: &[CloudRecord]) -> Result<Vec<CloudRecord>, String> {
+    upsert_favorite_records(records, true)
+}
+
+fn upsert_favorite_records(records: &[CloudRecord], ignore_tombstones: bool) -> Result<Vec<CloudRecord>, String> {
+    if records.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
+        let mut changed = Vec::new();
+
+        for record in records {
+            if record.uuid.trim().is_empty() {
+                continue;
+            }
+            let tombstone_deleted_at = super::tombstones::sync_tombstone_deleted_at_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_FAVORITES,
+                &record.uuid,
+            )?;
+            if !ignore_tombstones && tombstone_deleted_at.map(|value| value >= record.updated_at).unwrap_or(false) {
+                continue;
+            }
+            let restored_updated_at = if ignore_tombstones {
+                super::tombstones::restored_record_updated_at(record.updated_at, tombstone_deleted_at)
+            } else {
+                record.updated_at
+            };
+
+            let existing = tx
+                .query_row(
+                    "SELECT COALESCE(source_device_id, ''), title, content, html_content, content_type,
+                            image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+                     FROM favorites WHERE id = ?1 LIMIT 1",
+                    params![record.uuid],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                            row.get::<_, Option<String>>(3)?,
+                            row.get::<_, String>(4)?,
+                            row.get::<_, Option<String>>(5)?,
+                            row.get::<_, String>(6)?,
+                            row.get::<_, i64>(7)?,
+                            row.get::<_, i64>(8)?,
+                            row.get::<_, Option<i64>>(9)?,
+                            row.get::<_, i64>(10)?,
+                            row.get::<_, i64>(11)?,
+                        ))
+                    },
+                )
+                .optional()?;
+
+            if let Some((
+                source_device_id,
+                title,
+                content,
+                html_content,
+                content_type,
+                image_id,
+                group_name,
+                item_order,
+                paste_count,
+                char_count,
+                created_at,
+                updated_at,
+            )) = existing {
+                let same = source_device_id == record.source_device_id
+                    && title == record.title
+                    && content == record.content
+                    && html_content == record.html_content
+                    && content_type == record.content_type
+                    && image_id == record.image_id
+                    && group_name == record.group_name
+                    && item_order == record.item_order
+                    && paste_count == record.paste_count
+                    && char_count == record.char_count
+                    && created_at == record.created_at
+                    && updated_at == restored_updated_at;
+
+                if updated_at >= restored_updated_at || same {
+                    if tombstone_deleted_at.map(|deleted_at| deleted_at < updated_at).unwrap_or(false) {
+                        super::tombstones::delete_sync_tombstone_in_conn(
+                            &tx,
+                            super::tombstones::COLLECTION_FAVORITES,
+                            &record.uuid,
+                        )?;
+                    }
+                    continue;
+                }
+
+                tx.execute(
+                    "UPDATE favorites SET
+                        source_device_id = ?1,
+                        title = ?2,
+                        content = ?3,
+                        html_content = ?4,
+                        content_type = ?5,
+                        image_id = ?6,
+                        group_name = ?7,
+                        item_order = ?8,
+                        paste_count = ?9,
+                        char_count = ?10,
+                        created_at = ?11,
+                        updated_at = ?12
+                     WHERE id = ?13",
+                    params![
+                        record.source_device_id,
+                        record.title,
+                        record.content,
+                        record.html_content,
+                        record.content_type,
+                        record.image_id,
+                        record.group_name,
+                        record.item_order,
+                        record.paste_count,
+                        record.char_count,
+                        record.created_at,
+                        restored_updated_at,
+                        record.uuid,
+                    ],
+                )?;
+                if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                    super::tombstones::delete_sync_tombstone_in_conn(
+                        &tx,
+                        super::tombstones::COLLECTION_FAVORITES,
+                        &record.uuid,
+                    )?;
+                }
+                let mut changed_record = record.clone();
+                changed_record.updated_at = restored_updated_at;
+                changed.push(changed_record);
+                continue;
+            }
+
+            tx.execute(
+                "INSERT INTO favorites (
+                    id, source_device_id, title, content, html_content, content_type,
+                    image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                params![
+                    record.uuid,
+                    record.source_device_id,
+                    record.title,
+                    record.content,
+                    record.html_content,
+                    record.content_type,
+                    record.image_id,
+                    record.group_name,
+                    record.item_order,
+                    record.paste_count,
+                    record.char_count,
+                    record.created_at,
+                    restored_updated_at,
+                ],
+            )?;
+            if tombstone_deleted_at.map(|deleted_at| deleted_at < restored_updated_at).unwrap_or(false) {
+                super::tombstones::delete_sync_tombstone_in_conn(
+                    &tx,
+                    super::tombstones::COLLECTION_FAVORITES,
+                    &record.uuid,
+                )?;
+            }
+            let mut changed_record = record.clone();
+            changed_record.updated_at = restored_updated_at;
+            changed.push(changed_record);
+        }
+
+        tx.commit()?;
+        Ok(changed)
+    })
 }
 
 // 分页查询收藏列表
@@ -326,11 +595,11 @@ fn reorder_favorite_items(conn: &rusqlite::Connection, from_idx: usize, to_idx: 
 
     if from_idx < to_idx {
         for i in (from_idx + 1)..=to_idx {
-            tx.execute("UPDATE favorites SET item_order = item_order + 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE favorites SET item_order = item_order + 1, updated_at = ?1 WHERE id = ?2", params![now, items[i].0])?;
         }
     } else {
         for i in to_idx..from_idx {
-            tx.execute("UPDATE favorites SET item_order = item_order - 1 WHERE id = ?1", params![items[i].0])?;
+            tx.execute("UPDATE favorites SET item_order = item_order - 1, updated_at = ?1 WHERE id = ?2", params![now, items[i].0])?;
         }
     }
     tx.execute("UPDATE favorites SET item_order = ?1, updated_at = ?2 WHERE id = ?3", params![target_order, now, moved_id])?;
@@ -484,9 +753,20 @@ pub fn delete_favorite(id: String) -> Result<(), String> {
                 |row| row.get::<_, Option<String>>(0),
             )
             .optional()?;
-        let image_ids: Option<String> = image_ids_opt.flatten();
+        let Some(image_ids) = image_ids_opt else {
+            return Ok(Vec::new());
+        };
 
-        conn.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
+        let tx = conn.unchecked_transaction()?;
+        super::tombstones::record_sync_tombstone_in_conn(
+            &tx,
+            super::tombstones::COLLECTION_FAVORITES,
+            &id,
+            &crate::services::sync_transfer::device_id(),
+            chrono::Local::now().timestamp(),
+        )?;
+        tx.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
+        tx.commit()?;
 
         let mut to_delete = Vec::new();
         if let Some(ids) = image_ids {
@@ -517,8 +797,9 @@ pub fn delete_favorites(ids: &[String]) -> Result<(), String> {
 
     let images_to_delete: Vec<String> = with_connection(|conn| {
         let mut image_id_set = std::collections::HashSet::new();
+        let mut existing_ids = Vec::new();
         for id in &unique_ids {
-            let image_ids_opt: Option<Option<String>> = conn
+            let item_exists: Option<Option<String>> = conn
                 .query_row(
                     "SELECT image_id FROM favorites WHERE id = ?",
                     params![id],
@@ -526,14 +807,28 @@ pub fn delete_favorites(ids: &[String]) -> Result<(), String> {
                 )
                 .optional()?;
 
-            if let Some(image_ids) = image_ids_opt.flatten() {
-                for image_id in split_image_ids(&image_ids) {
-                    image_id_set.insert(image_id);
+            if let Some(image_ids) = item_exists {
+                if let Some(image_ids) = image_ids {
+                    for image_id in split_image_ids(&image_ids) {
+                        image_id_set.insert(image_id);
+                    }
                 }
+                existing_ids.push(id.clone());
             }
         }
 
         let tx = conn.unchecked_transaction()?;
+        let deleted_at = chrono::Local::now().timestamp();
+        let local_device_id = crate::services::sync_transfer::device_id();
+        for id in &existing_ids {
+            super::tombstones::record_sync_tombstone_in_conn(
+                &tx,
+                super::tombstones::COLLECTION_FAVORITES,
+                id,
+                &local_device_id,
+                deleted_at,
+            )?;
+        }
         for id in &unique_ids {
             tx.execute("DELETE FROM favorites WHERE id = ?1", params![id])?;
         }

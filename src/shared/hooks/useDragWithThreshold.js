@@ -4,10 +4,10 @@ import { startDrag } from '@crabnebula/tauri-plugin-drag';
 const DRAG_THRESHOLD = 5;
 
 export function useDragWithThreshold(options = {}) {
-  const { onDragStart, onDragEnd } = options;
+  const { onDragPending, onDragStart, onDragEnd, onDragCancel, shouldStartDrag } = options;
   const dragStateRef = useRef(null);
 
-  const handleMouseDown = useCallback((e, filePaths, iconPath) => {
+  const handleMouseDown = useCallback((e, filePaths, iconPath, mode = 'copy') => {
     if (e.button !== 0) return;
     
     const paths = Array.isArray(filePaths) ? filePaths.filter(Boolean) : [];
@@ -25,23 +25,33 @@ export function useDragWithThreshold(options = {}) {
       const distance = Math.sqrt(dx * dx + dy * dy);
 
       if (distance >= DRAG_THRESHOLD) {
+        if (shouldStartDrag && !shouldStartDrag(moveEvent)) {
+          onDragPending?.({ event: moveEvent, paths, mode, iconPath: iconPath || paths[0] });
+          return;
+        }
+
         isDragging = true;
         cleanup();
         
         onDragStart?.();
+        let dragPayload = null;
         try {
           await startDrag({ 
             item: paths, 
-            icon: iconPath || paths[0] 
+            icon: iconPath || paths[0],
+            mode,
+          }, (payload) => {
+            dragPayload = payload || null;
           });
         } catch (err) {
           console.error('拖拽失败:', err);
         }
-        onDragEnd?.();
+        onDragEnd?.({ paths, mode, result: dragPayload?.result || null, cursorPos: dragPayload?.cursorPos || null });
       }
     };
 
     const handleMouseUp = () => {
+      onDragCancel?.();
       cleanup();
     };
 
@@ -56,7 +66,7 @@ export function useDragWithThreshold(options = {}) {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
-  }, [onDragStart, onDragEnd]);
+  }, [onDragPending, onDragStart, onDragEnd, onDragCancel, shouldStartDrag]);
 
   return handleMouseDown;
 }

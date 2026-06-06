@@ -138,11 +138,41 @@ pub fn run() {
                 commands::open_settings_window,
                 commands::open_community_window,
                 commands::open_text_editor_window,
+                commands::drop_proxy::drop_proxy_ensure,
+                commands::drop_proxy::drop_proxy_show,
+                commands::drop_proxy::drop_proxy_hide,
+                commands::drop_proxy::drop_proxy_dispose,
+                commands::drop_proxy::drop_proxy_route_paths_at_cursor,
+                commands::drop_proxy::drop_proxy_save_resource,
+                commands::drop_proxy::drop_proxy_save_url,
+                commands::drop_proxy::drop_proxy_cleanup_orphan_resources,
                 windows::preview_window::show_preview_window,
                 windows::preview_window::close_preview_window,
                 windows::preview_window::reveal_preview_window,
                 windows::preview_window::finalize_hide_preview_window,
                 windows::preview_window::get_preview_window_data,
+                windows::transfer_shelf::commands::transfer_shelf_create,
+                windows::transfer_shelf::commands::transfer_shelf_list,
+                windows::transfer_shelf::commands::transfer_shelf_focus,
+                windows::transfer_shelf::commands::transfer_shelf_rename,
+                windows::transfer_shelf::commands::transfer_shelf_close,
+                windows::transfer_shelf::commands::transfer_shelf_describe_paths,
+                windows::transfer_shelf::commands::transfer_shelf_send,
+                windows::transfer_shelf::commands::transfer_shelf_upload_cloud,
+                windows::transfer_shelf::commands::transfer_shelf_load_state,
+                windows::transfer_shelf::commands::transfer_shelf_save_state,
+                windows::transfer_shelf::commands::transfer_shelf_save_geometry,
+                windows::transfer_shelf::commands::transfer_shelf_apply_geometry,
+                windows::receive_box::commands::receive_box_open,
+                windows::receive_box::commands::receive_box_focus,
+                windows::receive_box::commands::receive_box_list_lan_files,
+                windows::receive_box::commands::receive_box_list_cloud_files,
+                windows::receive_box::commands::receive_box_download_cloud_file,
+                windows::receive_box::commands::receive_box_open_local_file,
+                windows::receive_box::commands::receive_box_reveal_local_file,
+                windows::receive_box::commands::receive_box_delete_local_file,
+                windows::receive_box::commands::receive_box_delete_cloud_file,
+                windows::receive_box::commands::receive_box_add_to_transfer_shelf,
                 commands::emit_clipboard_updated,
                 commands::emit_quick_texts_updated,
                 commands::get_clipboard_history,
@@ -250,31 +280,34 @@ pub fn run() {
                 commands::check_updates_and_open_window,
                 commands::get_update_banner_state,
                 commands::open_cached_update_window,
-                commands::lan_sync_get_snapshot,
-                commands::lan_sync_get_info,
-                commands::lan_sync_set_enabled,
-                commands::lan_sync_start_server,
-                commands::lan_sync_connect_peer,
-                commands::lan_sync_get_server_pair_code,
-                commands::lan_sync_refresh_server_pair_code,
-                commands::lan_sync_disconnect_peer,
-                commands::lan_sync_list_trusted_devices,
-                commands::lan_sync_disconnect_device,
-                commands::lan_sync_remove_trusted_device,
-                commands::lan_sync_sync_clipboard_item,
-                commands::lan_sync_sync_favorite_item,
-                commands::lan_chat_list_connected_devices,
-                commands::lan_chat_send_text,
-                commands::lan_chat_send_file_offer,
-                commands::lan_chat_accept_file_offer,
-                commands::lan_chat_reject_file_offer,
-                commands::lan_chat_cancel_transfer,
-                commands::lan_chat_prepare_files,
-                commands::lan_chat_reveal_file,
-                commands::lan_chat_drop_proxy_ensure,
-                commands::lan_chat_drop_proxy_show,
-                commands::lan_chat_drop_proxy_hide,
-                commands::lan_chat_drop_proxy_dispose,
+                commands::webdav_test_connection,
+                commands::webdav_upload,
+                commands::webdav_download,
+                commands::webdav_download_all,
+                commands::webdav_get_status,
+                commands::webdav_get_last_report,
+                commands::webdav_start_scheduler,
+                commands::webdav_stop_scheduler,
+                commands::webdav_has_saved_password,
+                commands::webdav_set_password,
+                commands::webdav_has_saved_encryption_password,
+                commands::webdav_set_encryption_password,
+                commands::sync_transfer_get_mode_infos,
+                commands::sync_transfer_lan_get_status,
+                commands::sync_transfer_lan_start_http_server,
+                commands::sync_transfer_lan_stop_http_server,
+                commands::sync_transfer_lan_refresh_pairing_code,
+                commands::sync_transfer_lan_list_paired_peers,
+                commands::sync_transfer_lan_remove_paired_peer,
+                commands::sync_transfer_lan_pair_with_peer,
+                commands::sync_transfer_lan_fetch_peer_snapshot,
+                commands::sync_transfer_lan_get_local_snapshot,
+                commands::sync_transfer_lan_discover_peers,
+                commands::sync_transfer_lan_get_auto_sync_status,
+                commands::sync_transfer_lan_update_auto_sync_settings,
+                commands::sync_transfer_lan_pull_from_peer,
+                commands::sync_transfer_lan_push_to_peer,
+                commands::sync_transfer_lan_send_file_to_peer,
                 windows::plugins::context_menu::commands::show_context_menu,
                 windows::plugins::context_menu::commands::get_context_menu_options,
                 windows::plugins::context_menu::commands::submit_context_menu,
@@ -401,6 +434,7 @@ pub fn run() {
                 quickpaste::init_quickpaste_state();
                 let _ = quickpaste::init_quickpaste_window(&app.handle());
                 set_clipboard_app_handle(app.handle().clone());
+                services::webdav_sync::sync_scheduler::set_app_handle(app.handle().clone());
 
                 windows::pin_image_window::init_pin_image_window();
                 #[cfg(feature = "gpu-image-viewer")]
@@ -414,372 +448,50 @@ pub fn run() {
                     }
                 }
 
-                if settings.clipboard_monitor {
-                    let _ = start_clipboard_monitor();
-                }
-
-                if !settings.lan_sync_auto_start && settings.lan_sync_enabled {
-                    settings.lan_sync_enabled = false;
-                    let _ = update_settings(settings.clone());
-                }
-
-                {
-                    let cfg = settings.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let _ = crate::services::lan_sync::set_enabled(false).await;
-                        let _ = crate::services::lan_sync::disconnect_peer().await;
-
-                        if !cfg.lan_sync_enabled || cfg.lan_sync_mode == "off" {
-                            return;
-                        }
-
-                        let _ = crate::services::lan_sync::set_enabled(true).await;
-
-                        match cfg.lan_sync_mode.as_str() {
-                            "server" => {
-                                let _ = crate::services::lan_sync::start_server(cfg.lan_sync_server_port).await;
-                            }
-                            "client" => {
-                                let _ = crate::services::lan_sync::connect_peer(
-                                    &cfg.lan_sync_peer_url,
-                                    cfg.lan_sync_auto_reconnect,
-                                    None,
-                                )
-                                .await;
-                            }
-                            _ => {}
-                        }
-                    });
+                if settings.webdav_enabled {
+                    services::webdav_sync::start_scheduler();
                 }
 
                 {
                     let app_handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
-                        use std::collections::{HashMap, HashSet};
-                        use std::time::{Duration, Instant};
-
-                        struct AttachmentProgress {
-                            total_len: u64,
-                            ranges: Vec<(u64, u64)>,
-                            covered_len: u64,
-                            last_seen: Instant,
-                        }
-
-                        fn add_range(progress: &mut AttachmentProgress, start: u64, end: u64) {
-                            if end <= start {
-                                return;
-                            }
-
-                            let mut s = start;
-                            let mut e = end;
-                            let mut out: Vec<(u64, u64)> = Vec::with_capacity(progress.ranges.len() + 1);
-                            let mut inserted = false;
-
-                            for (rs, re) in progress.ranges.iter().copied() {
-                                if re < s {
-                                    out.push((rs, re));
-                                    continue;
-                                }
-                                if e < rs {
-                                    if !inserted {
-                                        out.push((s, e));
-                                        inserted = true;
-                                    }
-                                    out.push((rs, re));
-                                    continue;
-                                }
-
-                                s = s.min(rs);
-                                e = e.max(re);
-                            }
-
-                            if !inserted {
-                                out.push((s, e));
-                            }
-
-                            out.sort_by_key(|(a, _)| *a);
-                            let mut merged: Vec<(u64, u64)> = Vec::with_capacity(out.len());
-                            for (rs, re) in out {
-                                if let Some((ls, le)) = merged.last_mut() {
-                                    if rs <= *le {
-                                        *le = (*le).max(re);
-                                        *ls = (*ls).min(rs);
-                                        continue;
-                                    }
-                                }
-                                merged.push((rs, re));
-                            }
-                            progress.ranges = merged;
-                            progress.covered_len = progress
-                                .ranges
-                                .iter()
-                                .map(|(rs, re)| re.saturating_sub(*rs))
-                                .sum();
-                        }
-
-                        let mut attachment_progress: HashMap<String, AttachmentProgress> = HashMap::new();
-                        let mut last_connected_chat_devices: HashSet<String> = HashSet::new();
-                        let mut last_purge = Instant::now();
-
-                        let mut rx = crate::services::lan_sync::subscribe().await;
-                        loop {
-                            let ev = rx.recv().await;
-                            let Ok(ev) = ev else { continue; };
-
-                            if last_purge.elapsed() > Duration::from_secs(60) {
-                                let now = Instant::now();
-                                attachment_progress.retain(|_, p| now.duration_since(p.last_seen) < Duration::from_secs(300));
-                                last_purge = now;
-                            }
-
-                            match ev {
-                                lan_sync_core::CoreEvent::RemoteClipboardRecord { record } => {
-                                    let settings = services::get_settings();
-                                    if !settings.lan_sync_receive_enabled {
-                                        continue;
-                                    }
-
-                                    if record.source_device_id == crate::services::lan_sync::device_id() {
-                                        continue;
-                                    }
-
-                                    if record.content_type == "file" {
-                                        continue;
-                                    }
-
-                                    let record2 = record.clone();
-                                    let inserted = tokio::task::spawn_blocking(move || {
-                                        crate::services::database::insert_remote_clipboard_record(&record2)
-                                    })
-                                    .await
-                                    .ok()
-                                    .and_then(|r| r.ok());
-
-                                    if inserted.is_some() {
-                                        if record.content_type == "image" {
-                                            if let Some(image_ids) = record.image_id.as_ref().filter(|s| !s.trim().is_empty()) {
-                                                for iid in image_ids.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                                                    let data_dir = crate::services::get_data_directory();
-                                                    if let Ok(data_dir) = data_dir {
-                                                        let p = data_dir
-                                                            .join("clipboard_images")
-                                                            .join(format!("{}.png", iid));
-                                                        if !p.exists() {
-                                                            let _ = crate::services::lan_sync::request_attachment(
-                                                                Some(record.source_device_id.as_str()),
-                                                                iid,
-                                                            )
-                                                            .await;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if settings.lan_sync_receive_write_clipboard {
-                                            let should_write = if record.content_type == "image" {
-                                                record.image_id.as_ref().is_some_and(|image_ids| {
-                                                    if image_ids.trim().is_empty() {
-                                                        return false;
-                                                    }
-                                                    if let Ok(data_dir) = crate::services::get_data_directory() {
-                                                        for iid in image_ids.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                                                            let p = data_dir
-                                                                .join("clipboard_images")
-                                                                .join(format!("{}.png", iid));
-                                                            if !p.exists() {
-                                                                return false;
-                                                            }
-                                                        }
-                                                        return true;
-                                                    }
-                                                    false
-                                                })
-                                            } else {
-                                                true
-                                            };
-
-                                            if should_write {
-                                                let _ = crate::services::paste::set_clipboard_from_item(
-                                                    &record.content_type,
-                                                    &record.content,
-                                                    &record.html_content,
-                                                    &record.raw_formats,
-                                                    true,
-                                                );
-                                            }
-                                        }
-
-                                        use tauri::Emitter;
-                                        let _ = app_handle.emit("clipboard-updated", ());
-                                    }
-                                }
-                                lan_sync_core::CoreEvent::AttachmentRequest { requester_device_id, preferred_provider_device_id: _, image_id } => {
-                                    let settings = services::get_settings();
-                                    if !settings.lan_sync_receive_enabled {
-                                        continue;
-                                    }
-                                    let _ = crate::services::lan_sync::handle_attachment_request(&requester_device_id, &image_id).await;
-                                }
-                                lan_sync_core::CoreEvent::RemoteAttachmentChunk { image_id, total_len, offset, data } => {
-                                    let settings = services::get_settings();
-                                    if !settings.lan_sync_receive_enabled {
-                                        continue;
-                                    }
-                                    let end = offset.saturating_add(data.len() as u64);
-                                    let now = Instant::now();
-                                    let progress = attachment_progress.entry(image_id.clone()).or_insert_with(|| AttachmentProgress {
-                                        total_len,
-                                        ranges: Vec::new(),
-                                        covered_len: 0,
-                                        last_seen: now,
-                                    });
-                                    progress.total_len = total_len;
-                                    progress.last_seen = now;
-                                    add_range(progress, offset, end);
-                                    let is_complete = progress.covered_len >= total_len;
-
-                                    let app_handle2 = app_handle.clone();
-                                    let image_id2 = image_id.clone();
-                                    let _ = tokio::task::spawn_blocking(move || {
-                                        use std::io::{Seek, SeekFrom, Write};
-
-                                        let data_dir = crate::services::get_data_directory()?;
-                                        let images_dir = data_dir.join("clipboard_images");
-                                        std::fs::create_dir_all(&images_dir).map_err(|e| e.to_string())?;
-
-                                        let path = images_dir.join(format!("{}.png", image_id2));
-                                        let mut f = std::fs::OpenOptions::new()
-                                            .create(true)
-                                            .write(true)
-                                            .read(true)
-                                            .open(&path)
-                                            .map_err(|e| e.to_string())?;
-
-                                        f.seek(SeekFrom::Start(offset)).map_err(|e| e.to_string())?;
-                                        f.write_all(&data).map_err(|e| e.to_string())?;
-
-                                        if is_complete {
-                                            f.set_len(total_len).map_err(|e| e.to_string())?;
-                                            use tauri::Emitter;
-                                            let _ = app_handle2.emit("clipboard-updated", ());
-                                        }
-
-                                        Ok::<(), String>(())
-                                    }).await;
-
-                                    if is_complete {
-                                        attachment_progress.remove(&image_id);
-                                    }
-                                }
-                                lan_sync_core::CoreEvent::PeerDiscovered { device_id, device_name } => {
-                                    crate::services::lan_sync::remember_peer_device(device_id, device_name);
-                                }
-                                lan_sync_core::CoreEvent::Paired { device_id, device_name, pair_secret } => {
-                                    crate::services::lan_sync::on_paired(device_id, pair_secret, device_name);
-                                }
-                                lan_sync_core::CoreEvent::StatusChanged { snapshot } => {
-                                    let mut current_devices: HashSet<String> = snapshot
-                                        .server_connected_device_ids
-                                        .iter()
-                                        .filter(|device_id| !device_id.trim().is_empty())
-                                        .cloned()
-                                        .collect();
-                                    if let Some(device_id) = snapshot
-                                        .connected_peer_device_id
-                                        .filter(|device_id| !device_id.trim().is_empty())
-                                    {
-                                        current_devices.insert(device_id);
-                                    }
-
-                                    let removed_devices = last_connected_chat_devices
-                                        .difference(&current_devices)
-                                        .cloned()
-                                        .collect::<Vec<_>>();
-                                    last_connected_chat_devices = current_devices;
-
-                                    if !removed_devices.is_empty() {
-                                        crate::services::lan_sync::cleanup_chat_transfers_for_devices(
-                                            removed_devices,
-                                            "连接已断开，传输已中断",
-                                        )
-                                        .await;
-                                    }
-                                }
-                                lan_sync_core::CoreEvent::ChatText { message } => {
-                                    use tauri::Emitter;
-                                    let _ = app_handle.emit(
-                                        "lan-chat-event",
-                                        serde_json::json!({
-                                            "type": "chat_text",
-                                            "message": message
-                                        }),
-                                    );
-                                }
-                                lan_sync_core::CoreEvent::ChatFileOffer { offer } => {
-                                    crate::services::lan_sync::handle_incoming_file_offer_message(offer).await;
-                                }
-                                lan_sync_core::CoreEvent::ChatFileAccept { decision } => {
-                                    crate::services::lan_sync::handle_incoming_file_accept(decision).await;
-                                }
-                                lan_sync_core::CoreEvent::ChatFileReject { decision } => {
-                                    crate::services::lan_sync::handle_incoming_file_reject(decision).await;
-                                }
-                                lan_sync_core::CoreEvent::ChatFileCancel { cancel } => {
-                                    crate::services::lan_sync::handle_incoming_file_cancel_message(cancel).await;
-                                }
-                                _ => {}
-                            }
-                        }
+                        services::sync_transfer::lan_start_configured_services(app_handle).await;
                     });
                 }
-                
+
+                if settings.clipboard_monitor {
+                    let _ = start_clipboard_monitor();
+                }
+
                 let _ = windows::main_window::restore_edge_snap_on_startup(&window);
 
                 if settings.show_startup_notification {
                     let _ = services::show_startup_notification(app.handle());
                 }
-                startup_diagnostics::set_startup_stage("执行 setup：完成启动收尾");
-                services::memory::init();
-                services::low_memory::init_auto_low_memory_manager(app.handle().clone());
-                startup_diagnostics::mark_ready();
 
-                {
-                    let app_handle = app.handle().clone();
-                    tauri::async_runtime::spawn(async move {
-                        tokio::time::sleep(std::time::Duration::from_millis(
-                            STARTUP_UPDATE_CHECK_DELAY_MS,
-                        ))
-                        .await;
-                        windows::updater_window::start_update_checker(app_handle);
-                    });
-                }
-
-            Ok(())
-        })
-        .build(tauri::generate_context!());
-
-    let app = match app {
-        Ok(app) => app,
-        Err(error) => {
-            startup_diagnostics::report_startup_error("构建应用失败：", error);
-            return;
-        }
-    };
+                Ok(())
+            })
+            .build(tauri::generate_context!())
+            .expect("运行 Tauri 应用失败");
 
     startup_diagnostics::set_startup_stage("运行应用事件循环");
     app.run(|app, event| {
             match event {
+                tauri::RunEvent::Ready => {
+                    windows::transfer_shelf::schedule_startup_restore_persisted_shelves(app.clone());
+                }
                 tauri::RunEvent::ExitRequested { api, .. } => {
                     if services::low_memory::is_low_memory_mode() 
                         && !services::low_memory::is_user_requested_exit() 
                     {
                         api.prevent_exit();
+                    } else {
+                        services::webdav_sync::crypto::clear_cached_keys();
                     }
                 }
                 tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } => {
                     if label == "main" && !services::low_memory::is_low_memory_mode() {
-                        let _ = crate::windows::chat_drop_proxy::dispose_chat_drop_proxy(app);
+                        services::webdav_sync::crypto::clear_cached_keys();
                         app.exit(0);
                     }
                 }

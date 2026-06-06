@@ -9,24 +9,46 @@ pub fn get_groups() -> Result<Vec<GroupInfo>, String> {
 // 添加分组
 #[tauri::command]
 pub fn add_group(name: String, icon: String, color: String) -> Result<GroupInfo, String> {
-    db_add_group(name, icon, color)
+    let result = db_add_group(name, icon, color);
+    if result.is_ok() {
+        notify_lan_change("groups");
+    }
+    result
 }
 
 // 更新分组
 #[tauri::command]
 pub fn update_group(old_name: String, new_name: String, new_icon: String, new_color: String) -> Result<GroupInfo, String> {
-    db_update_group(old_name, new_name, new_icon, new_color)
+    let result = db_update_group(old_name, new_name, new_icon, new_color);
+    if result.is_ok() {
+        notify_lan_change("groups");
+    }
+    result
 }
 
 // 删除分组
 #[tauri::command]
 pub fn delete_group(name: String) -> Result<(), String> {
-    db_delete_group(name)
+    let result = db_delete_group(name);
+    if result.is_ok() {
+        notify_lan_change("groups");
+    }
+    result
 }
 
 // 更新分组排序
 #[tauri::command]
 pub fn reorder_groups(group_orders: Vec<(String, i32)>) -> Result<(), String> {
-    db_reorder_groups(group_orders)
+    let result = db_reorder_groups(group_orders);
+    if result.is_ok() {
+        notify_lan_change("groups");
+    }
+    result
+}
+
+fn notify_lan_change(reason: &'static str) {
+    if let Some(app) = crate::services::clipboard::get_app_handle() {
+        crate::services::sync_transfer::lan_notify_local_change(app, reason);
+    }
 }
 

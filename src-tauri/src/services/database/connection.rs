@@ -138,6 +138,18 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("创建分组表失败: {}", e))?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sync_tombstones (
+            collection TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            source_device_id TEXT NOT NULL,
+            deleted_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (collection, item_id)
+        )",
+        [],
+    ).map_err(|e| format!("创建同步删除状态表失败: {}", e))?;
+
     let color_exists = conn
         .prepare("PRAGMA table_info(groups)")
         .and_then(|mut stmt| {
@@ -269,6 +281,34 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
             .map_err(|e| format!("添加收藏字符数量字段失败: {}", e))?;
     }
 
+    let fav_source_device_id_exists = conn
+        .prepare("PRAGMA table_info(favorites)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "source_device_id"))
+        })
+        .unwrap_or(false);
+
+    if !fav_source_device_id_exists {
+        conn.execute("ALTER TABLE favorites ADD COLUMN source_device_id TEXT", [])
+            .map_err(|e| format!("添加收藏来源设备字段失败: {}", e))?;
+    }
+
+    let group_source_device_id_exists = conn
+        .prepare("PRAGMA table_info(groups)")
+        .and_then(|mut stmt| {
+            let columns = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|c| c == "source_device_id"))
+        })
+        .unwrap_or(false);
+
+    if !group_source_device_id_exists {
+        conn.execute("ALTER TABLE groups ADD COLUMN source_device_id TEXT", [])
+            .map_err(|e| format!("添加分组来源设备字段失败: {}", e))?;
+    }
+
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_clipboard_order ON clipboard(is_pinned DESC, item_order DESC, updated_at DESC)",
         [],
@@ -300,6 +340,11 @@ fn create_tables(conn: &Connection) -> Result<(), String> {
         "CREATE INDEX IF NOT EXISTS idx_favorites_group ON favorites(group_name, item_order)",
         [],
     ).map_err(|e| format!("创建收藏索引失败: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sync_tombstones_deleted_at ON sync_tombstones(deleted_at)",
+        [],
+    ).map_err(|e| format!("创建同步删除状态索引失败: {}", e))?;
     migrate_favorites_auto_titles(conn);
 
     Ok(())

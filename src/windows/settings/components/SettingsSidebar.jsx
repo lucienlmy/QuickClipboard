@@ -35,9 +35,9 @@ export const navigationItems = [{
   icon: "ti ti-filter",
   labelKey: 'settings.sections.appFilter'
 }, {
-  id: 'lanSync',
-  icon: "ti ti-wifi",
-  labelKey: 'settings.sections.lanSync'
+  id: 'syncTransfer',
+  icon: "ti ti-arrows-transfer-up-down",
+  labelKey: 'settings.sections.syncTransfer'
 }, {
   id: 'dataManagement',
   icon: "ti ti-database",

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const SETTINGS_MIGRATION_VERSION_V1: u32 = 1;
+pub const SETTINGS_MIGRATION_VERSION_V2: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -75,6 +76,7 @@ pub struct AppSettings {
     // 预览窗口设置
     pub quickpaste_enabled: bool,
     pub quickpaste_shortcut: String,
+    pub transfer_shelf_create_shortcut: String,
     pub quickpaste_paste_on_modifier_release: bool,
     pub quickpaste_scroll_sound: bool,
     pub quickpaste_scroll_sound_path: String,
@@ -177,24 +179,25 @@ pub struct AppSettings {
     #[serde(alias = "use_custom_storage")]
     pub use_custom_storage: bool,
 
-    // LAN Sync 设置
-    pub lan_sync_enabled: bool,
-    #[serde(default)]
-    pub lan_sync_auto_start: bool,
-    #[serde(default = "default_true")]
-    pub lan_sync_send_enabled: bool,
-    #[serde(default = "default_true")]
-    pub lan_sync_receive_enabled: bool,
-    #[serde(default)]
-    pub lan_sync_receive_write_clipboard: bool,
-    pub lan_sync_mode: String,
-    pub lan_sync_server_port: u16,
-    pub lan_sync_peer_url: String,
-    pub lan_sync_auto_reconnect: bool,
-}
+    // WebDAV Sync 设置
+    pub webdav_enabled: bool,
+    pub webdav_url: String,
+    pub webdav_username: String,
+    #[serde(default, skip_serializing)]
+    pub webdav_password: String,
+    pub webdav_root_path: String,
+    pub webdav_auto_push: bool,
+    pub webdav_push_delay_secs: u64,
+    pub webdav_auto_pull: bool,
+    pub webdav_auto_pull_on_window_show: bool,
+    pub webdav_pull_interval_secs: u64,
+    pub webdav_push_shortcut: String,
+    pub webdav_pull_shortcut: String,
+    pub webdav_sync_clipboard: bool,
+    pub webdav_sync_favorites: bool,
+    pub webdav_sync_images: bool,
+    pub sync_transfer_active_mode: String,
 
-fn default_true() -> bool {
-    true
 }
 
 impl Default for AppSettings {
@@ -221,7 +224,6 @@ impl Default for AppSettings {
             visible_optional_tabs: vec![
                 "favorites".to_string(),
                 "emoji".to_string(),
-                "chat".to_string(),
             ],
             opacity: 0.9,
             background_image_path: String::new(),
@@ -236,7 +238,7 @@ impl Default for AppSettings {
             image_preview: true,
             text_preview: true,
             file_preview: true,
-            settings_migration_version: Some(SETTINGS_MIGRATION_VERSION_V1),
+            settings_migration_version: Some(SETTINGS_MIGRATION_VERSION_V2),
             display_priority_order: "text,html,image".to_string(),
 
             sound_enabled: true,
@@ -267,6 +269,7 @@ impl Default for AppSettings {
 
             quickpaste_enabled: true,
             quickpaste_shortcut: "Ctrl+`".to_string(),
+            transfer_shelf_create_shortcut: String::new(),
             quickpaste_paste_on_modifier_release: true,
             quickpaste_scroll_sound: true,
             quickpaste_scroll_sound_path: "sounds/roll.mp3".to_string(),
@@ -353,15 +356,23 @@ impl Default for AppSettings {
             custom_storage_path: None,
             use_custom_storage: false,
 
-            lan_sync_enabled: false,
-            lan_sync_auto_start: false,
-            lan_sync_send_enabled: true,
-            lan_sync_receive_enabled: true,
-            lan_sync_receive_write_clipboard: false,
-            lan_sync_mode: "off".to_string(),
-            lan_sync_server_port: 18181,
-            lan_sync_peer_url: "ws://127.0.0.1:18181".to_string(),
-            lan_sync_auto_reconnect: true,
+            webdav_enabled: false,
+            webdav_url: String::new(),
+            webdav_username: String::new(),
+            webdav_password: String::new(),
+            webdav_root_path: "quickclipboard".to_string(),
+            webdav_auto_push: false,
+            webdav_push_delay_secs: 10,
+            webdav_auto_pull: false,
+            webdav_auto_pull_on_window_show: false,
+            webdav_pull_interval_secs: 30,
+            webdav_push_shortcut: String::new(),
+            webdav_pull_shortcut: String::new(),
+            webdav_sync_clipboard: true,
+            webdav_sync_favorites: true,
+            webdav_sync_images: false,
+            sync_transfer_active_mode: "webdav".to_string(),
+
         }
     }
 }

@@ -81,6 +81,8 @@ export default defineConfig({
           inputDialog: resolve(__dirname, 'src/plugins/input_dialog/inputDialog.html'),
           pinImage: resolve(__dirname, 'src/windows/pinImage/pinImage.html'),
           preview: resolve(__dirname, 'src/windows/preview/index.html'),
+          transferShelf: resolve(__dirname, 'src/windows/transferShelf/index.html'),
+          receiveBox: resolve(__dirname, 'src/windows/receiveBox/index.html'),
           updater: resolve(__dirname, 'src/windows/updater/index.html'),
         }
         const screenshotPath = resolve(__dirname, 'src/windows/screenshot/index.html')

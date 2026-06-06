@@ -29,6 +29,7 @@ pub struct FavoriteUpdatedEventPayload {
 pub struct MainWindowRefreshNeededPayload {
     pub clipboard: bool,
     pub favorites: bool,
+    pub groups: bool,
 }
 
 pub fn emit_clipboard_updated_event(
@@ -71,8 +72,8 @@ pub fn emit_quick_texts_updated_event(
 pub fn emit_main_window_refresh_needed_event(app: &AppHandle) -> Result<(), String> {
     use tauri::Emitter;
 
-    let (clipboard, favorites) = crate::windows::main_window::take_pending_refresh_flags();
-    if !clipboard && !favorites {
+    let (clipboard, favorites, groups) = crate::windows::main_window::take_pending_refresh_flags();
+    if !clipboard && !favorites && !groups {
         return Ok(());
     }
 
@@ -81,6 +82,7 @@ pub fn emit_main_window_refresh_needed_event(app: &AppHandle) -> Result<(), Stri
         MainWindowRefreshNeededPayload {
             clipboard,
             favorites,
+            groups,
         },
     )
     .map_err(|e| format!("发射主窗口刷新请求事件失败: {}", e))

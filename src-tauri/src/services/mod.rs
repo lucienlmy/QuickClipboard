@@ -10,7 +10,9 @@ pub mod image_library;
 pub mod low_memory;
 pub mod memory;
 pub mod store;
-pub mod lan_sync;
+pub mod sync_transfer;
+pub mod secure_credentials;
+pub mod webdav_sync;
 
 pub use settings::{AppSettings, get_settings, update_settings, get_data_directory};
 pub use notification::show_startup_notification;
@@ -19,7 +21,7 @@ pub use sound::{SoundPlayer, AppSounds, mark_paste_operation};
 
 pub fn normalize_path_for_hash(path: &str) -> String {
     let normalized = path.replace("\\", "/");
-    for prefix in ["clipboard_images/", "pin_images/", "chat_files/"] {
+    for prefix in ["clipboard_images/", "pin_images/"] {
         if let Some(idx) = normalized.find(prefix) {
             return normalized[idx..].to_string();
         }
@@ -33,15 +35,14 @@ pub fn resolve_stored_path(stored_path: &str) -> String {
     
     if normalized_input.starts_with("clipboard_images\\") 
         || normalized_input.starts_with("pin_images\\")
-        || normalized_input.starts_with("image_library\\")
-        || normalized_input.starts_with("chat_files\\") {
+        || normalized_input.starts_with("image_library\\") {
         if let Ok(data_dir) = get_data_directory() {
             return data_dir.join(&normalized_input).to_string_lossy().to_string();
         }
     }
     
     let search_path = stored_path.replace("\\", "/");
-    for prefix in ["clipboard_images/", "pin_images/", "image_library/", "chat_files/"] {
+    for prefix in ["clipboard_images/", "pin_images/", "image_library/"] {
         if let Some(idx) = search_path.find(prefix) {
             if let Ok(data_dir) = get_data_directory() {
                 let relative = search_path[idx..].replace("/", "\\");

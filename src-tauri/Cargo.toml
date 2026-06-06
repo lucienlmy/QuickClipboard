@@ -37,9 +37,15 @@ sha2 = "0.10"
 hmac = "0.12"
 hex = "0.4"
 blake3 = "1.5"
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
+zeroize = { version = "1", features = ["zeroize_derive"] }
 rodio = "0.17"
 if-addrs = "0.13"
-tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "time", "fs", "io-util"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "time", "fs", "io-util", "net"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = "0.3"
 fastrand = "2.0"
 regex = "1.11.1"
 zip = "2.1"
@@ -57,7 +63,6 @@ atree = "0.5.2"
 rstar = "0.12.2"
 qcocr = {git="https://github.com/mosheng1/qcocr"}
 winreg = "0.55"
-lan-sync-core = { path = "plugins/lan-sync-core" }
 low-memory-fltk = { path = "plugins/low-memory-fltk" }
 ratatui = "0.29"
 crossterm = "0.28"
@@ -69,6 +74,7 @@ gpu-image-viewer = { git = "ssh://git@github.com/mosheng1/gpu-image-viewer.git",
 # gpu-image-viewer = { path = "plugins/gpu-image-viewer", optional = true }
 
 [target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6.3", features = ["windows-native"] }
 windows = { version = "0.62", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Input",
@@ -86,6 +92,12 @@ windows = { version = "0.62", features = [
     "Win32_Graphics_Gdi",
     "Win32_System_Console",
 ] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", features = ["apple-native"] }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+keyring = { version = "3.6.3", features = ["sync-secret-service", "crypto-rust"] }
 
 [features]
 default = ["gpu-image-viewer", "screenshot-suite"]
