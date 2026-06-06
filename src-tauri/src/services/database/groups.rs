@@ -4,6 +4,8 @@ use crate::services::webdav_sync::types::CloudGroup;
 use rusqlite::{params, OptionalExtension};
 use chrono;
 
+const DEFAULT_GROUP_COLOR: &str = "#dc2626";
+
 // 获取所有分组
 pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
     with_connection(|conn| {
@@ -18,7 +20,7 @@ pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
             Ok(CloudGroup {
                 name: row.get(0)?,
                 icon: row.get(1)?,
-                color: row.get(2)?,
+                color: normalize_group_color(&row.get::<_, String>(2)?),
                 order: row.get(3)?,
                 source_device_id: if source_device_id.is_empty() { device_id.to_string() } else { source_device_id },
                 created_at: row.get(5)?,
@@ -80,14 +82,46 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                 .optional()?;
 
             if let Some((icon, color, order, source_device_id, created_at, updated_at)) = existing {
+                let existing_color = normalize_group_color(&color);
+                let incoming_color = normalize_incoming_group_color(&group.color)
+                    .unwrap_or_else(|| existing_color.clone());
+                let should_repair_existing_color = !is_canonical_group_color(&color);
+                let repair_color = if is_empty_or_transparent_group_color(&color)
+                    && !is_empty_or_transparent_group_color(&group.color)
+                {
+                    incoming_color.clone()
+                } else {
+                    existing_color.clone()
+                };
                 let same = icon == group.icon
-                    && color == group.color
+                    && existing_color == incoming_color
                     && order == group.order
                     && source_device_id == group.source_device_id
                     && created_at == group.created_at
                     && updated_at == restored_updated_at;
 
-                if updated_at >= restored_updated_at || same {
+                if updated_at >= restored_updated_at {
+                    if should_repair_existing_color {
+                        tx.execute(
+                            "UPDATE groups SET color = ?1 WHERE name = ?2",
+                            params![repair_color, group.name],
+                        )?;
+                        let mut changed_group = group.clone();
+                        changed_group.color = repair_color;
+                        changed_group.updated_at = updated_at;
+                        changed.push(changed_group);
+                    }
+                    if tombstone_deleted_at.map(|deleted_at| deleted_at < updated_at).unwrap_or(false) {
+                        super::tombstones::delete_sync_tombstone_in_conn(
+                            &tx,
+                            super::tombstones::COLLECTION_GROUPS,
+                            &group.name,
+                        )?;
+                    }
+                    continue;
+                }
+
+                if same {
                     if tombstone_deleted_at.map(|deleted_at| deleted_at < updated_at).unwrap_or(false) {
                         super::tombstones::delete_sync_tombstone_in_conn(
                             &tx,
@@ -109,7 +143,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                      WHERE name = ?7",
                     params![
                         group.icon,
-                        group.color,
+                        incoming_color,
                         group.order,
                         group.source_device_id,
                         group.created_at,
@@ -125,18 +159,21 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                     )?;
                 }
                 let mut changed_group = group.clone();
+                changed_group.color = incoming_color;
                 changed_group.updated_at = restored_updated_at;
                 changed.push(changed_group);
                 continue;
             }
 
+            let incoming_color = normalize_incoming_group_color(&group.color)
+                .unwrap_or_else(|| DEFAULT_GROUP_COLOR.to_string());
             tx.execute(
                 "INSERT INTO groups (name, icon, color, order_index, source_device_id, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     group.name,
                     group.icon,
-                    group.color,
+                    incoming_color,
                     group.order,
                     group.source_device_id,
                     group.created_at,
@@ -151,6 +188,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                 )?;
             }
             let mut changed_group = group.clone();
+            changed_group.color = incoming_color;
             changed_group.updated_at = restored_updated_at;
             changed.push(changed_group);
         }
@@ -184,7 +222,7 @@ pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {
             groups.push(GroupInfo {
                 name,
                 icon,
-                color,
+                color: normalize_group_color(&color),
                 order,
                 item_count: count,
             });
@@ -217,6 +255,7 @@ pub fn add_group(name: String, icon: String, color: String) -> Result<GroupInfo,
         
         let new_order = max_order.unwrap_or(0) + 1;
         let now = chrono::Local::now().timestamp();
+        let color = normalize_group_color(&color);
         
         conn.execute(
             "INSERT INTO groups (name, icon, color, order_index, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -251,6 +290,7 @@ pub fn update_group(old_name: String, new_name: String, new_icon: String, new_co
         }
         
         let now = chrono::Local::now().timestamp();
+        let new_color = normalize_group_color(&new_color);
         let tx = conn.unchecked_transaction()?;
         
         tx.execute(
@@ -282,7 +322,7 @@ pub fn update_group(old_name: String, new_name: String, new_icon: String, new_co
         Ok(GroupInfo {
             name: new_name,
             icon: new_icon,
-            color,
+            color: normalize_group_color(&color),
             order,
             item_count: count,
         })
@@ -328,6 +368,116 @@ pub fn delete_group(name: String) -> Result<(), String> {
         tx.commit()?;
         Ok(())
     })
+}
+
+fn normalize_group_color(raw: &str) -> String {
+    normalize_incoming_group_color(raw).unwrap_or_else(|| DEFAULT_GROUP_COLOR.to_string())
+}
+
+fn normalize_incoming_group_color(raw: &str) -> Option<String> {
+    let text = raw.trim();
+    if text.is_empty() || text == "0" {
+        return None;
+    }
+
+    if let Some(hex) = text.strip_prefix('#') {
+        return normalize_hex_group_color(hex);
+    }
+
+    parse_numeric_group_color(text).map(rgb_to_hex)
+}
+
+fn normalize_hex_group_color(hex: &str) -> Option<String> {
+    if !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return None;
+    }
+
+    match hex.len() {
+        3 => {
+            let mut rgb = String::with_capacity(6);
+            for ch in hex.chars() {
+                rgb.push(ch);
+                rgb.push(ch);
+            }
+            Some(format!("#{}", rgb.to_ascii_lowercase()))
+        }
+        6 => Some(format!("#{}", hex.to_ascii_lowercase())),
+        8 => {
+            let alpha = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            if alpha == 0 {
+                return None;
+            }
+            Some(format!("#{}", hex[2..8].to_ascii_lowercase()))
+        }
+        _ => None,
+    }
+}
+
+fn parse_numeric_group_color(text: &str) -> Option<u32> {
+    let value = if let Some(hex) = text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+        i64::from_str_radix(hex, 16).ok()?
+    } else {
+        text.parse::<i64>().ok()?
+    };
+
+    let unsigned = value as u32;
+    if unsigned == 0 {
+        return None;
+    }
+
+    if unsigned <= 0x00ff_ffff {
+        Some(unsigned)
+    } else {
+        let alpha = (unsigned >> 24) & 0xff;
+        if alpha == 0 {
+            None
+        } else {
+            Some(unsigned & 0x00ff_ffff)
+        }
+    }
+}
+
+fn rgb_to_hex(rgb: u32) -> String {
+    format!("#{:06x}", rgb & 0x00ff_ffff)
+}
+
+fn is_canonical_group_color(raw: &str) -> bool {
+    let text = raw.trim();
+    text.len() == 7
+        && text.starts_with('#')
+        && text[1..].chars().all(|ch| ch.is_ascii_hexdigit())
+}
+
+fn is_empty_or_transparent_group_color(raw: &str) -> bool {
+    let text = raw.trim();
+    if text.is_empty() || text == "0" {
+        return true;
+    }
+
+    if let Some(hex) = text.strip_prefix('#') {
+        if !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+            return true;
+        }
+        return matches!(hex.len(), 8) && u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) == 0;
+    }
+
+    parse_numeric_group_color(text).is_none()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_group_color;
+
+    #[test]
+    fn normalizes_group_color_variants() {
+        assert_eq!(normalize_group_color("#DC2626"), "#dc2626");
+        assert_eq!(normalize_group_color("#f00"), "#ff0000");
+        assert_eq!(normalize_group_color("#ff3b82f6"), "#3b82f6");
+        assert_eq!(normalize_group_color("4282090230"), "#3b82f6");
+        assert_eq!(normalize_group_color("-2349530"), "#dc2626");
+        assert_eq!(normalize_group_color("0"), "#dc2626");
+        assert_eq!(normalize_group_color("#003b82f6"), "#dc2626");
+    }
 }
 
 // 更新分组排序
