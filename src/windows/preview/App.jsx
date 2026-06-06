@@ -898,6 +898,8 @@ function App() {
       fileCount: filePreviewStats.fileCount,
       longestFileNameLength: filePreviewStats.longestNameLength,
       longestFilePathLength: filePreviewStats.longestPathLength,
+      longestFileNameWidth: filePreviewStats.longestNameWidth,
+      longestFilePathLineWidth: filePreviewStats.longestPathLineWidth,
     });
   }, [
     previewMode,

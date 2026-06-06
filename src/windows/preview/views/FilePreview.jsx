@@ -144,8 +144,8 @@ function MarqueeText({ text, className = '', title, textClassName = '' }) {
   );
 }
 
-const FILE_ROW_MIN_WIDTH = 700;
-const FILE_GRID_TEMPLATE = 'grid-cols-[minmax(0,1.7fr)_88px_72px_minmax(0,2.1fr)_92px]';
+const FILE_ROW_MIN_WIDTH = 320;
+const FILE_ICON_SIZE = 32;
 
 const FilePreviewList = forwardRef(function FilePreviewList(props, ref) {
   return (
@@ -160,31 +160,6 @@ const FilePreviewList = forwardRef(function FilePreviewList(props, ref) {
     />
   );
 });
-
-function FileTableHeader({ t }) {
-  return (
-    <div
-      className={`preview-file-table-header grid ${FILE_GRID_TEMPLATE} gap-2 border-b border-qc-border/70 bg-qc-panel/90 px-3 py-2 text-[11px] font-medium tracking-wide text-qc-fg-subtle backdrop-blur-md`}
-      style={{ minWidth: `${FILE_ROW_MIN_WIDTH}px` }}
-    >
-      <div className="min-w-0 flex items-center justify-center text-center">
-        {t('previewWindow.fileHeaderName', '名称')}
-      </div>
-      <div className="flex items-center justify-center text-center">
-        {t('previewWindow.fileHeaderSize', '大小')}
-      </div>
-      <div className="flex items-center justify-center text-center">
-        {t('previewWindow.fileHeaderType', '类型')}
-      </div>
-      <div className="min-w-0 flex items-center justify-center text-center">
-        {t('previewWindow.fileHeaderPath', '路径')}
-      </div>
-      <div className="flex items-center justify-center text-center">
-        {t('previewWindow.fileHeaderStatus', '状态')}
-      </div>
-    </div>
-  );
-}
 
 function getStatusLabel(file, t) {
   if (file?.exists === false) {
@@ -222,6 +197,15 @@ function getDetailText(file, t) {
   }
 
   return '';
+}
+
+function FileSummaryItem({ label, value, subtle = false }) {
+  return (
+    <span className={`inline-flex items-baseline gap-1 whitespace-nowrap ${subtle ? 'text-qc-fg-muted' : 'text-qc-fg-subtle'}`}>
+      <span className="text-[10px] text-qc-fg-muted">{label}</span>
+      <span className="text-[11px] font-medium tabular-nums">{value}</span>
+    </span>
+  );
 }
 
 const FilePreview = forwardRef(function FilePreview(
@@ -319,7 +303,7 @@ const FilePreview = forwardRef(function FilePreview(
   const fileCount = Number(stats?.fileCount) || files.length || 0;
   const directoryCount = Number(stats?.directoryCount) || 0;
   const missingCount = Number(stats?.missingCount) || 0;
-  const defaultItemHeight = 86;
+  const defaultItemHeight = 58;
 
   return (
     <div className="preview-file-content flex h-full min-h-0 flex-col overflow-hidden">
@@ -343,26 +327,18 @@ const FilePreview = forwardRef(function FilePreview(
         }
       `}</style>
 
-      <div className="preview-file-summary flex flex-wrap items-center justify-between gap-2 border-b border-qc-border/70 bg-qc-panel/80 px-4 py-3 backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
-            {t('previewWindow.fileSummaryCount', '共 {{count}} 项', { count: fileCount })}
-          </div>
-          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
-            {t('previewWindow.fileSummarySize', '总大小 {{size}}', { size: formatFileSize(totalSize) })}
-          </div>
-          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
-            {t('previewWindow.fileSummaryDirectory', '目录 {{count}}', { count: directoryCount })}
-          </div>
-          <div className="preview-file-chip rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-[11px] leading-4 text-qc-fg-subtle">
-            {t('previewWindow.fileSummaryMissing', '缺失 {{count}}', { count: missingCount })}
-          </div>
-        </div>
+      <div className="preview-file-summary flex items-center gap-3 overflow-hidden border-b border-qc-border/60 bg-qc-panel/55 px-3 py-2 backdrop-blur-md">
+        <FileSummaryItem label={t('previewWindow.fileSummaryCountLabel', '项目')} value={fileCount} />
+        <FileSummaryItem label={t('previewWindow.fileSummarySizeLabel', '总计')} value={formatFileSize(totalSize)} />
+        {directoryCount > 0 && (
+          <FileSummaryItem label={t('previewWindow.fileSummaryDirectoryLabel', '目录')} value={directoryCount} subtle />
+        )}
+        {missingCount > 0 && (
+          <FileSummaryItem label={t('previewWindow.fileSummaryMissingLabel', '缺失')} value={missingCount} subtle />
+        )}
       </div>
 
-      <FileTableHeader t={t} />
-
-      <div className="min-h-0 flex-1 overflow-hidden px-3 py-3">
+      <div className="min-h-0 flex-1 overflow-hidden px-2 py-2">
         <Virtuoso
           totalCount={files.length}
           data={files}
@@ -390,86 +366,71 @@ const FilePreview = forwardRef(function FilePreview(
               ? t('previewWindow.fileSizeDirectory', '目录')
               : formatFileSize(Number(file?.size) || 0);
             const nameTextClass = file?.exists === false ? 'text-qc-fg-muted line-through' : 'text-qc-fg';
-            const pathTextClass = 'text-qc-fg';
+            const pathTextClass = file?.exists === false ? 'text-qc-fg-muted' : 'text-qc-fg-subtle';
+            const rowStateClass = file?.exists === false
+              ? 'border-qc-border/70 bg-qc-active/20'
+              : 'border-transparent bg-transparent hover:border-qc-border/70 hover:bg-qc-hover/55';
+            const iconStateClass = file?.exists === false ? 'opacity-65' : '';
 
             return (
-              <div className="w-full pb-2" style={{ minWidth: `${FILE_ROW_MIN_WIDTH}px` }}>
+              <div className="w-full pb-1" style={{ minWidth: `${FILE_ROW_MIN_WIDTH}px` }}>
                 <div
-                  className={`preview-file-row grid ${FILE_GRID_TEMPLATE} gap-2 rounded-lg border px-3 py-2 transition-colors ${
-                    file?.exists === false
-                      ? 'border-qc-border bg-qc-active/20'
-                      : 'border-qc-border bg-qc-panel/65 hover:bg-qc-hover/70'
-                  }`}
+                  className={`preview-file-row flex min-h-[54px] items-center gap-2 rounded-md border px-2 py-1.5 transition-colors ${rowStateClass}`}
                 >
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center justify-center gap-2 text-center">
-                      <span
-                        className={`preview-file-icon-shell flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-qc-border bg-qc-surface/80 text-qc-fg-subtle ${
-                          file?.exists === false ? 'opacity-70' : ''
-                        }`}
-                      >
-                        <FileIcon file={file} size={28} />
+                  <span
+                    className={`preview-file-icon-shell flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded border border-qc-border/70 bg-qc-surface/80 text-qc-fg-subtle ${iconStateClass}`}
+                  >
+                    <FileIcon file={file} size={FILE_ICON_SIZE} />
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <MarqueeText
+                        text={file?.name || t('previewWindow.fileUnknownName', '未命名文件')}
+                        title={file?.name || ''}
+                        className="min-w-0 flex-1"
+                        textClassName={`text-[13px] font-medium leading-5 ${nameTextClass}`}
+                      />
+                      <span className="preview-file-type-chip inline-flex max-w-[72px] flex-shrink-0 items-center truncate rounded border border-qc-border/70 bg-qc-panel/60 px-1.5 py-0.5 text-[10px] font-medium leading-4 text-qc-fg-muted">
+                        {typeLabel}
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <MarqueeText
-                          text={file?.name || t('previewWindow.fileUnknownName', '未命名文件')}
-                          title={file?.name || ''}
-                          className="min-w-0"
-                          textClassName={`text-sm font-medium text-center ${nameTextClass}`}
-                        />
-                        {detailText && (
-                          <div className="mt-0.5 text-xs text-qc-fg-muted text-center">
-                            {detailText}
-                          </div>
-                        )}
-                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-center">
-                    <span className="text-sm text-qc-fg tabular-nums text-center">
-                      {sizeLabel}
-                    </span>
-                  </div>
-
-                  <div className="min-w-0 flex items-start justify-center">
-                    <span className="preview-file-type-chip inline-flex max-w-full items-center rounded-md border border-qc-border bg-qc-panel/70 px-2 py-1 text-xs font-medium text-qc-fg-subtle">
-                      {typeLabel}
-                    </span>
-                  </div>
-
-                  <div className="min-w-0 text-center">
-                    <MarqueeText
-                      text={displayPath || t('previewWindow.fileNoPath', '无路径信息')}
-                      title={displayPath}
-                      className="min-w-0"
-                      textClassName={`text-sm text-center ${pathTextClass}`}
-                    />
+                    <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] leading-4">
+                      {detailText && (
+                        <span className="flex-shrink-0 text-qc-fg-muted">
+                          {detailText}
+                        </span>
+                      )}
+                      <MarqueeText
+                        text={displayPath || t('previewWindow.fileNoPath', '无路径信息')}
+                        title={displayPath}
+                        className="min-w-0 flex-1"
+                        textClassName={pathTextClass}
+                      />
+                    </div>
                     {pathMismatch && (
                       <MarqueeText
                         text={t('previewWindow.fileStoredPath', '存储路径：{{path}}', { path: storedPath })}
                         title={storedPath}
                         className="mt-0.5 min-w-0"
-                        textClassName="text-xs text-qc-fg-muted text-center"
+                        textClassName="text-[11px] leading-4 text-qc-fg-muted"
                       />
                     )}
                   </div>
 
-                  <div className="flex flex-col items-center justify-center gap-1 text-center">
+                  <div className="ml-1 flex w-[86px] flex-shrink-0 flex-col items-end justify-center gap-1 text-right">
+                    <span className="max-w-full truncate text-[12px] leading-4 text-qc-fg tabular-nums">
+                      {sizeLabel}
+                    </span>
                     <span
-                      className={`preview-file-status-chip inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-4 ${
+                      className={`preview-file-status-chip inline-flex max-w-full items-center rounded-full border px-1.5 py-0.5 text-[10px] leading-3 ${
                         file?.exists === false
                           ? 'border-qc-border bg-qc-active/20 text-qc-fg'
-                          : 'border-qc-border bg-qc-panel/80 text-qc-fg-subtle'
+                          : 'border-qc-border/70 bg-qc-panel/60 text-qc-fg-muted'
                       }`}
                     >
                       {statusLabel}
                     </span>
-                    {file?.isDirectory && (
-                      <span className="text-[10px] leading-4 text-qc-fg-muted">
-                        {t('previewWindow.fileExtraDirectory', '目录项')}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>

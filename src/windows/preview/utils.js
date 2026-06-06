@@ -59,6 +59,57 @@ export function resolveTextPreviewMaxHeight(workAreaHeight) {
   );
 }
 
+function resolveFilePreviewMaxWidth(workAreaWidth, longestNameLength = 0, longestPathLength = 0) {
+  const nameLength = Number(longestNameLength);
+  const pathLength = Number(longestPathLength);
+  const nameBonus = isFiniteNumber(nameLength) && nameLength > 0
+    ? clamp(Math.round(Math.min(nameLength, 30) * 5.5), 0, 150)
+    : 0;
+  const pathBonus = isFiniteNumber(pathLength) && pathLength > 0
+    ? clamp(Math.round(Math.min(pathLength, 64) * 3.6), 0, 230)
+    : 0;
+  const maxWorkAreaWidth = isFiniteNumber(workAreaWidth) && workAreaWidth > 0
+    ? workAreaWidth - 24
+    : 720;
+
+  return clamp(
+    620 + nameBonus + pathBonus,
+    520,
+    Math.max(520, maxWorkAreaWidth),
+  );
+}
+
+function estimateFilePreviewTextWidth(text, fontSize) {
+  const value = String(text || '');
+  if (!value) {
+    return 0;
+  }
+
+  let width = 0;
+  for (const char of value) {
+    const code = char.codePointAt(0);
+    if (/\s/.test(char)) {
+      width += fontSize * 0.32;
+    } else if (code >= 0x2e80) {
+      width += fontSize;
+    } else if (/[ilI1|.,:;'`!]/.test(char)) {
+      width += fontSize * 0.34;
+    } else if (/[mwMW@#%&]/.test(char)) {
+      width += fontSize * 0.78;
+    } else if (/[A-Z]/.test(char)) {
+      width += fontSize * 0.62;
+    } else if (/[0-9]/.test(char)) {
+      width += fontSize * 0.56;
+    } else if (/[\\/[\\](){}_\-]/.test(char)) {
+      width += fontSize * 0.42;
+    } else {
+      width += fontSize * 0.55;
+    }
+  }
+
+  return Math.ceil(width);
+}
+
 export function resolvePreviewMode(requestedMode, item) {
   const primaryType = getPrimaryType(item?.content_type);
 
@@ -129,6 +180,8 @@ export function buildPreviewFileStats(files = []) {
     totalSize: 0,
     longestNameLength: 0,
     longestPathLength: 0,
+    longestNameWidth: 0,
+    longestPathLineWidth: 0,
   };
 
   files.forEach((file) => {
@@ -147,13 +200,35 @@ export function buildPreviewFileStats(files = []) {
       stats.existingCount += 1;
     }
 
-    const nameLength = String(file.name || '').length;
-    const pathLength = String(file.displayPath || file.actualPath || file.path || '').length;
+    const nameText = String(file.name || '');
+    const pathText = String(file.displayPath || file.actualPath || file.path || '');
+    const nameLength = nameText.length;
+    const pathLength = pathText.length;
+    const width = Number(file.width);
+    const height = Number(file.height);
+    const detailText = isFiniteNumber(width) && isFiniteNumber(height) && width > 0 && height > 0
+      ? `${width} × ${height}`
+      : '';
+    const storedPathText = file.actualPath && file.path && file.actualPath !== file.path
+      ? `存储路径：${file.path}`
+      : '';
+    const nameWidth = estimateFilePreviewTextWidth(nameText, 13);
+    const pathLineWidth = Math.max(
+      estimateFilePreviewTextWidth(pathText, 11)
+        + (detailText ? estimateFilePreviewTextWidth(detailText, 11) + 8 : 0),
+      estimateFilePreviewTextWidth(storedPathText, 11),
+    );
     if (nameLength > stats.longestNameLength) {
       stats.longestNameLength = nameLength;
     }
     if (pathLength > stats.longestPathLength) {
       stats.longestPathLength = pathLength;
+    }
+    if (nameWidth > stats.longestNameWidth) {
+      stats.longestNameWidth = nameWidth;
+    }
+    if (pathLineWidth > stats.longestPathLineWidth) {
+      stats.longestPathLineWidth = pathLineWidth;
     }
   });
 
@@ -186,27 +261,46 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
   if (mode === MODE_FILE) {
     const fileCount = Number(options.fileCount);
     const visibleRows = isFiniteNumber(fileCount) && fileCount > 0
-      ? Math.min(fileCount, 8)
+      ? Math.min(fileCount, 9)
       : 4;
     const longestNameLength = Number(options.longestFileNameLength);
     const longestPathLength = Number(options.longestFilePathLength);
-    const nameBonus = isFiniteNumber(longestNameLength) && longestNameLength > 0
-      ? clamp(Math.round(Math.min(longestNameLength, 28) * 7), 0, 180)
-      : 0;
-    const pathBonus = isFiniteNumber(longestPathLength) && longestPathLength > 0
-      ? clamp(Math.round(Math.min(longestPathLength, 40) * 3), 0, 120)
-      : 0;
+    const longestNameWidth = Number(options.longestFileNameWidth);
+    const longestPathLineWidth = Number(options.longestFilePathLineWidth);
+    const nameWidth = isFiniteNumber(longestNameWidth) && longestNameWidth > 0
+      ? clamp(Math.round(longestNameWidth), 96, 420)
+      : isFiniteNumber(longestNameLength) && longestNameLength > 0
+        ? clamp(Math.round(longestNameLength * 7.2), 96, 420)
+      : 128;
+    const pathWidth = isFiniteNumber(longestPathLineWidth) && longestPathLineWidth > 0
+      ? clamp(Math.round(longestPathLineWidth), 160, 760)
+      : isFiniteNumber(longestPathLength) && longestPathLength > 0
+        ? clamp(Math.round(longestPathLength * 5.8), 160, 760)
+      : 128;
+    const contentWidth = Math.max(nameWidth + 58, pathWidth) + 156;
+    const maxFileWidth = resolveFilePreviewMaxWidth(
+      workAreaWidth,
+      longestNameLength,
+      longestPathLength,
+    );
     const width = clamp(
-      620 + nameBonus + pathBonus,
-      520,
-      Math.max(520, workAreaWidth - 24),
+      contentWidth + 32,
+      340,
+      maxFileWidth,
     );
     const maxHeight = clamp(
-      roundSize(workAreaHeight * 0.68, 240),
-      240,
-      Math.max(240, workAreaHeight - 24),
+      roundSize(workAreaHeight * 0.58, 220),
+      220,
+      Math.max(220, workAreaHeight - 24),
     );
-    const height = clamp(150 + visibleRows * 52, 220, maxHeight);
+    const summaryHeight = 34;
+    const verticalPadding = 16;
+    const heightSafety = 6;
+    const height = clamp(
+      summaryHeight + verticalPadding + visibleRows * 58 + heightSafety,
+      summaryHeight + verticalPadding + 58 + heightSafety,
+      maxHeight,
+    );
 
     return { width, height };
   }
