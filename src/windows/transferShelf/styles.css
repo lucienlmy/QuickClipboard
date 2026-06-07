@@ -224,7 +224,7 @@ body.theme-dark .shelf-root {
   min-height: 0;
   margin: 8px 8px 0;
   border-radius: 10px;
-  background: var(--qc-panel, #f3f4f6);
+  background: var(--qc-panel, #f9f9f9);
   border: 1px solid var(--qc-border, rgba(17, 24, 39, 0.08));
   display: flex;
   flex-direction: column;
@@ -234,7 +234,7 @@ body.theme-dark .shelf-root {
 
 .shelf-root.is-drop-active .shelf-files {
   border-color: var(--shelf-accent);
-  background: color-mix(in srgb, var(--shelf-accent) 10%, var(--qc-panel, #f3f4f6));
+  background: color-mix(in srgb, var(--shelf-accent) 10%, var(--qc-panel, #f9f9f9));
 }
 
 .shelf-files__empty {
@@ -341,7 +341,7 @@ body.theme-dark .shelf-root {
   width: 26px;
   height: 26px;
   border-radius: 7px;
-  background: var(--qc-panel, #f3f4f6);
+  background: var(--qc-panel, #f9f9f9);
   color: var(--qc-fg, #1f2933);
   display: inline-flex;
   align-items: center;
@@ -514,7 +514,7 @@ body.theme-dark .shelf-root {
 .shelf-status-actions {
   position: relative;
   flex-shrink: 0;
-  --shelf-status-action-bg: color-mix(in srgb, var(--qc-surface, #ffffff) 86%, var(--qc-panel, #f3f4f6));
+  --shelf-status-action-bg: color-mix(in srgb, var(--qc-surface, #ffffff) 86%, var(--qc-panel, #f9f9f9));
   --shelf-status-action-hover: color-mix(in srgb, var(--qc-surface, #ffffff) 84%, var(--shelf-accent) 16%);
 }
 
@@ -605,7 +605,7 @@ body.theme-dark .shelf-root {
 .shelf-send[disabled] {
   border-color: color-mix(in srgb, var(--shelf-accent) 28%, var(--qc-border, rgba(17, 24, 39, 0.08)));
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--shelf-accent) 12%, var(--qc-surface, #ffffff)), var(--qc-panel, #f3f4f6));
+    linear-gradient(180deg, color-mix(in srgb, var(--shelf-accent) 12%, var(--qc-surface, #ffffff)), var(--qc-panel, #f9f9f9));
   color: color-mix(in srgb, var(--shelf-accent) 58%, var(--qc-fg-muted, #6b7280));
   box-shadow:
     0 4px 10px color-mix(in srgb, var(--shelf-accent) 12%, transparent),

@@ -301,7 +301,7 @@ function DataManagementSection() {
           </div>
         </SettingItem>
 
-        <SettingItem label={t('settings.dataManagement.importMode')} description={t('settings.dataManagement.importModeDesc')}>
+        <SettingItem stacked label={t('settings.dataManagement.importMode')} description={t('settings.dataManagement.importModeDesc')}>
           <div className="flex flex-col gap-2">
             <label className="flex items-start gap-3 p-3 border border-qc-border rounded-lg cursor-pointer hover:bg-qc-hover transition-colors">
               <input type="radio" name="import-mode" value="replace" checked={importMode === 'replace'} onChange={e => setImportMode(e.target.value)} className="mt-1" />

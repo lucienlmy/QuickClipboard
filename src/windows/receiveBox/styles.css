@@ -144,7 +144,7 @@ body.theme-dark .receive-root {
   height: 28px;
   border: 1px solid var(--qc-border, rgba(17, 24, 39, 0.08));
   border-radius: 7px;
-  background: var(--qc-panel, #f3f4f6);
+  background: var(--qc-panel, #f9f9f9);
   color: var(--qc-fg-muted, #6b7280);
   font-size: 12px;
   font-weight: 600;
@@ -163,7 +163,7 @@ body.theme-dark .receive-root {
   margin: 8px 8px 0;
   padding: 6px;
   border-radius: 10px;
-  background: var(--qc-panel, #f3f4f6);
+  background: var(--qc-panel, #f9f9f9);
   border: 1px solid var(--qc-border, rgba(17, 24, 39, 0.08));
   overflow-y: auto;
   cursor: auto;

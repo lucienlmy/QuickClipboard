@@ -65,7 +65,7 @@
 }
 
 .html-content code {
-  background-color: #f3f4f6;
+  background-color: #f9f9f9;
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   font-family: monospace;
@@ -79,7 +79,7 @@
 }
 
 .html-content pre {
-  background-color: #f3f4f6;
+  background-color: #f9f9f9;
   padding: 0.5rem;
   border-radius: 0.25rem;
   overflow-x: auto;

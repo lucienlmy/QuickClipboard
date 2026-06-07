@@ -42,7 +42,7 @@ export default defineConfig({
         'fg-muted': 'var(--qc-fg-muted, #6b7280)',
         'fg-subtle': 'var(--qc-fg-subtle, #9ca3af)',
         surface: 'var(--qc-surface, #ffffff)',
-        panel: 'var(--qc-panel, #f3f4f6)',
+        panel: 'var(--qc-panel, #f9f9f9)',
         'panel-2': 'var(--qc-panel-2, #e5e7eb)',
         hover: 'var(--qc-hover, rgba(156, 163, 175, 0.25))',
         active: 'var(--qc-active, rgba(59, 130, 246, 0.12))',
@@ -64,7 +64,7 @@ export default defineConfig({
       //灰色系主题
       gray: {
         50: '#ffffff',
-        100: '#f3f4f6',
+        100: '#f9f9f9',
         200: '#e5e7eb',
         300: '#d1d5db',
         400: '#9ca3af',
