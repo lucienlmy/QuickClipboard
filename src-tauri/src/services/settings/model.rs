@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub const SETTINGS_MIGRATION_VERSION_V1: u32 = 1;
 pub const SETTINGS_MIGRATION_VERSION_V2: u32 = 2;
+pub const SETTINGS_MIGRATION_VERSION_V3: u32 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -118,7 +119,10 @@ pub struct AppSettings {
 
     // 应用过滤设置
     pub app_filter_enabled: bool,
+    pub app_filter_blocklist: Vec<String>,
+    #[serde(default, skip_serializing)]
     pub app_filter_mode: String,
+    #[serde(default, skip_serializing)]
     pub app_filter_list: Vec<String>,
     pub app_filter_effect: String,
 
@@ -238,7 +242,7 @@ impl Default for AppSettings {
             image_preview: true,
             text_preview: true,
             file_preview: true,
-            settings_migration_version: Some(SETTINGS_MIGRATION_VERSION_V2),
+            settings_migration_version: Some(SETTINGS_MIGRATION_VERSION_V3),
             display_priority_order: "text,html,image".to_string(),
 
             sound_enabled: true,
@@ -305,6 +309,7 @@ impl Default for AppSettings {
             auto_clear_search: false,
 
             app_filter_enabled: false,
+            app_filter_blocklist: vec![],
             app_filter_mode: "blacklist".to_string(),
             app_filter_list: vec![],
             app_filter_effect: "clipboard_only".to_string(),
@@ -377,3 +382,60 @@ impl Default for AppSettings {
     }
 }
 
+impl AppSettings {
+    pub fn normalize_app_filter_blocklist(&mut self) -> bool {
+        let mut changed = false;
+
+        match self.app_filter_mode.as_str() {
+            "whitelist" => {}
+            _ if self.app_filter_blocklist.is_empty() && !self.app_filter_list.is_empty() => {
+                self.app_filter_blocklist = self.app_filter_list.clone();
+                changed = true;
+            }
+            _ => {}
+        }
+
+        if self.app_filter_mode != "blacklist" {
+            self.app_filter_mode = "blacklist".to_string();
+            changed = true;
+        }
+
+        if !self.app_filter_list.is_empty() {
+            self.app_filter_list.clear();
+            changed = true;
+        }
+
+        changed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migrates_legacy_blacklist_to_blocklist() {
+        let mut settings = AppSettings::default();
+        settings.app_filter_blocklist = vec![];
+        settings.app_filter_mode = "blacklist".to_string();
+        settings.app_filter_list = vec!["chrome.exe".to_string()];
+
+        assert!(settings.normalize_app_filter_blocklist());
+        assert_eq!(settings.app_filter_blocklist, vec!["chrome.exe".to_string()]);
+        assert!(settings.app_filter_list.is_empty());
+        assert_eq!(settings.app_filter_mode, "blacklist");
+    }
+
+    #[test]
+    fn does_not_invert_legacy_whitelist_into_blocklist() {
+        let mut settings = AppSettings::default();
+        settings.app_filter_blocklist = vec![];
+        settings.app_filter_mode = "whitelist".to_string();
+        settings.app_filter_list = vec!["chrome.exe".to_string()];
+
+        assert!(settings.normalize_app_filter_blocklist());
+        assert!(settings.app_filter_blocklist.is_empty());
+        assert!(settings.app_filter_list.is_empty());
+        assert_eq!(settings.app_filter_mode, "blacklist");
+    }
+}

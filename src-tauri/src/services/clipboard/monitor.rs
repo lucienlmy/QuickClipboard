@@ -342,8 +342,7 @@ fn handle_clipboard_change() -> Result<(), String> {
 
     if crate::services::system::is_front_app_globally_disabled(
         settings.app_filter_enabled,
-        &settings.app_filter_mode,
-        &settings.app_filter_list,
+        &settings.app_filter_blocklist,
         &settings.app_filter_effect,
     ) {
         return Ok(());
@@ -351,8 +350,7 @@ fn handle_clipboard_change() -> Result<(), String> {
 
     if !crate::services::system::is_current_app_allowed(
         settings.app_filter_enabled,
-        &settings.app_filter_mode,
-        &settings.app_filter_list,
+        &settings.app_filter_blocklist,
     ) {
         return Ok(());
     }

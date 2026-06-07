@@ -54,7 +54,7 @@
 | Low Memory Mode         | Auto or manual switch to lightweight mode · Instant full-UI recovery · Say goodbye to memory anxiety (~10MB in low-memory mode) |
 | Background Optimization | Auto-clean memory when in background · Pause frontend updates · Reduce system resource usage (~50MB in background)   |
 | Data Management         | ZIP import / export · Backup & restore · Custom storage path · Data migration / merge · Clear history · Portable mode |
-| App Filtering           | Blacklist / whitelist mechanism · Clipboard monitoring filtering · Foreground global disable mode · Process-level rules |
+| App Filtering           | Filtered apps list · Clipboard monitoring filtering · Disable all features in foreground · Process-level rules |
 | System Integration      | System tray resident · Auto-start on boot · Auto-update · Run as administrator · Startup notification                |
 
 ---

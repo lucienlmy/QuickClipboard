@@ -89,6 +89,7 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     {
         settings.settings_migration_version = old_settings.settings_migration_version;
     }
+    settings.normalize_app_filter_blocklist();
     let clipboard_monitor_changed = old_settings.clipboard_monitor != settings.clipboard_monitor;
     let edge_hide_changed = old_settings.edge_hide_enabled != settings.edge_hide_enabled;
     let quickpaste_enabled_changed = old_settings.quickpaste_enabled != settings.quickpaste_enabled;

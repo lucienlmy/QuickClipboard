@@ -1,4 +1,7 @@
-use super::model::{AppSettings, SETTINGS_MIGRATION_VERSION_V1, SETTINGS_MIGRATION_VERSION_V2};
+use super::model::{
+    AppSettings, SETTINGS_MIGRATION_VERSION_V1, SETTINGS_MIGRATION_VERSION_V2,
+    SETTINGS_MIGRATION_VERSION_V3,
+};
 use std::{env, fs, path::PathBuf};
 
 pub struct SettingsStorage;
@@ -18,6 +21,12 @@ impl SettingsStorage {
 
         if migration_version < SETTINGS_MIGRATION_VERSION_V2 {
             settings.settings_migration_version = Some(SETTINGS_MIGRATION_VERSION_V2);
+            migrated = true;
+        }
+
+        if migration_version < SETTINGS_MIGRATION_VERSION_V3 {
+            let _ = settings.normalize_app_filter_blocklist();
+            settings.settings_migration_version = Some(SETTINGS_MIGRATION_VERSION_V3);
             migrated = true;
         }
 
@@ -78,7 +87,9 @@ impl SettingsStorage {
             }
             settings.webdav_password.clear();
         }
+        let normalized = settings.normalize_app_filter_blocklist();
         let migrated = Self::migrate_settings(&mut settings)
+            || normalized
             || has_legacy_lan_sync_settings
             || had_legacy_webdav_password;
 

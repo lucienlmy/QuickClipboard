@@ -451,8 +451,7 @@ fn matches_filter_rule(source: &ClipboardSourceInfo, filter: &str) -> bool {
 
 pub fn is_front_app_globally_disabled(
     app_filter_enabled: bool,
-    app_filter_mode: &str,
-    app_filter_list: &[String],
+    app_filter_blocklist: &[String],
     app_filter_effect: &str,
 ) -> bool {
     if !app_filter_enabled {
@@ -467,23 +466,16 @@ pub fn is_front_app_globally_disabled(
         return false;
     };
 
-    let matches = app_filter_list.iter().any(|f| {
+    app_filter_blocklist.iter().any(|f| {
         matches_filter_rule_text(&info.process_name, &info.window_title, &info.process_path, f)
-    });
-
-    match app_filter_mode {
-        "blacklist" => matches,
-        "whitelist" => !matches,
-        _ => false,
-    }
+    })
 }
 
 pub fn is_front_app_globally_disabled_from_settings() -> bool {
     let settings = crate::services::get_settings();
     is_front_app_globally_disabled(
         settings.app_filter_enabled,
-        &settings.app_filter_mode,
-        &settings.app_filter_list,
+        &settings.app_filter_blocklist,
         &settings.app_filter_effect,
     )
 }
@@ -491,8 +483,7 @@ pub fn is_front_app_globally_disabled_from_settings() -> bool {
 // 检查当前应用是否允许记录剪贴板
 pub fn is_current_app_allowed(
     app_filter_enabled: bool,
-    app_filter_mode: &str,
-    app_filter_list: &[String],
+    app_filter_blocklist: &[String],
 ) -> bool {
     if !app_filter_enabled {
         return true;
@@ -504,11 +495,30 @@ pub fn is_current_app_allowed(
         return true;
     }
 
-    let matches = app_filter_list.iter().any(|f| matches_filter_rule(&source, f));
+    !app_filter_blocklist.iter().any(|f| matches_filter_rule(&source, f))
+}
 
-    match app_filter_mode {
-        "whitelist" => matches,
-        "blacklist" => !matches,
-        _ => true,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filter_rule_matches_process_name_case_insensitively() {
+        assert!(matches_filter_rule_text(
+            "Chrome.exe",
+            "",
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+            "chrome.exe",
+        ));
+    }
+
+    #[test]
+    fn filter_rule_supports_wildcards() {
+        assert!(matches_filter_rule_text(
+            "Code.exe",
+            "Visual Studio Code",
+            "C:\\Users\\test\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+            "*code.exe",
+        ));
     }
 }

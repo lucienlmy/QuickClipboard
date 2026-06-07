@@ -157,8 +157,7 @@ export const defaultSettings = {
   
   // 应用过滤
   appFilterEnabled: false,
-  appFilterMode: 'blacklist',
-  appFilterList: [],
+  appFilterBlocklist: [],
   appFilterEffect: 'clipboard_only',
   
   // 保存的窗口状态
