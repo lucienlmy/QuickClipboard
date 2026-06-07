@@ -16,6 +16,27 @@ function shiftNavigationIndex(tab, insertIndex) {
   }
 }
 
+function moveNavigationIndex(tab, fromIndex, toIndex) {
+  if (
+    navigationStore.activeTab !== tab ||
+    navigationStore.currentSelectedIndex < 0 ||
+    !Number.isInteger(fromIndex) ||
+    !Number.isInteger(toIndex) ||
+    fromIndex === toIndex
+  ) {
+    return
+  }
+
+  const currentIndex = navigationStore.currentSelectedIndex
+  if (currentIndex === fromIndex) {
+    navigationStore.setSelectedIndex(toIndex)
+  } else if (fromIndex < toIndex && currentIndex > fromIndex && currentIndex <= toIndex) {
+    navigationStore.setSelectedIndex(currentIndex - 1)
+  } else if (fromIndex > toIndex && currentIndex >= toIndex && currentIndex < fromIndex) {
+    navigationStore.setSelectedIndex(currentIndex + 1)
+  }
+}
+
 function shouldRefreshClipboard(payload) {
   return (
     clipboardStore.filter ||
@@ -44,6 +65,13 @@ async function handleClipboardUpdated(payload) {
       return
     }
 
+    const oldIndex = clipboardStore.findLoadedItemIndex(payload.item.id)
+    const isExistingRefresh = Number.isInteger(oldIndex) || payload.total_count <= clipboardStore.totalCount
+    if (isExistingRefresh && !Number.isInteger(oldIndex)) {
+      await refreshClipboardHistory()
+      return
+    }
+
     const inserted = clipboardStore.insertLoadedItemAt(
       payload.item,
       payload.insert_index,
@@ -55,7 +83,11 @@ async function handleClipboardUpdated(payload) {
       return
     }
 
-    shiftNavigationIndex('clipboard', payload.insert_index)
+    if (Number.isInteger(oldIndex)) {
+      moveNavigationIndex('clipboard', oldIndex, payload.insert_index)
+    } else {
+      shiftNavigationIndex('clipboard', payload.insert_index)
+    }
   } catch (error) {
     console.error('处理剪贴板更新事件失败:', error)
     await refreshClipboardHistory()

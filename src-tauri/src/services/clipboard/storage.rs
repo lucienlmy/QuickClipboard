@@ -8,6 +8,12 @@ use chrono;
 use serde_json::Value;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy)]
+struct DuplicateClipboardItem {
+    id: i64,
+    is_pinned: i64,
+}
+
 // 计算文本字符数
 fn calculate_char_count(content: &str, content_type: &str) -> Option<i64> {
     if content_type.contains("text") || content_type.contains("rich_text") {
@@ -30,52 +36,47 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
     }
     
     let result = with_connection(|conn| {
+        let tx = conn.unchecked_transaction()?;
         let now = chrono::Local::now().timestamp();
-        
-        match check_and_handle_duplicate(&content, conn) {
-            Ok(Some(existing_id)) => {
-                return Ok(existing_id);
-            }
-            Ok(None) => {}
-            Err(e) => {
-                eprintln!("检查重复内容失败: {}", e);
-            }
+
+        if let Some(duplicate) = find_duplicate_item(&content, &tx)? {
+            let clipboard_id = refresh_duplicate_item(&content, &tx, duplicate, now)?;
+            tx.commit()?;
+            return Ok(clipboard_id);
         }
-        
-        let max_order: i64 = conn
-            .query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| row.get(0))
-            .unwrap_or(0);
-        let new_order = max_order + 1;
+
+        let new_order = next_item_order(&tx, 0, None)?;
         let char_count = calculate_char_count(&content.content, &content.content_type);
         let uuid = Uuid::new_v4().to_string();
         
-        conn.execute(
+        tx.execute(
             "INSERT INTO clipboard (content, html_content, content_type, image_id, item_order, source_app, source_icon_hash, char_count, uuid, source_device_id, is_remote, created_at, updated_at) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
-                content.content,
-                content.html_content,
-                content.content_type,
-                content.image_id,
+                &content.content,
+                content.html_content.as_deref(),
+                &content.content_type,
+                content.image_id.as_deref(),
                 new_order,
-                content.source_app,
-                content.source_icon_hash,
+                content.source_app.as_deref(),
+                content.source_icon_hash.as_deref(),
                 char_count,
                 uuid,
-                Option::<String>::None,
+                Option::<&str>::None,
                 0,
                 now,
                 now
             ],
         )?;
 
-        let clipboard_id = conn.last_insert_rowid();
+        let clipboard_id = tx.last_insert_rowid();
 
         if !content.raw_formats.is_empty() {
             let target_id = clipboard_id.to_string();
-            save_clipboard_data_items_with_conn(conn, "clipboard", &target_id, &content.raw_formats)?;
+            save_clipboard_data_items_with_conn(&tx, "clipboard", &target_id, &content.raw_formats)?;
         }
-        
+
+        tx.commit()?;
         Ok(clipboard_id)
     });
     
@@ -89,14 +90,14 @@ pub fn store_clipboard_item(content: ProcessedContent) -> Result<i64, String> {
 }
 
 // 智能去重
-fn check_and_handle_duplicate(
+fn find_duplicate_item(
     content: &ProcessedContent,
     conn: &rusqlite::Connection,
-) -> Result<Option<i64>, rusqlite::Error> {
+) -> Result<Option<DuplicateClipboardItem>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT id, content, content_type 
+        "SELECT id, content, content_type, is_pinned
          FROM clipboard 
-         ORDER BY created_at DESC 
+         ORDER BY updated_at DESC, id DESC
          LIMIT 100"
     )?;
     
@@ -105,11 +106,12 @@ fn check_and_handle_duplicate(
             row.get::<_, i64>(0)?,      // id
             row.get::<_, String>(1)?,   // content
             row.get::<_, String>(2)?,   // content_type
+            row.get::<_, i64>(3)?,      // is_pinned
         ))
     })?;
     
     for item in recent_items {
-        let (db_id, db_content, db_type) = item?;
+        let (db_id, db_content, db_type, is_pinned) = item?;
 
         let is_text_same = if is_text_type(&content.content_type) && is_text_type(&db_type) {
             content.content == db_content
@@ -122,12 +124,88 @@ fn check_and_handle_duplicate(
         if !is_text_same {
             continue;
         }
-        
-        conn.execute("DELETE FROM clipboard WHERE id = ?", params![db_id])?;
-        return Ok(None);
+
+        return Ok(Some(DuplicateClipboardItem {
+            id: db_id,
+            is_pinned,
+        }));
     }
     
     Ok(None)
+}
+
+fn refresh_duplicate_item(
+    content: &ProcessedContent,
+    conn: &rusqlite::Connection,
+    duplicate: DuplicateClipboardItem,
+    now: i64,
+) -> Result<i64, rusqlite::Error> {
+    let new_order = next_item_order(conn, duplicate.is_pinned, Some(duplicate.id))?;
+    let char_count = calculate_char_count(&content.content, &content.content_type);
+
+    let rows = conn.execute(
+        "UPDATE clipboard
+         SET content = ?1,
+             html_content = ?2,
+             content_type = ?3,
+             image_id = ?4,
+             item_order = ?5,
+             source_app = ?6,
+             source_icon_hash = ?7,
+             char_count = ?8,
+             updated_at = ?9
+         WHERE id = ?10",
+        params![
+            &content.content,
+            content.html_content.as_deref(),
+            &content.content_type,
+            content.image_id.as_deref(),
+            new_order,
+            content.source_app.as_deref(),
+            content.source_icon_hash.as_deref(),
+            char_count,
+            now,
+            duplicate.id,
+        ],
+    )?;
+
+    if rows == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+
+    let target_id = duplicate.id.to_string();
+    conn.execute(
+        "DELETE FROM clipboard_data WHERE target_kind = 'clipboard' AND target_id = ?1",
+        params![target_id],
+    )?;
+
+    if !content.raw_formats.is_empty() {
+        save_clipboard_data_items_with_conn(conn, "clipboard", &target_id, &content.raw_formats)?;
+    }
+
+    Ok(duplicate.id)
+}
+
+fn next_item_order(
+    conn: &rusqlite::Connection,
+    is_pinned: i64,
+    exclude_id: Option<i64>,
+) -> Result<i64, rusqlite::Error> {
+    let max_order: i64 = if let Some(exclude_id) = exclude_id {
+        conn.query_row(
+            "SELECT COALESCE(MAX(item_order), 0) FROM clipboard WHERE is_pinned = ?1 AND id <> ?2",
+            params![is_pinned, exclude_id],
+            |row| row.get(0),
+        )?
+    } else {
+        conn.query_row(
+            "SELECT COALESCE(MAX(item_order), 0) FROM clipboard WHERE is_pinned = ?1",
+            params![is_pinned],
+            |row| row.get(0),
+        )?
+    };
+
+    Ok(max_order + 1)
 }
 
 fn save_clipboard_data_items_with_conn(

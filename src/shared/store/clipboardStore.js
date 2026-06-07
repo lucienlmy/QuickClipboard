@@ -91,6 +91,13 @@ export const clipboardStore = proxy({
     return index in this.items
   },
 
+  findLoadedItemIndex(id) {
+    const entry = Object.entries(this.items)
+      .map(([key, value]) => [parseInt(key, 10), value])
+      .find(([, value]) => value?.id === id)
+    return Number.isInteger(entry?.[0]) ? entry[0] : null
+  },
+
   addItem(item) {
     this.items = {}
   },
@@ -197,38 +204,83 @@ export const clipboardStore = proxy({
     }
 
     const nextItems = {}
+    const oldEntry = Object.entries(this.items)
+      .map(([key, value]) => [parseInt(key, 10), value])
+      .find(([, value]) => value?.id === item.id)
+    const oldIndex = oldEntry?.[0]
+    const isMovingLoadedItem = Number.isInteger(oldIndex)
+    const effectiveTotalCount = isMovingLoadedItem ? this.totalCount : totalCount
     const entries = Object.entries(this.items)
       .map(([key, value]) => [parseInt(key, 10), value])
       .filter(([, value]) => value)
       .sort((a, b) => b[0] - a[0])
 
     for (const [index, value] of entries) {
-      const nextIndex = index >= insertIndex ? index + 1 : index
-      if (nextIndex < totalCount) {
+      if (value.id === item.id) {
+        continue
+      }
+
+      let nextIndex = index
+      if (isMovingLoadedItem) {
+        if (oldIndex < insertIndex && index > oldIndex && index <= insertIndex) {
+          nextIndex = index - 1
+        } else if (oldIndex > insertIndex && index >= insertIndex && index < oldIndex) {
+          nextIndex = index + 1
+        }
+      } else if (index >= insertIndex) {
+        nextIndex = index + 1
+      }
+
+      if (nextIndex < effectiveTotalCount) {
         nextItems[nextIndex] = value
       }
     }
 
     nextItems[insertIndex] = item
     this.items = nextItems
-    this.totalCount = totalCount
+    this.totalCount = effectiveTotalCount
 
-    if (this.selectionAnchorIndex != null && this.selectionAnchorIndex >= insertIndex) {
-      this.selectionAnchorIndex += 1
+    if (this.selectionAnchorIndex != null) {
+      if (isMovingLoadedItem) {
+        if (this.selectionAnchorIndex === oldIndex) {
+          this.selectionAnchorIndex = insertIndex
+        } else if (oldIndex < insertIndex && this.selectionAnchorIndex > oldIndex && this.selectionAnchorIndex <= insertIndex) {
+          this.selectionAnchorIndex -= 1
+        } else if (oldIndex > insertIndex && this.selectionAnchorIndex >= insertIndex && this.selectionAnchorIndex < oldIndex) {
+          this.selectionAnchorIndex += 1
+        }
+      } else if (this.selectionAnchorIndex >= insertIndex) {
+        this.selectionAnchorIndex += 1
+      }
     }
 
     if (this.selectedEntries.length > 0) {
       this.selectedEntries = this.selectedEntries
-        .map(entry => (
-          entry.index >= insertIndex
+        .map(entry => {
+          if (isMovingLoadedItem) {
+            if (entry.id === item.id || entry.index === oldIndex) {
+              return { ...entry, index: insertIndex }
+            }
+            if (oldIndex < insertIndex && entry.index > oldIndex && entry.index <= insertIndex) {
+              return { ...entry, index: entry.index - 1 }
+            }
+            if (oldIndex > insertIndex && entry.index >= insertIndex && entry.index < oldIndex) {
+              return { ...entry, index: entry.index + 1 }
+            }
+            return entry
+          }
+
+          return entry.index >= insertIndex
             ? { ...entry, index: entry.index + 1 }
             : entry
-        ))
+        })
         .sort((a, b) => a.index - b.index)
     }
 
     const { start, end } = this.currentViewRange
-    if (insertIndex <= start) {
+    if (isMovingLoadedItem) {
+      this.currentViewRange = { start, end }
+    } else if (insertIndex <= start) {
       this.currentViewRange = {
         start: start + 1,
         end: end + 1,
