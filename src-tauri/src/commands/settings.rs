@@ -4,6 +4,8 @@ use tauri::Manager;
 use serde_json::Value;
 
 const ONE_TIME_PASTE_STORE_KEY: &str = "tool.one_time_paste_enabled";
+const DEFAULT_MAIN_WINDOW_WIDTH: u32 = 360;
+const DEFAULT_MAIN_WINDOW_HEIGHT: u32 = 520;
 
 fn handle_disable_edge_hide(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -42,6 +44,27 @@ fn capture_main_window_logical_size(app: &tauri::AppHandle) -> Option<(u32, u32)
     ))
 }
 
+fn restore_main_window_default_size(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+
+    crate::windows::main_window::apply_saved_window_size(
+        &window,
+        DEFAULT_MAIN_WINDOW_WIDTH,
+        DEFAULT_MAIN_WINDOW_HEIGHT,
+    );
+
+    let state = crate::windows::main_window::get_window_state();
+    if state.is_snapped {
+        if state.is_hidden {
+            let _ = crate::windows::main_window::refresh_hidden_snapped_window(&window);
+        } else if state.snap_edge != crate::windows::main_window::SnapEdge::None {
+            let _ = crate::windows::main_window::snap_to_edge(&window, state.snap_edge);
+        }
+    }
+}
+
 // 重新加载设置
 #[tauri::command]
 pub fn reload_settings() -> Result<AppSettings, String> {
@@ -71,6 +94,8 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
     let quickpaste_enabled_changed = old_settings.quickpaste_enabled != settings.quickpaste_enabled;
     let remember_window_size_enabled =
         !old_settings.remember_window_size && settings.remember_window_size;
+    let remember_window_size_disabled =
+        old_settings.remember_window_size && !settings.remember_window_size;
     let webdav_crypto_scope_changed = old_settings.webdav_url != settings.webdav_url
         || old_settings.webdav_username != settings.webdav_username
         || old_settings.webdav_root_path != settings.webdav_root_path;
@@ -85,15 +110,19 @@ pub fn save_settings(mut settings: AppSettings, app: tauri::AppHandle) -> Result
 
     settings.update_check_interval = normalize_update_check_interval(&settings.update_check_interval);
     if remember_window_size_enabled {
-        if let Some(size) = capture_main_window_logical_size(&app) {
-            settings.saved_window_size = Some(size);
-        }
+        settings.saved_window_size = capture_main_window_logical_size(&app);
+    } else if !settings.remember_window_size {
+        settings.saved_window_size = None;
     }
     if webdav_crypto_scope_changed {
         crate::services::webdav_sync::crypto::clear_cached_keys();
     }
     
     update_settings(settings.clone())?;
+
+    if remember_window_size_disabled {
+        restore_main_window_default_size(&app);
+    }
     
     if let Err(e) = crate::hotkey::reload_from_settings() {
         eprintln!("重新加载快捷键失败: {}", e);
@@ -337,6 +366,9 @@ pub fn save_window_position(x: i32, y: i32) -> Result<(), String> {
 #[tauri::command]
 pub fn save_window_size(width: u32, height: u32) -> Result<(), String> {
     let mut settings = get_settings();
+    if !settings.remember_window_size {
+        return Ok(());
+    }
     settings.saved_window_size = Some((width, height));
     update_settings(settings)?;
     Ok(())

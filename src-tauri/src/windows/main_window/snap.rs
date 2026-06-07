@@ -514,17 +514,15 @@ pub fn hide_snapped_window(window: &WebviewWindow) -> Result<(), String> {
     let size = window.outer_size().map_err(|e| e.to_string())?;
     let (x, y, _, _) = crate::utils::positioning::get_window_bounds(window)?;
     let settings = crate::get_settings();
-    let ratio = state
-        .snap_ratio
-        .or(settings.edge_snap_ratio)
-        .unwrap_or(compute_snap_ratio(
-            window.app_handle(),
-            state.snap_edge,
-            x,
-            y,
-            size.width as i32,
-            size.height as i32,
-        )?);
+    let ratio = compute_snap_ratio(
+        window.app_handle(),
+        state.snap_edge,
+        x,
+        y,
+        size.width as i32,
+        size.height as i32,
+    )
+    .or_else(|error| state.snap_ratio.or(settings.edge_snap_ratio).ok_or(error))?;
     let resolved = resolve_hidden_position(
         window.app_handle(),
         state.snap_edge,
