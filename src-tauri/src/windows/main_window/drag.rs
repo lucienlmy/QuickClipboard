@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, Ordering};
 use std::time::Duration;
-use tauri::{Emitter, WebviewWindow, Manager};
+use tauri::{Emitter, Manager, WebviewWindow};
 
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HWND;
@@ -152,7 +152,10 @@ pub fn start_drag(window: &WebviewWindow, _: i32, _: i32) -> Result<(), String> 
     let win2 = window.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(8));
-        let _ = win2.start_dragging();
+        let app = win2.app_handle().clone();
+        let _ = app.run_on_main_thread(move || {
+            let _ = win2.start_dragging();
+        });
     });
 
     Ok(())
@@ -201,7 +204,10 @@ pub fn start_drag(window: &WebviewWindow, _: i32, _: i32) -> Result<(), String> 
     let win = window.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(8));
-        let _ = win.start_dragging();
+        let app = win.app_handle().clone();
+        let _ = app.run_on_main_thread(move || {
+            let _ = win.start_dragging();
+        });
     });
     Ok(())
 }
@@ -228,7 +234,10 @@ fn delayed_check_snap(window: &WebviewWindow) {
     let win = window.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(100));
-        let _ = super::check_snap(&win);
+        let app = win.app_handle().clone();
+        let _ = app.run_on_main_thread(move || {
+            let _ = super::check_snap(&win);
+        });
     });
 }
 
@@ -249,6 +258,9 @@ fn wait_for_mouse_release(window: WebviewWindow) {
         std::thread::sleep(Duration::from_millis(10));
     }
     
-    let _ = stop_drag(&window);
-    let _ = window.emit("drag-ended", ());
+    let app = window.app_handle().clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = stop_drag(&window);
+        let _ = window.emit("drag-ended", ());
+    });
 }

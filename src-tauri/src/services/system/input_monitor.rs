@@ -391,55 +391,63 @@ fn match_key(vk: u32, key_str: &str) -> bool {
 }
 
 fn emit_navigation_action(action: &str) {
-    if let Some(window) = input_common::try_get_main_window() {
-        let _ = window.emit(
-            "navigation-action",
-            serde_json::json!({
-                "action": action
-            }),
-        );
-    }
+    let action = action.to_string();
+    input_common::run_on_main_thread(move || {
+        if let Some(window) = input_common::try_get_main_window() {
+            let _ = window.emit(
+                "navigation-action",
+                serde_json::json!({
+                    "action": action
+                }),
+            );
+        }
+    });
 }
 
 fn handle_quickpaste_next_request_impl() {
-    let settings = crate::get_settings();
-    if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
-        return;
-    }
-
-    if !crate::windows::quickpaste::is_visible() {
-        return;
-    }
-
-    if let Some(app) = input_common::try_get_app_handle() {
-        if let Some(window) = app.get_webview_window("quickpaste") {
-            let _ = window.emit("quickpaste-next", ());
+    input_common::run_on_main_thread(|| {
+        let settings = crate::get_settings();
+        if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
+            return;
         }
-    }
+
+        if !crate::windows::quickpaste::is_visible() {
+            return;
+        }
+
+        if let Some(app) = input_common::try_get_app_handle() {
+            if let Some(window) = app.get_webview_window("quickpaste") {
+                let _ = window.emit("quickpaste-next", ());
+            }
+        }
+    });
 }
 
 fn handle_quickpaste_hide_request_impl() {
-    let settings = crate::get_settings();
-    if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
-        return;
-    }
+    input_common::run_on_main_thread(|| {
+        let settings = crate::get_settings();
+        if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
+            return;
+        }
 
-    if !crate::windows::quickpaste::is_visible() {
-        return;
-    }
+        if !crate::windows::quickpaste::is_visible() {
+            return;
+        }
 
-    let app = match input_common::try_get_app_handle() {
-        Some(a) => a,
-        None => return,
-    };
+        if let Some(app) = input_common::try_get_app_handle() {
+            if let Some(window) = app.get_webview_window("quickpaste") {
+                let _ = window.emit("quickpaste-hide", ());
+            }
+        }
 
-    if let Some(window) = app.get_webview_window("quickpaste") {
-        let _ = window.emit("quickpaste-hide", ());
-    }
-
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        let _ = crate::windows::quickpaste::hide_quickpaste_window(&app);
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            input_common::run_on_main_thread(|| {
+                if let Some(app) = input_common::try_get_app_handle() {
+                    let _ = crate::windows::quickpaste::hide_quickpaste_window(&app);
+                }
+            });
+        });
     });
 }
 
