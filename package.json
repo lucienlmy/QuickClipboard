@@ -14,7 +14,7 @@
     "tauri:build:community": "node scripts/community-build.js"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.9.4",
+    "@tauri-apps/cli": "^2.11.2",
     "@unocss/reset": "^66.5.4",
     "@vitejs/plugin-react": "^5.1.0",
     "autoprefixer": "^10.4.21",
@@ -37,7 +37,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@pixi/graphics-smooth": "^1.1.1",
     "@tabler/icons-webfont": "^3.35.0",
-    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tauri-apps/plugin-fs": "^2.4.4",
     "@tauri-apps/plugin-http": "^2.5.2",
