@@ -54,6 +54,8 @@ function AppearanceSection({
     value: option.id,
     label: t(option.labelKey) || option.fallbackLabel
   }));
+  const fieldTitleClass = 'block text-sm font-semibold leading-5 text-qc-fg';
+  const fieldDescClass = 'text-xs leading-5 text-qc-fg-subtle';
   const handleSelectBackgroundImage = async () => {
     try {
       const selected = await open({
@@ -84,10 +86,10 @@ function AppearanceSection({
   return <SettingsSection title={t('settings.appearance.title')} description={t('settings.appearance.description')}>
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-qc-fg mb-3">
+          <label className={`${fieldTitleClass} mb-3`}>
             {t('settings.appearance.themeSelect')}
           </label>
-          <p className="text-xs text-qc-fg-muted mb-4">
+          <p className={`${fieldDescClass} mb-4`}>
             {t('settings.appearance.themeSelectDesc')}
           </p>
           
@@ -97,10 +99,10 @@ function AppearanceSection({
         </div>
 
         {(theme === 'light' || theme === 'auto') && <div className="animate-slide-in-left-fast">
-            <label className="block text-sm font-medium text-qc-fg mb-3">
+            <label className={`${fieldTitleClass} mb-3`}>
               {t('settings.appearance.lightThemeStyle') || '亮色风格'}
             </label>
-            <p className="text-xs text-qc-fg-muted mb-4">
+            <p className={`${fieldDescClass} mb-4`}>
               {t('settings.appearance.lightThemeStyleDesc') || '选择亮色主题的显示风格'}
             </p>
 
@@ -140,10 +142,10 @@ function AppearanceSection({
           </div>}
 
         {(theme === 'dark' || theme === 'auto') && <div className="animate-slide-in-left-fast">
-            <label className="block text-sm font-medium text-qc-fg mb-3">
+            <label className={`${fieldTitleClass} mb-3`}>
               {t('settings.appearance.darkThemeStyle') || '暗色风格'}
             </label>
-            <p className="text-xs text-qc-fg-muted mb-4">
+            <p className={`${fieldDescClass} mb-4`}>
               {t('settings.appearance.darkThemeStyleDesc') || '选择暗色主题的显示风格'}
             </p>
 
@@ -350,10 +352,10 @@ function AppearanceSection({
               />
             </SettingItem>
 
-            <label className="block text-sm font-medium text-qc-fg">
+            <label className={fieldTitleClass}>
               {t('settings.appearance.backgroundImage')}
             </label>
-            <p className="text-xs text-qc-fg-muted">
+            <p className={fieldDescClass}>
               {t('settings.appearance.backgroundImageDesc')}
             </p>
             
@@ -410,7 +412,7 @@ function AppearanceSection({
               onChange={value => onSettingChange('visibleOptionalTabs', value)}
               options={tabVisibilityOptions}
               wrap
-              columns={3}
+              columns={2}
               className="w-full max-w-md"
             />
           </SettingItem>

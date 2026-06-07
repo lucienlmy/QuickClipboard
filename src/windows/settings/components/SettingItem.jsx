@@ -8,11 +8,11 @@ function SettingItem({
   const anchor = typeof label === 'string' ? encodeURIComponent(label) : '';
   const labelBlock = (
     <>
-      <label className="block text-sm font-medium text-qc-fg">
+      <label className="block text-sm font-semibold leading-5 text-qc-fg">
         {label}
       </label>
       {description && (
-        <p className="mt-0.5 text-xs text-qc-fg-muted leading-relaxed">
+        <p className="mt-1 text-xs leading-5 text-qc-fg-subtle">
           {description}
         </p>
       )}

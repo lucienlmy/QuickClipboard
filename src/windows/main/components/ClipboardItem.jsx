@@ -800,7 +800,7 @@ function ClipboardItem({
         <>
           {/* 时间戳 */}
           <div className="flex items-center flex-shrink-0 mb-0.5 h-5">
-            <span className="text-xs text-qc-fg-subtle leading-5">
+            <span className="text-xs leading-5 text-qc-fg-subtle opacity-70">
               {formatTime()}
               {item.char_count != null && (
                 <span className="ml-1.5">
