@@ -20,6 +20,25 @@ listen('favorite-paste-count-updated', (event) => {
 
 const CACHE_WINDOW_SIZE = 120
 const CACHE_BUFFER = 40
+let favoritesRequestVersion = 0
+let favoritesActiveGroupName = '全部'
+
+function normalizeFavoritesGroupName(groupName) {
+  return groupName || '全部'
+}
+
+function nextFavoritesRequestVersion(groupName = favoritesActiveGroupName) {
+  favoritesRequestVersion += 1
+  favoritesActiveGroupName = normalizeFavoritesGroupName(groupName)
+  return favoritesRequestVersion
+}
+
+function isFavoritesRequestCurrent(version, filter, contentType, groupName) {
+  return version === favoritesRequestVersion
+    && favoritesStore.filter === filter
+    && favoritesStore.contentType === contentType
+    && favoritesActiveGroupName === normalizeFavoritesGroupName(groupName)
+}
 
 // 收藏 Store
 export const favoritesStore = proxy({
@@ -234,6 +253,7 @@ export const favoritesStore = proxy({
   
   setFilter(value) {
     if (this.filter !== value) {
+      nextFavoritesRequestVersion()
       this.filter = value
       this.items = {}
       this.loadingRanges = new Set()
@@ -243,6 +263,7 @@ export const favoritesStore = proxy({
   
   setContentType(value) {
     if (this.contentType !== value) {
+      nextFavoritesRequestVersion()
       this.contentType = value
       this.items = {}
       this.loadingRanges = new Set()
@@ -365,7 +386,25 @@ export const favoritesStore = proxy({
 })
 
 // 加载指定范围的数据
-export async function loadFavoritesRange(startIndex, endIndex, groupName = null) {
+export async function loadFavoritesRange(startIndex, endIndex, groupName = null, requestContext = null) {
+  if (!groupName) {
+    const { groupsStore } = await import('./groupsStore')
+    groupName = groupsStore.currentGroup
+  }
+
+  const requestVersion = requestContext?.version ?? favoritesRequestVersion
+  const requestFilter = requestContext?.filter ?? favoritesStore.filter
+  const requestContentType = requestContext?.contentType ?? favoritesStore.contentType
+  const requestGroupName = normalizeFavoritesGroupName(requestContext?.groupName ?? groupName)
+
+  if (!isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+    return
+  }
+
+  if (favoritesStore.loading && !requestContext) {
+    return
+  }
+
   if (favoritesStore.isRangeLoading(startIndex, endIndex) || 
       favoritesStore.hasOverlappingLoadingRange(startIndex, endIndex)) {
     return
@@ -387,20 +426,18 @@ export async function loadFavoritesRange(startIndex, endIndex, groupName = null)
   favoritesStore.addLoadingRange(startIndex, endIndex)
   
   try {
-    // 如果没有指定分组，从 groupsStore 获取当前分组
-    if (!groupName) {
-      const { groupsStore } = await import('./groupsStore')
-      groupName = groupsStore.currentGroup
-    }
-    
     const limit = endIndex - startIndex + 1
     const result = await getFavoritesHistory({
       offset: startIndex,
       limit,
-      groupName,
-      contentType: favoritesStore.contentType !== 'all' ? favoritesStore.contentType : undefined,
-      search: favoritesStore.filter || undefined
+      groupName: requestGroupName,
+      contentType: requestContentType !== 'all' ? requestContentType : undefined,
+      search: requestFilter || undefined
     })
+
+    if (!isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+      return
+    }
     
     // 将数据按索引存储
     favoritesStore.setItemsInRange(startIndex, result.items)
@@ -410,60 +447,84 @@ export async function loadFavoritesRange(startIndex, endIndex, groupName = null)
       favoritesStore.totalCount = result.total_count
     }
   } catch (err) {
-    console.error(`加载范围 ${startIndex}-${endIndex} 失败:`, err)
-    favoritesStore.error = err.message || '加载失败'
+    if (isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+      console.error(`加载范围 ${startIndex}-${endIndex} 失败:`, err)
+      favoritesStore.error = err.message || '加载失败'
+    }
   } finally {
-    favoritesStore.removeLoadingRange(startIndex, endIndex)
+    if (isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+      favoritesStore.removeLoadingRange(startIndex, endIndex)
+    }
   }
 }
 
 // 初始化加载
 export async function initFavorites(groupName = null) {
+  if (!groupName) {
+    const { groupsStore } = await import('./groupsStore')
+    groupName = groupsStore.currentGroup
+  }
+
+  const requestGroupName = normalizeFavoritesGroupName(groupName)
+  const requestVersion = nextFavoritesRequestVersion(requestGroupName)
+  const requestFilter = favoritesStore.filter
+  const requestContentType = favoritesStore.contentType
+
   favoritesStore.loading = true
   favoritesStore.error = null
   
   try {
-    // 如果没有指定分组，从 groupsStore 获取当前分组
-    if (!groupName) {
-      const { groupsStore } = await import('./groupsStore')
-      groupName = groupsStore.currentGroup
-    }
-    
     favoritesStore.items = {}
     favoritesStore.loadingRanges = new Set()
     
-    if (favoritesStore.contentType !== 'all' || favoritesStore.filter) {
+    if (requestContentType !== 'all' || requestFilter) {
       const result = await getFavoritesHistory({
         offset: 0,
         limit: 50,
-        groupName,
-        contentType: favoritesStore.contentType !== 'all' ? favoritesStore.contentType : undefined,
-        search: favoritesStore.filter || undefined
+        groupName: requestGroupName,
+        contentType: requestContentType !== 'all' ? requestContentType : undefined,
+        search: requestFilter || undefined
       })
+
+      if (!isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+        return
+      }
       
       favoritesStore.totalCount = result.total_count
       favoritesStore.setItemsInRange(0, result.items)
     } else {
-      const totalCount = await getFavoritesTotalCount(groupName)
+      const totalCount = await getFavoritesTotalCount(requestGroupName)
+
+      if (!isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+        return
+      }
+
       favoritesStore.totalCount = totalCount
       
       if (totalCount > 0) {
         const endIndex = Math.min(49, totalCount - 1)
-        await loadFavoritesRange(0, endIndex, groupName)
+        await loadFavoritesRange(0, endIndex, requestGroupName, {
+          version: requestVersion,
+          filter: requestFilter,
+          contentType: requestContentType,
+          groupName: requestGroupName,
+        })
       }
     }
   } catch (err) {
-    console.error('初始化收藏列表失败:', err)
-    favoritesStore.error = err.message || '加载失败'
+    if (isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+      console.error('初始化收藏列表失败:', err)
+      favoritesStore.error = err.message || '加载失败'
+    }
   } finally {
-    favoritesStore.loading = false
+    if (isFavoritesRequestCurrent(requestVersion, requestFilter, requestContentType, requestGroupName)) {
+      favoritesStore.loading = false
+    }
   }
 }
 
 // 刷新收藏列表
 export async function refreshFavorites(groupName = null) {
-  favoritesStore.items = {}
-  favoritesStore.loadingRanges = new Set()
   return await initFavorites(groupName)
 }
 

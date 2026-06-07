@@ -311,10 +311,19 @@ const FavoritesList = forwardRef(({
       });
     }
   }), [currentSelectedIndex, executeCurrentItem, groupsSnap.currentGroup, isMultiSelectMode, itemsWithId, navigateDown, navigateUp]);
+  if (favSnap.loading && favSnap.filter) {
+    return <div className="flex-1 bg-qc-surface overflow-hidden flex items-center justify-center transition-colors duration-500 favorites-list" data-no-drag>
+        <div className="flex flex-col items-center gap-2 text-qc-fg-subtle">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-qc-border border-t-theme-9"></div>
+          <p className="text-sm">搜索中...</p>
+        </div>
+      </div>;
+  }
+
   if (favSnap.totalCount === 0) {
     return <div className="flex-1 bg-qc-surface overflow-hidden flex items-center justify-center transition-colors duration-500 favorites-list" data-no-drag>
         <p className="text-qc-fg-subtle text-sm">
-          暂无收藏内容
+          {favSnap.filter ? '无搜索结果' : '暂无收藏内容'}
         </p>
       </div>;
   }

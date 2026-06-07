@@ -21,6 +21,18 @@ listen('paste-count-updated', (event) => {
 
 const CACHE_WINDOW_SIZE = 120
 const CACHE_BUFFER = 40
+let clipboardRequestVersion = 0
+
+function nextClipboardRequestVersion() {
+  clipboardRequestVersion += 1
+  return clipboardRequestVersion
+}
+
+function isClipboardRequestCurrent(version, filter, contentType) {
+  return version === clipboardRequestVersion
+    && clipboardStore.filter === filter
+    && clipboardStore.contentType === contentType
+}
 
 // 剪贴板 Store
 export const clipboardStore = proxy({
@@ -233,6 +245,7 @@ export const clipboardStore = proxy({
   
   setFilter(value) {
     if (this.filter !== value) {
+      nextClipboardRequestVersion()
       this.filter = value
       this.items = {}
       this.loadingRanges = new Set()
@@ -242,6 +255,7 @@ export const clipboardStore = proxy({
   
   setContentType(value) {
     if (this.contentType !== value) {
+      nextClipboardRequestVersion()
       this.contentType = value
       this.items = {}
       this.loadingRanges = new Set()
@@ -362,7 +376,19 @@ export const clipboardStore = proxy({
 })
 
 // 加载指定范围的数据
-export async function loadClipboardRange(startIndex, endIndex) {
+export async function loadClipboardRange(startIndex, endIndex, requestContext = null) {
+  const requestVersion = requestContext?.version ?? clipboardRequestVersion
+  const requestFilter = requestContext?.filter ?? clipboardStore.filter
+  const requestContentType = requestContext?.contentType ?? clipboardStore.contentType
+
+  if (!isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+    return
+  }
+
+  if (clipboardStore.loading && !requestContext) {
+    return
+  }
+
   // 避免重复加载
   if (clipboardStore.isRangeLoading(startIndex, endIndex) || 
       clipboardStore.hasOverlappingLoadingRange(startIndex, endIndex)) {
@@ -389,9 +415,13 @@ export async function loadClipboardRange(startIndex, endIndex) {
     const result = await getClipboardHistory({
       offset: startIndex,
       limit,
-      contentType: clipboardStore.contentType !== 'all' ? clipboardStore.contentType : undefined,
-      search: clipboardStore.filter || undefined
+      contentType: requestContentType !== 'all' ? requestContentType : undefined,
+      search: requestFilter || undefined
     })
+
+    if (!isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+      return
+    }
     
     // 将数据按索引存储
     clipboardStore.setItemsInRange(startIndex, result.items)
@@ -401,10 +431,14 @@ export async function loadClipboardRange(startIndex, endIndex) {
       clipboardStore.totalCount = result.total_count
     }
   } catch (err) {
-    console.error(`加载范围 ${startIndex}-${endIndex} 失败:`, err)
-    clipboardStore.error = err.message || '加载失败'
+    if (isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+      console.error(`加载范围 ${startIndex}-${endIndex} 失败:`, err)
+      clipboardStore.error = err.message || '加载失败'
+    }
   } finally {
-    clipboardStore.removeLoadingRange(startIndex, endIndex)
+    if (isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+      clipboardStore.removeLoadingRange(startIndex, endIndex)
+    }
   }
 }
 
@@ -414,6 +448,10 @@ export async function loadClipboardItems() {
 
 // 初始化加载
 export async function initClipboardItems() {
+  const requestVersion = nextClipboardRequestVersion()
+  const requestFilter = clipboardStore.filter
+  const requestContentType = clipboardStore.contentType
+
   clipboardStore.loading = true
   clipboardStore.error = null
   
@@ -421,37 +459,52 @@ export async function initClipboardItems() {
     clipboardStore.items = {}
     clipboardStore.loadingRanges = new Set()
     
-    if (clipboardStore.contentType !== 'all' || clipboardStore.filter) {
+    if (requestContentType !== 'all' || requestFilter) {
       const result = await getClipboardHistory({
         offset: 0,
         limit: 100,
-        contentType: clipboardStore.contentType !== 'all' ? clipboardStore.contentType : undefined,
-        search: clipboardStore.filter || undefined
+        contentType: requestContentType !== 'all' ? requestContentType : undefined,
+        search: requestFilter || undefined
       })
+
+      if (!isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+        return
+      }
       
       clipboardStore.totalCount = result.total_count
       clipboardStore.setItemsInRange(0, result.items)
     } else {
       const totalCount = await getClipboardTotalCount()
+
+      if (!isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+        return
+      }
+
       clipboardStore.totalCount = totalCount
       
       if (totalCount > 0) {
         const endIndex = Math.min(99, totalCount - 1)
-        await loadClipboardRange(0, endIndex)
+        await loadClipboardRange(0, endIndex, {
+          version: requestVersion,
+          filter: requestFilter,
+          contentType: requestContentType,
+        })
       }
     }
   } catch (err) {
-    console.error('初始化剪贴板失败:', err)
-    clipboardStore.error = err.message || '加载失败'
+    if (isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+      console.error('初始化剪贴板失败:', err)
+      clipboardStore.error = err.message || '加载失败'
+    }
   } finally {
-    clipboardStore.loading = false
+    if (isClipboardRequestCurrent(requestVersion, requestFilter, requestContentType)) {
+      clipboardStore.loading = false
+    }
   }
 }
 
 // 刷新剪贴板历史
 export async function refreshClipboardHistory() {
-  clipboardStore.items = {}
-  clipboardStore.loadingRanges = new Set()
   return await initClipboardItems()
 }
 

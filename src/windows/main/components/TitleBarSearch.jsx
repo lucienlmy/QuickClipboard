@@ -14,8 +14,10 @@ const TitleBarSearch = forwardRef(({
 }, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [inputValue, setInputValue] = useState(value || '');
   const inputRef = useInputFocus();
   const searchRef = useRef(null);
+  const isComposingRef = useRef(false);
   const settings = useSnapshot(settingsStore);
   const uiAnimationEnabled = settings.uiAnimationEnabled !== false;
 
@@ -38,7 +40,13 @@ const TitleBarSearch = forwardRef(({
     `;
 
   // 决定是否显示为扩展状态
-  const shouldExpand = isFocused || value.length > 0;
+  useEffect(() => {
+    if (!isComposingRef.current) {
+      setInputValue(value || '');
+    }
+  }, [value]);
+
+  const shouldExpand = isFocused || inputValue.length > 0;
   useEffect(() => {
     setIsExpanded(shouldExpand);
   }, [shouldExpand]);
@@ -50,7 +58,7 @@ const TitleBarSearch = forwardRef(({
   };
   const handleFocus = () => {
     setIsFocused(true);
-    if (inputRef.current && value) {
+    if (inputRef.current && inputValue) {
       setTimeout(() => {
         inputRef.current.select();
       }, 100);
@@ -78,6 +86,10 @@ const TitleBarSearch = forwardRef(({
     return e.key === mainKey || e.key.toUpperCase() === mainKey.toUpperCase();
   };
   const handleKeyDown = e => {
+    if (e.isComposing || isComposingRef.current) {
+      return;
+    }
+
     if (matchesShortcut(e, settings.focusSearchShortcut)) {
       e.preventDefault();
       inputRef.current?.blur();
@@ -104,6 +116,25 @@ const TitleBarSearch = forwardRef(({
       inputRef.current?.blur();
     }
   };
+  const handleChange = e => {
+    const nextValue = e.target.value;
+    setInputValue(nextValue);
+
+    if (e.nativeEvent?.isComposing || isComposingRef.current) {
+      return;
+    }
+
+    onChange(nextValue);
+  };
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+  };
+  const handleCompositionEnd = e => {
+    const nextValue = e.currentTarget.value;
+    isComposingRef.current = false;
+    setInputValue(nextValue);
+    onChange(nextValue);
+  };
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -123,7 +154,7 @@ const TitleBarSearch = forwardRef(({
             <style>{searchInputStyle}</style>
             <div ref={searchRef} className={`titlebar-search relative flex ${isVertical ? 'flex-col items-center justify-end h-7' : 'flex-row items-center justify-end w-7'}`}>
                 {/* 输入框 - 根据方向展开 */}
-                <input ref={inputRef} type="search" value={value} onChange={e => onChange(e.target.value)} onFocus={handleFocus} onBlur={() => setIsFocused(false)} onKeyDown={handleKeyDown} placeholder={placeholder} style={isVertical ? {
+                <input ref={inputRef} type="search" value={inputValue} onChange={handleChange} onCompositionStart={handleCompositionStart} onCompositionEnd={handleCompositionEnd} onFocus={handleFocus} onBlur={() => setIsFocused(false)} onKeyDown={handleKeyDown} placeholder={placeholder} style={isVertical ? {
         writingMode: 'vertical-rl',
         textAlign: 'start'
       } : {}} className={`absolute ${isVertical ? 'bottom-6 left-0 w-7 py-2' : 'right-6 h-7 px-2'} text-sm bg-qc-panel border border-qc-border rounded-lg outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-qc-fg placeholder:text-qc-fg-subtle shadow-sm ${uiAnimationEnabled ? 'transition-all duration-300 ease-in-out' : ''} ${isExpanded ? isVertical ? 'h-48 opacity-100 mb-1' : 'w-30 opacity-100 mr-1' : (isVertical ? 'h-0' : 'w-0') + ' opacity-0 pointer-events-none border-0'}`} />

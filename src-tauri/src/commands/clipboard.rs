@@ -55,22 +55,26 @@ pub async fn get_clipboard_history(
     search: Option<String>,
     content_type: Option<String>,
 ) -> Result<PaginatedResult<ClipboardItem>, String> {
-    let result = tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || {
         let params = QueryParams {
             offset: offset.unwrap_or(0),
             limit: limit.unwrap_or(50),
             search,
             content_type,
         };
-        query_clipboard_items(params)
+        let result = query_clipboard_items(params)?;
+        let mut items = result.items;
+        fill_file_exists(&mut items);
+
+        Ok::<PaginatedResult<ClipboardItem>, String>(PaginatedResult::new(
+            result.total_count,
+            items,
+            result.offset,
+            result.limit,
+        ))
     })
     .await
-    .map_err(|e| format!("任务执行失败: {}", e))??;
-    
-    let mut items = result.items;
-    fill_file_exists(&mut items);
-    
-    Ok(PaginatedResult::new(result.total_count, items, result.offset, result.limit))
+    .map_err(|e| format!("任务执行失败: {}", e))?
 }
 
 // 另存图片

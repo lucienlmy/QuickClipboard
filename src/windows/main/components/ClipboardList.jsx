@@ -322,10 +322,19 @@ const ClipboardList = forwardRef(({
       });
     }
   }), [currentSelectedIndex, executeCurrentItem, isMultiSelectMode, itemsWithId, navigateDown, navigateUp, settings.pasteToTop]);
+  if (clipSnap.loading && clipSnap.filter) {
+    return <div className="flex-1 bg-qc-surface overflow-hidden flex items-center justify-center transition-colors duration-500 clipboard-list" data-no-drag>
+      <div className="flex flex-col items-center gap-2 text-qc-fg-subtle">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-qc-border border-t-theme-9"></div>
+        <p className="text-sm">搜索中...</p>
+      </div>
+    </div>;
+  }
+
   if (clipSnap.totalCount === 0) {
     return <div className="flex-1 bg-qc-surface overflow-hidden flex items-center justify-center transition-colors duration-500 clipboard-list" data-no-drag>
       <p className="text-qc-fg-subtle text-sm">
-        暂无剪贴板记录
+        {clipSnap.filter ? '无搜索结果' : '暂无剪贴板记录'}
       </p>
     </div>;
   }

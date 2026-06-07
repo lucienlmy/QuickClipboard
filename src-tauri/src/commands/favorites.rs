@@ -50,24 +50,28 @@ fn resolve_stored_path(stored_path: &str) -> String {
 
 // 分页查询收藏列表
 #[tauri::command]
-pub fn get_favorites_history(
+pub async fn get_favorites_history(
     offset: Option<i64>,
     limit: Option<i64>,
     group_name: Option<String>,
     search: Option<String>,
     content_type: Option<String>,
 ) -> Result<PaginatedResult<FavoriteItem>, String> {
-    let params = FavoritesQueryParams {
-        offset: offset.unwrap_or(0),
-        limit: limit.unwrap_or(50),
-        group_name,
-        search,
-        content_type,
-    };
-    
-    let mut result = query_favorites(params)?;
-    fill_file_exists_for_favorites(&mut result.items);
-    Ok(result)
+    tokio::task::spawn_blocking(move || {
+        let params = FavoritesQueryParams {
+            offset: offset.unwrap_or(0),
+            limit: limit.unwrap_or(50),
+            group_name,
+            search,
+            content_type,
+        };
+
+        let mut result = query_favorites(params)?;
+        fill_file_exists_for_favorites(&mut result.items);
+        Ok::<PaginatedResult<FavoriteItem>, String>(result)
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
 }
 
 // 获取收藏总数
