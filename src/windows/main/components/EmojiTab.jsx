@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
+import { platform, version as osVersion } from '@tauri-apps/plugin-os';
 import { toast } from '@shared/store/toastStore';
 import { Virtuoso } from 'react-virtuoso';
 import { useInputFocus } from '@shared/hooks/useInputFocus';
@@ -23,6 +24,91 @@ const GRID_MAX_COLS = 12;
 const GRID_MIN_CELL_WIDTH = 42;
 const GRID_GAP_PX = 2;
 const GRID_HORIZONTAL_PADDING_PX = 8;
+const EMOJI_FALLBACK_FONT_TARGET = {
+  windows: 'win10',
+  linux: false,
+  macos: false,
+};
+const EMOJI_FALLBACK_FONT_LINK_ID = 'qc-emoji-fallback-font';
+const EMOJI_FALLBACK_FONT_STYLE_ID = 'qc-emoji-fallback-font-style';
+const EMOJI_FALLBACK_FONT_URL = 'https://fonts.googleapis.com/css2?family=Noto+Color+Emoji';
+const EMOJI_FALLBACK_FONT_FAMILY = '"Noto Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif';
+const EMOJI_FALLBACK_FONT_CLASS = 'qc-emoji-fallback-font';
+let emojiFallbackFontLoadPromise = null;
+
+const getWindowsBuildNumber = (rawVersion) => {
+  const parts = String(rawVersion || '').match(/\d+/g);
+  if (!parts || parts.length < 3) return 0;
+  return Number(parts[2]) || 0;
+};
+
+const getWindowsFamily = () => {
+  const buildNumber = getWindowsBuildNumber(osVersion());
+  if (buildNumber >= 22000) return 'win11';
+  if (buildNumber > 0) return 'win10';
+  return 'unknown';
+};
+
+const shouldUseEmojiFallbackFont = () => {
+  const currentPlatform = platform();
+  const target = EMOJI_FALLBACK_FONT_TARGET[currentPlatform];
+  if (!target) return false;
+  if (target === true || target === 'all') return true;
+  if (currentPlatform !== 'windows') return Boolean(target);
+  return target === getWindowsFamily();
+};
+
+const ensureEmojiFallbackFontStyle = () => {
+  if (document.getElementById(EMOJI_FALLBACK_FONT_STYLE_ID)) return;
+
+  const style = document.createElement('style');
+  style.id = EMOJI_FALLBACK_FONT_STYLE_ID;
+  style.textContent = `
+    .${EMOJI_FALLBACK_FONT_CLASS} {
+      font-family: ${EMOJI_FALLBACK_FONT_FAMILY} !important;
+      font-synthesis: none;
+      font-variant-emoji: emoji;
+    }
+  `;
+  document.head.appendChild(style);
+};
+
+const ensureEmojiFallbackFontLoaded = () => {
+  if (emojiFallbackFontLoadPromise) return emojiFallbackFontLoadPromise;
+  ensureEmojiFallbackFontStyle();
+
+  emojiFallbackFontLoadPromise = new Promise((resolve, reject) => {
+    const existingLink = document.getElementById(EMOJI_FALLBACK_FONT_LINK_ID);
+    if (existingLink?.dataset.loaded === 'true') {
+      resolve();
+      return;
+    }
+
+    const link = existingLink || document.createElement('link');
+    link.id = EMOJI_FALLBACK_FONT_LINK_ID;
+    link.rel = 'stylesheet';
+    link.href = EMOJI_FALLBACK_FONT_URL;
+
+    link.onload = async () => {
+      link.dataset.loaded = 'true';
+      try {
+        if (document.fonts?.load) {
+          await document.fonts.load(`32px ${EMOJI_FALLBACK_FONT_FAMILY}`, '😀🫠🫨🪿');
+        }
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
+    };
+    link.onerror = () => reject(new Error('加载 Noto Color Emoji 字体失败'));
+
+    if (!existingLink) {
+      document.head.appendChild(link);
+    }
+  });
+
+  return emojiFallbackFontLoadPromise;
+};
 
 const splitIntoRowsResponsive = (items, cols, catId) => {
   const rows = [];
@@ -49,11 +135,11 @@ const getResponsiveGridCols = (width) => {
   return Math.max(GRID_MIN_COLS, Math.min(GRID_MAX_COLS, rawCols || DEFAULT_GRID_COLS));
 };
 
-const PreviewTooltipCard = ({ char, title, subtitle, codeLabel, sizeClass = 'text-[36px]' }) => {
+const PreviewTooltipCard = ({ char, title, subtitle, codeLabel, sizeClass = 'text-[36px]', glyphClassName }) => {
   return (
     <div className="flex items-center gap-3 px-1 py-0.5">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-qc-active ring-1 ring-qc-border">
-        <span className={`${sizeClass} leading-none`}>{char}</span>
+        <span className={`${sizeClass} leading-none ${glyphClassName || ''}`}>{char}</span>
       </div>
       <div className="min-w-0">
         <div className="max-w-[220px] text-[15px] font-semibold leading-snug text-qc-fg break-words">
@@ -86,6 +172,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const [isReady, setIsReady] = useState(false);
   const [isModeReady, setIsModeReady] = useState(true);
   const [contentWidth, setContentWidth] = useState(0);
+  const [useEmojiFallbackFont, setUseEmojiFallbackFont] = useState(false);
   const prevEmojiModeRef = useRef(emojiMode);
   const scrollContainerRef = useRef(null);
   const contentMeasureRef = useRef(null);
@@ -99,6 +186,28 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
   const gridCols = useMemo(() => getResponsiveGridCols(contentWidth), [contentWidth]);
+  const emojiGlyphClassName = useEmojiFallbackFont ? EMOJI_FALLBACK_FONT_CLASS : '';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    try {
+      if (!shouldUseEmojiFallbackFont()) return undefined;
+      ensureEmojiFallbackFontLoaded()
+        .then(() => {
+          if (!cancelled) setUseEmojiFallbackFont(true);
+        })
+        .catch(e => {
+          console.warn('加载 Noto Color Emoji 字体失败:', e);
+        });
+    } catch (e) {
+      console.warn('判断 Windows 版本失败:', e);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -488,6 +597,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
                         : (section.catId === 'people-body' ? t('emoji.people') : '')}
                       codeLabel={codeLabel}
                       sizeClass={section.catId === 'symbols' ? 'text-[27px]' : 'text-[34px]'}
+                      glyphClassName={emojiGlyphClassName}
                     />
                   }
                   placement="top"
@@ -502,7 +612,11 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
                       animation: `fadeIn 0.15s ease-out ${idx * 15}ms forwards`
                     } : {}}
                   >
-                    <span className="inline-flex items-center justify-center w-[1.2em] h-[1.2em] overflow-hidden">{displayChar}</span>
+                    <span
+                      className={`inline-flex items-center justify-center w-[1.2em] h-[1.2em] overflow-hidden ${emojiGlyphClassName}`}
+                    >
+                      {displayChar}
+                    </span>
                   </button>
                 </Tooltip>
                 {/* 肤色选择按钮 */}
@@ -521,7 +635,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       );
     }
     return null;
-  }, [handlePaste, isChinese, skinTone, applySkintone, getSkinVariants, handleSkinPickerOpen]);
+  }, [handlePaste, isChinese, skinTone, applySkintone, getSkinVariants, handleSkinPickerOpen, emojiGlyphClassName]);
 
   const currentCategories = useMemo(() => {
     if (showImages) return IMAGE_CATS;
@@ -599,6 +713,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
             </div>
           ) : (
             <Virtuoso
+              key={`emoji-font-${useEmojiFallbackFont ? 'fallback' : 'system'}`}
               ref={scrollContainerRef}
               totalCount={virtualData.length}
               itemContent={renderVirtualItem}
@@ -650,7 +765,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
                         : 'hover:bg-qc-hover'
                     }`}
                   >
-                    {variant}
+                    <span className={emojiGlyphClassName}>{variant}</span>
                   </button>
                 </Tooltip>
               );
