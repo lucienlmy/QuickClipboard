@@ -44,6 +44,7 @@ pub fn mark_starting() {
 
 pub fn mark_ready() {
     *STARTUP_STATE.write() = "ready".to_string();
+    *STARTUP_STAGE.write() = "应用已就绪".to_string();
     persist_status();
 }
 
@@ -193,7 +194,8 @@ fn is_known_tao_reentrant_panic(location: &str, message: &str) -> bool {
     location.contains("tao-")
         && location.contains("event_loop")
         && location.contains("runner.rs")
-        && message.contains("either event handler is re-entrant")
+        && (message.contains("either event handler is re-entrant")
+            || message.contains("RefCell already borrowed"))
 }
 
 fn append_panic_log(

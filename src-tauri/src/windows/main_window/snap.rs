@@ -728,13 +728,17 @@ fn animate_window_position(
 ) -> Result<(), String> {
     let version = ANIMATION_VERSION.fetch_add(1, Ordering::SeqCst) + 1;
     let window_clone = window.clone();
+    let app = window.app_handle().clone();
     
     std::thread::spawn(move || {
         let frame_duration = Duration::from_millis(16);
         let total_frames = duration_ms / 16;
         
         if total_frames == 0 {
-            let _ = window_clone.set_position(tauri::PhysicalPosition::new(end_x, end_y));
+            let window_for_task = window_clone.clone();
+            let _ = app.run_on_main_thread(move || {
+                let _ = window_for_task.set_position(tauri::PhysicalPosition::new(end_x, end_y));
+            });
             return;
         }
         
@@ -752,7 +756,10 @@ fn animate_window_position(
             let current_x = start_x + (dx as f32 * eased_progress) as i32;
             let current_y = start_y + (dy as f32 * eased_progress) as i32;
             
-            let _ = window_clone.set_position(tauri::PhysicalPosition::new(current_x, current_y));
+            let window_for_task = window_clone.clone();
+            let _ = app.run_on_main_thread(move || {
+                let _ = window_for_task.set_position(tauri::PhysicalPosition::new(current_x, current_y));
+            });
             
             if frame < total_frames {
                 std::thread::sleep(frame_duration);
@@ -760,7 +767,10 @@ fn animate_window_position(
         }
         
         if ANIMATION_VERSION.load(Ordering::SeqCst) == version {
-            let _ = window_clone.set_position(tauri::PhysicalPosition::new(end_x, end_y));
+            let window_for_task = window_clone.clone();
+            let _ = app.run_on_main_thread(move || {
+                let _ = window_for_task.set_position(tauri::PhysicalPosition::new(end_x, end_y));
+            });
         }
     });
     

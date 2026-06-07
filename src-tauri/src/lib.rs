@@ -478,6 +478,7 @@ pub fn run() {
     app.run(|app, event| {
             match event {
                 tauri::RunEvent::Ready => {
+                    startup_diagnostics::mark_ready();
                     windows::transfer_shelf::schedule_startup_restore_persisted_shelves(app.clone());
                 }
                 tauri::RunEvent::ExitRequested { api, .. } => {
