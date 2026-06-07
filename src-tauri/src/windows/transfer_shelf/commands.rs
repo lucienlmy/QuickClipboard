@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::task::JoinSet;
 
 use super::manager::{
-    close_shelf, focus_shelf, list_shelves, load_shelf_state, open_or_create_shelf,
+    append_files_to_shelf, close_shelf, focus_shelf, list_shelves, load_shelf_state, open_or_create_shelf,
     rename_shelf, save_shelf_state,
 };
 use super::storage::{self, ShelfGeometryPersisted};
@@ -78,6 +78,15 @@ pub fn transfer_shelf_close(app: AppHandle, id: String) -> Result<(), String> {
 #[tauri::command]
 pub fn transfer_shelf_describe_paths(paths: Vec<String>) -> Vec<ShelfFileInfo> {
     paths.into_iter().map(|path| describe_path(&path)).collect()
+}
+
+#[tauri::command]
+pub fn transfer_shelf_add_paths(
+    app: AppHandle,
+    id: String,
+    paths: Vec<String>,
+) -> Result<ShelfSummary, String> {
+    append_files_to_shelf(&app, &id, paths)
 }
 
 #[tauri::command]

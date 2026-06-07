@@ -236,6 +236,56 @@ pub fn append_files_to_recent_or_new_shelf(
     Ok(summary)
 }
 
+pub fn append_files_to_shelf(
+    app: &AppHandle,
+    id: &str,
+    paths: Vec<String>,
+) -> Result<ShelfSummary, String> {
+    let paths = paths
+        .into_iter()
+        .filter(|path| !path.trim().is_empty())
+        .collect::<Vec<_>>();
+    if paths.is_empty() {
+        return Err("没有可加入文件盒的文件".to_string());
+    }
+
+    let summary = SHELVES
+        .lock()
+        .iter()
+        .find(|item| item.id == id)
+        .map(|record| ShelfSummary {
+            label: label_for(&record.id),
+            id: record.id.clone(),
+            name: record.name.clone(),
+        })
+        .ok_or_else(|| format!("找不到文件盒窗口: {}", id))?;
+
+    let mut persisted = load_shelf_state(&summary.id);
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut existing = persisted
+        .files
+        .iter()
+        .map(|item| item.path.clone())
+        .collect::<HashSet<_>>();
+    for path in paths {
+        let info = describe_path(&path);
+        if !info.exists || info.is_dir || !existing.insert(info.path.clone()) {
+            continue;
+        }
+        persisted.files.push(ShelfFilePersisted {
+            path: info.path,
+            added_at_ms: now,
+        });
+    }
+    storage::upsert_shelf(persisted)?;
+
+    let _ = app.emit(STATE_CHANGED_EVENT, serde_json::json!({
+        "shelfId": summary.id,
+    }));
+    let _ = focus_shelf(app, &summary.id);
+    Ok(summary)
+}
+
 pub fn focus_shelf(app: &AppHandle, id: &str) -> Result<(), String> {
     let label = label_for(id);
     let window = app

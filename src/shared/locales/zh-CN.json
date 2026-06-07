@@ -1098,6 +1098,7 @@
     "openWithDefault": "使用默认程序打开",
     "openLocation": "打开文件位置",
     "copyPath": "复制文件路径",
+    "addToTransferShelf": "添加到文件盒",
     "editText": "编辑",
     "editPlainText": "编辑纯文本",
     "paste": "粘贴",
@@ -1131,6 +1132,7 @@
     "fileOpened": "文件已打开",
     "locationOpened": "位置已打开",
     "pathCopied": "路径已复制",
+    "addedToTransferShelf": "已添加到文件盒",
     "allCleared": "已清空所有剪贴板历史",
     "clearAllConfirm": "确定要清空所有剪贴板历史记录吗？此操作不可撤销。",
     "clearAllConfirmTitle": "确认清空"

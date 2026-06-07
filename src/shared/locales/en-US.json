@@ -1097,6 +1097,7 @@
     "openWithDefault": "Open with Default Program",
     "openLocation": "Open File Location",
     "copyPath": "Copy File Path",
+    "addToTransferShelf": "Add to File Box",
     "editText": "Edit",
     "editPlainText": "Edit Plain Text",
     "paste": "Paste",
@@ -1130,6 +1131,7 @@
     "fileOpened": "File opened",
     "locationOpened": "Location opened",
     "pathCopied": "Path copied",
+    "addedToTransferShelf": "Added to file box",
     "allCleared": "All clipboard history cleared",
     "clearAllConfirm": "Are you sure you want to clear all clipboard history? This cannot be undone.",
     "clearAllConfirmTitle": "Confirm Clear"

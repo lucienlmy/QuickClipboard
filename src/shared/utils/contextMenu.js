@@ -16,7 +16,9 @@ import {
   recognizeImageOcr,
   moveClipboardItemToTop,
   copyClipboardItem,
-  getClipboardItemPasteOptions
+  getClipboardItemPasteOptions,
+  listTransferShelves,
+  addPathsToTransferShelf
 } from '@shared/api'
 import { getFavoriteItemPasteOptions } from '@shared/api/favorites'
 import { clipboardStore } from '@shared/store/clipboardStore'
@@ -215,20 +217,54 @@ function getPasteOptionLabel(option) {
   }
 }
 
-function createContentTypeMenuItems(contentType) {
-  if (contentType.includes('image')) {
+function isFileOrImageContentType(contentType) {
+  const value = String(contentType || '').toLowerCase()
+  return value.includes('file') || value.includes('image')
+}
+
+async function getTransferShelvesForContentType(contentType) {
+  if (!isFileOrImageContentType(contentType)) return []
+  return await listTransferShelves().catch(() => [])
+}
+
+function createTransferShelfMenuItem(transferShelves = []) {
+  const shelves = Array.isArray(transferShelves) ? transferShelves : []
+  const item = createMenuItem('add-to-transfer-shelf', i18n.t('contextMenu.addToTransferShelf'), {
+    icon: 'ti ti-package',
+    disabled: shelves.length === 0
+  })
+
+  if (shelves.length > 0) {
+    item.children = shelves.map(shelf =>
+      createMenuItem(`add-to-transfer-shelf-${shelf.id}`, shelf.name || i18n.t('transferShelf.defaultName'), {
+        icon: 'ti ti-package'
+      })
+    )
+  }
+
+  return item
+}
+
+function createContentTypeMenuItems(contentType, transferShelves = []) {
+  const value = String(contentType || '').toLowerCase()
+  const transferShelfItem = createTransferShelfMenuItem(transferShelves)
+
+  if (value.includes('image')) {
     return [
+      createMenuItem('open-file', i18n.t('contextMenu.openWithDefault'), { icon: 'ti ti-external-link' }),
       createMenuItem('pin-image', i18n.t('contextMenu.pinToScreen'), { icon: 'ti ti-window-maximize' }),
       createMenuItem('save-image', i18n.t('contextMenu.saveImage'), { icon: 'ti ti-download' }),
-      createMenuItem('extract-text', i18n.t('contextMenu.extractText'), { icon: 'ti ti-text-scan-2' })
+      createMenuItem('extract-text', i18n.t('contextMenu.extractText'), { icon: 'ti ti-text-scan-2' }),
+      transferShelfItem
     ]
   }
 
-  if (contentType.includes('file')) {
+  if (value.includes('file')) {
     return [
       createMenuItem('open-file', i18n.t('contextMenu.openWithDefault'), { icon: 'ti ti-external-link' }),
       createMenuItem('open-location', i18n.t('contextMenu.openLocation'), { icon: 'ti ti-folder-open' }),
-      createMenuItem('copy-path', i18n.t('contextMenu.copyPath'), { icon: 'ti ti-copy' })
+      createMenuItem('copy-path', i18n.t('contextMenu.copyPath'), { icon: 'ti ti-copy' }),
+      transferShelfItem
     ]
   }
 
@@ -236,6 +272,40 @@ function createContentTypeMenuItems(contentType) {
   return [
     createMenuItem('edit-text', isRichText ? i18n.t('contextMenu.editPlainText') : i18n.t('contextMenu.editText'), { icon: 'ti ti-edit' })
   ]
+}
+
+async function resolveItemFilePaths(item) {
+  if (typeof item.content !== 'string' || !item.content.startsWith('files:')) return []
+
+  try {
+    const filesData = JSON.parse(item.content.substring(6))
+    const files = Array.isArray(filesData?.files) ? filesData.files : []
+    if (files.length === 0) return []
+
+    const { invoke } = await import('@tauri-apps/api/core')
+    const paths = []
+
+    for (const file of files) {
+      const actualPath = typeof file?.actual_path === 'string' ? file.actual_path.trim() : ''
+      if (actualPath) {
+        paths.push(actualPath)
+        continue
+      }
+
+      const storedPath = typeof file?.path === 'string' ? file.path.trim() : ''
+      if (!storedPath) continue
+
+      try {
+        paths.push(await invoke('resolve_image_path', { storedPath }))
+      } catch (_) {
+        paths.push(storedPath)
+      }
+    }
+
+    return [...new Set(paths.filter(Boolean))]
+  } catch (_) {
+    return []
+  }
 }
 
 // 处理链接相关操作
@@ -320,26 +390,16 @@ async function handleContentTypeActions(result, item, index) {
   }
 
   const contentType = item.content_type || 'text'
-  if (!contentType.includes('file') && !contentType.includes('image')) return false
+  if (!isFileOrImageContentType(contentType)) return false
 
-  if (typeof item.content !== 'string' || !item.content.startsWith('files:')) return false
+  const filePaths = await resolveItemFilePaths(item)
+  if (filePaths.length === 0) return false
 
-  let filePath = null
-  try {
-    const filesData = JSON.parse(item.content.substring(6))
-    const storedPath = filesData?.files?.[0]?.path || null
-    if (storedPath) {
-      const { invoke } = await import('@tauri-apps/api/core')
-      filePath = await invoke('resolve_image_path', { storedPath })
-    }
-  } catch (_) {
-    filePath = null
-  }
-  if (!filePath) return false
-
+  const filePath = filePaths[0]
   const dirPath = filePath.substring(0, Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/')))
 
   const actions = {
+    'add-to-transfer-shelf': async () => {},
     'pin-image': async () => {
       await pinImageToScreen(filePath)
       toast.success(i18n.t('contextMenu.imagePinned'), TOAST_CONFIG)
@@ -395,6 +455,13 @@ async function handleContentTypeActions(result, item, index) {
     }
   }
 
+  if (result.startsWith('add-to-transfer-shelf-')) {
+    const shelfId = result.substring('add-to-transfer-shelf-'.length)
+    await addPathsToTransferShelf(shelfId, filePaths)
+    toast.success(i18n.t('contextMenu.addedToTransferShelf'), TOAST_CONFIG)
+    return true
+  }
+
   if (actions[result]) {
     await actions[result]()
     return true
@@ -410,6 +477,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
 
   const ct = String(contentType || '').trim().toLowerCase()
   const pasteOptions = await getClipboardItemPasteOptions(item.id).catch(() => [])
+  const transferShelves = await getTransferShelvesForContentType(contentType)
 
   const pasteMenuItem = createPasteMenuItem(pasteOptions)
   menuItems.push(pasteMenuItem)
@@ -426,7 +494,7 @@ export async function showClipboardItemContextMenu(event, item, index) {
     menuItems.push(...searchMenuItems, createSeparator())
   }
 
-  const contentMenuItems = createContentTypeMenuItems(contentType)
+  const contentMenuItems = createContentTypeMenuItems(contentType, transferShelves)
   if (contentMenuItems.length > 0) {
     menuItems.push(...contentMenuItems)
   }
@@ -545,6 +613,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
   const isFileType = ct === 'file' || ct.startsWith('file/')
   const isImageType = ct === 'image' || ct.startsWith('image/')
   const pasteOptions = await getFavoriteItemPasteOptions(item.id).catch(() => [])
+  const transferShelves = await getTransferShelvesForContentType(contentType)
 
   const pasteMenuItem = createPasteMenuItem(pasteOptions)
   menuItems.push(pasteMenuItem)
@@ -559,7 +628,7 @@ export async function showFavoriteItemContextMenu(event, item, index) {
 
 
   // 添加内容类型特定菜单项（图片、文件等）
-  const contentMenuItems = createContentTypeMenuItems(contentType)
+  const contentMenuItems = createContentTypeMenuItems(contentType, transferShelves)
   if (contentMenuItems.length > 0) {
     menuItems.push(...contentMenuItems, createSeparator())
   }
