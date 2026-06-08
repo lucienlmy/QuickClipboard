@@ -40,7 +40,6 @@ mod windows_raw_input {
     static QUICKPASTE_SECONDARY_KEY_VK: AtomicU32 = AtomicU32::new(0);
     static QUICKPASTE_SECONDARY_KEY_DOWN: AtomicBool = AtomicBool::new(false);
     static QUICKPASTE_SECONDARY_KEY_PRESS_ID: AtomicU64 = AtomicU64::new(0);
-    static QUICKPASTE_LAST_NON_MODIFIER_KEYDOWN_VK: AtomicU32 = AtomicU32::new(0);
     const PREVIEW_GUARD_THROTTLE_MS: u64 = 50;
     const QUICKPASTE_REPEAT_INITIAL_DELAY_MS: u64 = 300;
     const QUICKPASTE_REPEAT_INTERVAL_MS: u64 = 120;
@@ -250,10 +249,6 @@ mod windows_raw_input {
                 let is_keydown = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
                 let is_keyup = message == WM_KEYUP || message == WM_SYSKEYUP;
 
-                if is_keydown && is_quickpaste_secondary_key_candidate(vkey) {
-                    QUICKPASTE_LAST_NON_MODIFIER_KEYDOWN_VK.store(vkey, Ordering::Relaxed);
-                }
-
                 handle_quickpaste_keyboard_event(vkey, is_keydown, is_keyup);
 
                 if vkey == 0x11 || vkey == 0xA2 || vkey == 0xA3 {
@@ -280,6 +275,7 @@ mod windows_raw_input {
     }
 
     use tauri::{Emitter, Manager, WebviewWindow};
+    use tauri_plugin_global_shortcut::{Code, Shortcut};
 
     #[cfg(target_os = "windows")]
     use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -299,7 +295,7 @@ mod windows_raw_input {
             Ordering::Relaxed,
         );
         QUICKPASTE_SECONDARY_KEY_VK.store(
-            current_quickpaste_secondary_key_vk().unwrap_or(0),
+            quickpaste_secondary_key_vk_from_shortcut(&settings.quickpaste_shortcut).unwrap_or(0),
             Ordering::Relaxed,
         );
         QUICKPASTE_SECONDARY_KEY_DOWN.store(false, Ordering::SeqCst);
@@ -323,16 +319,7 @@ mod windows_raw_input {
         }
 
         let secondary_vk = QUICKPASTE_SECONDARY_KEY_VK.load(Ordering::Relaxed);
-        let secondary_vk = if secondary_vk == 0 {
-            match current_quickpaste_secondary_key_vk() {
-                Some(vk) => vk,
-                None => return,
-            }
-        } else {
-            secondary_vk
-        };
-
-        if is_vk_pressed(secondary_vk) {
+        if secondary_vk != 0 && is_vk_pressed(secondary_vk) {
             start_quickpaste_secondary_repeat(secondary_vk);
         }
     }
@@ -373,18 +360,54 @@ mod windows_raw_input {
             && !matches!(vk, 0x01..=0x06)
     }
 
-    fn current_quickpaste_secondary_key_vk() -> Option<u32> {
-        let last_vk = QUICKPASTE_LAST_NON_MODIFIER_KEYDOWN_VK.load(Ordering::Relaxed);
-        if is_quickpaste_secondary_key_candidate(last_vk) && is_vk_pressed(last_vk) {
-            QUICKPASTE_SECONDARY_KEY_VK.store(last_vk, Ordering::Relaxed);
-            return Some(last_vk);
+    fn quickpaste_secondary_key_vk_from_shortcut(shortcut: &str) -> Option<u32> {
+        let shortcut = shortcut
+            .replace("Win+", "Super+")
+            .parse::<Shortcut>()
+            .ok()?;
+        quickpaste_code_to_vk(shortcut.key)
+    }
+
+    fn quickpaste_code_to_vk(code: Code) -> Option<u32> {
+        let key = code.to_string();
+
+        if let Some(value) = key.strip_prefix("Key") {
+            if value.len() == 1 && value.as_bytes()[0].is_ascii_alphabetic() {
+                return Some(value.as_bytes()[0].to_ascii_uppercase() as u32);
+            }
         }
 
-        (0x08..=0xFE)
-            .find(|vk| is_quickpaste_secondary_key_candidate(*vk) && is_vk_pressed(*vk))
-            .inspect(|vk| {
-                QUICKPASTE_SECONDARY_KEY_VK.store(*vk, Ordering::Relaxed);
-            })
+        if let Some(value) = key.strip_prefix("Digit") {
+            if value.len() == 1 && value.as_bytes()[0].is_ascii_digit() {
+                return Some(value.as_bytes()[0] as u32);
+            }
+        }
+
+        if let Some(num) = key.strip_prefix('F').and_then(|n| n.parse::<u32>().ok()) {
+            if (1..=24).contains(&num) {
+                return Some(0x6F + num);
+            }
+        }
+
+        if let Some(num) = key.strip_prefix("Numpad").and_then(|n| n.parse::<u32>().ok()) {
+            if num <= 9 {
+                return Some(0x60 + num);
+            }
+        }
+
+        const NAMED_KEY_VKS: &[(&str, u32)] = &[
+            ("Backquote", 0xC0), ("Minus", 0xBD), ("Equal", 0xBB), ("BracketLeft", 0xDB),
+            ("BracketRight", 0xDD), ("Backslash", 0xDC), ("Semicolon", 0xBA), ("Quote", 0xDE),
+            ("Comma", 0xBC), ("Period", 0xBE), ("Slash", 0xBF), ("Backspace", 0x08),
+            ("Insert", 0x2D), ("Delete", 0x2E), ("Home", 0x24), ("End", 0x23),
+            ("PageUp", 0x21), ("PageDown", 0x22), ("Space", 0x20), ("Tab", 0x09),
+            ("Enter", 0x0D), ("Escape", 0x1B), ("ArrowUp", 0x26), ("ArrowDown", 0x28),
+            ("ArrowLeft", 0x25), ("ArrowRight", 0x27),
+        ];
+
+        NAMED_KEY_VKS
+            .iter()
+            .find_map(|(name, vk)| (*name == key).then_some(*vk))
     }
 
     fn is_vk_pressed(vk: u32) -> bool {
@@ -420,7 +443,7 @@ mod windows_raw_input {
         start_quickpaste_secondary_repeat(vk);
     }
 
-    fn start_quickpaste_secondary_repeat(_vk: u32) {
+    fn start_quickpaste_secondary_repeat(vk: u32) {
         if !crate::windows::quickpaste::is_visible() {
             return;
         }
@@ -440,9 +463,14 @@ mod windows_raw_input {
                 && QUICKPASTE_SECONDARY_KEY_DOWN.load(Ordering::SeqCst)
                 && QUICKPASTE_SECONDARY_KEY_PRESS_ID.load(Ordering::SeqCst) == press_id
                 && crate::windows::quickpaste::is_visible()
+                && is_vk_pressed(vk)
             {
                 handle_quickpaste_next_request_impl();
                 thread::sleep(Duration::from_millis(QUICKPASTE_REPEAT_INTERVAL_MS));
+            }
+
+            if QUICKPASTE_SECONDARY_KEY_PRESS_ID.load(Ordering::SeqCst) == press_id {
+                QUICKPASTE_SECONDARY_KEY_DOWN.store(false, Ordering::SeqCst);
             }
         });
     }
