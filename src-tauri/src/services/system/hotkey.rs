@@ -271,11 +271,17 @@ pub fn register_quickpaste_hotkey(shortcut_str: &str) -> Result<(), String> {
                 let is_visible = crate::windows::quickpaste::is_visible();
                 
                 if is_keyboard_mode && is_visible {
+                    if let Some(window) = app.get_webview_window("quickpaste") {
+                        let _ = window.emit("quickpaste-next", ());
+                    }
+                    crate::services::system::raw_input::start_quickpaste_secondary_key_hold();
                     return;
                 }
                 
                 if let Err(e) = crate::windows::quickpaste::show_quickpaste_window(&app) {
                     eprintln!("显示便捷粘贴窗口失败: {}", e);
+                } else if is_keyboard_mode {
+                    crate::services::system::raw_input::start_quickpaste_secondary_key_hold();
                 }
             } else if event.state == ShortcutState::Released {
                 if crate::services::low_memory::is_low_memory_mode() {

@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Manager, Emitter, WebviewUrl, WebviewWindowBuilder};
 use super::state::set_visible;
 use crate::utils::positioning::center_at_cursor;
-use crate::services::system::input_monitor::{enable_quickpaste_keyboard_mode, disable_quickpaste_keyboard_mode};
+use crate::services::system::raw_input::{enable_quickpaste_keyboard_mode, disable_quickpaste_keyboard_mode};
 
 fn create_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
     let settings = crate::get_settings();

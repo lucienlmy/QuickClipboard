@@ -6,7 +6,7 @@ mod windows_raw_input {
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
     use std::mem::size_of;
-    use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicU8, Ordering};
     use std::thread;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -34,7 +34,16 @@ mod windows_raw_input {
     static MIDDLE_BUTTON_PRESS_ID: AtomicU64 = AtomicU64::new(0);
     static PREVIEW_GUARD_PENDING: AtomicBool = AtomicBool::new(false);
     static PREVIEW_GUARD_LAST_RUN_MS: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
+    static QUICKPASTE_KEYBOARD_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
+    static QUICKPASTE_HIDE_TRIGGERED: AtomicBool = AtomicBool::new(false);
+    static QUICKPASTE_REQUIRED_MODIFIER_MASK: AtomicU8 = AtomicU8::new(0);
+    static QUICKPASTE_SECONDARY_KEY_VK: AtomicU32 = AtomicU32::new(0);
+    static QUICKPASTE_SECONDARY_KEY_DOWN: AtomicBool = AtomicBool::new(false);
+    static QUICKPASTE_SECONDARY_KEY_PRESS_ID: AtomicU64 = AtomicU64::new(0);
+    static QUICKPASTE_LAST_NON_MODIFIER_KEYDOWN_VK: AtomicU32 = AtomicU32::new(0);
     const PREVIEW_GUARD_THROTTLE_MS: u64 = 50;
+    const QUICKPASTE_REPEAT_INITIAL_DELAY_MS: u64 = 300;
+    const QUICKPASTE_REPEAT_INTERVAL_MS: u64 = 120;
 
     pub(crate) fn start_raw_input_if_needed() {
         if RAW_INPUT_ACTIVE.swap(true, Ordering::SeqCst) {
@@ -241,6 +250,12 @@ mod windows_raw_input {
                 let is_keydown = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
                 let is_keyup = message == WM_KEYUP || message == WM_SYSKEYUP;
 
+                if is_keydown && is_quickpaste_secondary_key_candidate(vkey) {
+                    QUICKPASTE_LAST_NON_MODIFIER_KEYDOWN_VK.store(vkey, Ordering::Relaxed);
+                }
+
+                handle_quickpaste_keyboard_event(vkey, is_keydown, is_keyup);
+
                 if vkey == 0x11 || vkey == 0xA2 || vkey == 0xA3 {
                     if is_keydown {
                         CTRL_DOWN.store(true, Ordering::Relaxed);
@@ -267,7 +282,244 @@ mod windows_raw_input {
     use tauri::{Emitter, Manager, WebviewWindow};
 
     #[cfg(target_os = "windows")]
-    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN};
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        GetAsyncKeyState, VK_CONTROL, VK_LCONTROL, VK_RCONTROL, VK_MENU, VK_LMENU, VK_RMENU,
+        VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_LWIN, VK_RWIN,
+    };
+
+    pub(crate) fn enable_quickpaste_keyboard_mode() {
+        let settings = crate::get_settings();
+        if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
+            disable_quickpaste_keyboard_mode();
+            return;
+        }
+
+        QUICKPASTE_REQUIRED_MODIFIER_MASK.store(
+            quickpaste_modifier_mask_from_shortcut(&settings.quickpaste_shortcut),
+            Ordering::Relaxed,
+        );
+        QUICKPASTE_SECONDARY_KEY_VK.store(
+            current_quickpaste_secondary_key_vk().unwrap_or(0),
+            Ordering::Relaxed,
+        );
+        QUICKPASTE_SECONDARY_KEY_DOWN.store(false, Ordering::SeqCst);
+        QUICKPASTE_SECONDARY_KEY_PRESS_ID.fetch_add(1, Ordering::SeqCst);
+        QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
+        QUICKPASTE_KEYBOARD_MODE_ENABLED.store(true, Ordering::SeqCst);
+    }
+
+    pub(crate) fn disable_quickpaste_keyboard_mode() {
+        QUICKPASTE_KEYBOARD_MODE_ENABLED.store(false, Ordering::SeqCst);
+        QUICKPASTE_REQUIRED_MODIFIER_MASK.store(0, Ordering::Relaxed);
+        QUICKPASTE_SECONDARY_KEY_VK.store(0, Ordering::Relaxed);
+        QUICKPASTE_SECONDARY_KEY_DOWN.store(false, Ordering::SeqCst);
+        QUICKPASTE_SECONDARY_KEY_PRESS_ID.fetch_add(1, Ordering::SeqCst);
+        QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
+    }
+
+    pub(crate) fn start_quickpaste_secondary_key_hold() {
+        if !QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) {
+            return;
+        }
+
+        let secondary_vk = QUICKPASTE_SECONDARY_KEY_VK.load(Ordering::Relaxed);
+        let secondary_vk = if secondary_vk == 0 {
+            match current_quickpaste_secondary_key_vk() {
+                Some(vk) => vk,
+                None => return,
+            }
+        } else {
+            secondary_vk
+        };
+
+        if is_vk_pressed(secondary_vk) {
+            start_quickpaste_secondary_repeat(secondary_vk);
+        }
+    }
+
+    fn quickpaste_modifier_mask_from_shortcut(shortcut: &str) -> u8 {
+        let mut mask = 0;
+        for part in shortcut.split('+') {
+            match part.trim() {
+                "Ctrl" | "Control" => mask |= 0x01,
+                "Alt" => mask |= 0x02,
+                "Shift" => mask |= 0x04,
+                "Win" | "Super" | "Meta" | "Cmd" | "Command" => mask |= 0x08,
+                _ => {}
+            }
+        }
+        mask
+    }
+
+    fn quickpaste_modifier_mask_from_vk(vk: u32) -> u8 {
+        if vk == VK_CONTROL.0 as u32 || vk == VK_LCONTROL.0 as u32 || vk == VK_RCONTROL.0 as u32 {
+            return 0x01;
+        }
+        if vk == VK_MENU.0 as u32 || vk == VK_LMENU.0 as u32 || vk == VK_RMENU.0 as u32 {
+            return 0x02;
+        }
+        if vk == VK_SHIFT.0 as u32 || vk == VK_LSHIFT.0 as u32 || vk == VK_RSHIFT.0 as u32 {
+            return 0x04;
+        }
+        if vk == VK_LWIN.0 as u32 || vk == VK_RWIN.0 as u32 {
+            return 0x08;
+        }
+        0
+    }
+
+    fn is_quickpaste_secondary_key_candidate(vk: u32) -> bool {
+        vk > 0
+            && quickpaste_modifier_mask_from_vk(vk) == 0
+            && !matches!(vk, 0x01..=0x06)
+    }
+
+    fn current_quickpaste_secondary_key_vk() -> Option<u32> {
+        let last_vk = QUICKPASTE_LAST_NON_MODIFIER_KEYDOWN_VK.load(Ordering::Relaxed);
+        if is_quickpaste_secondary_key_candidate(last_vk) && is_vk_pressed(last_vk) {
+            QUICKPASTE_SECONDARY_KEY_VK.store(last_vk, Ordering::Relaxed);
+            return Some(last_vk);
+        }
+
+        (0x08..=0xFE)
+            .find(|vk| is_quickpaste_secondary_key_candidate(*vk) && is_vk_pressed(*vk))
+            .inspect(|vk| {
+                QUICKPASTE_SECONDARY_KEY_VK.store(*vk, Ordering::Relaxed);
+            })
+    }
+
+    fn is_vk_pressed(vk: u32) -> bool {
+        unsafe { (GetAsyncKeyState(vk as i32) as u16 & 0x8000) != 0 }
+    }
+
+    fn handle_quickpaste_keyboard_event(vk: u32, is_keydown: bool, is_keyup: bool) {
+        if !QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) || (!is_keydown && !is_keyup) {
+            return;
+        }
+
+        if is_keydown {
+            handle_quickpaste_secondary_key_down(vk);
+            return;
+        }
+
+        handle_quickpaste_secondary_key_up(vk);
+        handle_quickpaste_modifier_release(vk);
+    }
+
+    fn handle_quickpaste_secondary_key_down(vk: u32) {
+        if !is_quickpaste_secondary_key_candidate(vk) {
+            return;
+        }
+
+        let secondary_vk = QUICKPASTE_SECONDARY_KEY_VK.load(Ordering::Relaxed);
+        if secondary_vk == 0 {
+            QUICKPASTE_SECONDARY_KEY_VK.store(vk, Ordering::Relaxed);
+        } else if vk != secondary_vk {
+            return;
+        }
+
+        start_quickpaste_secondary_repeat(vk);
+    }
+
+    fn start_quickpaste_secondary_repeat(_vk: u32) {
+        if !crate::windows::quickpaste::is_visible() {
+            return;
+        }
+
+        if QUICKPASTE_SECONDARY_KEY_DOWN.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        let press_id = QUICKPASTE_SECONDARY_KEY_PRESS_ID
+            .fetch_add(1, Ordering::SeqCst)
+            .wrapping_add(1);
+
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(QUICKPASTE_REPEAT_INITIAL_DELAY_MS));
+
+            while QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst)
+                && QUICKPASTE_SECONDARY_KEY_DOWN.load(Ordering::SeqCst)
+                && QUICKPASTE_SECONDARY_KEY_PRESS_ID.load(Ordering::SeqCst) == press_id
+                && crate::windows::quickpaste::is_visible()
+            {
+                handle_quickpaste_next_request_impl();
+                thread::sleep(Duration::from_millis(QUICKPASTE_REPEAT_INTERVAL_MS));
+            }
+        });
+    }
+
+    fn handle_quickpaste_secondary_key_up(vk: u32) {
+        let secondary_vk = QUICKPASTE_SECONDARY_KEY_VK.load(Ordering::Relaxed);
+        if secondary_vk != 0 && vk == secondary_vk {
+            QUICKPASTE_SECONDARY_KEY_DOWN.store(false, Ordering::SeqCst);
+            QUICKPASTE_SECONDARY_KEY_PRESS_ID.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    fn handle_quickpaste_next_request_impl() {
+        input_common::run_on_main_thread(|| {
+            let settings = crate::get_settings();
+            if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
+                return;
+            }
+
+            if !crate::windows::quickpaste::is_visible() {
+                return;
+            }
+
+            if let Some(app) = input_common::try_get_app_handle() {
+                if let Some(window) = app.get_webview_window("quickpaste") {
+                    let _ = window.emit("quickpaste-next", ());
+                }
+            }
+        });
+    }
+
+    fn handle_quickpaste_modifier_release(vk: u32) {
+        let required = QUICKPASTE_REQUIRED_MODIFIER_MASK.load(Ordering::Relaxed);
+        let released_mask = quickpaste_modifier_mask_from_vk(vk);
+
+        if required == 0 || (released_mask & required) == 0 {
+            return;
+        }
+
+        let (ctrl, alt, shift, meta) = get_modifier_keys_state_impl();
+        let all_released = ((required & 0x01) == 0 || !ctrl)
+            && ((required & 0x02) == 0 || !alt)
+            && ((required & 0x04) == 0 || !shift)
+            && ((required & 0x08) == 0 || !meta);
+
+        if all_released && !QUICKPASTE_HIDE_TRIGGERED.swap(true, Ordering::SeqCst) {
+            handle_quickpaste_hide_request_impl();
+        }
+    }
+
+    fn handle_quickpaste_hide_request_impl() {
+        input_common::run_on_main_thread(|| {
+            let settings = crate::get_settings();
+            if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
+                return;
+            }
+
+            if !crate::windows::quickpaste::is_visible() {
+                return;
+            }
+
+            if let Some(app) = input_common::try_get_app_handle() {
+                if let Some(window) = app.get_webview_window("quickpaste") {
+                    let _ = window.emit("quickpaste-hide", ());
+                }
+            }
+
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                input_common::run_on_main_thread(|| {
+                    if let Some(app) = input_common::try_get_app_handle() {
+                        let _ = crate::windows::quickpaste::hide_quickpaste_window(&app);
+                    }
+                });
+            });
+        });
+    }
 
     fn should_handle_click_outside_impl() -> bool {
         if input_common::is_mouse_monitoring_enabled() {
@@ -528,7 +780,21 @@ mod windows_raw_input {
 }
 
 #[cfg(target_os = "windows")]
-pub(crate) use windows_raw_input::start_raw_input_if_needed;
+pub(crate) use windows_raw_input::{
+    disable_quickpaste_keyboard_mode,
+    enable_quickpaste_keyboard_mode,
+    start_quickpaste_secondary_key_hold,
+    start_raw_input_if_needed,
+};
 
 #[cfg(not(target_os = "windows"))]
 pub(crate) fn start_raw_input_if_needed() {}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn enable_quickpaste_keyboard_mode() {}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn disable_quickpaste_keyboard_mode() {}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn start_quickpaste_secondary_key_hold() {}

@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{Emitter, Manager, WebviewWindow};
+use tauri::{Emitter, WebviewWindow};
 
 use super::input_common;
 
@@ -25,14 +25,6 @@ static KEYBOARD_HOOK_ACTIVE: AtomicBool = AtomicBool::new(false);
 static KEYBOARD_HOOK_THREAD_ID: AtomicU32 = AtomicU32::new(0);
 #[cfg(target_os = "windows")]
 static KEYBOARD_HOOK_THREAD: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
-
-#[cfg(target_os = "windows")]
-static QUICKPASTE_HIDE_TRIGGERED: AtomicBool = AtomicBool::new(false);
-
-static QUICKPASTE_KEYBOARD_MODE_ENABLED: AtomicBool = AtomicBool::new(false);
-
-#[cfg(target_os = "windows")]
-static QUICKPASTE_REQUIRED_MODIFIER_MASK: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 
 static NAVIGATION_KEYS_ENABLED: AtomicBool = AtomicBool::new(false);
 
@@ -67,23 +59,6 @@ fn refresh_modifier_state_from_os() -> (bool, bool, bool, bool) {
         state.meta = meta;
     }
     (ctrl, alt, shift, meta)
-}
-
-#[cfg(target_os = "windows")]
-fn modifier_mask_from_vk(vk: u32) -> u8 {
-    if vk == VK_CONTROL.0 as u32 || vk == VK_LCONTROL.0 as u32 || vk == VK_RCONTROL.0 as u32 {
-        return 0x01;
-    }
-    if vk == VK_MENU.0 as u32 || vk == VK_LMENU.0 as u32 || vk == VK_RMENU.0 as u32 {
-        return 0x02;
-    }
-    if vk == VK_SHIFT.0 as u32 || vk == VK_LSHIFT.0 as u32 || vk == VK_RSHIFT.0 as u32 {
-        return 0x04;
-    }
-    if vk == VK_LWIN.0 as u32 || vk == VK_RWIN.0 as u32 {
-        return 0x08;
-    }
-    0
 }
 
 static KEYBOARD_STATE: Mutex<KeyboardState> = Mutex::new(KeyboardState {
@@ -142,64 +117,6 @@ pub fn disable_mouse_monitoring() {
 
 pub fn is_mouse_monitoring_enabled() -> bool {
     input_common::is_mouse_monitoring_enabled()
-}
-
-pub fn enable_quickpaste_keyboard_mode() {
-    let settings = crate::get_settings();
-    if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
-        #[cfg(target_os = "windows")]
-        {
-            QUICKPASTE_KEYBOARD_MODE_ENABLED.store(false, Ordering::SeqCst);
-            QUICKPASTE_REQUIRED_MODIFIER_MASK.store(0, Ordering::Relaxed);
-            QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
-            stop_keyboard_hook_if_needed();
-        }
-        return;
-    }
-
-    let shortcut = settings.quickpaste_shortcut;
-    let mut mask: u8 = 0;
-    for part in shortcut.split('+') {
-        match part.trim() {
-            "Ctrl" | "Control" => mask |= 0x01,
-            "Alt" => mask |= 0x02,
-            "Shift" => mask |= 0x04,
-            "Win" | "Super" | "Meta" | "Cmd" | "Command" => mask |= 0x08,
-            _ => {}
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        QUICKPASTE_KEYBOARD_MODE_ENABLED.store(true, Ordering::SeqCst);
-        QUICKPASTE_REQUIRED_MODIFIER_MASK.store(mask, Ordering::Relaxed);
-        QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
-
-        // 按需安装钩子时，Ctrl 等修饰键可能在钩子安装前就已经按下（用于触发显示快捷键）。
-        // 若不初始化状态，释放其它修饰键会导致误判为“全部松开”。
-        {
-            let mut state = KEYBOARD_STATE.lock();
-            unsafe {
-                state.ctrl = (GetAsyncKeyState(VK_CONTROL.0 as i32) as u16 & 0x8000) != 0;
-                state.alt = (GetAsyncKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0;
-                state.shift = (GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0;
-                state.meta = (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000) != 0
-                    || (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000) != 0;
-            }
-        }
-
-        start_keyboard_hook_if_needed();
-    }
-}
-
-pub fn disable_quickpaste_keyboard_mode() {
-    #[cfg(target_os = "windows")]
-    {
-        QUICKPASTE_KEYBOARD_MODE_ENABLED.store(false, Ordering::SeqCst);
-        QUICKPASTE_REQUIRED_MODIFIER_MASK.store(0, Ordering::Relaxed);
-        QUICKPASTE_HIDE_TRIGGERED.store(false, Ordering::SeqCst);
-        stop_keyboard_hook_if_needed();
-    }
 }
 
 pub fn get_modifier_keys_state() -> (bool, bool, bool, bool) {
@@ -404,58 +321,9 @@ fn emit_navigation_action(action: &str) {
     });
 }
 
-fn handle_quickpaste_next_request_impl() {
-    input_common::run_on_main_thread(|| {
-        let settings = crate::get_settings();
-        if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
-            return;
-        }
-
-        if !crate::windows::quickpaste::is_visible() {
-            return;
-        }
-
-        if let Some(app) = input_common::try_get_app_handle() {
-            if let Some(window) = app.get_webview_window("quickpaste") {
-                let _ = window.emit("quickpaste-next", ());
-            }
-        }
-    });
-}
-
-fn handle_quickpaste_hide_request_impl() {
-    input_common::run_on_main_thread(|| {
-        let settings = crate::get_settings();
-        if !settings.quickpaste_enabled || !settings.quickpaste_paste_on_modifier_release {
-            return;
-        }
-
-        if !crate::windows::quickpaste::is_visible() {
-            return;
-        }
-
-        if let Some(app) = input_common::try_get_app_handle() {
-            if let Some(window) = app.get_webview_window("quickpaste") {
-                let _ = window.emit("quickpaste-hide", ());
-            }
-        }
-
-        std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            input_common::run_on_main_thread(|| {
-                if let Some(app) = input_common::try_get_app_handle() {
-                    let _ = crate::windows::quickpaste::hide_quickpaste_window(&app);
-                }
-            });
-        });
-    });
-}
-
 #[cfg(target_os = "windows")]
 fn start_keyboard_hook_if_needed() {
-    if !NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst)
-        && !QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst)
-    {
+    if !NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst) {
         return;
     }
 
@@ -506,9 +374,7 @@ fn start_keyboard_hook_if_needed() {
 
 #[cfg(target_os = "windows")]
 fn stop_keyboard_hook_if_needed() {
-    if NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst)
-        || QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst)
-    {
+    if NAVIGATION_KEYS_ENABLED.load(Ordering::SeqCst) {
         return;
     }
 
@@ -538,44 +404,6 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
 
     let pressed = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
     update_modifier_vk(vk, pressed);
-
-    let is_modifier_vk = vk == VK_CONTROL.0 as u32
-        || vk == VK_LCONTROL.0 as u32
-        || vk == VK_RCONTROL.0 as u32
-        || vk == VK_MENU.0 as u32
-        || vk == VK_LMENU.0 as u32
-        || vk == VK_RMENU.0 as u32
-        || vk == VK_SHIFT.0 as u32
-        || vk == VK_LSHIFT.0 as u32
-        || vk == VK_RSHIFT.0 as u32
-        || vk == VK_LWIN.0 as u32
-        || vk == VK_RWIN.0 as u32;
-
-    if QUICKPASTE_KEYBOARD_MODE_ENABLED.load(Ordering::SeqCst) {
-        if pressed {
-            // 便捷粘贴键盘模式下，任意非修饰键按下 => 下一条
-            if !is_modifier_vk {
-                handle_quickpaste_next_request_impl();
-                return LRESULT(1);
-            }
-        } else {
-            // 仅当释放的是“快捷键所需的修饰键”时，才检查是否全部松开
-            let required = QUICKPASTE_REQUIRED_MODIFIER_MASK.load(Ordering::Relaxed);
-            let released_mask = modifier_mask_from_vk(vk);
-            if required != 0 && is_modifier_vk && (released_mask & required) != 0 {
-                let state = KEYBOARD_STATE.lock();
-                let all_released = ((required & 0x01) == 0 || !state.ctrl)
-                    && ((required & 0x02) == 0 || !state.alt)
-                    && ((required & 0x04) == 0 || !state.shift)
-                    && ((required & 0x08) == 0 || !state.meta);
-                drop(state);
-
-                if all_released && !QUICKPASTE_HIDE_TRIGGERED.swap(true, Ordering::SeqCst) {
-                    handle_quickpaste_hide_request_impl();
-                }
-            }
-        }
-    }
 
     if !pressed {
         let mut consumed = CONSUMED_KEYS.lock();
