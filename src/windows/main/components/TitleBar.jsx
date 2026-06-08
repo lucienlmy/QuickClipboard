@@ -503,7 +503,7 @@ const TitleBar = forwardRef(({
         )}
       </div>
 
-      <div className={`flex ${isVertical ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1'} ${isVertical ? '' : 'flex-shrink-0'}`}>
+      <div className={`flex ${isVertical ? 'flex-col items-center gap-2' : 'ml-2 min-w-0 flex-1 flex-row items-center justify-end gap-1'}`}>
         <TitleBarSearch
           ref={searchRef}
           value={searchQuery}
@@ -514,7 +514,7 @@ const TitleBar = forwardRef(({
           position={position}
         />
 
-        <div className={`flex ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1`}>
+        <div className={`flex flex-shrink-0 ${isVertical ? 'flex-col items-center' : 'items-center'} gap-1`}>
           <Tooltip content={isMultiSelectMode ? t('multiSelect.exitMode') : t('multiSelect.enterMode')} placement={tooltipPlacement} asChild>
             <button
               className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-200 ${

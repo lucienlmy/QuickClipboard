@@ -152,12 +152,12 @@ const TitleBarSearch = forwardRef(({
   }));
   return <>
             <style>{searchInputStyle}</style>
-            <div ref={searchRef} className={`titlebar-search relative flex ${isVertical ? 'flex-col items-center justify-end h-7' : 'flex-row items-center justify-end w-7'}`}>
+            <div ref={searchRef} className={`titlebar-search relative flex ${isVertical ? 'flex-col items-center justify-end h-7' : 'min-w-0 flex-1 flex-row items-center justify-end'}`}>
                 {/* 输入框 - 根据方向展开 */}
                 <input ref={inputRef} type="search" value={inputValue} onChange={handleChange} onCompositionStart={handleCompositionStart} onCompositionEnd={handleCompositionEnd} onFocus={handleFocus} onBlur={() => setIsFocused(false)} onKeyDown={handleKeyDown} placeholder={placeholder} style={isVertical ? {
         writingMode: 'vertical-rl',
         textAlign: 'start'
-      } : {}} className={`absolute ${isVertical ? 'bottom-6 left-0 w-7 py-2' : 'right-6 h-7 px-2'} text-sm bg-qc-panel border border-qc-border rounded-lg outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-qc-fg placeholder:text-qc-fg-subtle shadow-sm ${uiAnimationEnabled ? 'transition-all duration-300 ease-in-out' : ''} ${isExpanded ? isVertical ? 'h-48 opacity-100 mb-1' : 'w-30 opacity-100 mr-1' : (isVertical ? 'h-0' : 'w-0') + ' opacity-0 pointer-events-none border-0'}`} />
+      } : {}} className={`${isVertical ? 'absolute bottom-6 left-0 w-7 py-2' : 'h-7 min-w-0'} text-sm bg-qc-panel border border-qc-border rounded-lg outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-qc-fg placeholder:text-qc-fg-subtle shadow-sm ${uiAnimationEnabled ? 'transition-all duration-300 ease-in-out' : ''} ${isExpanded ? isVertical ? 'h-48 opacity-100 mb-1' : 'flex-1 opacity-100 mr-1 px-2' : isVertical ? 'h-0 opacity-0 pointer-events-none border-0' : 'w-0 flex-none opacity-0 pointer-events-none border-0 px-0'}`} />
 
                 {/* 搜索图标 - 始终保持在原位 */}
                 <Tooltip content="搜索" placement={isVertical ? (position === 'left' ? 'right' : 'left') : 'bottom'} asChild>
