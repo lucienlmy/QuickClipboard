@@ -126,6 +126,7 @@ pub fn run() {
                 commands::toggle_main_window,
                 commands::hide_main_window,
                 commands::show_main_window,
+                commands::raise_main_window_topmost,
                 commands::check_window_snap,
                 commands::position_window_at_cursor,
                 commands::center_main_window,

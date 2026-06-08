@@ -117,6 +117,11 @@ pub fn show_main_window(window: WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn raise_main_window_topmost(window: WebviewWindow) -> Result<(), String> {
+    crate::windows::main_window::refresh_always_on_top(&window)
+}
+
+#[tauri::command]
 pub fn check_window_snap(window: WebviewWindow) -> Result<(), String> {
     crate::check_snap(&window)
 }

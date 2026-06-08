@@ -1,6 +1,7 @@
 use super::state::{set_window_state, WindowState};
 use tauri::{AppHandle, LogicalSize, Manager, WebviewWindow};
 
+#[cfg(not(target_os = "windows"))]
 const ALWAYS_ON_TOP_REFRESH_DELAY_MS: u64 = 10;
 
 pub(crate) fn normalize_saved_window_size_for_restore(
@@ -149,6 +150,34 @@ fn show_normal_window(window: &WebviewWindow) {
     crate::input_monitor::enable_navigation_keys();
 }
 
+#[cfg(target_os = "windows")]
+pub fn refresh_always_on_top(window: &WebviewWindow) -> Result<(), String> {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    };
+
+    let hwnd = window
+        .hwnd()
+        .map_err(|e| format!("获取主窗口句柄失败: {}", e))?;
+
+    unsafe {
+        SetWindowPos(
+            HWND(hwnd.0 as *mut _),
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+        .map_err(|e| format!("提升主窗口置顶顺序失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
 pub fn refresh_always_on_top(window: &WebviewWindow) -> Result<(), String> {
     window
         .set_always_on_top(false)
