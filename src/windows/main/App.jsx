@@ -27,6 +27,7 @@ import ClipboardTab from './components/ClipboardTab';
 import FavoritesTab from './components/FavoritesTab';
 const EmojiTab = lazy(() => import('./components/EmojiTab'));
 import MultiSelectActionBar from './components/MultiSelectActionBar';
+import WindowResizeHandles from './components/WindowResizeHandles';
 import ToastContainer from '@shared/components/common/ToastContainer';
 
 const TAB_NAVIGATION_MODE = {
@@ -465,6 +466,7 @@ function App() {
   });
   const outerContainerClasses = `
     h-screen w-screen 
+    relative
     ${isDark ? 'dark' : ''}
   `.trim().replace(/\s+/g, ' ');
   const containerClasses = `
@@ -551,6 +553,7 @@ function App() {
         {renderLayout()}
         <ToastContainer />
       </div>
+      <WindowResizeHandles />
     </div>;
 }
 export default App;
