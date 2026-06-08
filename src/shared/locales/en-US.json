@@ -178,21 +178,19 @@
       "misc": "Miscellaneous",
       "technical": "Technical",
       "letterlike": "Letterlike",
-      "numbers": "Numbers",
-      "images": "Images",
-      "gifs": "GIFs"
+      "numbers": "Numbers"
     },
     "dragToAdd": "Drag images here to add",
     "dropToAdd": "Drop to add images",
     "supportFormats": "Supports PNG, JPG, GIF, WebP",
     "noValidImages": "No valid image files",
-    "onlyGifAllowed": "This category only accepts GIF files",
-    "onlyImageAllowed": "This category only accepts non-GIF images",
     "searchImagePlaceholder": "Search filename...",
     "saveFailed": "Save failed: {{name}}",
     "addedImages": "Added {{count}} image(s)",
-    "addedGifs": "Added {{count}} GIF(s)",
-    "addedBoth": "Added {{imageCount}} image(s) and {{gifCount}} GIF(s)",
+    "addedToImageGroup": "Added {{count}} image(s) to \"{{group}}\"",
+    "movedToGroup": "Moved to \"{{group}}\"",
+    "moveToGroupFailed": "Failed to move group",
+    "noImageGroup": "Create an image group first",
     "renameFailed": "Rename failed",
     "uploading": "Adding {{current}}/{{total}}..."
   },
@@ -214,6 +212,14 @@
       "iconLabel": "Select Icon",
       "saving": "Saving...",
       "customColor": "Custom Color"
+    },
+    "imageDelete": {
+      "title": "Delete group \"{{name}}\"",
+      "emptyDesc": "This group has no images. Deletion cannot be undone.",
+      "nonEmptyDesc": "This group contains {{count}} image(s). You can move them to \"{{target}}\" before deleting the group, or delete the images too.",
+      "moveThenDelete": "Move and delete group",
+      "deleteAll": "Delete group and images",
+      "deleteEmpty": "Delete group"
     }
   },
   "filter": {

@@ -67,6 +67,7 @@ winreg = "0.55"
 low-memory-fltk = { path = "plugins/low-memory-fltk" }
 ratatui = "0.29"
 crossterm = "0.28"
+trash = "5.2.6"
 
 screenshot-suite = { path = "plugins/screenshot-suite", optional = true }
 

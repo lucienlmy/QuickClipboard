@@ -17,6 +17,38 @@ const IMAGE_MIN_CELL_WIDTH = 68;
 const IMAGE_GAP_PX = 8;
 const IMAGE_HORIZONTAL_PADDING_PX = 16;
 
+const getImageItemGroup = (item) => item?.group || item?.category || '';
+const getImageItemKey = (item) => {
+  if (!item || item.loading || !item.filename) return '';
+  const group = getImageItemGroup(item);
+  return group ? `${group}:${item.filename}` : item.filename;
+};
+
+const isSelectableImageItem = (item) => Boolean(item && !item.loading && item.path && item.filename);
+
+const areSetsEqual = (left, right) => {
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
+};
+
+const shouldIgnoreImageSelectionStart = (target) => {
+  const element = target?.closest ? target : target?.parentElement;
+  if (!element?.closest) return true;
+  return Boolean(element.closest(
+    '[data-image-tile="true"], [data-drag-ignore="true"], .custom-scrollbar, button, input, textarea, select, [contenteditable="true"]'
+  ));
+};
+
+const rectsIntersect = (a, b) => (
+  a.left <= b.right &&
+  a.right >= b.left &&
+  a.top <= b.bottom &&
+  a.bottom >= b.top
+);
+
 const getImageGridCols = (width) => {
   if (!width) return IMAGE_DEFAULT_COLS;
   const availableWidth = Math.max(0, width - IMAGE_HORIZONTAL_PADDING_PX);
@@ -46,12 +78,318 @@ async function readFileInChunks(file, chunkSize = 1024 * 1024) {
   return result;
 }
 
-function ImageLibraryTab({ imageCategory, searchQuery }) {
+function drawRoundRect(ctx, x, y, width, height, radius) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, radius);
+    return;
+  }
+
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+}
+
+function drawObjectCoverImage(ctx, image, x, y, width, height) {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  if (!sourceWidth || !sourceHeight) return false;
+
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = width / height;
+  let sx = 0;
+  let sy = 0;
+  let sw = sourceWidth;
+  let sh = sourceHeight;
+
+  if (sourceRatio > targetRatio) {
+    sw = sourceHeight * targetRatio;
+    sx = (sourceWidth - sw) / 2;
+  } else {
+    sh = sourceWidth / targetRatio;
+    sy = (sourceHeight - sh) / 2;
+  }
+
+  ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+  return true;
+}
+
+async function loadImageForDragPreview(path) {
+  const response = await fetch(imageLibrary.getImageUrl(path));
+  if (!response.ok) {
+    throw new Error(`读取拖拽预览图片失败: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    image.decoding = 'async';
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('加载拖拽预览图片失败'));
+      image.src = objectUrl;
+    });
+    return image;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function createImageDragPreviewIcon(path) {
+  try {
+    const image = await loadImageForDragPreview(path);
+
+    const width = 78;
+    const height = 78;
+    const imageSize = 64;
+    const ratio = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return path;
+
+    ctx.scale(ratio, ratio);
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.22)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+    ctx.beginPath();
+    drawRoundRect(ctx, 7, 5, imageSize, imageSize, 12);
+    ctx.fill();
+
+    ctx.shadowColor = 'transparent';
+    ctx.save();
+    ctx.beginPath();
+    drawRoundRect(ctx, 7, 5, imageSize, imageSize, 12);
+    ctx.clip();
+    drawObjectCoverImage(ctx, image, 7, 5, imageSize, imageSize);
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(47, 123, 255, 0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    drawRoundRect(ctx, 8, 6, imageSize - 2, imageSize - 2, 11);
+    ctx.stroke();
+
+    return canvas.toDataURL('image/png');
+  } catch {
+    return path;
+  }
+}
+
+async function createImagesDragPreviewIcon(paths) {
+  const imagePaths = Array.isArray(paths) ? paths.filter(Boolean) : [paths].filter(Boolean);
+  if (imagePaths.length <= 1) {
+    return createImageDragPreviewIcon(imagePaths[0]);
+  }
+
+  try {
+    const image = await loadImageForDragPreview(imagePaths[0]);
+    const width = 96;
+    const height = 88;
+    const imageSize = 58;
+    const ratio = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return imagePaths[0];
+
+    ctx.scale(ratio, ratio);
+
+    const drawCard = (x, y, alpha, withImage) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.2)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+      ctx.beginPath();
+      drawRoundRect(ctx, x, y, imageSize, imageSize, 12);
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent';
+      if (withImage) {
+        ctx.save();
+        ctx.beginPath();
+        drawRoundRect(ctx, x, y, imageSize, imageSize, 12);
+        ctx.clip();
+        drawObjectCoverImage(ctx, image, x, y, imageSize, imageSize);
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = withImage ? 'rgba(47, 123, 255, 0.7)' : 'rgba(148, 163, 184, 0.45)';
+      ctx.lineWidth = withImage ? 2 : 1.5;
+      ctx.beginPath();
+      drawRoundRect(ctx, x + 1, y + 1, imageSize - 2, imageSize - 2, 11);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    drawCard(24, 17, 0.72, false);
+    drawCard(15, 11, 0.86, false);
+    drawCard(6, 5, 1, true);
+
+    const label = imagePaths.length > 99 ? '99+' : String(imagePaths.length);
+    ctx.font = '700 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    const badgeWidth = Math.max(24, Math.ceil(ctx.measureText(label).width) + 12);
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.24)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    drawRoundRect(ctx, 66, 4, badgeWidth, 22, 11);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, 66 + badgeWidth / 2, 15);
+
+    return canvas.toDataURL('image/png');
+  } catch {
+    return imagePaths[0] || '';
+  }
+}
+
+function ImageTile({
+  item,
+  t,
+  isDragging,
+  isSelected,
+  onClick,
+  onMouseDown,
+  onCopy,
+  onRename,
+  onDelete
+}) {
+  const title = item.loading
+    ? ''
+    : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || '';
+  const [isActionHovering, setIsActionHovering] = useState(false);
+
+  return (
+    <Tooltip
+      content={title}
+      placement="top"
+      maxWidth={260}
+      disabled={!title || isDragging || isActionHovering}
+      asChild
+    >
+      <div
+        data-image-tile="true"
+        data-image-key={getImageItemKey(item) || undefined}
+        onClick={(e) => onClick(e, item)}
+        onMouseDown={(e) => !item.loading && item.path && onMouseDown(e, item)}
+        role="button"
+        className={`relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer transition-all overflow-hidden ${
+          isDragging
+            ? 'opacity-45 scale-95 saturate-50 ring-2 ring-dashed ring-blue-400 bg-qc-active'
+            : isSelected
+              ? 'bg-qc-active ring-2 ring-blue-500 shadow-sm'
+              : 'hover:bg-qc-hover hover:ring-2 hover:ring-blue-400'
+        }`}
+        style={{ touchAction: 'none' }}
+      >
+        {isSelected && !isDragging && (
+          <div className="absolute left-1 top-1 z-20 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-sm pointer-events-none">
+            <i className="ti ti-check text-[10px]"></i>
+          </div>
+        )}
+        {isDragging && (
+          <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center bg-qc-surface/25">
+            <i className="ti ti-drag-drop text-xl text-blue-500"></i>
+          </div>
+        )}
+        <div className="absolute inset-0 rounded-lg overflow-hidden">
+          {item.loading ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <i className="ti ti-loader-2 animate-spin text-2xl text-qc-fg-subtle"></i>
+            </div>
+          ) : (
+            <img
+              src={imageLibrary.getImageUrl(item.path)}
+              alt={item.filename}
+              className="w-full h-full object-cover pointer-events-none"
+              loading="lazy"
+              draggable={false}
+            />
+          )}
+
+          {!item.loading && !isDragging && (
+            <div
+              className="absolute inset-x-0.5 top-0.5 z-10 flex max-w-full flex-wrap justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+            >
+              <Tooltip content={t('common.copy') || '复制'} placement="left" asChild>
+                <button
+                  data-drag-ignore="true"
+                  onPointerEnter={() => setIsActionHovering(true)}
+                  onPointerLeave={() => setIsActionHovering(false)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => onCopy(e, item)}
+                  className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-green-500 text-white flex items-center justify-center pointer-events-auto"
+                >
+                  <i className="ti ti-copy text-xs"></i>
+                </button>
+              </Tooltip>
+              <Tooltip content={t('common.rename') || '重命名'} placement="left" asChild>
+                <button
+                  data-drag-ignore="true"
+                  onPointerEnter={() => setIsActionHovering(true)}
+                  onPointerLeave={() => setIsActionHovering(false)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => onRename(e, item)}
+                  className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center pointer-events-auto"
+                >
+                  <i className="ti ti-pencil text-xs"></i>
+                </button>
+              </Tooltip>
+              <Tooltip content={t('common.delete') || '删除'} placement="left" asChild>
+                <button
+                  data-drag-ignore="true"
+                  onPointerEnter={() => setIsActionHovering(true)}
+                  onPointerLeave={() => setIsActionHovering(false)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => onDelete(e, item)}
+                  className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-red-500 text-white flex items-center justify-center pointer-events-auto"
+                >
+                  <i className="ti ti-x text-xs"></i>
+                </button>
+              </Tooltip>
+            </div>
+          )}
+        </div>
+      </div>
+    </Tooltip>
+  );
+}
+
+function ImageLibraryTab({
+  currentGroup,
+  imageGroups = [],
+  searchQuery,
+  onGroupsChange,
+  onImageDragStart,
+  onImageDragEnd,
+  onImageDragCancel,
+  reloadKey = 0
+}) {
   const { t } = useTranslation();
   const [imageTotal, setImageTotal] = useState(0);
   const [imageItems, setImageItems] = useState([]);
   const [imageLoading, setImageLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [draggingImageKeys, setDraggingImageKeys] = useState(() => new Set());
+  const [selectedImageKeys, setSelectedImageKeys] = useState(() => new Set());
+  const [selectionAnchorKey, setSelectionAnchorKey] = useState('');
+  const [selectionBox, setSelectionBox] = useState(null);
   const [renamingItem, setRenamingItem] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -66,6 +404,21 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
   const [scrollerElement, setScrollerElement] = useState(null);
   const scrollerRefCallback = useCallback(element => element && setScrollerElement(element), []);
   useCustomScrollbar(scrollerElement);
+  const selfPluginDragRef = useRef(false);
+  const pluginDragItemsRef = useRef([]);
+  const pluginDragClearTimerRef = useRef(null);
+  const suppressClickRef = useRef(false);
+  const selectedImageKeysRef = useRef(selectedImageKeys);
+  const selectedImageItemsRef = useRef([]);
+  const selectionAnchorKeyRef = useRef(selectionAnchorKey);
+  const displayImageItemsRef = useRef([]);
+  const selectionDraftRef = useRef(null);
+  const activeGroupMeta = useMemo(
+    () => imageGroups.find(group => group.name === currentGroup) || null,
+    [imageGroups, currentGroup]
+  );
+  selectedImageKeysRef.current = selectedImageKeys;
+  selectionAnchorKeyRef.current = selectionAnchorKey;
 
   useLayoutEffect(() => {
     const target = gridMeasureRef.current;
@@ -101,34 +454,71 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     loadedRangeRef.current = { start: 0, end: 0 };
   }, [imageCols]);
 
-  const internalDragRef = useRef(false);
   const loadRequestRef = useRef(null);
-  const handleDragMouseDown = useDragWithThreshold({
-    onDragStart: () => { internalDragRef.current = true; }
-  });
-
-  useEffect(() => {
-    const handleMouseUp = () => {
-      if (internalDragRef.current) {
-        internalDragRef.current = false;
-      }
-    };
-    window.addEventListener('mouseup', handleMouseUp, true);
-    return () => window.removeEventListener('mouseup', handleMouseUp, true);
+  const clearSelfPluginDragSoon = useCallback(() => {
+    if (pluginDragClearTimerRef.current) {
+      window.clearTimeout(pluginDragClearTimerRef.current);
+    }
+    pluginDragClearTimerRef.current = window.setTimeout(() => {
+      selfPluginDragRef.current = false;
+      suppressClickRef.current = false;
+      pluginDragItemsRef.current = [];
+      setDraggingImageKeys(new Set());
+      pluginDragClearTimerRef.current = null;
+    }, 250);
   }, []);
+
+  const handleDragMouseDown = useDragWithThreshold({
+    onDragStart: () => {
+      if (pluginDragClearTimerRef.current) {
+        window.clearTimeout(pluginDragClearTimerRef.current);
+        pluginDragClearTimerRef.current = null;
+      }
+      selfPluginDragRef.current = true;
+      suppressClickRef.current = true;
+      const items = pluginDragItemsRef.current || [];
+      setDraggingImageKeys(new Set(items.map(getImageItemKey).filter(Boolean)));
+      onImageDragStart?.(items);
+    },
+    onDragEnd: () => {
+      onImageDragEnd?.(pluginDragItemsRef.current);
+      clearSelfPluginDragSoon();
+    },
+    onDragCancel: () => {
+      selfPluginDragRef.current = false;
+      suppressClickRef.current = false;
+      pluginDragItemsRef.current = [];
+      setDraggingImageKeys(new Set());
+      onImageDragCancel?.();
+    }
+  });
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       uploadTokenRef.current += 1;
+      if (pluginDragClearTimerRef.current) {
+        window.clearTimeout(pluginDragClearTimerRef.current);
+      }
     };
   }, []);
 
+  useEffect(() => {
+    setSelectedImageKeys(new Set());
+    setSelectionAnchorKey('');
+    setSelectionBox(null);
+  }, [currentGroup, reloadKey]);
+
   const loadImageCount = useCallback(async () => {
+    if (!currentGroup) {
+      setImageTotal(0);
+      setImageItems([]);
+      return;
+    }
+
     try {
-      const category = imageCategory === 'gifs' ? 'gifs' : 'images';
-      const count = await imageLibrary.getImageCount(category);
+      const count = await imageLibrary.getImageCount(currentGroup);
       setImageTotal(count);
       if (count === 0) {
         setImageItems([]);
@@ -136,12 +526,11 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     } catch (err) {
       console.error('加载图片总数失败:', err);
     }
-  }, [imageCategory]);
+  }, [currentGroup]);
 
   const loadImageRange = useCallback(async (startIndex, endIndex) => {
-    if (imageLoading) return;
+    if (imageLoading || !currentGroup) return;
     
-    const category = imageCategory === 'gifs' ? 'gifs' : 'images';
     const rowStart = Math.floor(startIndex / imageCols) * imageCols;
     const rowEnd = Math.ceil((endIndex + 1) / imageCols) * imageCols;
     
@@ -151,7 +540,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     
     setImageLoading(true);
     try {
-      const result = await imageLibrary.getImageList(category, rowStart, rowEnd - rowStart + 20);
+      const result = await imageLibrary.getImageList(currentGroup, rowStart, rowEnd - rowStart + 20);
       setImageItems(prev => {
         const newItems = [...prev];
         result.items.forEach((item, idx) => {
@@ -168,7 +557,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     } finally {
       setImageLoading(false);
     }
-  }, [imageCategory, imageLoading, imageCols]);
+  }, [currentGroup, imageLoading, imageCols]);
 
   const scheduleLoadRange = useCallback((startIndex, endIndex) => {
     if (loadRequestRef.current) {
@@ -184,19 +573,19 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     setImageItems([]);
     loadedRangeRef.current = { start: 0, end: 0 };
     loadImageCount();
-  }, [imageCategory, loadImageCount]);
+  }, [currentGroup, reloadKey, loadImageCount]);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (internalDragRef.current) return;
+    if (selfPluginDragRef.current) return;
     setIsDragging(true);
   }, []);
 
   const handleDragLeave = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (internalDragRef.current) return;
+    if (selfPluginDragRef.current) return;
     setIsDragging(false);
   }, []);
 
@@ -206,9 +595,15 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     setIsDragging(false);
 
     if (isUploading) return;
+    if (!currentGroup) {
+      toast.warning(t('emoji.noImageGroup') || '请先创建图库分组', {
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      });
+      return;
+    }
 
-    if (internalDragRef.current) {
-      internalDragRef.current = false;
+    if (selfPluginDragRef.current) {
       return;
     }
 
@@ -228,8 +623,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     setIsUploading(true);
     setUploadProgress({ current: 0, total: imageFiles.length });
 
-    let gifCount = 0;
-    let imageCount = 0;
+    let addedCount = 0;
 
     const processFile = async (file, index) => {
       if (uploadTokenRef.current !== myToken || !isMountedRef.current) return null;
@@ -238,8 +632,8 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
       try {
         const data = await readFileInChunks(file);
         if (uploadTokenRef.current !== myToken || !isMountedRef.current) return null;
-        const result = await imageLibrary.saveImage(file.name, data);
-        return result.category === 'gifs' ? 'gif' : 'image';
+        await imageLibrary.saveImage(currentGroup, file.name, data);
+        return true;
       } catch (err) {
         console.error('保存图片失败:', err);
         toast.error(t('emoji.saveFailed', { name: file.name }), {
@@ -254,28 +648,20 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
       for (let i = 0; i < imageFiles.length; i++) {
         const result = await processFile(imageFiles[i], i);
         if (uploadTokenRef.current !== myToken || !isMountedRef.current) return;
-        if (result === 'gif') gifCount++;
-        else if (result === 'image') imageCount++;
+        if (result) addedCount++;
       }
 
       if (uploadTokenRef.current !== myToken || !isMountedRef.current) return;
 
-      let message = '';
-      if (imageCount > 0 && gifCount > 0) {
-        message = t('emoji.addedBoth', { imageCount, gifCount });
-      } else if (imageCount > 0) {
-        message = t('emoji.addedImages', { count: imageCount });
-      } else if (gifCount > 0) {
-        message = t('emoji.addedGifs', { count: gifCount });
-      }
-      if (message) {
-        toast.success(message, {
+      if (addedCount > 0) {
+        toast.success(t('emoji.addedToImageGroup', { count: addedCount, group: currentGroup }) || t('emoji.addedImages', { count: addedCount }), {
           size: TOAST_SIZES.EXTRA_SMALL,
           position: TOAST_POSITIONS.BOTTOM_RIGHT
         });
       }
       
       loadImageCount();
+      onGroupsChange?.();
       loadedRangeRef.current = { start: 0, end: 0 };
       setImageItems([]);
     } finally {
@@ -283,30 +669,16 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         setIsUploading(false);
       }
     }
-  }, [t, loadImageCount, isUploading]);
-
-  const handleImageClick = useCallback(async (item) => {
-    if (!item || item.loading || isUploading) return;
-    
-    try {
-      await restoreLastFocus();
-      await invoke('paste_image_file', { filePath: item.path });
-    } catch (err) {
-      console.error('粘贴图片失败:', err);
-      toast.error(t('common.pasteFailed') || '粘贴失败', {
-        size: TOAST_SIZES.EXTRA_SMALL,
-        position: TOAST_POSITIONS.BOTTOM_RIGHT
-      });
-    }
-  }, [t, isUploading]);
+  }, [t, loadImageCount, isUploading, currentGroup, onGroupsChange]);
 
   const handleDeleteImage = useCallback(async (e, item) => {
     e.stopPropagation();
     if (!item || item.loading || isUploading) return;
     
     try {
-      await imageLibrary.deleteImage(item.category, item.filename);
+      await imageLibrary.deleteImage(item.group || item.category, item.filename);
       loadImageCount();
+      onGroupsChange?.();
       loadedRangeRef.current = { start: 0, end: 0 };
       setImageItems([]);
     } catch (err) {
@@ -316,7 +688,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         position: TOAST_POSITIONS.BOTTOM_RIGHT
       });
     }
-  }, [t, loadImageCount, isUploading]);
+  }, [t, loadImageCount, isUploading, onGroupsChange]);
 
   const handleRenameStart = useCallback((e, item) => {
     e.stopPropagation();
@@ -352,7 +724,7 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     }
     
     try {
-      await imageLibrary.renameImage(renamingItem.category, renamingItem.filename, renameValue.trim());
+      await imageLibrary.renameImage(renamingItem.group || renamingItem.category, renamingItem.filename, renameValue.trim());
       loadImageCount();
       loadedRangeRef.current = { start: 0, end: 0 };
       setImageItems([]);
@@ -366,43 +738,267 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
     }
   }, [renamingItem, renameValue, loadImageCount, t]);
 
+  const handleImageDragMouseDown = useCallback((e, item) => {
+    if (e.target?.closest?.('[data-drag-ignore="true"]')) return;
+    if (!isSelectableImageItem(item)) return;
+
+    const itemKey = getImageItemKey(item);
+    const currentSelectedKeys = selectedImageKeysRef.current;
+    const currentSelectedItems = selectedImageItemsRef.current;
+    const shouldDragSelection = currentSelectedKeys.has(itemKey) && currentSelectedItems.length > 1;
+    const dragItems = shouldDragSelection ? currentSelectedItems : [item];
+    const dragPaths = dragItems.map(dragItem => dragItem.path).filter(Boolean);
+
+    if (!currentSelectedKeys.has(itemKey) && currentSelectedKeys.size > 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      setSelectedImageKeys(new Set([itemKey]));
+      setSelectionAnchorKey(itemKey);
+    }
+
+    pluginDragItemsRef.current = dragItems;
+    handleDragMouseDown(e, dragPaths, () => createImagesDragPreviewIcon(dragPaths), 'copy');
+  }, [handleDragMouseDown]);
+
   const handleRenameCancel = useCallback(() => {
     setRenamingItem(null);
     setRenameValue('');
   }, []);
 
+  const hasSearchQuery = Boolean(searchQuery?.trim());
+
   const filteredImageItems = useMemo(() => {
-    if (!searchQuery?.trim()) return imageItems;
+    if (!hasSearchQuery) return imageItems;
     const query = searchQuery.toLowerCase();
     return imageItems.filter(item => 
       item && !item.loading && item.filename.toLowerCase().includes(query)
     );
-  }, [imageItems, searchQuery]);
+  }, [imageItems, searchQuery, hasSearchQuery]);
 
   const filteredImageTotal = useMemo(() => {
-    if (!searchQuery?.trim()) return imageTotal;
+    if (!hasSearchQuery) return imageTotal;
     return filteredImageItems.length;
-  }, [searchQuery, imageTotal, filteredImageItems]);
+  }, [hasSearchQuery, imageTotal, filteredImageItems]);
+
+  const displayImageItems = useMemo(
+    () => (hasSearchQuery ? filteredImageItems : imageItems),
+    [hasSearchQuery, filteredImageItems, imageItems]
+  );
+
+  const displayImageTotal = hasSearchQuery ? filteredImageTotal : imageTotal;
+
+  const selectedImageItems = useMemo(() => (
+    displayImageItems.filter(item => {
+      if (!isSelectableImageItem(item)) return false;
+      return selectedImageKeys.has(getImageItemKey(item));
+    })
+  ), [displayImageItems, selectedImageKeys]);
+
+  displayImageItemsRef.current = displayImageItems;
+  selectedImageItemsRef.current = selectedImageItems;
 
   const imageRowCount = useMemo(() => {
-    const total = searchQuery?.trim() ? filteredImageTotal : imageTotal;
-    return Math.ceil(total / imageCols);
-  }, [imageTotal, filteredImageTotal, searchQuery, imageCols]);
+    return Math.ceil(displayImageTotal / imageCols);
+  }, [displayImageTotal, imageCols]);
+
+  const getDisplayImageEntries = useCallback(() => {
+    const entries = [];
+    displayImageItemsRef.current.forEach((item, index) => {
+      if (!isSelectableImageItem(item)) return;
+      entries.push({ item, index, key: getImageItemKey(item) });
+    });
+    return entries;
+  }, []);
+
+  const selectImageRange = useCallback((item, additive = false) => {
+    const currentKey = getImageItemKey(item);
+    if (!currentKey) return;
+
+    const entries = getDisplayImageEntries();
+    const currentEntry = entries.find(entry => entry.key === currentKey);
+    if (!currentEntry) {
+      setSelectedImageKeys(new Set([currentKey]));
+      setSelectionAnchorKey(currentKey);
+      return;
+    }
+
+    const anchorEntry = entries.find(entry => entry.key === selectionAnchorKeyRef.current) || currentEntry;
+    const start = Math.min(anchorEntry.index, currentEntry.index);
+    const end = Math.max(anchorEntry.index, currentEntry.index);
+    const rangeKeys = entries
+      .filter(entry => entry.index >= start && entry.index <= end)
+      .map(entry => entry.key);
+
+    setSelectedImageKeys(prev => {
+      const next = additive ? new Set(prev) : new Set();
+      rangeKeys.forEach(key => next.add(key));
+      return areSetsEqual(prev, next) ? prev : next;
+    });
+
+    if (!selectionAnchorKeyRef.current) {
+      setSelectionAnchorKey(currentKey);
+    }
+  }, [getDisplayImageEntries]);
+
+  const handleImageClick = useCallback(async (e, item) => {
+    if (suppressClickRef.current) return;
+    if (!isSelectableImageItem(item) || isUploading) return;
+
+    const itemKey = getImageItemKey(item);
+    if (e.shiftKey) {
+      e.preventDefault();
+      selectImageRange(item, e.ctrlKey || e.metaKey);
+      return;
+    }
+
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setSelectedImageKeys(prev => {
+        const next = new Set(prev);
+        if (next.has(itemKey)) {
+          next.delete(itemKey);
+        } else {
+          next.add(itemKey);
+        }
+        return next;
+      });
+      setSelectionAnchorKey(itemKey);
+      return;
+    }
+
+    if (selectedImageKeysRef.current.size > 0) {
+      setSelectedImageKeys(new Set());
+      setSelectionAnchorKey(itemKey);
+    }
+
+    try {
+      await restoreLastFocus();
+      await invoke('paste_image_file', { filePath: item.path });
+    } catch (err) {
+      console.error('粘贴图片失败:', err);
+      toast.error(t('common.pasteFailed') || '粘贴失败', {
+        size: TOAST_SIZES.EXTRA_SMALL,
+        position: TOAST_POSITIONS.BOTTOM_RIGHT
+      });
+    }
+  }, [t, isUploading, selectImageRange]);
+
+  const updateSelectionByClientRect = useCallback((clientRect, additive, baseKeys) => {
+    const container = gridMeasureRef.current;
+    if (!container) return;
+
+    const selectedKeys = [];
+    container.querySelectorAll('[data-image-key]').forEach(element => {
+      const key = element.dataset.imageKey;
+      if (!key) return;
+      if (rectsIntersect(clientRect, element.getBoundingClientRect())) {
+        selectedKeys.push(key);
+      }
+    });
+
+    setSelectedImageKeys(prev => {
+      const next = additive ? new Set(baseKeys) : new Set();
+      selectedKeys.forEach(key => next.add(key));
+      return areSetsEqual(prev, next) ? prev : next;
+    });
+
+    if (selectedKeys.length > 0) {
+      setSelectionAnchorKey(selectedKeys[selectedKeys.length - 1]);
+    }
+  }, []);
+
+  const handleSelectionMouseMove = useCallback((event) => {
+    const draft = selectionDraftRef.current;
+    const container = gridMeasureRef.current;
+    if (!draft || !container) return;
+
+    const dx = event.clientX - draft.startClientX;
+    const dy = event.clientY - draft.startClientY;
+    const moved = draft.moved || Math.sqrt(dx * dx + dy * dy) >= 4;
+    draft.moved = moved;
+
+    const containerRect = container.getBoundingClientRect();
+    const currentX = Math.max(0, Math.min(event.clientX - containerRect.left, containerRect.width));
+    const currentY = Math.max(0, Math.min(event.clientY - containerRect.top, containerRect.height));
+    const left = Math.min(draft.startX, currentX);
+    const top = Math.min(draft.startY, currentY);
+    const width = Math.abs(currentX - draft.startX);
+    const height = Math.abs(currentY - draft.startY);
+
+    setSelectionBox({ left, top, width, height, visible: moved });
+
+    if (!moved) return;
+
+    updateSelectionByClientRect({
+      left: Math.min(draft.startClientX, event.clientX),
+      right: Math.max(draft.startClientX, event.clientX),
+      top: Math.min(draft.startClientY, event.clientY),
+      bottom: Math.max(draft.startClientY, event.clientY)
+    }, draft.additive, draft.baseKeys);
+  }, [updateSelectionByClientRect]);
+
+  const handleSelectionMouseUp = useCallback(() => {
+    document.removeEventListener('mousemove', handleSelectionMouseMove);
+    document.removeEventListener('mouseup', handleSelectionMouseUp);
+
+    const draft = selectionDraftRef.current;
+    if (draft && !draft.moved && !draft.additive) {
+      setSelectedImageKeys(prev => (prev.size > 0 ? new Set() : prev));
+      setSelectionAnchorKey('');
+    }
+
+    selectionDraftRef.current = null;
+    setSelectionBox(null);
+  }, [handleSelectionMouseMove]);
+
+  useEffect(() => () => {
+    document.removeEventListener('mousemove', handleSelectionMouseMove);
+    document.removeEventListener('mouseup', handleSelectionMouseUp);
+  }, [handleSelectionMouseMove, handleSelectionMouseUp]);
+
+  const handleSelectionMouseDown = useCallback((e) => {
+    if (e.button !== 0 || isUploading || selfPluginDragRef.current || !currentGroup || displayImageTotal === 0) return;
+    if (shouldIgnoreImageSelectionStart(e.target)) return;
+
+    const container = gridMeasureRef.current;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const startX = Math.max(0, Math.min(e.clientX - containerRect.left, containerRect.width));
+    const startY = Math.max(0, Math.min(e.clientY - containerRect.top, containerRect.height));
+    const additive = e.ctrlKey || e.metaKey;
+
+    selectionDraftRef.current = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startX,
+      startY,
+      additive,
+      moved: false,
+      baseKeys: additive ? new Set(selectedImageKeysRef.current) : new Set()
+    };
+
+    if (!additive) {
+      setSelectedImageKeys(prev => (prev.size > 0 ? new Set() : prev));
+      setSelectionAnchorKey('');
+    }
+
+    setSelectionBox({ left: startX, top: startY, width: 0, height: 0, visible: false });
+    document.addEventListener('mousemove', handleSelectionMouseMove);
+    document.addEventListener('mouseup', handleSelectionMouseUp);
+    e.preventDefault();
+  }, [currentGroup, displayImageTotal, handleSelectionMouseMove, handleSelectionMouseUp, isUploading]);
 
   const renderImageRow = useCallback((rowIndex) => {
-    const items = searchQuery?.trim() ? filteredImageItems : imageItems;
-    const total = searchQuery?.trim() ? filteredImageTotal : imageTotal;
     const startIdx = rowIndex * imageCols;
     const rowItems = [];
     
     for (let i = 0; i < imageCols; i++) {
       const idx = startIdx + i;
-      if (idx >= total) break;
-      const item = items[idx];
+      if (idx >= displayImageTotal) break;
+      const item = displayImageItems[idx];
       rowItems.push(item || { id: `loading-${idx}`, loading: true });
     }
 
-    if (!searchQuery?.trim() && rowItems.some(item => item.loading)) {
+    if (!hasSearchQuery && rowItems.some(item => item.loading)) {
       scheduleLoadRange(startIdx, startIdx + imageCols - 1);
     }
 
@@ -412,87 +1008,50 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         style={{ gridTemplateColumns: `repeat(${imageCols}, minmax(0, 1fr))` }}
         data-no-drag
       >
-        {rowItems.map((item) => (
-          <Tooltip
-            content={item.loading ? '' : item.filename?.replace(/^\d+_?/, '').replace(/\.[^.]+$/, '') || ''}
-            placement="top"
-            asChild
-          >
-            <div
-              key={item.id}
-              onClick={() => handleImageClick(item)}
-              onMouseDown={(e) => !item.loading && item.path && handleDragMouseDown(e, [item.path], item.path)}
-              role="button"
-              className="relative group aspect-square rounded-lg bg-qc-panel-2 flex items-center justify-center cursor-pointer hover:bg-qc-hover transition-colors overflow-hidden hover:ring-2 hover:ring-blue-400"
-            >
-              <div className="absolute inset-0 rounded-lg overflow-hidden">
-                {item.loading ? (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <i className="ti ti-loader-2 animate-spin text-2xl text-qc-fg-subtle"></i>
-                  </div>
-                ) : (
-                  <img 
-                    src={imageLibrary.getImageUrl(item.path)} 
-                    alt={item.filename}
-                    className="w-full h-full object-cover pointer-events-none"
-                    loading="lazy"
-                  />
-                )}
-
-                {!item.loading && (
-                  <div
-                    className="absolute inset-x-0.5 top-0.5 z-10 flex max-w-full flex-wrap justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    data-drag-ignore="true"
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <Tooltip content={t('common.copy') || '复制'} placement="left" asChild>
-                      <button
-                        onClick={(e) => handleCopyImage(e, item)}
-                        className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-green-500 text-white flex items-center justify-center"
-                      >
-                        <i className="ti ti-copy text-xs"></i>
-                      </button>
-                    </Tooltip>
-                    <Tooltip content={t('common.rename') || '重命名'} placement="left" asChild>
-                      <button
-                        onClick={(e) => handleRenameStart(e, item)}
-                        className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-blue-500 text-white flex items-center justify-center"
-                      >
-                        <i className="ti ti-pencil text-xs"></i>
-                      </button>
-                    </Tooltip>
-                    <Tooltip content={t('common.delete') || '删除'} placement="left" asChild>
-                      <button
-                        onClick={(e) => handleDeleteImage(e, item)}
-                        className="w-5 h-5 shrink-0 rounded-full bg-black/50 hover:bg-red-500 text-white flex items-center justify-center"
-                      >
-                        <i className="ti ti-x text-xs"></i>
-                      </button>
-                    </Tooltip>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Tooltip>
-        ))}
+        {rowItems.map((item) => {
+          const itemKey = getImageItemKey(item);
+          return (
+            <ImageTile
+              key={item.id || itemKey}
+              item={item}
+              t={t}
+              isDragging={Boolean(itemKey && draggingImageKeys.has(itemKey))}
+              isSelected={Boolean(itemKey && selectedImageKeys.has(itemKey))}
+              onClick={handleImageClick}
+              onMouseDown={handleImageDragMouseDown}
+              onCopy={handleCopyImage}
+              onRename={handleRenameStart}
+              onDelete={handleDeleteImage}
+            />
+          );
+        })}
       </div>
     );
-  }, [imageTotal, imageItems, filteredImageItems, filteredImageTotal, searchQuery, imageCols, scheduleLoadRange, handleImageClick, handleDragMouseDown, handleCopyImage, handleDeleteImage, handleRenameStart, t]);
+  }, [displayImageItems, displayImageTotal, hasSearchQuery, imageCols, scheduleLoadRange, handleImageClick, handleImageDragMouseDown, handleCopyImage, handleDeleteImage, handleRenameStart, draggingImageKeys, selectedImageKeys, t]);
 
   return (
     <div
       ref={gridMeasureRef}
+      data-no-drag
       className="h-full flex flex-col overflow-hidden relative"
+      onMouseDownCapture={handleSelectionMouseDown}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-        {imageTotal === 0 ? (
+        {!currentGroup ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-qc-fg-subtle">
+            <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-qc-border-strong flex items-center justify-center mb-3">
+              <i className="ti ti-folder-plus text-4xl"></i>
+            </div>
+            <p className="text-sm mb-1">{t('emoji.noImageGroup') || '请先创建图库分组'}</p>
+          </div>
+        ) : imageTotal === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-qc-fg-subtle">
             <div className={`w-20 h-20 rounded-2xl border-2 border-dashed flex items-center justify-center mb-3 transition-colors ${
               isDragging ? 'border-blue-500 bg-blue-50' : 'border-qc-border-strong'
             }`}>
-              <i className={`ti ${imageCategory === 'gifs' ? 'ti-gif' : 'ti-photo'} text-4xl ${isDragging ? 'text-blue-500' : ''}`}></i>
+              <i className={`${activeGroupMeta?.icon || 'ti ti-photo'} text-4xl ${isDragging ? 'text-blue-500' : ''}`}></i>
             </div>
             <p className="text-sm mb-1">{t('emoji.dragToAdd') || '拖入图片添加'}</p>
             <p className="text-xs text-qc-fg-subtle">{t('emoji.supportFormats') || '支持 PNG, JPG, GIF, WebP'}</p>
@@ -504,11 +1063,11 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
         ) : (
           <div className="flex-1 overflow-hidden custom-scrollbar-container">
             <Virtuoso
-              key={`${imageCategory}-${imageCols}-${searchQuery?.trim() || ''}`}
+              key={`${currentGroup}-${imageCols}-${searchQuery?.trim() || ''}`}
               ref={imageScrollerRef}
               totalCount={imageRowCount}
               itemContent={renderImageRow}
-              computeItemKey={(index) => `row-${imageCategory}-${imageCols}-${searchQuery}-${index}`}
+              computeItemKey={(index) => `row-${currentGroup}-${imageCols}-${searchQuery}-${index}`}
               scrollerRef={scrollerRefCallback}
               overscan={3}
               className="h-full"
@@ -524,6 +1083,20 @@ function ImageLibraryTab({ imageCategory, searchQuery }) {
             <span className="text-qc-fg">{t('emoji.dropToAdd')}</span>
           </div>
         </div>
+      )}
+
+      {selectionBox && (
+        <div
+          className={`absolute z-30 pointer-events-none rounded border border-blue-500 bg-blue-500/15 ${
+            selectionBox.visible ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{
+            left: `${selectionBox.left}px`,
+            top: `${selectionBox.top}px`,
+            width: `${selectionBox.width}px`,
+            height: `${selectionBox.height}px`
+          }}
+        />
       )}
 
       {isUploading && (

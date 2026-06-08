@@ -178,21 +178,19 @@
       "misc": "杂项",
       "technical": "技术",
       "letterlike": "字母",
-      "numbers": "数字",
-      "images": "图片",
-      "gifs": "GIF"
+      "numbers": "数字"
     },
     "dragToAdd": "拖入图片添加",
     "dropToAdd": "松开添加图片",
     "supportFormats": "支持 PNG, JPG, GIF, WebP",
     "noValidImages": "没有有效的图片文件",
-    "onlyGifAllowed": "此分类只接受 GIF 文件",
-    "onlyImageAllowed": "此分类只接受非 GIF 图片",
     "searchImagePlaceholder": "搜索文件名...",
     "saveFailed": "保存失败: {{name}}",
     "addedImages": "已添加 {{count}} 张图片",
-    "addedGifs": "已添加 {{count}} 张 GIF",
-    "addedBoth": "已添加 {{imageCount}} 张图片、{{gifCount}} 张 GIF",
+    "addedToImageGroup": "已添加 {{count}} 张图片到「{{group}}」",
+    "movedToGroup": "已移动到「{{group}}」",
+    "moveToGroupFailed": "移动分组失败",
+    "noImageGroup": "请先创建图库分组",
     "renameFailed": "重命名失败",
     "uploading": "正在添加 {{current}}/{{total}}..."
   },
@@ -214,6 +212,14 @@
       "iconLabel": "选择图标",
       "saving": "保存中...",
       "customColor": "自定义颜色"
+    },
+    "imageDelete": {
+      "title": "删除分组「{{name}}」",
+      "emptyDesc": "这个分组没有图片，删除后无法恢复。",
+      "nonEmptyDesc": "这个分组中有 {{count}} 张图片，可以选择移动到「{{target}}」再删除分组，也可以连图片一起删除。",
+      "moveThenDelete": "移动并删除分组",
+      "deleteAll": "删除分组和图片",
+      "deleteEmpty": "删除分组"
     }
   },
   "filter": {

@@ -7,6 +7,20 @@ export function useDragWithThreshold(options = {}) {
   const { onDragPending, onDragStart, onDragEnd, onDragCancel, shouldStartDrag } = options;
   const dragStateRef = useRef(null);
 
+  const resolveDragIcon = useCallback(async (iconPath, paths, mode, event) => {
+    try {
+      if (typeof iconPath === 'function') {
+        return await iconPath({ paths, mode, event });
+      }
+      if (iconPath?.then) {
+        return await iconPath;
+      }
+    } catch (err) {
+      console.warn('生成拖拽预览失败:', err);
+    }
+    return iconPath || paths[0];
+  }, []);
+
   const handleMouseDown = useCallback((e, filePaths, iconPath, mode = 'copy') => {
     if (e.button !== 0) return;
     
@@ -36,9 +50,10 @@ export function useDragWithThreshold(options = {}) {
         onDragStart?.();
         let dragPayload = null;
         try {
+          const dragIcon = await resolveDragIcon(iconPath, paths, mode, moveEvent);
           await startDrag({ 
             item: paths, 
-            icon: iconPath || paths[0],
+            icon: dragIcon || paths[0],
             mode,
           }, (payload) => {
             dragPayload = payload || null;
@@ -66,7 +81,7 @@ export function useDragWithThreshold(options = {}) {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
-  }, [onDragPending, onDragStart, onDragEnd, onDragCancel, shouldStartDrag]);
+  }, [onDragPending, onDragStart, onDragEnd, onDragCancel, shouldStartDrag, resolveDragIcon]);
 
   return handleMouseDown;
 }

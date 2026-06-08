@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } fr
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { platform, version as osVersion } from '@tauri-apps/plugin-os';
-import { toast } from '@shared/store/toastStore';
+import { toast, TOAST_POSITIONS, TOAST_SIZES } from '@shared/store/toastStore';
 import { Virtuoso } from 'react-virtuoso';
 import { useInputFocus } from '@shared/hooks/useInputFocus';
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar';
@@ -10,9 +10,11 @@ import { useSnapshot } from 'valtio';
 import { settingsStore } from '@shared/store/settingsStore';
 import { restoreLastFocus } from '@shared/api/window';
 import { ImageLibraryTab } from './emoji';
+import ImageGroupModal from './emoji/ImageGroupModal';
+import * as imageLibrary from '@shared/api/imageLibrary';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 import {
-  SYMBOL_CATS, EMOJI_CATS, IMAGE_CATS, SKIN_TONES,
+  SYMBOL_CATS, EMOJI_CATS, SKIN_TONES,
   RECENT_KEY, SKIN_TONE_KEY, MAX_RECENT,
   symbolCategories,
   ensureEmojiData, getEmojiDataCache, getEmojiMetaCache, getEmojiSkinSupport
@@ -24,6 +26,11 @@ const GRID_MAX_COLS = 12;
 const GRID_MIN_CELL_WIDTH = 42;
 const GRID_GAP_PX = 2;
 const GRID_HORIZONTAL_PADDING_PX = 8;
+const EMOJI_TOAST_CONFIG = {
+  size: TOAST_SIZES.EXTRA_SMALL,
+  position: TOAST_POSITIONS.BOTTOM_RIGHT
+};
+const DEFAULT_IMAGE_GROUP_NAME = '默认';
 const EMOJI_FALLBACK_FONT_TARGET = {
   windows: 'win10',
   linux: false,
@@ -156,7 +163,56 @@ const PreviewTooltipCard = ({ char, title, subtitle, codeLabel, sizeClass = 'tex
   );
 };
 
+const ImageGroupSidebarButton = ({
+  group,
+  isActive,
+  onSelect,
+  onEdit,
+  isDropOver,
+  t
+}) => {
+  return (
+    <div
+      data-image-group-name={group.name}
+      className="group relative w-8 h-8 mx-auto mb-0.5"
+    >
+      <Tooltip content={group.name} placement="right" asChild>
+        <button
+          type="button"
+          onClick={() => onSelect(group.name)}
+          className={`w-full h-full flex items-center justify-center rounded-lg transition-colors ${
+            isActive
+              ? 'bg-blue-100 text-blue-600'
+              : isDropOver
+                ? 'bg-qc-active text-qc-fg'
+                : 'text-qc-fg-muted hover:bg-qc-hover'
+          }`}
+        >
+          <i
+            className={`${group.icon || 'ti ti-photo'} text-base`}
+            style={{ color: isActive ? undefined : (group.color || '#2563eb') }}
+          ></i>
+          {isDropOver && !isActive && (
+            <span className="absolute inset-0 rounded-lg ring-2 ring-blue-400 pointer-events-none" />
+          )}
+        </button>
+      </Tooltip>
+      <button
+        type="button"
+        onClick={(e) => onEdit(e, group)}
+        className="absolute -right-0.5 -top-0.5 w-3.5 h-3.5 rounded-full bg-qc-panel border border-qc-border text-qc-fg-muted hover:text-blue-600 hover:border-blue-400 opacity-0 hover:opacity-100 group-hover:opacity-100 flex items-center justify-center"
+        title={t('groups.edit')}
+      >
+        <i className="ti ti-pencil text-[9px]"></i>
+      </button>
+    </div>
+  );
+};
 
+function getImageGroupNameFromDragEvent(event) {
+  const target = event.target?.closest?.('[data-image-group-name]');
+  return target?.dataset?.imageGroupName || '';
+}
 
 function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const showSymbols = emojiMode === 'symbols';
@@ -166,7 +222,13 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const isChinese = settings.language?.startsWith('zh');
   const [searchQuery, setSearchQuery] = useState('');
   const [recentEmojis, setRecentEmojis] = useState([]);
-  const [imageCategory, setImageCategory] = useState('images'); // 'images' | 'gifs'
+  const [imageGroups, setImageGroups] = useState([]);
+  const [imageGroupLoading, setImageGroupLoading] = useState(false);
+  const [currentImageGroup, setCurrentImageGroup] = useState('');
+  const [showImageGroupModal, setShowImageGroupModal] = useState(false);
+  const [editingImageGroup, setEditingImageGroup] = useState(null);
+  const [imageLibraryReloadKey, setImageLibraryReloadKey] = useState(0);
+  const [imageDragOverGroup, setImageDragOverGroup] = useState('');
   const [skinTone, setSkinTone] = useState(() => localStorage.getItem(SKIN_TONE_KEY) || 'default');
   const [skinPickerEmoji, setSkinPickerEmoji] = useState(null);
   const [isReady, setIsReady] = useState(false);
@@ -174,6 +236,8 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   const [contentWidth, setContentWidth] = useState(0);
   const [useEmojiFallbackFont, setUseEmojiFallbackFont] = useState(false);
   const prevEmojiModeRef = useRef(emojiMode);
+  const activeImageDragItemsRef = useRef([]);
+  const imagePluginDragClearTimerRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const contentMeasureRef = useRef(null);
   const activeCategoryRef = useRef('recent');
@@ -209,13 +273,54 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     };
   }, []);
 
+  const loadImageGroups = useCallback(async (preferredGroup = '') => {
+    setImageGroupLoading(true);
+    try {
+      const groups = await imageLibrary.getImageGroups();
+      if (!Array.isArray(groups)) {
+        setImageGroups([]);
+        setCurrentImageGroup('');
+        return [];
+      }
+
+      setImageGroups(groups);
+      setCurrentImageGroup(prev => {
+        const preferred = preferredGroup && groups.some(group => group.name === preferredGroup)
+          ? preferredGroup
+          : '';
+        if (preferred) return preferred;
+        if (prev && groups.some(group => group.name === prev)) return prev;
+        return groups[0]?.name || '';
+      });
+      return groups;
+    } catch (error) {
+      console.error('加载图库分组失败:', error);
+      setImageGroups([]);
+      setCurrentImageGroup('');
+      return [];
+    } finally {
+      setImageGroupLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showImages) return undefined;
+    loadImageGroups();
+    return undefined;
+  }, [showImages, loadImageGroups]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       ensureEmojiData();
       emojiMetaRef.current = getEmojiMetaCache() || {};
       setIsReady(true);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (imagePluginDragClearTimerRef.current) {
+        window.clearTimeout(imagePluginDragClearTimerRef.current);
+      }
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -361,7 +466,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
       addToRecent(char, name, nameCn);
     } catch (e) {
       console.error('粘贴失败:', e);
-      toast.error(t('common.error'));
+      toast.error(t('common.error'), EMOJI_TOAST_CONFIG);
     }
   }, [addToRecent, t, applySkintone, updateSkinToneFromEmoji]);
 
@@ -486,7 +591,7 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
     setSearchQuery('');
     
     if (showImages) {
-      setImageCategory('images');
+      loadImageGroups(currentImageGroup);
     } else {
       const firstCat = showSymbols ? SYMBOL_CATS[0]?.id : EMOJI_CATS[0]?.id;
       if (firstCat) {
@@ -638,38 +743,202 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
   }, [handlePaste, isChinese, skinTone, applySkintone, getSkinVariants, handleSkinPickerOpen, emojiGlyphClassName]);
 
   const currentCategories = useMemo(() => {
-    if (showImages) return IMAGE_CATS;
+    if (showImages) return imageGroups.map(group => ({
+      id: group.name,
+      icon: group.icon || 'ti ti-photo',
+      label: group.name,
+      color: group.color || '#2563eb',
+      itemCount: group.item_count || 0
+    }));
     if (showSymbols) return SYMBOL_CATS;
     return EMOJI_CATS;
-  }, [showImages, showSymbols]);
+  }, [showImages, showSymbols, imageGroups]);
 
-  const handleImageCategoryClick = useCallback((catId) => {
-    setImageCategory(catId);
+  const handleImageGroupClick = useCallback((groupName) => {
+    setCurrentImageGroup(groupName);
   }, []);
 
   const handleCategoryClick = useCallback((catId) => {
     if (showImages) {
-      handleImageCategoryClick(catId);
+      handleImageGroupClick(catId);
     } else {
       scrollToCategory(catId);
     }
-  }, [showImages, handleImageCategoryClick, scrollToCategory]);
+  }, [showImages, handleImageGroupClick, scrollToCategory]);
 
-  const activeCategory = showImages ? imageCategory : activeCategoryRef.current;
+  const handleAddImageGroup = useCallback(() => {
+    setEditingImageGroup(null);
+    setShowImageGroupModal(true);
+  }, []);
+
+  const handleEditImageGroup = useCallback((e, group) => {
+    e.stopPropagation();
+    setEditingImageGroup(group);
+    setShowImageGroupModal(true);
+  }, []);
+
+  const handleImageGroupSaved = useCallback(async (savedGroup) => {
+    setShowImageGroupModal(false);
+    setEditingImageGroup(null);
+    if (savedGroup?.deleted) {
+      const groups = Array.isArray(savedGroup.groups)
+        ? savedGroup.groups
+        : await loadImageGroups(DEFAULT_IMAGE_GROUP_NAME);
+      setImageGroups(groups);
+      const nextName = groups.find(group => group.name === DEFAULT_IMAGE_GROUP_NAME)?.name
+        || groups[0]?.name
+        || '';
+      setCurrentImageGroup(nextName);
+      setImageLibraryReloadKey(prev => prev + 1);
+      toast.success(t('common.deleted'), EMOJI_TOAST_CONFIG);
+      return;
+    }
+
+    const nextName = savedGroup?.name || currentImageGroup;
+    await loadImageGroups(nextName);
+  }, [currentImageGroup, loadImageGroups, t]);
+
+  const refreshImageLibraryGroups = useCallback(async (preferredGroup = currentImageGroup) => {
+    const groups = await loadImageGroups(preferredGroup);
+    return groups;
+  }, [currentImageGroup, loadImageGroups]);
+
+  const clearImagePluginDragState = useCallback(() => {
+    if (imagePluginDragClearTimerRef.current) {
+      window.clearTimeout(imagePluginDragClearTimerRef.current);
+      imagePluginDragClearTimerRef.current = null;
+    }
+    activeImageDragItemsRef.current = [];
+    setImageDragOverGroup('');
+  }, []);
+
+  const handleImagePluginDragStart = useCallback((items) => {
+    if (imagePluginDragClearTimerRef.current) {
+      window.clearTimeout(imagePluginDragClearTimerRef.current);
+      imagePluginDragClearTimerRef.current = null;
+    }
+    const dragItems = Array.isArray(items) ? items : [items];
+    activeImageDragItemsRef.current = dragItems.filter(item => item?.path && item?.filename);
+    setImageDragOverGroup('');
+  }, []);
+
+  const handleImagePluginDragEnd = useCallback(() => {
+    if (imagePluginDragClearTimerRef.current) {
+      window.clearTimeout(imagePluginDragClearTimerRef.current);
+    }
+    imagePluginDragClearTimerRef.current = window.setTimeout(() => {
+      clearImagePluginDragState();
+    }, 250);
+  }, [clearImagePluginDragState]);
+
+  const moveActiveImageToGroup = useCallback(async (targetGroup) => {
+    const items = activeImageDragItemsRef.current || [];
+    if (!items.length || !targetGroup) return;
+
+    const movableItems = items.filter(item => {
+      const sourceGroup = item.group || item.category;
+      return sourceGroup && sourceGroup !== targetGroup && item.filename;
+    });
+    if (!movableItems.length) return;
+
+    try {
+      await Promise.all(movableItems.map(item => {
+        const sourceGroup = item.group || item.category;
+        return imageLibrary.moveImageToGroup(sourceGroup, item.filename, targetGroup);
+      }));
+      toast.success(t('emoji.movedToGroup', { group: targetGroup }) || `已移动到 ${targetGroup}`, EMOJI_TOAST_CONFIG);
+      setImageLibraryReloadKey(prev => prev + 1);
+      await loadImageGroups(currentImageGroup);
+    } catch (error) {
+      console.error('移动图片分组失败:', error);
+      toast.error(t('emoji.moveToGroupFailed') || '移动分组失败', EMOJI_TOAST_CONFIG);
+    }
+  }, [currentImageGroup, loadImageGroups, t]);
+
+  const handleImageSidebarDragEnter = useCallback((event) => {
+    if (!showImages) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const groupName = getImageGroupNameFromDragEvent(event);
+    if (!activeImageDragItemsRef.current.length) return;
+    setImageDragOverGroup(groupName);
+  }, [showImages]);
+
+  const handleImageSidebarDragOver = useCallback((event) => {
+    if (!showImages) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+    const groupName = getImageGroupNameFromDragEvent(event);
+    if (!activeImageDragItemsRef.current.length) return;
+    setImageDragOverGroup(groupName);
+  }, [showImages]);
+
+  const handleImageSidebarDragLeave = useCallback((event) => {
+    if (!showImages) return;
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    setImageDragOverGroup('');
+  }, [showImages]);
+
+  const handleImageSidebarDrop = useCallback(async (event) => {
+    if (!showImages) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const groupName = getImageGroupNameFromDragEvent(event);
+    setImageDragOverGroup('');
+    await moveActiveImageToGroup(groupName);
+    clearImagePluginDragState();
+  }, [clearImagePluginDragState, moveActiveImageToGroup, showImages]);
 
   return (
     <div className="h-full flex bg-qc-surface">
       {/* 侧边分类栏 */}
-      <div className="emoji-sidebar w-10 flex-shrink-0 bg-qc-panel border-r border-qc-border flex flex-col py-1 overflow-y-auto scrollbar-hide">
+      <div
+        className="emoji-sidebar w-10 flex-shrink-0 bg-qc-panel border-r border-qc-border flex flex-col py-1 overflow-y-auto scrollbar-hide"
+        onDragEnter={handleImageSidebarDragEnter}
+        onDragOver={handleImageSidebarDragOver}
+        onDragLeave={handleImageSidebarDragLeave}
+        onDrop={handleImageSidebarDrop}
+      >
         {/* 分类按钮 */}
-        {currentCategories.map((cat, idx) => (
+        {showImages ? (
+          <>
+            {imageGroups.map(group => (
+              <ImageGroupSidebarButton
+                key={group.name}
+                group={group}
+                isActive={currentImageGroup === group.name}
+                onSelect={handleImageGroupClick}
+                onEdit={handleEditImageGroup}
+                isDropOver={imageDragOverGroup === group.name}
+                t={t}
+              />
+            ))}
+            {imageGroupLoading && imageGroups.length === 0 && (
+              <div className="w-8 h-8 mx-auto mb-0.5 flex items-center justify-center text-qc-fg-subtle">
+                <i className="ti ti-loader-2 animate-spin text-base"></i>
+              </div>
+            )}
+            <Tooltip content={t('groups.add')} placement="right" asChild>
+              <button
+                type="button"
+                onClick={handleAddImageGroup}
+                className="w-8 h-8 mx-auto mt-auto flex items-center justify-center rounded-lg transition-colors text-qc-fg-muted hover:bg-qc-hover hover:text-blue-600"
+              >
+                <i className="ti ti-plus text-base"></i>
+              </button>
+            </Tooltip>
+          </>
+        ) : currentCategories.map((cat, idx) => (
           <Tooltip key={cat.id} content={t(cat.labelKey)} placement="right" asChild>
             <button
               ref={el => sidebarButtonsRef.current[cat.id] = el}
               onClick={() => handleCategoryClick(cat.id)}
               className={`w-8 h-8 mx-auto mb-0.5 flex items-center justify-center rounded-lg transition-colors ${
-                (showImages ? imageCategory === cat.id : idx === 0) 
-                  ? 'bg-blue-100 text-blue-600' 
+                idx === 0
+                  ? 'bg-blue-100 text-blue-600'
                   : 'text-qc-fg-muted hover:bg-qc-hover'
               }`}
             >
@@ -703,7 +972,16 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
 
         {/* 内容滚动区 */}
         {showImages ? (
-          <ImageLibraryTab imageCategory={imageCategory} searchQuery={searchQuery} />
+          <ImageLibraryTab
+            currentGroup={currentImageGroup}
+            imageGroups={imageGroups}
+            searchQuery={searchQuery}
+            onGroupsChange={refreshImageLibraryGroups}
+            onImageDragStart={handleImagePluginDragStart}
+            onImageDragEnd={handleImagePluginDragEnd}
+            onImageDragCancel={clearImagePluginDragState}
+            reloadKey={imageLibraryReloadKey}
+          />
         ) : (
         <div ref={contentMeasureRef} className="emoji-content flex-1 overflow-hidden custom-scrollbar-container">
           {(!isReady || !isModeReady) ? (
@@ -772,6 +1050,17 @@ function EmojiTab({ emojiMode, onEmojiModeChange }) {
             })}
           </div>
         </>
+      )}
+
+      {showImageGroupModal && (
+        <ImageGroupModal
+          group={editingImageGroup}
+          onClose={() => {
+            setShowImageGroupModal(false);
+            setEditingImageGroup(null);
+          }}
+          onSave={handleImageGroupSaved}
+        />
       )}
     </div>
   );

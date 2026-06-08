@@ -337,6 +337,11 @@ pub fn run() {
                 commands::il_rename_image,
                 commands::il_get_images_dir,
                 commands::il_get_gifs_dir,
+                commands::il_get_groups,
+                commands::il_add_group,
+                commands::il_update_group,
+                commands::il_move_image_to_group,
+                commands::il_delete_group,
                 commands::recognize_image_ocr,
                 commands::recognize_file_ocr,
                 #[cfg(feature = "gpu-image-viewer")]

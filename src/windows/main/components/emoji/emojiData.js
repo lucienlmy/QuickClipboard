@@ -63,11 +63,6 @@ export const SYMBOL_CATS = [
   { id: 'numbers', icon: 'ti-number', labelKey: 'emoji.cat.numbers' },
 ];
 
-export const IMAGE_CATS = [
-  { id: 'images', icon: 'ti-photo', labelKey: 'emoji.cat.images' },
-  { id: 'gifs', icon: 'ti-gif', labelKey: 'emoji.cat.gifs' },
-];
-
 export const EMOJI_CATS = [
   { id: 'recent', icon: 'ti-clock', labelKey: 'emoji.recent' },
   { id: 'smileys-emotion', icon: 'ti-mood-smile', labelKey: 'emoji.smileys' },

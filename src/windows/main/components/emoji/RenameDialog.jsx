@@ -22,7 +22,12 @@ function RenameDialog({ value, onChange, onConfirm, onCancel }) {
           onFocus={focusWindowImmediately}
           onBlur={restoreFocus}
           autoFocus
-          className="w-full h-9 px-3 text-sm bg-qc-panel-2 border border-qc-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-qc-fg"
+          className="w-full h-9 px-3 text-sm appearance-none bg-qc-panel-2 border border-qc-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-qc-fg placeholder:text-qc-fg-subtle"
+          style={{
+            backgroundColor: 'var(--qc-panel-2)',
+            color: 'var(--qc-fg)',
+            colorScheme: 'light',
+          }}
         />
         <div className="flex justify-end gap-2 mt-4">
           <button
