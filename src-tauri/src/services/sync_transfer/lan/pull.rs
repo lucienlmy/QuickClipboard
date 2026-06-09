@@ -20,7 +20,6 @@ pub async fn pull_from_peer(device_id: &str) -> Result<SyncReport, String> {
         crate::services::database::COLLECTION_HISTORY,
         &history.records,
     )?;
-    fetch_missing_images(&peer, &history_records).await?;
     let changed_history = crate::services::database::lan_upsert_history_records(&history_records)?;
     let changed_history_count = changed_history.len() as u32;
     report.pulled_clipboard += changed_history_count;
@@ -34,7 +33,6 @@ pub async fn pull_from_peer(device_id: &str) -> Result<SyncReport, String> {
         crate::services::database::COLLECTION_FAVORITES,
         &favorites.records,
     )?;
-    fetch_missing_images(&peer, &favorite_records).await?;
     let changed_favorites = crate::services::database::lan_upsert_favorite_records(&favorite_records)?;
     let changed_favorites_count = changed_favorites.len() as u32;
     report.pulled_favorites += changed_favorites_count;
@@ -59,18 +57,36 @@ pub async fn pull_from_peer(device_id: &str) -> Result<SyncReport, String> {
         }
     }));
 
+    let image_peer = peer.clone();
+    tauri::async_runtime::spawn(async move {
+        fetch_missing_images_best_effort(&image_peer, &history_records).await;
+        fetch_missing_images_best_effort(&image_peer, &favorite_records).await;
+    });
+
     Ok(report)
 }
 
-async fn fetch_missing_images(peer: &super::peer_store::PairedPeer, records: &[crate::services::webdav_sync::types::CloudRecord]) -> Result<(), String> {
+async fn fetch_missing_images_best_effort(
+    peer: &super::peer_store::PairedPeer,
+    records: &[crate::services::webdav_sync::types::CloudRecord],
+) {
     for image_id in super::files::collect_record_image_ids(records) {
-        if super::files::read_image_file(&image_id)?.is_some() {
-            continue;
+        match super::files::read_image_file(&image_id) {
+            Ok(Some(_)) => continue,
+            Ok(None) => {}
+            Err(e) => {
+                eprintln!("[局域网同步] 检查本地图片失败 image_id={} 错误={}", image_id, e);
+                continue;
+            }
         }
-        let Some(bytes) = super::http_client::fetch_peer_image(peer, &image_id).await? else {
-            continue;
-        };
-        super::files::save_image_file(&image_id, &bytes)?;
+        match super::http_client::fetch_peer_image(peer, &image_id).await {
+            Ok(Some(bytes)) => {
+                if let Err(e) = super::files::save_image_file(&image_id, &bytes) {
+                    eprintln!("[局域网同步] 保存拉取图片失败 image_id={} 错误={}", image_id, e);
+                }
+            }
+            Ok(None) => {}
+            Err(e) => eprintln!("[局域网同步] 拉取图片失败 image_id={} 错误={}", image_id, e),
+        }
     }
-    Ok(())
 }

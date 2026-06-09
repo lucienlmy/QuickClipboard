@@ -10,6 +10,7 @@ use tokio_util::io::ReaderStream;
 
 pub const LAN_UNAUTHORIZED: &str = "局域网设备未授权（配对已失效）";
 const FILE_TRANSFER_BUFFER_SIZE: usize = 1024 * 1024;
+const SYNC_REQUEST_TIMEOUT_SECS: u64 = 180;
 const TRANSFER_CONNECT_TIMEOUT_SECS: u64 = 10;
 const IMAGE_REQUEST_MAX_ATTEMPTS: usize = 3;
 const IMAGE_REQUEST_RETRY_DELAYS_MS: [u64; 2] = [300, 800];
@@ -18,7 +19,7 @@ fn build_client() -> reqwest::Client {
     reqwest::Client::builder()
         .no_proxy()
         .connect_timeout(Duration::from_secs(3))
-        .timeout(Duration::from_secs(20))
+        .timeout(Duration::from_secs(SYNC_REQUEST_TIMEOUT_SECS))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
 }
@@ -379,14 +380,14 @@ async fn authorized_get<T: serde::de::DeserializeOwned>(peer: &super::peer_store
         .header("X-Device-Id", super::runtime::device_id())
         .send()
         .await
-        .map_err(|e| format!("读取局域网同步数据失败: {}", e))?;
+        .map_err(|e| format!("读取局域网同步数据失败({}): {}", path, e))?;
     if response.status() == reqwest::StatusCode::FORBIDDEN {
         return Err(LAN_UNAUTHORIZED.to_string());
     }
     if !response.status().is_success() {
-        return Err(format!("读取局域网同步数据失败: {}", response.status()));
+        return Err(format!("读取局域网同步数据失败({}): {}", path, response.status()));
     }
-    response.json::<T>().await.map_err(|e| format!("解析局域网同步数据失败: {}", e))
+    response.json::<T>().await.map_err(|e| format!("解析局域网同步数据失败({}): {}", path, e))
 }
 
 async fn authorized_post<T, B>(peer: &super::peer_store::PairedPeer, path: &str, body: &B) -> Result<T, String>
@@ -406,11 +407,11 @@ where
         .json(body)
         .send()
         .await
-        .map_err(|e| format!("推送局域网同步数据失败: {}", e))?;
+        .map_err(|e| format!("推送局域网同步数据失败({}): {}", path, e))?;
     if !response.status().is_success() {
-        return Err(format!("推送局域网同步数据失败: {}", response.status()));
+        return Err(format!("推送局域网同步数据失败({}): {}", path, response.status()));
     }
-    response.json::<T>().await.map_err(|e| format!("解析局域网推送结果失败: {}", e))
+    response.json::<T>().await.map_err(|e| format!("解析局域网推送结果失败({}): {}", path, e))
 }
 
 fn should_retry_transport_error(error: &reqwest::Error) -> bool {

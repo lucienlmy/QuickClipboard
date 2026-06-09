@@ -9,6 +9,7 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
     let local_device_id = super::runtime::device_id();
     let mut report = SyncReport::default();
     let remote_snapshot = super::http_client::fetch_peer_snapshot(&peer).await?;
+    let mut image_task_started = false;
 
     let tombstones = crate::services::database::tombstones_newer_than_remote(
         crate::services::database::list_sync_tombstones_since(None)?,
@@ -34,25 +35,34 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
         local_history_records,
         &remote_snapshot.tombstone_states,
     );
-    let history_records = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
+    let history_repair_records = history_records.clone();
+    let history_records_to_push = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
         history_records,
         &remote_snapshot.history_states,
     );
-    if !history_records.is_empty() {
-        push_images(&peer, &history_records).await?;
-        let changed_history = super::http_client::push_peer_history_records(
+    if !history_records_to_push.is_empty() {
+        let history_image_records = history_records_to_push.clone();
+        let changed_history = match super::http_client::push_peer_history_records(
             &peer,
             super::LanRecordBatch {
                 collection: "history".to_string(),
-                records: history_records,
+                records: history_records_to_push,
             },
         )
-        .await?;
+        .await {
+            Ok(value) => value,
+            Err(e) => {
+                spawn_push_images(peer.clone(), "history", history_image_records);
+                return Err(e);
+            }
+        };
         report.pushed_clipboard = changed_history.records.len() as u32;
         report.pushed += report.pushed_clipboard;
         report
             .pushed_items
             .extend(changed_history.records.iter().map(|record| record.report_item("clipboard")));
+        spawn_push_images(peer.clone(), "history", history_image_records);
+        image_task_started = true;
     }
 
     let local_favorite_records = crate::services::database::webdav_list_favorite_records(&local_device_id)?;
@@ -65,25 +75,34 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
         local_favorite_records,
         &remote_snapshot.tombstone_states,
     );
-    let favorite_records = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
+    let favorite_repair_records = favorite_records.clone();
+    let favorite_records_to_push = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
         favorite_records,
         &remote_snapshot.favorite_states,
     );
-    if !favorite_records.is_empty() {
-        push_images(&peer, &favorite_records).await?;
-        let changed_favorites = super::http_client::push_peer_favorite_records(
+    if !favorite_records_to_push.is_empty() {
+        let favorite_image_records = favorite_records_to_push.clone();
+        let changed_favorites = match super::http_client::push_peer_favorite_records(
             &peer,
             super::LanRecordBatch {
                 collection: "favorites".to_string(),
-                records: favorite_records,
+                records: favorite_records_to_push,
             },
         )
-        .await?;
+        .await {
+            Ok(value) => value,
+            Err(e) => {
+                spawn_push_images(peer.clone(), "favorites", favorite_image_records);
+                return Err(e);
+            }
+        };
         report.pushed_favorites = changed_favorites.records.len() as u32;
         report.pushed += report.pushed_favorites;
         report
             .pushed_items
             .extend(changed_favorites.records.iter().map(|record| record.report_item("favorites")));
+        spawn_push_images(peer.clone(), "favorites", favorite_image_records);
+        image_task_started = true;
     }
 
     let local_groups = crate::services::database::webdav_list_groups(&local_device_id)?;
@@ -117,15 +136,71 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
         }));
     }
 
+    if !image_task_started && report.pushed == 0 {
+        spawn_push_images(peer.clone(), "history", history_repair_records);
+        spawn_push_images(peer.clone(), "favorites", favorite_repair_records);
+    }
+
     Ok(report)
 }
 
-async fn push_images(peer: &super::peer_store::PairedPeer, records: &[crate::services::webdav_sync::types::CloudRecord]) -> Result<(), String> {
-    for image_id in super::files::collect_record_image_ids(records) {
-        let Some(bytes) = super::files::read_image_file(&image_id)? else {
+fn spawn_push_images(
+    peer: super::peer_store::PairedPeer,
+    collection: &'static str,
+    records: Vec<crate::services::webdav_sync::types::CloudRecord>,
+) {
+    if records.is_empty() {
+        return;
+    }
+    tauri::async_runtime::spawn(async move {
+        push_images_best_effort(&peer, collection, &records).await;
+    });
+}
+
+async fn push_images_best_effort(
+    peer: &super::peer_store::PairedPeer,
+    collection: &str,
+    records: &[crate::services::webdav_sync::types::CloudRecord],
+) {
+    let image_ids = super::files::collect_record_image_ids(records);
+    if image_ids.is_empty() {
+        return;
+    }
+    eprintln!(
+        "[局域网同步] 开始后台推送图片 collection={} peer={} count={}",
+        collection,
+        peer.device_name,
+        image_ids.len()
+    );
+    let mut sent = 0usize;
+    let mut failed = 0usize;
+    let mut missing = 0usize;
+    for image_id in image_ids {
+        let Some(bytes) = (match super::files::read_image_file(&image_id) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                eprintln!("[局域网同步] 读取待推送图片失败 image_id={} 错误={}", image_id, e);
+                failed += 1;
+                continue;
+            }
+        }) else {
+            missing += 1;
             continue;
         };
-        super::http_client::push_peer_image(peer, &image_id, bytes).await?;
+        match super::http_client::push_peer_image(peer, &image_id, bytes).await {
+            Ok(()) => sent += 1,
+            Err(e) => {
+                failed += 1;
+                eprintln!("[局域网同步] 推送图片失败 image_id={} 错误={}", image_id, e);
+            }
+        }
     }
-    Ok(())
+    eprintln!(
+        "[局域网同步] 后台推送图片完成 collection={} peer={} success={} missing={} failed={}",
+        collection,
+        peer.device_name,
+        sent,
+        missing,
+        failed
+    );
 }

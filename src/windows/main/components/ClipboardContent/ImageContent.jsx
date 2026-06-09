@@ -36,6 +36,8 @@ function ImageContent({ item }) {
   const [fileSize, setFileSize] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [imageDimensions, setImageDimensions] = useState(null);
+  const [retryToken, setRetryToken] = useState(0);
+  const retryTimerRef = useRef(null);
   const imagePathRef = useRef(null);
   const imageElementRef = useRef(null);
 
@@ -110,7 +112,7 @@ function ImageContent({ item }) {
           const filePath = `${normalizedDataDir}/clipboard_images/${imageId}.png`;
           imagePathRef.current = filePath;
           setFileName(`${imageId}.png`);
-          setImageSrc(convertFileSrc(filePath, 'asset'));
+          setImageSrc(`${convertFileSrc(filePath, 'asset')}?retry=${retryToken}`);
           return;
         }
 
@@ -139,7 +141,30 @@ function ImageContent({ item }) {
         imageElementRef.current.src = '';
       }
     };
-  }, [item.id, item.content, item.image_id]);
+  }, [item.id, item.content, item.image_id, retryToken]);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleLocalImageRetry = () => {
+    if (!parseFirstImageId(item.image_id)) {
+      setError(true);
+      return;
+    }
+    if (retryTimerRef.current) {
+      return;
+    }
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      setRetryToken((value) => value + 1);
+    }, 2000);
+    setError(true);
+  };
 
   if (loading) {
     return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-qc-panel-2 rounded flex items-center justify-center overflow-hidden`}>
@@ -267,7 +292,7 @@ function ImageContent({ item }) {
         className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`}
         loading="lazy"
         decoding="async"
-        onError={() => setError(true)}
+        onError={scheduleLocalImageRetry}
       />
     </div>
   );
