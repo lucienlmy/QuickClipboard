@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { hideMainWindow } from '@shared/api'
 
@@ -15,71 +15,31 @@ export function useNavigationKeyboard({
   onNextGroup = null,
   enabled = true
 }) {
+  const handlersRef = useRef({
+    onNavigateUp,
+    onNavigateDown,
+    onExecuteItem,
+    onTabLeft,
+    onTabRight,
+    onFocusSearch,
+    onTogglePin,
+    onPreviousGroup,
+    onNextGroup
+  })
+
   useEffect(() => {
-    if (!enabled) return
-    
-    let unlistenNavigationAction = null
-    
-    // 设置导航事件监听
-    const setupNavigationListener = async () => {
-      try {
-        unlistenNavigationAction = await listen('navigation-action', (event) => {
-          const action = event.payload.action
-          
-          switch (action) {
-            case 'navigate-up':
-              if (onNavigateUp) onNavigateUp()
-              break
-            case 'navigate-down':
-              if (onNavigateDown) onNavigateDown()
-              break
-            case 'execute-item':
-              if (onExecuteItem) onExecuteItem()
-              break
-            case 'tab-left':
-              if (onTabLeft) onTabLeft()
-              break
-            case 'tab-right':
-              if (onTabRight) onTabRight()
-              break
-            case 'focus-search':
-              if (onFocusSearch) onFocusSearch()
-              break
-            case 'hide-window':
-              hideMainWindow().catch(err => {
-                console.error('隐藏窗口失败:', err)
-              })
-              break
-            case 'toggle-pin':
-              if (onTogglePin) {
-                onTogglePin()
-              }
-              break
-            case 'previous-group':
-              if (onPreviousGroup) onPreviousGroup()
-              break
-            case 'next-group':
-              if (onNextGroup) onNextGroup()
-              break
-            default:
-              break
-          }
-        })
-      } catch (error) {
-        console.error('设置导航监听器失败:', error)
-      }
-    }
-    
-    setupNavigationListener()
-    
-    // 清理
-    return () => {
-      if (unlistenNavigationAction) {
-        unlistenNavigationAction()
-      }
+    handlersRef.current = {
+      onNavigateUp,
+      onNavigateDown,
+      onExecuteItem,
+      onTabLeft,
+      onTabRight,
+      onFocusSearch,
+      onTogglePin,
+      onPreviousGroup,
+      onNextGroup
     }
   }, [
-    enabled,
     onNavigateUp,
     onNavigateDown,
     onExecuteItem,
@@ -90,5 +50,79 @@ export function useNavigationKeyboard({
     onPreviousGroup,
     onNextGroup
   ])
+
+  useEffect(() => {
+    if (!enabled) return
+    
+    let unlistenNavigationAction = null
+    let cancelled = false
+    
+    const setupNavigationListener = async () => {
+      try {
+        const unlisten = await listen('navigation-action', (event) => {
+          const action = event.payload.action
+          const handlers = handlersRef.current
+          
+          switch (action) {
+            case 'navigate-up':
+              if (handlers.onNavigateUp) handlers.onNavigateUp()
+              break
+            case 'navigate-down':
+              if (handlers.onNavigateDown) handlers.onNavigateDown()
+              break
+            case 'execute-item':
+              if (handlers.onExecuteItem) handlers.onExecuteItem()
+              break
+            case 'tab-left':
+              if (handlers.onTabLeft) handlers.onTabLeft()
+              break
+            case 'tab-right':
+              if (handlers.onTabRight) handlers.onTabRight()
+              break
+            case 'focus-search':
+              if (handlers.onFocusSearch) handlers.onFocusSearch()
+              break
+            case 'hide-window':
+              hideMainWindow().catch(err => {
+                console.error('隐藏窗口失败:', err)
+              })
+              break
+            case 'toggle-pin':
+              if (handlers.onTogglePin) {
+                handlers.onTogglePin()
+              }
+              break
+            case 'previous-group':
+              if (handlers.onPreviousGroup) handlers.onPreviousGroup()
+              break
+            case 'next-group':
+              if (handlers.onNextGroup) handlers.onNextGroup()
+              break
+            default:
+              break
+          }
+        })
+
+        if (cancelled) {
+          unlisten()
+          return
+        }
+
+        unlistenNavigationAction = unlisten
+      } catch (error) {
+        console.error('设置导航监听器失败:', error)
+      }
+    }
+    
+    setupNavigationListener()
+    
+    return () => {
+      cancelled = true
+      if (unlistenNavigationAction) {
+        unlistenNavigationAction()
+        unlistenNavigationAction = null
+      }
+    }
+  }, [enabled])
 }
 
