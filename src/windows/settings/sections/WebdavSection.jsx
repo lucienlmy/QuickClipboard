@@ -440,7 +440,7 @@ function WebdavSection({ settings, onSettingChange }) {
         <div className="flex flex-wrap items-center gap-3">
           <Toggle checked={Boolean(settings.webdavAutoPull)} onChange={checked => update('webdavAutoPull', checked)} />
           <span className="text-sm text-qc-fg-muted">{t('settings.webdav.pullIntervalSecs')}</span>
-          <Input type="number" value={settings.webdavPullIntervalSecs ?? 30} commitOnBlur onCommit={v => update('webdavPullIntervalSecs', Math.max(10, parseInt(String(v), 10) || 30))} min={10} className="w-24" />
+          <Input type="number" value={settings.webdavPullIntervalSecs ?? 30} commitOnBlur onCommit={v => update('webdavPullIntervalSecs', Math.max(1, parseInt(String(v), 10) || 30))} min={1} className="w-24" />
         </div>
       </SettingItem>
     </SettingsSection>

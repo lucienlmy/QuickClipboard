@@ -80,7 +80,7 @@ pub fn start() {
             }
 
             if settings.webdav_auto_pull {
-                let interval = settings.webdav_pull_interval_secs.max(10);
+                let interval = settings.webdav_pull_interval_secs.max(1);
                 if seconds_since_pull % interval == 0 {
                     if let Ok(report) = super::download_raw(false).await {
                         store_report("pull", report, true);
