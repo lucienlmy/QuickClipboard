@@ -5,6 +5,7 @@ use rusqlite::{params, OptionalExtension};
 use chrono;
 
 const DEFAULT_GROUP_COLOR: &str = "#dc2626";
+const DEFAULT_GROUP_ICON: &str = "ti ti-folder";
 
 // 获取所有分组
 pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
@@ -17,9 +18,10 @@ pub fn webdav_list_groups(device_id: &str) -> Result<Vec<CloudGroup>, String> {
         )?;
         let rows = stmt.query_map([], |row| {
             let source_device_id = row.get::<_, String>(4)?.trim().to_string();
+            let icon = row.get::<_, String>(1)?;
             Ok(CloudGroup {
                 name: row.get(0)?,
-                icon: row.get(1)?,
+                icon: normalize_group_icon(&icon),
                 color: normalize_group_color(&row.get::<_, String>(2)?),
                 order: row.get(3)?,
                 source_device_id: if source_device_id.is_empty() { device_id.to_string() } else { source_device_id },
@@ -62,6 +64,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
             } else {
                 group.updated_at
             };
+            let incoming_icon = normalize_group_icon(&group.icon);
 
             let existing = tx
                 .query_row(
@@ -82,10 +85,14 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                 .optional()?;
 
             if let Some((icon, color, order, source_device_id, created_at, updated_at)) = existing {
+                let existing_icon = normalize_group_icon(&icon);
+                let incoming_icon = merge_group_icon(&icon, &group.icon);
                 let existing_color = normalize_group_color(&color);
                 let incoming_color = normalize_incoming_group_color(&group.color)
                     .unwrap_or_else(|| existing_color.clone());
+                let should_repair_existing_icon = icon != existing_icon;
                 let should_repair_existing_color = !is_canonical_group_color(&color);
+                let repair_icon = existing_icon.clone();
                 let repair_color = if is_empty_or_transparent_group_color(&color)
                     && !is_empty_or_transparent_group_color(&group.color)
                 {
@@ -93,7 +100,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                 } else {
                     existing_color.clone()
                 };
-                let same = icon == group.icon
+                let same = existing_icon == incoming_icon
                     && existing_color == incoming_color
                     && order == group.order
                     && source_device_id == group.source_device_id
@@ -101,12 +108,13 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                     && updated_at == restored_updated_at;
 
                 if updated_at >= restored_updated_at {
-                    if should_repair_existing_color {
+                    if should_repair_existing_icon || should_repair_existing_color {
                         tx.execute(
-                            "UPDATE groups SET color = ?1 WHERE name = ?2",
-                            params![repair_color, group.name],
+                            "UPDATE groups SET icon = ?1, color = ?2 WHERE name = ?3",
+                            params![repair_icon, repair_color, group.name],
                         )?;
                         let mut changed_group = group.clone();
+                        changed_group.icon = repair_icon;
                         changed_group.color = repair_color;
                         changed_group.updated_at = updated_at;
                         changed.push(changed_group);
@@ -142,7 +150,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                         updated_at = ?6
                      WHERE name = ?7",
                     params![
-                        group.icon,
+                        incoming_icon,
                         incoming_color,
                         group.order,
                         group.source_device_id,
@@ -159,6 +167,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                     )?;
                 }
                 let mut changed_group = group.clone();
+                changed_group.icon = incoming_icon;
                 changed_group.color = incoming_color;
                 changed_group.updated_at = restored_updated_at;
                 changed.push(changed_group);
@@ -172,7 +181,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     group.name,
-                    group.icon,
+                    incoming_icon,
                     incoming_color,
                     group.order,
                     group.source_device_id,
@@ -188,6 +197,7 @@ fn save_groups(groups: &[CloudGroup], ignore_tombstones: bool) -> Result<Vec<Clo
                 )?;
             }
             let mut changed_group = group.clone();
+            changed_group.icon = incoming_icon;
             changed_group.color = incoming_color;
             changed_group.updated_at = restored_updated_at;
             changed.push(changed_group);
@@ -221,7 +231,7 @@ pub fn get_all_groups() -> Result<Vec<GroupInfo>, String> {
             
             groups.push(GroupInfo {
                 name,
-                icon,
+                icon: normalize_group_icon(&icon),
                 color: normalize_group_color(&color),
                 order,
                 item_count: count,
@@ -255,6 +265,7 @@ pub fn add_group(name: String, icon: String, color: String) -> Result<GroupInfo,
         
         let new_order = max_order.unwrap_or(0) + 1;
         let now = chrono::Local::now().timestamp();
+        let icon = normalize_group_icon(&icon);
         let color = normalize_group_color(&color);
         
         conn.execute(
@@ -290,6 +301,7 @@ pub fn update_group(old_name: String, new_name: String, new_icon: String, new_co
         }
         
         let now = chrono::Local::now().timestamp();
+        let new_icon = normalize_group_icon(&new_icon);
         let new_color = normalize_group_color(&new_color);
         let tx = conn.unchecked_transaction()?;
         
@@ -372,6 +384,23 @@ pub fn delete_group(name: String) -> Result<(), String> {
 
 fn normalize_group_color(raw: &str) -> String {
     normalize_incoming_group_color(raw).unwrap_or_else(|| DEFAULT_GROUP_COLOR.to_string())
+}
+
+fn normalize_group_icon(raw: &str) -> String {
+    let icon = raw.trim();
+    if icon.is_empty() {
+        DEFAULT_GROUP_ICON.to_string()
+    } else {
+        icon.to_string()
+    }
+}
+
+fn merge_group_icon(existing: &str, incoming: &str) -> String {
+    if incoming.trim().is_empty() && !existing.trim().is_empty() {
+        normalize_group_icon(existing)
+    } else {
+        normalize_group_icon(incoming)
+    }
 }
 
 fn normalize_incoming_group_color(raw: &str) -> Option<String> {
@@ -466,7 +495,7 @@ fn is_empty_or_transparent_group_color(raw: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_group_color;
+    use super::{merge_group_icon, normalize_group_color, normalize_group_icon};
 
     #[test]
     fn normalizes_group_color_variants() {
@@ -477,6 +506,20 @@ mod tests {
         assert_eq!(normalize_group_color("-2349530"), "#dc2626");
         assert_eq!(normalize_group_color("0"), "#dc2626");
         assert_eq!(normalize_group_color("#003b82f6"), "#dc2626");
+    }
+
+    #[test]
+    fn normalizes_empty_group_icon() {
+        assert_eq!(normalize_group_icon(""), "ti ti-folder");
+        assert_eq!(normalize_group_icon("   "), "ti ti-folder");
+        assert_eq!(normalize_group_icon(" ti ti-star "), "ti ti-star");
+    }
+
+    #[test]
+    fn keeps_existing_group_icon_when_incoming_empty() {
+        assert_eq!(merge_group_icon("ti ti-star", ""), "ti ti-star");
+        assert_eq!(merge_group_icon("", ""), "ti ti-folder");
+        assert_eq!(merge_group_icon("ti ti-star", "ti ti-tag"), "ti ti-tag");
     }
 }
 
