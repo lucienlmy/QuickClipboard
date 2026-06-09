@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { settingsStore } from '@shared/store/settingsStore'
 import { convertFileSrc } from '@tauri-apps/api/core'
@@ -10,6 +10,9 @@ function buildOverrideCSS(family) {
 }
 
 let styleElement = null
+let appliedConfigKey = ''
+let loadingConfigKey = ''
+let loadVersion = 0
 
 function injectOverride(family) {
   if (!styleElement) {
@@ -25,97 +28,152 @@ function removeOverride() {
     document.head.removeChild(styleElement)
     styleElement = null
   }
+  appliedConfigKey = ''
 }
 
 async function loadLocalFont(filePath) {
-  settingsStore.customFontStatus = 'loading'
   try {
     const assetUrl = convertFileSrc(filePath, 'asset')
     const font = new FontFace(LOCAL_FAMILY, `url(${assetUrl})`)
     await font.load()
     document.fonts.add(font)
-    settingsStore.customFontStatus = 'loaded'
     return true
   } catch (e) {
-    console.error('Failed to load local font:', e)
-    settingsStore.customFontStatus = 'error'
+    console.error('加载本地字体失败:', e)
     return false
   }
 }
 
 function loadUrlFont(url) {
-  settingsStore.customFontStatus = 'loading'
   return new Promise((resolve) => {
+    removePendingUrlFontResources()
+
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = url
-    link.id = 'custom-font-link'
+    link.setAttribute('data-custom-font-pending', 'true')
     link.onload = () => {
-      settingsStore.customFontStatus = 'loaded'
-      resolve(true)
+      resolve({ ok: true, link })
     }
     link.onerror = () => {
-      settingsStore.customFontStatus = 'error'
-      resolve(false)
+      link.remove()
+      resolve({ ok: false, link: null })
     }
     document.head.appendChild(link)
   })
 }
 
+function removePendingUrlFontResources() {
+  document.querySelectorAll('[data-custom-font-pending="true"]').forEach(link => link.remove())
+}
+
 function removeFontResources() {
+  removePendingUrlFontResources()
   const link = document.getElementById('custom-font-link')
   if (link) document.head.removeChild(link)
 }
 
+function promoteUrlFontResource(link) {
+  if (!link?.parentNode) {
+    return
+  }
+
+  const activeLink = document.getElementById('custom-font-link')
+  if (activeLink && activeLink !== link) {
+    activeLink.remove()
+  }
+
+  removePendingUrlFontResources()
+  link.id = 'custom-font-link'
+  link.removeAttribute('data-custom-font-pending')
+  document.head.appendChild(link)
+}
+
+function getFontConfig(enabled, type, path, url, family) {
+  if (!enabled) {
+    return null
+  }
+
+  if (type === 'file' && path) {
+    return {
+      key: `file:${path}`,
+      type: 'file',
+      source: path,
+      family: LOCAL_FAMILY
+    }
+  }
+
+  if (type === 'url' && url && family) {
+    return {
+      key: `url:${url}:${family}`,
+      type: 'url',
+      source: url,
+      family
+    }
+  }
+
+  return null
+}
+
 export function useCustomFont() {
   const { customFontEnabled, customFontType, customFontPath, customFontUrl, customFontFamily } = useSnapshot(settingsStore)
-  const prevRef = useRef({ enabled: false, type: '', path: '', url: '', family: '' })
 
   useEffect(() => {
-    const prev = prevRef.current
+    const config = getFontConfig(customFontEnabled, customFontType, customFontPath, customFontUrl, customFontFamily)
 
-    if (!customFontEnabled) {
-      if (prev.enabled) {
-        removeOverride()
-        removeFontResources()
-        settingsStore.customFontStatus = 'idle'
-      }
-      prevRef.current = { enabled: false, type: '', path: '', url: '', family: '' }
-      return
-    }
-
-    const typeChanged = prev.type !== customFontType
-    const pathChanged = prev.path !== customFontPath
-    const urlChanged = prev.url !== customFontUrl
-    const familyChanged = prev.family !== customFontFamily
-    const justEnabled = !prev.enabled
-
-    const needReload = justEnabled || typeChanged || familyChanged
-      || (customFontType === 'file' && pathChanged)
-      || (customFontType === 'url' && urlChanged)
-
-    if (needReload) {
+    if (!config) {
+      loadVersion += 1
+      loadingConfigKey = ''
       removeOverride()
       removeFontResources()
       settingsStore.customFontStatus = 'idle'
+      return
+    }
 
-      if (customFontType === 'file' && customFontPath) {
-        loadLocalFont(customFontPath).then((ok) => {
-          if (ok) injectOverride(LOCAL_FAMILY)
-        })
-      } else if (customFontType === 'url' && customFontUrl && customFontFamily) {
-        loadUrlFont(customFontUrl).then((ok) => {
-          if (ok) injectOverride(customFontFamily)
-        })
+    if (appliedConfigKey === config.key) {
+      injectOverride(config.family)
+      settingsStore.customFontStatus = 'loaded'
+      return
+    }
+
+    if (loadingConfigKey === config.key) {
+      return
+    }
+
+    const currentVersion = loadVersion + 1
+    loadVersion = currentVersion
+    loadingConfigKey = config.key
+    settingsStore.customFontStatus = 'loading'
+
+    const loader = config.type === 'file'
+      ? loadLocalFont(config.source)
+      : loadUrlFont(config.source)
+
+    loader.then((result) => {
+      if (loadVersion !== currentVersion || loadingConfigKey !== config.key) {
+        if (config.type === 'url' && result?.link) {
+          result.link.remove()
+        }
+        return
       }
-    }
 
-    prevRef.current = {
-      enabled: customFontEnabled,
-      type: customFontType,
-      path: customFontPath,
-      url: customFontUrl,
-      family: customFontFamily
-    }
+      loadingConfigKey = ''
+      const ok = config.type === 'file' ? result === true : result?.ok === true
+
+      if (ok) {
+        if (config.type === 'url') {
+          promoteUrlFontResource(result.link)
+        }
+        injectOverride(config.family)
+        appliedConfigKey = config.key
+        settingsStore.customFontStatus = 'loaded'
+      } else {
+        removeOverride()
+        if (config.type === 'url' && result?.link) {
+          result.link.remove()
+        }
+        settingsStore.customFontStatus = 'error'
+      }
+    })
   }, [customFontEnabled, customFontType, customFontPath, customFontUrl, customFontFamily])
 }
