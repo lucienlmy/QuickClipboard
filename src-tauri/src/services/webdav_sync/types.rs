@@ -118,6 +118,13 @@ pub struct CloudRecord {
     pub updated_at: i64,
 }
 
+#[derive(Debug, Clone)]
+pub struct CloudRecordMeta {
+    pub uuid: String,
+    pub updated_at: i64,
+    pub image_id: Option<String>,
+}
+
 fn default_group_name() -> String {
     "全部".to_string()
 }

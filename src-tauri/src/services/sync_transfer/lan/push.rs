@@ -25,21 +25,17 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
         .await?;
     }
 
-    let local_history_records = crate::services::database::webdav_list_history_records(&local_device_id)?;
-    let local_history_records = crate::services::database::filter_records_not_deleted(
+    let local_history_metas = crate::services::database::webdav_list_history_record_metas()?;
+    let history_metas = crate::services::database::filter_record_metas_not_deleted_by_states(
         crate::services::database::COLLECTION_HISTORY,
-        &local_history_records,
-    )?;
-    let history_records = crate::services::database::filter_records_not_deleted_by_states(
-        crate::services::database::COLLECTION_HISTORY,
-        local_history_records,
+        local_history_metas,
         &remote_snapshot.tombstone_states,
     );
-    let history_repair_records = history_records.clone();
-    let history_records_to_push = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
-        history_records,
+    let history_metas_to_push = crate::services::sync_transfer::sync_plan::record_metas_newer_than_remote(
+        history_metas.clone(),
         &remote_snapshot.history_states,
     );
+    let history_records_to_push = load_history_records(&history_metas_to_push, &local_device_id)?;
     if !history_records_to_push.is_empty() {
         let history_image_records = history_records_to_push.clone();
         let changed_history = match super::http_client::push_peer_history_records(
@@ -65,21 +61,17 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
         image_task_started = true;
     }
 
-    let local_favorite_records = crate::services::database::webdav_list_favorite_records(&local_device_id)?;
-    let local_favorite_records = crate::services::database::filter_records_not_deleted(
+    let local_favorite_metas = crate::services::database::webdav_list_favorite_record_metas()?;
+    let favorite_metas = crate::services::database::filter_record_metas_not_deleted_by_states(
         crate::services::database::COLLECTION_FAVORITES,
-        &local_favorite_records,
-    )?;
-    let favorite_records = crate::services::database::filter_records_not_deleted_by_states(
-        crate::services::database::COLLECTION_FAVORITES,
-        local_favorite_records,
+        local_favorite_metas,
         &remote_snapshot.tombstone_states,
     );
-    let favorite_repair_records = favorite_records.clone();
-    let favorite_records_to_push = crate::services::sync_transfer::sync_plan::records_newer_than_remote(
-        favorite_records,
+    let favorite_metas_to_push = crate::services::sync_transfer::sync_plan::record_metas_newer_than_remote(
+        favorite_metas.clone(),
         &remote_snapshot.favorite_states,
     );
+    let favorite_records_to_push = load_favorite_records(&favorite_metas_to_push, &local_device_id)?;
     if !favorite_records_to_push.is_empty() {
         let favorite_image_records = favorite_records_to_push.clone();
         let changed_favorites = match super::http_client::push_peer_favorite_records(
@@ -137,11 +129,55 @@ pub async fn push_to_peer(device_id: &str) -> Result<SyncReport, String> {
     }
 
     if !image_task_started && report.pushed == 0 {
-        spawn_push_images(peer.clone(), "history", history_repair_records);
-        spawn_push_images(peer.clone(), "favorites", favorite_repair_records);
+        spawn_push_images_from_metas(peer.clone(), "history", history_metas);
+        spawn_push_images_from_metas(peer.clone(), "favorites", favorite_metas);
     }
 
     Ok(report)
+}
+
+fn load_history_records(
+    metas: &[crate::services::webdav_sync::types::CloudRecordMeta],
+    device_id: &str,
+) -> Result<Vec<crate::services::webdav_sync::types::CloudRecord>, String> {
+    let mut records = Vec::with_capacity(metas.len());
+    for meta in metas {
+        if let Some(record) = crate::services::database::webdav_get_history_record_by_uuid(&meta.uuid, device_id)? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+fn load_favorite_records(
+    metas: &[crate::services::webdav_sync::types::CloudRecordMeta],
+    device_id: &str,
+) -> Result<Vec<crate::services::webdav_sync::types::CloudRecord>, String> {
+    let mut records = Vec::with_capacity(metas.len());
+    for meta in metas {
+        if let Some(record) = crate::services::database::webdav_get_favorite_record_by_uuid(&meta.uuid, device_id)? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+fn spawn_push_images_from_metas(
+    peer: super::peer_store::PairedPeer,
+    collection: &'static str,
+    metas: Vec<crate::services::webdav_sync::types::CloudRecordMeta>,
+) {
+    let image_ids = metas
+        .into_iter()
+        .flat_map(|meta| meta.image_id.unwrap_or_default().split(',').map(str::trim).map(str::to_string).collect::<Vec<_>>())
+        .filter(|image_id| !image_id.is_empty())
+        .collect::<Vec<_>>();
+    if image_ids.is_empty() {
+        return;
+    }
+    tauri::async_runtime::spawn(async move {
+        push_images_best_effort_by_ids(&peer, collection, image_ids).await;
+    });
 }
 
 fn spawn_push_images(
@@ -153,16 +189,16 @@ fn spawn_push_images(
         return;
     }
     tauri::async_runtime::spawn(async move {
-        push_images_best_effort(&peer, collection, &records).await;
+        let image_ids = super::files::collect_record_image_ids(&records);
+        push_images_best_effort_by_ids(&peer, collection, image_ids).await;
     });
 }
 
-async fn push_images_best_effort(
+async fn push_images_best_effort_by_ids(
     peer: &super::peer_store::PairedPeer,
     collection: &str,
-    records: &[crate::services::webdav_sync::types::CloudRecord],
+    image_ids: Vec<String>,
 ) {
-    let image_ids = super::files::collect_record_image_ids(records);
     if image_ids.is_empty() {
         return;
     }

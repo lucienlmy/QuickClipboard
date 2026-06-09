@@ -1,6 +1,6 @@
 use super::models::{ClipboardDataItem, ClipboardDataSeed, ClipboardItem, PaginatedResult, QueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
-use crate::services::webdav_sync::types::CloudRecord;
+use crate::services::webdav_sync::types::{CloudRecord, CloudRecordMeta};
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use std::collections::{HashMap, HashSet};
@@ -381,6 +381,73 @@ pub fn webdav_list_history_records(device_id: &str) -> Result<Vec<CloudRecord>, 
         })?;
 
         Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_list_history_record_metas() -> Result<Vec<CloudRecordMeta>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, uuid, updated_at, image_id
+             FROM clipboard
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let uuid_opt: Option<String> = row.get(1)?;
+            let uuid = uuid_opt.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| id.to_string());
+            Ok(CloudRecordMeta {
+                uuid,
+                updated_at: row.get(2)?,
+                image_id: row.get(3)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_get_history_record_by_uuid(uuid: &str, device_id: &str) -> Result<Option<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, uuid, source_device_id, is_remote, content, html_content, content_type,
+                    image_id, item_order, is_pinned, paste_count, source_app, source_icon_hash,
+                    char_count, created_at, updated_at
+             FROM clipboard
+             WHERE uuid = ?1 OR ((uuid IS NULL OR uuid = '') AND id = ?2)
+             LIMIT 1",
+        )?;
+        let id = uuid.parse::<i64>().ok();
+        let record = stmt.query_row(params![uuid, id], |row| {
+            let id: i64 = row.get(0)?;
+            let uuid_opt: Option<String> = row.get(1)?;
+            let uuid = uuid_opt.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| id.to_string());
+            let source_device_id = row
+                .get::<_, Option<String>>(2)?
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| device_id.to_string());
+
+            Ok(CloudRecord {
+                uuid,
+                source_device_id,
+                is_remote: row.get::<_, i64>(3)? != 0,
+                content: row.get(4)?,
+                html_content: row.get(5)?,
+                content_type: row.get(6)?,
+                image_id: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(10)?,
+                source_app: row.get(11)?,
+                source_icon_hash: row.get(12)?,
+                char_count: row.get(13)?,
+                title: String::new(),
+                group_name: "全部".to_string(),
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
+            })
+        }).optional()?;
+
+        Ok(record)
     })
 }
 

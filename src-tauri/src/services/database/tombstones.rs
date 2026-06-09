@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rusqlite::{params, OptionalExtension};
 
 use super::connection::with_connection;
-use crate::services::webdav_sync::types::{CloudGroup, CloudRecord};
+use crate::services::webdav_sync::types::{CloudGroup, CloudRecord, CloudRecordMeta};
 
 pub const COLLECTION_HISTORY: &str = "history";
 pub const COLLECTION_FAVORITES: &str = "favorites";
@@ -248,11 +248,11 @@ pub fn filter_groups_not_deleted(groups: &[CloudGroup]) -> Result<Vec<CloudGroup
         .collect())
 }
 
-pub fn filter_records_not_deleted_by_states(
+pub fn filter_record_metas_not_deleted_by_states(
     collection: &str,
-    records: Vec<CloudRecord>,
+    records: Vec<CloudRecordMeta>,
     tombstone_states: &HashMap<String, i64>,
-) -> Vec<CloudRecord> {
+) -> Vec<CloudRecordMeta> {
     records
         .into_iter()
         .filter(|record| {

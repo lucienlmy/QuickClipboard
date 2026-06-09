@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::models::{ClipboardDataSeed, FavoriteItem, PaginatedResult, FavoritesQueryParams};
 use super::connection::{with_connection, MAX_CONTENT_LENGTH};
-use crate::services::webdav_sync::types::CloudRecord;
+use crate::services::webdav_sync::types::{CloudRecord, CloudRecordMeta};
 use crate::utils::{truncate_string, truncate_around_keyword, truncate_html};
 use rusqlite::{params, OptionalExtension};
 use chrono;
@@ -75,6 +75,65 @@ pub fn webdav_list_favorite_records(device_id: &str) -> Result<Vec<CloudRecord>,
         })?;
 
         Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_list_favorite_record_metas() -> Result<Vec<CloudRecordMeta>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, updated_at, image_id
+             FROM favorites
+             ORDER BY item_order DESC, updated_at DESC, id DESC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(CloudRecordMeta {
+                uuid: row.get(0)?,
+                updated_at: row.get(1)?,
+                image_id: row.get(2)?,
+            })
+        })?;
+
+        Ok(rows.filter_map(|row| row.ok()).collect())
+    })
+}
+
+pub fn webdav_get_favorite_record_by_uuid(uuid: &str, device_id: &str) -> Result<Option<CloudRecord>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, COALESCE(source_device_id, ''), title, content, html_content, content_type,
+                    image_id, group_name, item_order, paste_count, char_count, created_at, updated_at
+             FROM favorites
+             WHERE id = ?1
+             LIMIT 1",
+        )?;
+
+        let record = stmt.query_row(params![uuid], |row| {
+            let source_device_id = row
+                .get::<_, String>(1)?
+                .trim()
+                .to_string();
+            Ok(CloudRecord {
+                uuid: row.get(0)?,
+                source_device_id: if source_device_id.is_empty() { device_id.to_string() } else { source_device_id },
+                is_remote: false,
+                title: row.get(2)?,
+                content: row.get(3)?,
+                html_content: row.get(4)?,
+                content_type: row.get(5)?,
+                image_id: row.get(6)?,
+                group_name: row.get(7)?,
+                item_order: row.get(8)?,
+                paste_count: row.get(9)?,
+                char_count: row.get(10)?,
+                source_app: None,
+                source_icon_hash: None,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
+            })
+        }).optional()?;
+
+        Ok(record)
     })
 }
 

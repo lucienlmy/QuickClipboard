@@ -7,7 +7,7 @@ use super::webdav_client::WebdavClient;
 
 pub async fn download_all(
     client: &WebdavClient,
-    device_id: &str,
+    _device_id: &str,
     force_download: bool,
 ) -> Result<SyncReport, String> {
     let mut report = SyncReport::default();
@@ -64,8 +64,9 @@ pub async fn download_all(
             Err(e) => report.errors.push(format!("剪贴板历史拉取失败: {}", e)),
         }
         if settings.webdav_sync_images {
-            records_for_images.extend(crate::services::database::webdav_list_history_records(device_id)?);
-            download_images(client, &records_for_images).await?;
+            let mut image_ids = collect_record_image_ids(&records_for_images);
+            image_ids.extend(history_image_ids_from_metas()?);
+            download_images(client, image_ids).await?;
         }
     }
 
@@ -103,8 +104,9 @@ pub async fn download_all(
             Err(e) => report.errors.push(format!("收藏拉取失败: {}", e)),
         }
         if settings.webdav_sync_images {
-            records_for_images.extend(crate::services::database::webdav_list_favorite_records(device_id)?);
-            download_images(client, &records_for_images).await?;
+            let mut image_ids = collect_record_image_ids(&records_for_images);
+            image_ids.extend(favorite_image_ids_from_metas()?);
+            download_images(client, image_ids).await?;
         }
 
         match super::groups_sync::download_groups(client, force_download, &tombstone_states).await {
@@ -207,11 +209,7 @@ async fn download_collection(
     Ok(out)
 }
 
-async fn download_images(client: &WebdavClient, records: &[CloudRecord]) -> Result<(), String> {
-    let mut image_ids = HashSet::new();
-    for record in records {
-        collect_image_ids(&mut image_ids, record.image_id.as_deref());
-    }
+async fn download_images(client: &WebdavClient, image_ids: HashSet<String>) -> Result<(), String> {
     if image_ids.is_empty() {
         return Ok(());
     }
@@ -232,6 +230,30 @@ async fn download_images(client: &WebdavClient, records: &[CloudRecord]) -> Resu
     }
 
     Ok(())
+}
+
+fn collect_record_image_ids(records: &[CloudRecord]) -> HashSet<String> {
+    let mut image_ids = HashSet::new();
+    for record in records {
+        collect_image_ids(&mut image_ids, record.image_id.as_deref());
+    }
+    image_ids
+}
+
+fn history_image_ids_from_metas() -> Result<HashSet<String>, String> {
+    let mut image_ids = HashSet::new();
+    for meta in crate::services::database::webdav_list_history_record_metas()? {
+        collect_image_ids(&mut image_ids, meta.image_id.as_deref());
+    }
+    Ok(image_ids)
+}
+
+fn favorite_image_ids_from_metas() -> Result<HashSet<String>, String> {
+    let mut image_ids = HashSet::new();
+    for meta in crate::services::database::webdav_list_favorite_record_metas()? {
+        collect_image_ids(&mut image_ids, meta.image_id.as_deref());
+    }
+    Ok(image_ids)
 }
 
 fn collect_image_ids(out: &mut HashSet<String>, raw: Option<&str>) {

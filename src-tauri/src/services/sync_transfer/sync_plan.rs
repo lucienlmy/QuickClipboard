@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use crate::services::webdav_sync::types::{CloudGroup, CloudRecord};
+use crate::services::webdav_sync::types::{CloudGroup, CloudRecordMeta};
 
-pub fn records_newer_than_remote(
-    local_records: Vec<CloudRecord>,
+pub fn record_metas_newer_than_remote(
+    local_records: Vec<CloudRecordMeta>,
     remote_states: &HashMap<String, i64>,
-) -> Vec<CloudRecord> {
+) -> Vec<CloudRecordMeta> {
     local_records
         .into_iter()
         .filter(|record| {

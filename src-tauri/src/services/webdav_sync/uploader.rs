@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::chunk_manager::{load_chunk, save_chunk};
 use super::index_manager::{load_index, save_index};
-use super::types::{CloudRecord, ImageFileIndex, ImageFileIndexEntry, RecordChunk, SyncCollection, SyncIndexEntry, SyncReport, CHUNK_RECORD_LIMIT};
+use super::types::{CloudRecord, CloudRecordMeta, ImageFileIndex, ImageFileIndexEntry, RecordChunk, SyncCollection, SyncIndexEntry, SyncReport, CHUNK_RECORD_LIMIT};
 use super::webdav_client::WebdavClient;
 
 pub async fn upload_all(client: &WebdavClient, device_id: &str) -> Result<SyncReport, String> {
@@ -40,28 +40,36 @@ pub async fn upload_parts(
     };
 
     let history_records = if settings.webdav_sync_clipboard && upload_clipboard {
-        let records = crate::services::database::webdav_list_history_records(device_id)?;
-        crate::services::database::filter_records_not_deleted_by_states(
+        let index = load_index(client, SyncCollection::History).await?;
+        let metas = crate::services::database::webdav_list_history_record_metas()?;
+        let metas = crate::services::database::filter_record_metas_not_deleted_by_states(
             crate::services::database::COLLECTION_HISTORY,
-            records,
+            metas,
             &tombstone_states,
-        )
+        );
+        let metas = metas_newer_than_index(metas, &index.entries);
+        let records = load_history_records(&metas, device_id)?;
+        Some((index, records))
     } else {
-        Vec::new()
+        None
     };
     let favorite_records = if settings.webdav_sync_favorites && upload_favorites {
-        let records = crate::services::database::webdav_list_favorite_records(device_id)?;
-        crate::services::database::filter_records_not_deleted_by_states(
+        let index = load_index(client, SyncCollection::Favorites).await?;
+        let metas = crate::services::database::webdav_list_favorite_record_metas()?;
+        let metas = crate::services::database::filter_record_metas_not_deleted_by_states(
             crate::services::database::COLLECTION_FAVORITES,
-            records,
+            metas,
             &tombstone_states,
-        )
+        );
+        let metas = metas_newer_than_index(metas, &index.entries);
+        let records = load_favorite_records(&metas, device_id)?;
+        Some((index, records))
     } else {
-        Vec::new()
+        None
     };
 
-    if settings.webdav_sync_clipboard && upload_clipboard {
-        match upload_collection_incremental(client, SyncCollection::History, history_records.clone(), device_id).await {
+    if let Some((index, history_records)) = history_records {
+        match upload_collection_incremental(client, SyncCollection::History, index, history_records.clone(), device_id).await {
             Ok(records) => {
                 let count = records.len() as u32;
                 report.pushed += count;
@@ -76,8 +84,8 @@ pub async fn upload_parts(
     }
 
     if settings.webdav_sync_favorites && (upload_favorites || upload_groups) {
-        if upload_favorites {
-            match upload_collection_incremental(client, SyncCollection::Favorites, favorite_records.clone(), device_id).await {
+        if let Some((index, favorite_records)) = favorite_records {
+            match upload_collection_incremental(client, SyncCollection::Favorites, index, favorite_records.clone(), device_id).await {
                 Ok(records) => {
                     let count = records.len() as u32;
                     report.pushed += count;
@@ -124,10 +132,10 @@ pub async fn upload_parts(
 async fn upload_collection_incremental(
     client: &WebdavClient,
     collection: SyncCollection,
+    mut index: super::types::SyncIndex,
     records: Vec<CloudRecord>,
     device_id: &str,
 ) -> Result<Vec<CloudRecord>, String> {
-    let mut index = load_index(client, collection).await?;
     let mut changed = Vec::new();
     let mut existing_by_chunk: HashMap<u32, Vec<CloudRecord>> = HashMap::new();
     let mut new_records = Vec::new();
@@ -248,6 +256,47 @@ async fn upload_collection_incremental(
     }
 
     Ok(changed)
+}
+
+fn metas_newer_than_index(
+    metas: Vec<CloudRecordMeta>,
+    entries: &HashMap<String, SyncIndexEntry>,
+) -> Vec<CloudRecordMeta> {
+    metas
+        .into_iter()
+        .filter(|meta| {
+            entries
+                .get(&meta.uuid)
+                .map(|entry| entry.updated_at < meta.updated_at)
+                .unwrap_or(true)
+        })
+        .collect()
+}
+
+fn load_history_records(
+    metas: &[CloudRecordMeta],
+    device_id: &str,
+) -> Result<Vec<CloudRecord>, String> {
+    let mut records = Vec::with_capacity(metas.len());
+    for meta in metas {
+        if let Some(record) = crate::services::database::webdav_get_history_record_by_uuid(&meta.uuid, device_id)? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+fn load_favorite_records(
+    metas: &[CloudRecordMeta],
+    device_id: &str,
+) -> Result<Vec<CloudRecord>, String> {
+    let mut records = Vec::with_capacity(metas.len());
+    for meta in metas {
+        if let Some(record) = crate::services::database::webdav_get_favorite_record_by_uuid(&meta.uuid, device_id)? {
+            records.push(record);
+        }
+    }
+    Ok(records)
 }
 
 fn chunk_record_counts(index_entries: &HashMap<String, SyncIndexEntry>) -> BTreeMap<u32, usize> {
