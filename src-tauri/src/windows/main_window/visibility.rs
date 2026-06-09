@@ -150,8 +150,16 @@ fn show_normal_window(window: &WebviewWindow) {
     crate::input_monitor::enable_navigation_keys();
 }
 
+fn should_skip_always_on_top_refresh() -> bool {
+    crate::is_context_menu_visible()
+}
+
 #[cfg(target_os = "windows")]
 pub fn refresh_always_on_top(window: &WebviewWindow) -> Result<(), String> {
+    if should_skip_always_on_top_refresh() {
+        return Ok(());
+    }
+
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
         SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
@@ -179,6 +187,10 @@ pub fn refresh_always_on_top(window: &WebviewWindow) -> Result<(), String> {
 
 #[cfg(not(target_os = "windows"))]
 pub fn refresh_always_on_top(window: &WebviewWindow) -> Result<(), String> {
+    if should_skip_always_on_top_refresh() {
+        return Ok(());
+    }
+
     window
         .set_always_on_top(false)
         .map_err(|e| format!("取消窗口置顶失败: {}", e))?;
