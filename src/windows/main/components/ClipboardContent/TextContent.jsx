@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { highlightText, scrollToFirstHighlight } from '@shared/utils/highlightText';
 import { toast, TOAST_POSITIONS, TOAST_SIZES } from '@shared/store/toastStore';
@@ -11,18 +11,25 @@ function TextContent({
   lineClampClass,
   searchKeyword,
   rowHeight = 'medium',
-  availableHeightPx,
-  clampLines,
   item,
   source = 'clipboard'
 }) {
   const { t } = useTranslation();
+  const wrapperRef = useRef(null);
   const containerRef = useRef(null);
   const hasScrolledRef = useRef(false);
   const prevKeywordRef = useRef('');
   const [isPickingColor, setIsPickingColor] = useState(false);
   const colorInfo = useMemo(() => parseStandaloneColorCode(content), [content]);
   const pickColorLabel = t('clipboard.pickColor', '选择颜色');
+  const clampLineCount = useMemo(() => {
+    const match = String(lineClampClass || '').match(/line-clamp-(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+  }, [lineClampClass]);
+  const shouldUseAdaptiveLineHeight = rowHeight !== 'auto'
+    && !searchKeyword
+    && Number.isFinite(clampLineCount)
+    && clampLineCount > 0;
 
   useEffect(() => {
     if (searchKeyword !== prevKeywordRef.current) {
@@ -38,6 +45,69 @@ function TextContent({
       });
     }
   }, [searchKeyword, content]);
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current;
+    const container = containerRef.current;
+
+    if (!shouldUseAdaptiveLineHeight || !wrapper || !container) {
+      container?.style.removeProperty('line-height');
+      container?.style.removeProperty('max-height');
+      return;
+    }
+
+    let frameId = null;
+
+    const applyLineHeight = () => {
+      const wrapperHeight = wrapper.getBoundingClientRect().height;
+      const nextLineHeight = wrapperHeight / clampLineCount;
+
+      if (!Number.isFinite(nextLineHeight) || nextLineHeight <= 0) {
+        return;
+      }
+
+      container.style.lineHeight = `${Number(nextLineHeight.toFixed(2))}px`;
+      container.style.maxHeight = `${Number(wrapperHeight.toFixed(2))}px`;
+    };
+
+    const scheduleLineHeightUpdate = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        applyLineHeight();
+      });
+    };
+
+    // 根据真实内容区高度分配行高，避免 padding 和字体取整导致裁剪。
+    applyLineHeight();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', scheduleLineHeightUpdate);
+      return () => {
+        if (frameId) {
+          cancelAnimationFrame(frameId);
+        }
+        window.removeEventListener('resize', scheduleLineHeightUpdate);
+        container.style.removeProperty('line-height');
+        container.style.removeProperty('max-height');
+      };
+    }
+
+    const resizeObserver = new ResizeObserver(scheduleLineHeightUpdate);
+    resizeObserver.observe(wrapper);
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      resizeObserver.disconnect();
+      container.style.removeProperty('line-height');
+      container.style.removeProperty('max-height');
+    };
+  }, [clampLineCount, shouldUseAdaptiveLineHeight]);
 
   const handlePickColor = async (event) => {
     event.preventDefault();
@@ -90,23 +160,14 @@ function TextContent({
     ? 'text-sm leading-normal'
     : 'text-sm';
   const contentClass = colorInfo
-    ? 'flex h-full items-center gap-2 min-w-0 max-w-full leading-normal'
+    ? 'flex h-full items-center gap-2 min-w-0 max-w-full'
     : '';
 
-  const computedLineHeightPx = (() => {
-    if (rowHeight === 'auto') return undefined;
-    if (!availableHeightPx || !clampLines) return undefined;
-    const v = Math.floor(availableHeightPx / clampLines);
-    if (!Number.isFinite(v) || v <= 0) return undefined;
-    return v;
-  })();
-
   return (
-    <div className="h-full min-h-0 overflow-hidden">
+    <div ref={wrapperRef} className="h-full min-h-0 overflow-hidden">
       <div
         ref={containerRef}
         className={`${textClass} text-qc-fg break-all ${clampClass} overflow-hidden min-h-0 w-full`}
-        style={computedLineHeightPx ? { lineHeight: `${computedLineHeightPx}px` } : undefined}
       >
         <span className={contentClass}>
           {colorInfo && (
@@ -123,7 +184,7 @@ function TextContent({
               />
             </Tooltip>
           )}
-          <span className="min-w-0 break-all leading-normal">{renderedContent}</span>
+          <span className="min-w-0 break-all">{renderedContent}</span>
         </span>
       </div>
     </div>
