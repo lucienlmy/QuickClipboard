@@ -1,3 +1,5 @@
+import { convertFileSrc } from '@tauri-apps/api/core';
+
 function drawRoundRect(ctx, x, y, width, height, radius) {
   if (typeof ctx.roundRect === 'function') {
     ctx.roundRect(x, y, width, height, radius);
@@ -9,6 +11,92 @@ function drawRoundRect(ctx, x, y, width, height, radius) {
   ctx.arcTo(x + width, y + height, x, y + height, r);
   ctx.arcTo(x, y + height, x, y, r);
   ctx.arcTo(x, y, x + width, y, r);
+}
+
+function drawObjectCoverImage(ctx, image, x, y, width, height) {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  if (!sourceWidth || !sourceHeight) return false;
+
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = width / height;
+  let sx = 0;
+  let sy = 0;
+  let sw = sourceWidth;
+  let sh = sourceHeight;
+
+  if (sourceRatio > targetRatio) {
+    sw = sourceHeight * targetRatio;
+    sx = (sourceWidth - sw) / 2;
+  } else {
+    sh = sourceWidth / targetRatio;
+    sy = (sourceHeight - sh) / 2;
+  }
+
+  ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+  return true;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getImagePreviewCardSize(image, options = {}) {
+  const sourceWidth = image.naturalWidth || image.width || 1;
+  const sourceHeight = image.naturalHeight || image.height || 1;
+  const maxLongSide = options.maxLongSide || 82;
+  const minShortSide = options.minShortSide || 48;
+  const maxRatio = options.maxRatio || 1.75;
+  const ratio = clamp(sourceWidth / sourceHeight, 1 / maxRatio, maxRatio);
+
+  if (ratio >= 1) {
+    const height = Math.max(minShortSide, Math.round(maxLongSide / ratio));
+    return {
+      width: Math.round(height * ratio),
+      height,
+      radius: Math.min(14, Math.max(10, Math.round(height * 0.2))),
+    };
+  }
+
+  const width = Math.max(minShortSide, Math.round(maxLongSide * ratio));
+  return {
+    width,
+    height: Math.round(width / ratio),
+    radius: Math.min(14, Math.max(10, Math.round(width * 0.2))),
+  };
+}
+
+async function loadImageForDragPreview(path) {
+  if (!path) {
+    throw new Error('拖拽预览图片路径为空');
+  }
+
+  const source = String(path);
+  const isInlineImage = source.startsWith('data:image/') || source.startsWith('blob:');
+  const imageUrl = isInlineImage ? source : convertFileSrc(source, 'asset');
+  const objectUrl = isInlineImage ? '' : await fetch(imageUrl)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`读取拖拽预览图片失败: ${response.status}`);
+      }
+      return response.blob();
+    })
+    .then((blob) => URL.createObjectURL(blob));
+
+  try {
+    const image = new Image();
+    image.decoding = 'async';
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('加载拖拽预览图片失败'));
+      image.src = objectUrl || imageUrl;
+    });
+    return image;
+  } finally {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 }
 
 function drawTablerPath(ctx, path, x, y, size) {
@@ -30,6 +118,135 @@ function getDragPreviewSize(count) {
   return count > 1
     ? { width: 84, height: 72 }
     : { width: 68, height: 68 };
+}
+
+export async function createImageDragPreviewIcon(path) {
+  try {
+    const image = await loadImageForDragPreview(path);
+
+    const card = getImagePreviewCardSize(image);
+    const width = card.width + 14;
+    const height = card.height + 14;
+    const cardX = 7;
+    const cardY = 5;
+    const ratio = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return path;
+
+    ctx.scale(ratio, ratio);
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.22)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX, cardY, card.width, card.height, card.radius);
+    ctx.fill();
+
+    ctx.shadowColor = 'transparent';
+    ctx.save();
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX, cardY, card.width, card.height, card.radius);
+    ctx.clip();
+    drawObjectCoverImage(ctx, image, cardX, cardY, card.width, card.height);
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(47, 123, 255, 0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    drawRoundRect(ctx, cardX + 1, cardY + 1, card.width - 2, card.height - 2, Math.max(8, card.radius - 1));
+    ctx.stroke();
+
+    return canvas.toDataURL('image/png');
+  } catch {
+    return path;
+  }
+}
+
+export async function createImagesDragPreviewIcon(paths) {
+  const imagePaths = Array.isArray(paths) ? paths.filter(Boolean) : [paths].filter(Boolean);
+  if (imagePaths.length <= 1) {
+    return createImageDragPreviewIcon(imagePaths[0]);
+  }
+
+  try {
+    const image = await loadImageForDragPreview(imagePaths[0]);
+    const card = getImagePreviewCardSize(image, {
+      maxLongSide: 68,
+      minShortSide: 44,
+      maxRatio: 1.65,
+    });
+    const stackOffsetX = 9;
+    const stackOffsetY = 6;
+    const frontX = 6;
+    const frontY = 5;
+    const width = card.width + stackOffsetX * 2 + 26;
+    const height = card.height + stackOffsetY * 2 + 18;
+    const ratio = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return imagePaths[0];
+
+    ctx.scale(ratio, ratio);
+
+    const drawCard = (x, y, alpha, withImage) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.2)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+      ctx.beginPath();
+      drawRoundRect(ctx, x, y, card.width, card.height, card.radius);
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent';
+      if (withImage) {
+        ctx.save();
+        ctx.beginPath();
+        drawRoundRect(ctx, x, y, card.width, card.height, card.radius);
+        ctx.clip();
+        drawObjectCoverImage(ctx, image, x, y, card.width, card.height);
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = withImage ? 'rgba(47, 123, 255, 0.7)' : 'rgba(148, 163, 184, 0.45)';
+      ctx.lineWidth = withImage ? 2 : 1.5;
+      ctx.beginPath();
+      drawRoundRect(ctx, x + 1, y + 1, card.width - 2, card.height - 2, Math.max(8, card.radius - 1));
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    drawCard(frontX + stackOffsetX * 2, frontY + stackOffsetY * 2, 0.72, false);
+    drawCard(frontX + stackOffsetX, frontY + stackOffsetY, 0.86, false);
+    drawCard(frontX, frontY, 1, true);
+
+    const label = imagePaths.length > 99 ? '99+' : String(imagePaths.length);
+    ctx.font = '700 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    const badgeWidth = Math.max(24, Math.ceil(ctx.measureText(label).width) + 12);
+    const badgeX = Math.min(width - badgeWidth - 4, frontX + card.width + 7);
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.24)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    drawRoundRect(ctx, badgeX, 4, badgeWidth, 22, 11);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, badgeX + badgeWidth / 2, 15);
+
+    return canvas.toDataURL('image/png');
+  } catch {
+    return imagePaths[0] || '';
+  }
 }
 
 export function createDragPreviewIcon(icon, count, mode, labels = { copy: 'Copy', move: 'Move' }) {

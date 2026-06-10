@@ -7,6 +7,7 @@ import { ROW_HEIGHT_CONFIG, useItemCommon } from '@shared/hooks/useItemCommon.js
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
 import { showClipboardItemContextMenu } from '@shared/utils/contextMenu';
+import { createDragPreviewIcon, createImagesDragPreviewIcon } from '@shared/utils/dragPreviewIcon';
 import { getPrimaryType } from '@shared/utils/contentType';
 import { useTranslation } from 'react-i18next';
 import { addClipboardToFavorites, togglePinClipboardItem, showPreviewWindow, closePreviewWindow } from '@shared/api';
@@ -153,7 +154,7 @@ function ClipboardItem({
         }
         return {
           paths: [actualPath],
-          iconPath: actualPath,
+          iconPath: ({ paths }) => createImagesDragPreviewIcon(paths),
           tooltipContent: t('clipboard.dragImageToExternal', '拖拽到外部应用'),
         };
       } catch {
@@ -167,16 +168,21 @@ function ClipboardItem({
       }
       try {
         const filesData = JSON.parse(item.content.substring(6));
-        const draggablePaths = filesData.files?.filter(f => f.exists !== false).map(f => f.path).filter(Boolean) || [];
+        const draggableFiles = filesData.files?.filter(f => f.exists !== false && f.path) || [];
+        const draggablePaths = draggableFiles.map(f => f.path);
         if (!draggablePaths.length) {
           return { paths: [], iconPath: null, tooltipContent: undefined };
         }
+        const previewIcon = draggableFiles.find(f => f.icon_data)?.icon_data || '';
         const tooltipContent = draggablePaths.length > 1
           ? t('clipboard.dragFilesToExternal', '拖拽到外部应用（共{{count}}个文件）', { count: draggablePaths.length })
           : t('clipboard.dragFileToExternal', '拖拽到外部应用');
         return {
           paths: draggablePaths,
-          iconPath: draggablePaths[0],
+          iconPath: ({ paths, mode }) => createDragPreviewIcon(previewIcon, paths.length, mode, {
+            copy: t('common.copy', '复制'),
+            move: t('transferShelf.move', '移动'),
+          }) || paths[0],
           tooltipContent,
         };
       } catch {
