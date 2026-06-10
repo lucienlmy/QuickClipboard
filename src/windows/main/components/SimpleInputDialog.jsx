@@ -36,13 +36,12 @@ function SimpleInputDialog({
   };
 
   return (
-    <>
+    <div
+      className="fixed inset-[5px] z-[199] flex items-center justify-center overflow-hidden rounded-[8px] bg-black/35 px-4 backdrop-blur-[1px]"
+      onClick={onCancel}
+    >
       <div
-        className="fixed inset-0 z-[199] bg-black/35 backdrop-blur-[1px]"
-        onClick={onCancel}
-      />
-      <div
-        className="fixed left-1/2 top-1/2 z-[200] w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-qc-border bg-qc-panel p-4 shadow-xl"
+        className="w-full max-w-[22rem] rounded-xl border border-qc-border bg-qc-panel p-4 shadow-xl"
         data-no-drag
         onClick={(event) => event.stopPropagation()}
       >
@@ -83,7 +82,7 @@ function SimpleInputDialog({
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
