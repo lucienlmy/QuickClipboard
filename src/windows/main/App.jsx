@@ -163,6 +163,9 @@ function App() {
             }, 200);
         }
       };
+      const handleWindowHide = () => {
+        searchRef.current?.blur?.();
+      };
       const unlisten1 = await listen('window-show-animation', handleWindowShow);
       const unlisten2 = await listen('edge-snap-show', handleWindowShow);
       const unlisten3 = await listen('paste-plain-text-selected', () => {
@@ -193,6 +196,8 @@ function App() {
         console.error('主窗口显示时 WebDAV 自动拉取失败:', event.payload);
         toast.error(formatUserMessage(event.payload, t, 'errors.webdav.operationFailed'), { ...WEBDAV_TOAST_CONFIG, duration: 6000 });
       });
+      const unlisten6 = await listen('window-hide-animation', handleWindowHide);
+      const unlisten7 = await listen('edge-snap-hide', handleWindowHide);
       
       return () => {
         unlisten1();
@@ -200,6 +205,8 @@ function App() {
         unlisten3();
         unlisten4();
         unlisten5();
+        unlisten6();
+        unlisten7();
       };
     };
     let cleanup = setupListeners();
@@ -348,7 +355,11 @@ function App() {
   };
 
   // 导航键盘事件处理
+  const blurSearchInput = () => {
+    searchRef.current?.blur?.();
+  };
   const handleNavigateUp = () => {
+    blurSearchInput();
     if (activeTab === 'clipboard' && clipboardTabRef.current?.navigateUp) {
       clipboardTabRef.current.navigateUp();
     } else if (activeTab === 'favorites' && favoritesTabRef.current?.navigateUp) {
@@ -356,6 +367,7 @@ function App() {
     }
   };
   const handleNavigateDown = () => {
+    blurSearchInput();
     if (activeTab === 'clipboard' && clipboardTabRef.current?.navigateDown) {
       clipboardTabRef.current.navigateDown();
     } else if (activeTab === 'favorites' && favoritesTabRef.current?.navigateDown) {
@@ -363,6 +375,7 @@ function App() {
     }
   };
   const handleExecuteItem = () => {
+    blurSearchInput();
     if (activeTab === 'clipboard' && clipboardTabRef.current?.executeCurrentItem) {
       clipboardTabRef.current.executeCurrentItem();
     } else if (activeTab === 'favorites' && favoritesTabRef.current?.executeCurrentItem) {
@@ -385,20 +398,9 @@ function App() {
       return tabs[currentIndex === tabs.length - 1 ? 0 : currentIndex + 1];
     });
   };
-  const handleFocusSearch = () => {
-    if (searchRef.current?.focus) {
-      searchRef.current.focus();
-    }
-  };
-
-  // 处理搜索框内的导航操作
-  const handleSearchNavigate = direction => {
-    if (direction === 'up') {
-      handleNavigateUp();
-    } else if (direction === 'down') {
-      handleNavigateDown();
-    } else if (direction === 'execute') {
-      handleExecuteItem();
+  const handleToggleSearch = () => {
+    if (searchRef.current?.toggleFocus) {
+      searchRef.current.toggleFocus();
     }
   };
 
@@ -458,7 +460,7 @@ function App() {
     onExecuteItem: handleExecuteItem,
     onTabLeft: handleTabLeft,
     onTabRight: handleTabRight,
-    onFocusSearch: handleFocusSearch,
+    onToggleSearch: handleToggleSearch,
     onTogglePin: handleTogglePin,
     onPreviousGroup: handlePreviousGroup,
     onNextGroup: handleNextGroup,
@@ -477,7 +479,7 @@ function App() {
     transition-colors duration-500 ease-in-out
     bg-qc-surface
   `.trim().replace(/\s+/g, ' ');
-  const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} onNavigate={handleSearchNavigate} position={settings.titleBarPosition} activeTab={activeTab} updateBannerState={updateBannerState} />;
+  const TitleBarComponent = <TitleBar ref={searchRef} searchQuery={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder={t('search.placeholder')} position={settings.titleBarPosition} activeTab={activeTab} updateBannerState={updateBannerState} />;
   const TabNavigationComponent = <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} contentFilter={contentFilter} onFilterChange={setContentFilter} emojiMode={emojiMode} onEmojiModeChange={setEmojiMode} onGroupChange={handleGroupChange} groupsPopupRef={groupsPopupRef} navigationMode={tabNavigationMode} />;
   const ContentComponent = <div ref={contentDragRef} className="main-content-area flex-1 min-h-0 overflow-hidden relative pb-[8px] bg-qc-surface transition-colors duration-500">
       {activeTab === 'clipboard' && <ClipboardTab ref={clipboardTabRef} contentFilter={contentFilter} searchQuery={searchQuery} />}

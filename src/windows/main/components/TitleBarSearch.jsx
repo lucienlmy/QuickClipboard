@@ -8,7 +8,6 @@ const TitleBarSearch = forwardRef(({
   value,
   onChange,
   placeholder,
-  onNavigate,
   isVertical = false,
   position = 'top'
 }, ref) => {
@@ -64,58 +63,6 @@ const TitleBarSearch = forwardRef(({
       }, 100);
     }
   };
-  const matchesShortcut = (e, shortcutStr) => {
-    if (!shortcutStr) return false;
-    const parts = shortcutStr.split('+');
-    const modifiers = [];
-    let mainKey = '';
-    parts.forEach(part => {
-      if (['Ctrl', 'Control', 'Alt', 'Shift', 'Win', 'Meta'].includes(part)) {
-        modifiers.push(part);
-      } else {
-        mainKey = part;
-      }
-    });
-    const hasCtrl = modifiers.includes('Ctrl') || modifiers.includes('Control');
-    const hasAlt = modifiers.includes('Alt');
-    const hasShift = modifiers.includes('Shift');
-    const hasMeta = modifiers.includes('Win') || modifiers.includes('Meta');
-    if (e.ctrlKey !== hasCtrl || e.altKey !== hasAlt || e.shiftKey !== hasShift || e.metaKey !== hasMeta) {
-      return false;
-    }
-    return e.key === mainKey || e.key.toUpperCase() === mainKey.toUpperCase();
-  };
-  const handleKeyDown = e => {
-    if (e.isComposing || isComposingRef.current) {
-      return;
-    }
-
-    if (matchesShortcut(e, settings.focusSearchShortcut)) {
-      e.preventDefault();
-      inputRef.current?.blur();
-    } else if (matchesShortcut(e, settings.navigateUpShortcut)) {
-      e.preventDefault();
-      inputRef.current?.blur();
-      setTimeout(() => {
-        if (onNavigate) onNavigate('up');
-      }, 10);
-    } else if (matchesShortcut(e, settings.navigateDownShortcut)) {
-      e.preventDefault();
-      inputRef.current?.blur();
-      setTimeout(() => {
-        if (onNavigate) onNavigate('down');
-      }, 10);
-    } else if (matchesShortcut(e, settings.pasteItemShortcut)) {
-      e.preventDefault();
-      inputRef.current?.blur();
-      setTimeout(() => {
-        if (onNavigate) onNavigate('execute');
-      }, 10);
-    } else if (matchesShortcut(e, settings.hideWindowShortcut)) {
-      e.preventDefault();
-      inputRef.current?.blur();
-    }
-  };
   const handleChange = e => {
     const nextValue = e.target.value;
     setInputValue(nextValue);
@@ -148,13 +95,33 @@ const TitleBarSearch = forwardRef(({
           console.error('聚焦搜索框失败:', error);
         }
       }
-    }
+    },
+    blur: () => {
+      inputRef.current?.blur();
+    },
+    toggleFocus: async () => {
+      if (document.activeElement === inputRef.current) {
+        inputRef.current.blur();
+        return;
+      }
+
+      if (inputRef.current) {
+        try {
+          await focusWindowImmediately();
+          inputRef.current.focus();
+          inputRef.current.select();
+        } catch (error) {
+          console.error('切换搜索框焦点失败:', error);
+        }
+      }
+    },
+    isFocused: () => document.activeElement === inputRef.current
   }));
   return <>
             <style>{searchInputStyle}</style>
             <div ref={searchRef} className={`titlebar-search relative flex ${isVertical ? 'flex-col items-center justify-end h-7' : 'min-w-0 flex-1 flex-row items-center justify-end'}`}>
                 {/* 输入框 - 根据方向展开 */}
-                <input ref={inputRef} type="search" value={inputValue} onChange={handleChange} onCompositionStart={handleCompositionStart} onCompositionEnd={handleCompositionEnd} onFocus={handleFocus} onBlur={() => setIsFocused(false)} onKeyDown={handleKeyDown} placeholder={placeholder} style={isVertical ? {
+                <input ref={inputRef} type="search" value={inputValue} onChange={handleChange} onCompositionStart={handleCompositionStart} onCompositionEnd={handleCompositionEnd} onFocus={handleFocus} onBlur={() => setIsFocused(false)} placeholder={placeholder} style={isVertical ? {
         writingMode: 'vertical-rl',
         textAlign: 'start'
       } : {}} className={`${isVertical ? 'absolute bottom-6 left-0 w-7 py-2' : 'h-7 min-w-0'} text-sm bg-qc-panel border border-qc-border rounded-lg outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-qc-fg placeholder:text-qc-fg-subtle shadow-sm ${uiAnimationEnabled ? 'transition-all duration-300 ease-in-out' : ''} ${isExpanded ? isVertical ? 'h-48 opacity-100 mb-1' : 'flex-1 opacity-100 mr-1 px-2' : isVertical ? 'h-0 opacity-0 pointer-events-none border-0' : 'w-0 flex-none opacity-0 pointer-events-none border-0 px-0'}`} />

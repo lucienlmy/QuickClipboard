@@ -42,7 +42,6 @@ const TitleBar = forwardRef(({
   searchQuery,
   onSearchChange,
   searchPlaceholder,
-  onNavigate,
   position = 'top',
   activeTab = 'clipboard',
   updateBannerState = null
@@ -461,6 +460,15 @@ const TitleBar = forwardRef(({
       if (searchRef.current?.focus) {
         searchRef.current.focus();
       }
+    },
+    blur: () => {
+      searchRef.current?.blur?.();
+    },
+    toggleFocus: () => {
+      searchRef.current?.toggleFocus?.();
+    },
+    isFocused: () => {
+      return searchRef.current?.isFocused?.() === true;
     }
   }));
 
@@ -509,7 +517,6 @@ const TitleBar = forwardRef(({
           value={searchQuery}
           onChange={onSearchChange}
           placeholder={searchPlaceholder}
-          onNavigate={onNavigate}
           isVertical={isVertical}
           position={position}
         />

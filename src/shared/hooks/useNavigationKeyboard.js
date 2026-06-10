@@ -9,7 +9,7 @@ export function useNavigationKeyboard({
   onExecuteItem = null,
   onTabLeft = null,
   onTabRight = null,
-  onFocusSearch = null,
+  onToggleSearch = null,
   onTogglePin = null,
   onPreviousGroup = null,
   onNextGroup = null,
@@ -21,7 +21,7 @@ export function useNavigationKeyboard({
     onExecuteItem,
     onTabLeft,
     onTabRight,
-    onFocusSearch,
+    onToggleSearch,
     onTogglePin,
     onPreviousGroup,
     onNextGroup
@@ -34,7 +34,7 @@ export function useNavigationKeyboard({
       onExecuteItem,
       onTabLeft,
       onTabRight,
-      onFocusSearch,
+      onToggleSearch,
       onTogglePin,
       onPreviousGroup,
       onNextGroup
@@ -45,7 +45,7 @@ export function useNavigationKeyboard({
     onExecuteItem,
     onTabLeft,
     onTabRight,
-    onFocusSearch,
+    onToggleSearch,
     onTogglePin,
     onPreviousGroup,
     onNextGroup
@@ -80,7 +80,7 @@ export function useNavigationKeyboard({
               if (handlers.onTabRight) handlers.onTabRight()
               break
             case 'focus-search':
-              if (handlers.onFocusSearch) handlers.onFocusSearch()
+              if (handlers.onToggleSearch) handlers.onToggleSearch()
               break
             case 'hide-window':
               hideMainWindow().catch(err => {
@@ -125,4 +125,3 @@ export function useNavigationKeyboard({
     }
   }, [enabled])
 }
-
