@@ -84,6 +84,17 @@ function SyncTransferSection({ settings, onSettingChange }) {
 
   useEffect(() => {
     if (activeMode !== 'lan') return;
+    const expiresAtMs = Number(lanStatus?.pairing_code?.expires_at_ms || 0);
+    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= 0) return;
+    const delayMs = Math.max(1000, expiresAtMs - Date.now() + 300);
+    const timer = window.setTimeout(() => {
+      loadLanState().catch(() => {});
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [activeMode, lanStatus?.pairing_code?.expires_at_ms]);
+
+  useEffect(() => {
+    if (activeMode !== 'lan') return;
     let disposed = false;
     let unlisten = null;
     listen('sync-transfer-lan-peers-changed', () => {
