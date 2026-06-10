@@ -7,7 +7,7 @@ import { restoreLastFocus } from '@shared/api/window';
 import { Virtuoso } from 'react-virtuoso';
 import { useCustomScrollbar } from '@shared/hooks/useCustomScrollbar';
 import * as imageLibrary from '@shared/api/imageLibrary';
-import RenameDialog from './RenameDialog';
+import SimpleInputDialog from '../SimpleInputDialog';
 import Tooltip from '@shared/components/common/Tooltip.jsx';
 
 const IMAGE_DEFAULT_COLS = 4;
@@ -717,18 +717,19 @@ function ImageLibraryTab({
     }
   }, [t, isUploading]);
 
-  const handleRenameConfirm = useCallback(async () => {
-    if (!renamingItem || !renameValue.trim()) {
-      setRenamingItem(null);
+  const handleRenameConfirm = useCallback(async (nextValue = renameValue) => {
+    const nextName = nextValue.trim();
+    if (!renamingItem || !nextName) {
       return;
     }
     
     try {
-      await imageLibrary.renameImage(renamingItem.group || renamingItem.category, renamingItem.filename, renameValue.trim());
+      await imageLibrary.renameImage(renamingItem.group || renamingItem.category, renamingItem.filename, nextName);
       loadImageCount();
       loadedRangeRef.current = { start: 0, end: 0 };
       setImageItems([]);
       setRenamingItem(null);
+      setRenameValue('');
     } catch (err) {
       console.error('重命名失败:', err);
       toast.error(t('emoji.renameFailed'), {
@@ -1117,11 +1118,13 @@ function ImageLibraryTab({
       )}
 
       {renamingItem && (
-        <RenameDialog
+        <SimpleInputDialog
+          title={t('common.rename', '重命名')}
           value={renameValue}
           onChange={setRenameValue}
           onConfirm={handleRenameConfirm}
           onCancel={handleRenameCancel}
+          allowEmpty={false}
         />
       )}
     </div>

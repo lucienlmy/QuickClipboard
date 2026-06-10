@@ -5,7 +5,6 @@ import { pasteFavorite, refreshFavorites } from '@shared/store/favoritesStore';
 import { ROW_HEIGHT_CONFIG, useItemCommon } from '@shared/hooks/useItemCommon.jsx';
 import { useSortable, CSS } from '@shared/hooks/useSortable';
 import { useDragWithThreshold } from '@shared/hooks/useDragWithThreshold';
-import { focusWindowImmediately, restoreFocus } from '@shared/hooks/useInputFocus';
 import { useSnapshot } from 'valtio';
 import { groupsStore } from '@shared/store/groupsStore';
 import { showFavoriteItemContextMenu } from '@shared/utils/contextMenu';
@@ -31,6 +30,7 @@ import {
   PREVIEW_MODE_IMAGE,
   PREVIEW_MODE_FILE,
 } from '@shared/utils/pasteFormatHints';
+import SimpleInputDialog from './SimpleInputDialog';
 
 const PREVIEW_HOVER_DELAY_MS = 120;
 const favoriteFormatKindsCache = new Map();
@@ -98,7 +98,7 @@ function FavoriteItem({
   const formatKindsLoadedRef = useRef(false);
   const previewTimerRef = useRef(null);
 
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isTitleDialogOpen, setIsTitleDialogOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState('');
   const hasFileMissing = (() => {
     if (!isFileType && !isImageType) return false;
@@ -435,20 +435,24 @@ function FavoriteItem({
     scheduleHoverPreview();
   }, [isDragActive, isDragging, isMultiSelectMode, scheduleHoverPreview]);
 
-  // 判断是否显示标题（只要有非空标题就显示）
-  const shouldShowTitle = () => {
-    return item.title && item.title.trim();
-  };
+  const titleText = item.title?.trim() || '';
+  const hasTitle = Boolean(titleText);
 
-  // 处理标题编辑（文件和图片类型）
+  // 处理标题编辑
   const handleTitleEditClick = (e) => {
     e.stopPropagation();
+    closeHoverPreview();
     setEditingTitle(item.title || '');
-    setIsEditingTitle(true);
+    setIsTitleDialogOpen(true);
   };
 
-  const handleTitleSave = async () => {
-    const newTitle = editingTitle.trim();
+  const handleTitleCancel = () => {
+    setIsTitleDialogOpen(false);
+    setEditingTitle('');
+  };
+
+  const handleTitleSave = async (nextTitle = editingTitle) => {
+    const newTitle = nextTitle.trim();
     if (newTitle !== (item.title || '').trim()) {
       try {
         await updateFavorite(item.id, newTitle, item.content, item.group_name);
@@ -465,16 +469,7 @@ function FavoriteItem({
         });
       }
     }
-    setIsEditingTitle(false);
-  };
-
-  const handleTitleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleTitleSave();
-    } else if (e.key === 'Escape') {
-      setIsEditingTitle(false);
-    }
+    handleTitleCancel();
   };
 
   const isCardStyle = settings.listStyle === 'card';
@@ -682,20 +677,20 @@ function FavoriteItem({
       <div className={floatingControlsClasses}>
         {/* 悬停操作按钮组 */}
         {!isMultiSelectMode && <div className={actionGroupClasses} onMouseEnter={closeHoverPreview} onMouseLeave={handleActionGroupMouseLeave}>
-          {/* 编辑按钮 */}
-          {isTextOrRichText ? (
+          {/* 编辑内容按钮 */}
+          {isTextOrRichText && (
             <Tooltip content={t('common.edit')} placement="bottom" asChild>
               <button className={actionButtonClasses} onClick={handleEditClick}>
                 <i className="ti ti-edit" style={{ fontSize: 12 }}></i>
               </button>
             </Tooltip>
-          ) : (
-            <Tooltip content={t('favorites.editTitle', '编辑标题')} placement="bottom" asChild>
-              <button className={actionButtonClasses} onClick={handleTitleEditClick}>
-                <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
-              </button>
-            </Tooltip>
           )}
+          {/* 编辑标题按钮 */}
+          <Tooltip content={t('favorites.editTitle', '编辑标题')} placement="bottom" asChild>
+            <button className={actionButtonClasses} onClick={handleTitleEditClick}>
+              <i className="ti ti-tag" style={{ fontSize: 12 }}></i>
+            </button>
+          </Tooltip>
           {/* 删除按钮 */}
           <Tooltip content={t('common.delete')} placement="bottom" asChild>
             <button className={actionButtonClasses} onClick={handleDeleteClick}>
@@ -724,22 +719,10 @@ function FavoriteItem({
       </div>
 
       {isCompactHeight ? <div className="flex items-center gap-2 h-full overflow-hidden">
-        {isEditingTitle ? (
-          <input
-            type="text"
-            value={editingTitle}
-            onChange={(e) => setEditingTitle(e.target.value)}
-            onFocus={focusWindowImmediately}
-            onBlur={(e) => {
-              restoreFocus();
-              handleTitleSave();
-            }}
-            onKeyDown={handleTitleKeyDown}
-            onClick={(e) => e.stopPropagation()}
-            autoFocus
-            className="flex-1 min-w-0 text-sm text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 outline-none focus:ring-1 focus:ring-blue-400"
-            placeholder={t('favorites.titlePlaceholder', '输入标题...')}
-          />
+        {hasTitle ? (
+          <p className="flex-1 min-w-0 truncate pr-16 text-sm font-semibold leading-5 text-qc-fg">
+            {searchKeyword ? highlightText(titleText, searchKeyword) : titleText}
+          </p>
         ) : (
           <div className="flex-1 min-w-0 overflow-hidden h-full">
             {renderContent(true, false, {
@@ -763,40 +746,22 @@ function FavoriteItem({
         </div>
 
         {/* 标题 */}
-        {isEditingTitle ? (
-          <div className="flex-shrink-0 mb-0.5 pr-16">
-            <input
-              type="text"
-              value={editingTitle}
-              onChange={(e) => setEditingTitle(e.target.value)}
-              onFocus={focusWindowImmediately}
-              onBlur={(e) => {
-                restoreFocus();
-                handleTitleSave();
-              }}
-              onKeyDown={handleTitleKeyDown}
-              onClick={(e) => e.stopPropagation()}
-              autoFocus
-              className="w-full text-sm font-semibold text-qc-fg bg-qc-panel border border-blue-400 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-400"
-              placeholder={t('favorites.titlePlaceholder', '输入标题...')}
-            />
-          </div>
-        ) : shouldShowTitle() && (
+        {hasTitle && (
           <div className="flex-shrink-0 mb-0">
             <p className="text-sm font-semibold text-qc-fg truncate pr-16 leading-tight">
-              {searchKeyword ? highlightText(item.title, searchKeyword) : item.title}
+              {searchKeyword ? highlightText(titleText, searchKeyword) : titleText}
             </p>
           </div>
         )}
 
         {/* 内容区域 */}
         <div className={`flex-1 min-w-0 w-full overflow-hidden ${settings.rowHeight === 'auto' ? '' : 'h-full'}`}>
-          {renderContent(false, shouldShowTitle(), {
+          {renderContent(false, hasTitle, {
             availableHeightPx: (() => {
               if (settings.rowHeight === 'auto') return undefined;
               const base = settings.rowHeight === 'large' ? 120 : settings.rowHeight === 'medium' ? 90 : settings.rowHeight === 'small' ? 50 : settings.rowHeight === 'xsmall' ? 34 : 90;
               const timeCost = 22;
-              const titleCost = shouldShowTitle() ? 20 : 0;
+              const titleCost = hasTitle ? 20 : 0;
               return base - 16 - timeCost - titleCost;
             })(),
             disableExternalDrag: isImageOrFileType || isMultiSelectMode,
@@ -807,15 +772,27 @@ function FavoriteItem({
     </div>
   );
 
-  if (shouldShowFormatHintTooltip) {
-    return (
+  const contentNode = shouldShowFormatHintTooltip ? (
       <Tooltip content={formatHintTooltipContent} placement="top" asChild>
         {itemNode}
       </Tooltip>
-    );
-  }
+    ) : itemNode;
 
-  return itemNode;
+  return (
+    <>
+      {contentNode}
+      {isTitleDialogOpen && (
+        <SimpleInputDialog
+          title={t('favorites.editTitle', '编辑标题')}
+          value={editingTitle}
+          onChange={setEditingTitle}
+          onConfirm={handleTitleSave}
+          onCancel={handleTitleCancel}
+          placeholder={t('favorites.titlePlaceholder', '输入标题...')}
+        />
+      )}
+    </>
+  );
 }
 
 function areFavoriteItemPropsEqual(prevProps, nextProps) {
