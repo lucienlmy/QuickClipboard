@@ -30,6 +30,7 @@ mod windows_raw_input {
     static RAW_INPUT_ACTIVE: AtomicBool = AtomicBool::new(false);
     static RAW_INPUT_THREAD_ID: AtomicU32 = AtomicU32::new(0);
     static CTRL_DOWN: AtomicBool = AtomicBool::new(false);
+    static SHIFT_DOWN: AtomicBool = AtomicBool::new(false);
     static MIDDLE_BUTTON_DOWN: AtomicBool = AtomicBool::new(false);
     static MIDDLE_BUTTON_PRESS_ID: AtomicU64 = AtomicU64::new(0);
     static PREVIEW_GUARD_PENDING: AtomicBool = AtomicBool::new(false);
@@ -40,6 +41,13 @@ mod windows_raw_input {
     static QUICKPASTE_SECONDARY_KEY_VK: AtomicU32 = AtomicU32::new(0);
     static QUICKPASTE_SECONDARY_KEY_DOWN: AtomicBool = AtomicBool::new(false);
     static QUICKPASTE_SECONDARY_KEY_PRESS_ID: AtomicU64 = AtomicU64::new(0);
+    const VK_CONTROL_CODE: u32 = 0x11;
+    const VK_LCONTROL_CODE: u32 = 0xA2;
+    const VK_RCONTROL_CODE: u32 = 0xA3;
+    const VK_SHIFT_CODE: u32 = 0x10;
+    const VK_LSHIFT_CODE: u32 = 0xA0;
+    const VK_RSHIFT_CODE: u32 = 0xA1;
+    const VK_INSERT_CODE: u32 = 0x2D;
     const PREVIEW_GUARD_THROTTLE_MS: u64 = 50;
     const QUICKPASTE_REPEAT_INITIAL_DELAY_MS: u64 = 300;
     const QUICKPASTE_REPEAT_INTERVAL_MS: u64 = 120;
@@ -251,7 +259,7 @@ mod windows_raw_input {
 
                 handle_quickpaste_keyboard_event(vkey, is_keydown, is_keyup);
 
-                if vkey == 0x11 || vkey == 0xA2 || vkey == 0xA3 {
+                if vkey == VK_CONTROL_CODE || vkey == VK_LCONTROL_CODE || vkey == VK_RCONTROL_CODE {
                     if is_keydown {
                         CTRL_DOWN.store(true, Ordering::Relaxed);
                     } else if is_keyup {
@@ -260,12 +268,21 @@ mod windows_raw_input {
                     return;
                 }
 
-                if !CTRL_DOWN.load(Ordering::Relaxed) {
+                if vkey == VK_SHIFT_CODE || vkey == VK_LSHIFT_CODE || vkey == VK_RSHIFT_CODE {
+                    if is_keydown {
+                        SHIFT_DOWN.store(true, Ordering::Relaxed);
+                    } else if is_keyup {
+                        SHIFT_DOWN.store(false, Ordering::Relaxed);
+                    }
                     return;
                 }
 
                 if is_keydown {
-                    if vkey == b'V' as u32 || vkey == b'v' as u32 {
+                    let is_ctrl_v = CTRL_DOWN.load(Ordering::Relaxed)
+                        && (vkey == b'V' as u32 || vkey == b'v' as u32);
+                    let is_shift_insert = SHIFT_DOWN.load(Ordering::Relaxed) && vkey == VK_INSERT_CODE;
+
+                    if is_ctrl_v || is_shift_insert {
                         AppSounds::play_paste_immediate();
                     }
                 }
