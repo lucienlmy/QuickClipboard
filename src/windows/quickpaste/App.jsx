@@ -295,7 +295,7 @@ function QuickPasteWindow() {
 
     return (
       <div className="w-full h-7 overflow-hidden">
-        <TextContent content={item.content || ''} lineClampClass="line-clamp-1" />
+        <TextContent content={item.content || ''} lineClampClass="line-clamp-1" item={item} source={isClipboardTab ? 'clipboard' : 'favorite'} />
       </div>
     );
   };

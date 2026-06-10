@@ -134,7 +134,10 @@
     "imageTooLarge": "Image too large",
     "maxLimit": "limit",
     "imageLoadFailed": "Failed to load image",
-    "fileNotFound": "File not found"
+    "fileNotFound": "File not found",
+    "pickColor": "Pick color",
+    "eyeDropperUnsupported": "EyeDropper is not supported in this environment",
+    "colorUpdateFailed": "Failed to update color"
   },
   "favorites": {
     "title": "Favorites",

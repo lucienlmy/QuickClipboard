@@ -159,7 +159,7 @@ export function useItemCommon(item, options = {}) {
       return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
     }
 
-    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} {...textLayout} />;
+    return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} item={item} source={options.isFavorite ? 'favorite' : 'clipboard'} {...textLayout} />;
   };
   return {
     settings,

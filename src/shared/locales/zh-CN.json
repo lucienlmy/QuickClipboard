@@ -134,7 +134,10 @@
     "imageTooLarge": "图片过大",
     "maxLimit": "上限",
     "imageLoadFailed": "图片加载失败",
-    "fileNotFound": "文件不存在"
+    "fileNotFound": "文件不存在",
+    "pickColor": "选择颜色",
+    "eyeDropperUnsupported": "当前环境不支持 EyeDropper 取色器",
+    "colorUpdateFailed": "更新颜色失败"
   },
   "favorites": {
     "title": "收藏",
