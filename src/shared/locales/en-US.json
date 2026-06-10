@@ -775,7 +775,7 @@
       "edgeHideOffset": "Visible Pixels When Hidden",
       "edgeHideOffsetDesc": "Number of pixels protruding when the window is hidden at edge",
       "autoFocusSearch": "Auto Focus Search Box",
-      "autoFocusSearchDesc": "Automatically focus search box when window is shown",
+      "autoFocusSearchDesc": "Focus the search box when the window opens for quick search, but it may interrupt renaming or other typing",
       "pasteToTop": "Pin Pasted Item to Top",
       "pasteToTopDesc": "After pasting, move the item to the top of the clipboard list",
       "showBadges": "Show Status Badges",

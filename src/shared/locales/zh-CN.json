@@ -775,7 +775,7 @@
       "edgeHideOffset": "贴边隐藏突出像素",
       "edgeHideOffsetDesc": "窗口贴边隐藏时突出显示的像素数",
       "autoFocusSearch": "自动聚焦搜索框",
-      "autoFocusSearchDesc": "窗口显示时自动将光标定位到搜索框",
+      "autoFocusSearchDesc": "窗口显示时聚焦搜索框，便于快速搜索，但可能打断重命名等输入",
       "pasteToTop": "粘贴后置顶",
       "pasteToTopDesc": "在剪贴板列表中粘贴后，将该项移动到第一位",
       "showBadges": "显示状态角标",
