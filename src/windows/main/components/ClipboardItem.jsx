@@ -525,6 +525,7 @@ function ClipboardItem({
   const isActiveSelected = isMultiSelectMode ? isMultiSelected : isSelected;
   const baseSurfaceClasses = isBackground ? 'bg-qc-panel' : 'bg-transparent';
   const shouldShowDragOutlineOnly = isImageOrFileType && showDragSideTooltips;
+  const gaplessDividerClasses = 'border-b border-transparent';
   const selectedClasses = isCardStyle
     ? (
       shouldShowDragOutlineOnly
@@ -535,9 +536,9 @@ function ClipboardItem({
     )
     : (
       shouldShowDragOutlineOnly
-        ? baseSurfaceClasses
+        ? `${baseSurfaceClasses} ${gaplessDividerClasses}`
         : isActiveSelected
-          ? `${baseSurfaceClasses} ring-2 ring-blue-500 ring-inset`
+          ? `${baseSurfaceClasses} ${gaplessDividerClasses} ring-2 ring-blue-500 ring-inset`
           : `${baseSurfaceClasses} border-b border-qc-border`
     );
   const smallElementClasses = `
