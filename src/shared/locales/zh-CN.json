@@ -941,7 +941,7 @@
       "effectTitle": "过滤作用范围",
       "effectDesc": "规则生效时影响哪些功能",
       "effectClipboardOnly": "禁用内容监听",
-      "effectClipboardOnlyDesc": "目标在前台时：不记录剪贴板内容；其他所有功能正常使用",
+      "effectClipboardOnlyDesc": "目标复制时：不记录剪贴板内容；其他所有功能正常使用",
       "effectGlobalDisable": "禁用所有功能",
       "effectGlobalDisableDesc": "目标在前台时：禁用本程序的所有功能，避免影响目标程序",
       "allApps": "未过滤应用",

@@ -941,7 +941,7 @@
       "effectTitle": "Filter Scope",
       "effectDesc": "What features are affected when rules apply",
       "effectClipboardOnly": "Disable Content Monitoring",
-      "effectClipboardOnlyDesc": "When the target app is in the foreground: clipboard content is not recorded; all other features continue to work",
+      "effectClipboardOnlyDesc": "When copying the target: clipboard content is not recorded; all other features continue to work",
       "effectGlobalDisable": "Disable All Features",
       "effectGlobalDisableDesc": "When the target app is in the foreground: disable all features of this app to avoid affecting the target app",
       "allApps": "Unfiltered Apps",
