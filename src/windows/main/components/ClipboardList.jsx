@@ -26,6 +26,7 @@ const ClipboardList = forwardRef(({
     endIndex: 0
   });
   const loadTimeoutRef = useRef(null);
+  const onScrollStateChangeRef = useRef(onScrollStateChange);
   const snap = useSnapshot(navigationStore);
   const clipSnap = useSnapshot(clipboardStore);
   const isMultiSelectMode = clipSnap.isMultiSelectMode;
@@ -56,6 +57,10 @@ const ClipboardList = forwardRef(({
       };
     });
   }, [itemsArray]);
+
+  useEffect(() => {
+    onScrollStateChangeRef.current = onScrollStateChange;
+  }, [onScrollStateChange]);
 
   const handleDragEnd = async (oldIndex, newIndex) => {
     if (oldIndex === newIndex) return;
@@ -154,6 +159,30 @@ const ClipboardList = forwardRef(({
     }
     handleScrollEnd();
   }, [handleScrollEnd, handleScrollStart]);
+
+  useEffect(() => {
+    currentRangeRef.current = {
+      startIndex: 0,
+      endIndex: 0
+    };
+    clipboardStore.currentViewRange = { start: 0, end: 50 };
+
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+
+    virtuosoRef.current?.scrollToIndex({
+      index: 0,
+      align: 'start',
+      behavior: 'auto'
+    });
+    if (scrollerElement) {
+      scrollerElement.scrollTop = 0;
+    }
+    navigationStore.resetNavigation();
+    onScrollStateChangeRef.current?.({ atTop: true });
+  }, [clipSnap.filter, clipSnap.contentType, scrollerElement]);
 
   const ensureRangeLoaded = useCallback(async (startIndex, endIndex) => {
     const missingIndexes = [];

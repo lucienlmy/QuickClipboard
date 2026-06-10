@@ -26,6 +26,7 @@ const FavoritesList = forwardRef(({
     endIndex: 0
   });
   const loadTimeoutRef = useRef(null);
+  const onScrollStateChangeRef = useRef(onScrollStateChange);
   const snap = useSnapshot(navigationStore);
   const favSnap = useSnapshot(favoritesStore);
   const isMultiSelectMode = favSnap.isMultiSelectMode;
@@ -56,6 +57,10 @@ const FavoritesList = forwardRef(({
       };
     });
   }, [itemsArray]);
+
+  useEffect(() => {
+    onScrollStateChangeRef.current = onScrollStateChange;
+  }, [onScrollStateChange]);
 
   const canDrag = !isMultiSelectMode;
 
@@ -149,6 +154,30 @@ const FavoritesList = forwardRef(({
     }
     handleScrollEnd();
   }, [handleScrollEnd, handleScrollStart]);
+
+  useEffect(() => {
+    currentRangeRef.current = {
+      startIndex: 0,
+      endIndex: 0
+    };
+    favoritesStore.currentViewRange = { start: 0, end: 50 };
+
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+
+    virtuosoRef.current?.scrollToIndex({
+      index: 0,
+      align: 'start',
+      behavior: 'auto'
+    });
+    if (scrollerElement) {
+      scrollerElement.scrollTop = 0;
+    }
+    navigationStore.resetNavigation();
+    onScrollStateChangeRef.current?.({ atTop: true });
+  }, [favSnap.filter, favSnap.contentType, groupsSnap.currentGroup, scrollerElement]);
 
   const ensureRangeLoaded = useCallback(async (startIndex, endIndex) => {
     const missingIndexes = [];
