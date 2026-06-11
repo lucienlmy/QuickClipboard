@@ -299,7 +299,8 @@ pub fn toggle_pin_clipboard_item(id: i64) -> Result<bool, String> {
 // 复制图片文件到剪贴板
 #[tauri::command]
 pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
-    use clipboard_rs::{Clipboard, ClipboardContext};
+    use image::ImageFormat;
+    use std::io::Cursor;
     use sha2::{Sha256, Digest};
     
     let path = Path::new(&file_path);
@@ -307,11 +308,18 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
         return Err(format!("图片文件不存在: {}", file_path));
     }
     
-    // 统一先复制到 clipboard_images，避免剪贴板直接依赖会被销毁的源文件
+    // 统一转为 PNG 缓存，避免剪贴板直接依赖会被销毁的源文件
     let image_data = std::fs::read(path)
         .map_err(|e| format!("读取图片失败: {}", e))?;
 
-    let hash = format!("{:x}", Sha256::digest(&image_data));
+    let image = image::load_from_memory(&image_data)
+        .map_err(|e| format!("解码图片失败: {}", e))?;
+    let mut png_data = Vec::new();
+    image
+        .write_to(&mut Cursor::new(&mut png_data), ImageFormat::Png)
+        .map_err(|e| format!("编码 PNG 失败: {}", e))?;
+
+    let hash = format!("{:x}", Sha256::digest(&png_data));
     let filename = format!("{}.png", &hash[..16]);
 
     let data_dir = crate::services::get_data_directory()?;
@@ -321,15 +329,13 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
 
     let saved_path = clipboard_images_dir.join(&filename);
     if !saved_path.exists() {
-        std::fs::write(&saved_path, &image_data)
+        std::fs::write(&saved_path, &png_data)
             .map_err(|e| format!("保存图片失败: {}", e))?;
     }
     
-    let ctx = ClipboardContext::new()
-        .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
-
-    ctx.set_files(vec![saved_path.to_string_lossy().to_string()])
-        .map_err(|e| format!("设置文件到剪贴板失败: {}", e))
+    crate::services::paste::clipboard_content::set_clipboard_image_file(
+        &saved_path.to_string_lossy(),
+    )
 }
 
 // 复制文件列表到剪贴板

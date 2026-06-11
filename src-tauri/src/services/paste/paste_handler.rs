@@ -3,7 +3,7 @@ use clipboard_rs::{ClipboardContent as RsClipboardContent, ClipboardContext};
 use crate::services::database::{get_clipboard_data_items, ClipboardDataItem, ClipboardItem};
 use crate::utils::cf_html::generate_cf_html;
 
-use super::clipboard_content::{set_clipboard_contents, set_clipboard_files};
+use super::clipboard_content::{set_clipboard_contents, set_clipboard_files, set_clipboard_image_file};
 use super::keyboard::simulate_paste;
 use super::options::{resolve_default_paste_action, PasteAction};
 use super::text::paste_text;
@@ -53,9 +53,7 @@ pub fn paste_image_file(file_path: &str) -> Result<(), String> {
     crate::services::mark_paste_operation();
     let _monitor_guard = crate::services::clipboard::pause_clipboard_monitor_for(1000);
 
-    let ctx = ClipboardContext::new().map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
-
-    set_clipboard_files(&ctx, vec![file_path.to_string()])?;
+    set_clipboard_image_file(file_path)?;
 
     std::thread::sleep(std::time::Duration::from_millis(50));
     simulate_paste()?;
@@ -156,7 +154,7 @@ fn paste_item_internal(
         }
     });
 
-    let payload = build_payload_from_action(item, &raw_formats, resolved_action)?;
+    let payload = build_payload_from_action(item, &raw_formats, resolved_action.clone())?;
 
     if payload.is_empty() {
         return Err("没有可写入剪贴板的数据".to_string());
@@ -167,11 +165,15 @@ fn paste_item_internal(
     crate::services::clipboard::set_last_hash_contents(&payload);
     crate::services::mark_paste_operation();
 
-    let ctx = ClipboardContext::new().map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
-    if let [RsClipboardContent::Files(paths)] = payload.as_slice() {
-        set_clipboard_files(&ctx, paths.clone())?;
+    if resolved_action == PasteAction::ImageBundle {
+        set_clipboard_image_file(&resolve_item_image_path(item)?)?;
     } else {
-        set_clipboard_contents(&ctx, payload)?;
+        let ctx = ClipboardContext::new().map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
+        if let [RsClipboardContent::Files(paths)] = payload.as_slice() {
+            set_clipboard_files(&ctx, paths.clone())?;
+        } else {
+            set_clipboard_contents(&ctx, payload)?;
+        }
     }
 
     if update_item {

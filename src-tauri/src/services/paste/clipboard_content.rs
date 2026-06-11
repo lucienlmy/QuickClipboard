@@ -77,6 +77,192 @@ pub fn set_clipboard_files(ctx: &ClipboardContext, paths: Vec<String>) -> Result
         .map_err(|e| format!("设置文件到剪贴板失败: {}", e))
 }
 
+// 设置剪贴板为图片，同时保留文件路径格式
+pub fn set_clipboard_image_file(path: &str) -> Result<(), String> {
+    let resolved_path = crate::services::resolve_stored_path(path);
+    if !Path::new(&resolved_path).exists() {
+        return Err(format!("图片文件不存在: {}", resolved_path));
+    }
+
+    let _guard = crate::services::clipboard::pause_clipboard_monitor_for(500);
+    set_clipboard_image_file_impl(&resolved_path)
+}
+
+#[cfg(target_os = "windows")]
+fn set_clipboard_image_file_impl(path: &str) -> Result<(), String> {
+    use image::ImageFormat;
+    use std::io::Cursor;
+    use std::mem;
+    use std::ptr;
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::{GlobalFree, HANDLE, HGLOBAL};
+    use windows::Win32::System::DataExchange::{
+        CloseClipboard, EmptyClipboard, OpenClipboard, RegisterClipboardFormatW, SetClipboardData,
+    };
+    use windows::Win32::System::Memory::{
+        GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE, GMEM_ZEROINIT,
+    };
+    use windows::Win32::UI::Shell::DROPFILES;
+
+    const CF_DIB: u32 = 8;
+    const CF_HDROP: u32 = 15;
+
+    fn alloc_global_bytes(data: &[u8]) -> Result<HGLOBAL, String> {
+        if data.is_empty() {
+            return Err("剪贴板数据为空".to_string());
+        }
+
+        let handle = unsafe { GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, data.len()) }
+            .map_err(|e| format!("分配剪贴板内存失败: {}", e))?;
+        let ptr = unsafe { GlobalLock(handle) } as *mut u8;
+
+        if ptr.is_null() {
+            let _ = unsafe { GlobalFree(Some(handle)) };
+            return Err("锁定剪贴板内存失败".to_string());
+        }
+
+        unsafe {
+            ptr::copy_nonoverlapping(data.as_ptr(), ptr, data.len());
+            let _ = GlobalUnlock(handle);
+        }
+
+        Ok(handle)
+    }
+
+    fn set_clipboard_handle(format: u32, handle: HGLOBAL, name: &str) -> Result<(), String> {
+        match unsafe { SetClipboardData(format, Some(HANDLE(handle.0))) } {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let _ = unsafe { GlobalFree(Some(handle)) };
+                Err(format!("设置 {} 到剪贴板失败: {}", name, e))
+            }
+        }
+    }
+
+    fn build_hdrop_data(path: &str) -> Vec<u8> {
+        let mut wide_path: Vec<u16> = path.encode_utf16().collect();
+        wide_path.push(0);
+        wide_path.push(0);
+
+        let header_size = mem::size_of::<DROPFILES>();
+        let mut data = vec![0u8; header_size + wide_path.len() * 2];
+
+        let dropfiles = DROPFILES {
+            pFiles: header_size as u32,
+            pt: Default::default(),
+            fNC: false.into(),
+            fWide: true.into(),
+        };
+
+        unsafe {
+            ptr::copy_nonoverlapping(
+                &dropfiles as *const DROPFILES as *const u8,
+                data.as_mut_ptr(),
+                header_size,
+            );
+            ptr::copy_nonoverlapping(
+                wide_path.as_ptr() as *const u8,
+                data.as_mut_ptr().add(header_size),
+                wide_path.len() * 2,
+            );
+        }
+
+        data
+    }
+
+    struct ClipboardSession;
+
+    impl ClipboardSession {
+        fn open() -> Result<Self, String> {
+            unsafe { OpenClipboard(None) }
+                .map_err(|e| format!("打开剪贴板失败: {}", e))?;
+            Ok(Self)
+        }
+    }
+
+    impl Drop for ClipboardSession {
+        fn drop(&mut self) {
+            let _ = unsafe { CloseClipboard() };
+        }
+    }
+
+    let image = image::open(path).map_err(|e| format!("读取图片失败: {}", e))?;
+
+    let mut png_data = Vec::new();
+    image
+        .write_to(&mut Cursor::new(&mut png_data), ImageFormat::Png)
+        .map_err(|e| format!("编码 PNG 失败: {}", e))?;
+
+    let dib_data = build_dib_data(&image)?;
+    let hdrop_data = build_hdrop_data(path);
+
+    let png_format = {
+        let mut name: Vec<u16> = "PNG".encode_utf16().collect();
+        name.push(0);
+        unsafe { RegisterClipboardFormatW(PCWSTR(name.as_ptr())) }
+    };
+    if png_format == 0 {
+        return Err("注册 PNG 剪贴板格式失败".to_string());
+    }
+
+    let _clipboard = ClipboardSession::open()?;
+    unsafe { EmptyClipboard() }.map_err(|e| format!("清空剪贴板失败: {}", e))?;
+
+    let dib_handle = alloc_global_bytes(&dib_data)?;
+    set_clipboard_handle(CF_DIB, dib_handle, "CF_DIB")?;
+
+    let png_handle = alloc_global_bytes(&png_data)?;
+    set_clipboard_handle(png_format, png_handle, "PNG")?;
+
+    let hdrop_handle = alloc_global_bytes(&hdrop_data)?;
+    set_clipboard_handle(CF_HDROP, hdrop_handle, "CF_HDROP")?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn build_dib_data(image: &image::DynamicImage) -> Result<Vec<u8>, String> {
+    let rgba = image.to_rgba8();
+    let width = rgba.width();
+    let height = rgba.height();
+    if height > i32::MAX as u32 || width > i32::MAX as u32 {
+        return Err("图片尺寸过大，无法生成 DIB 数据".to_string());
+    }
+    let pixel_data_size = width
+        .checked_mul(height)
+        .and_then(|value| value.checked_mul(4))
+        .ok_or_else(|| "图片尺寸过大，无法生成 DIB 数据".to_string())? as usize;
+    let mut data = Vec::with_capacity(40 + pixel_data_size);
+
+    data.extend_from_slice(&40u32.to_le_bytes());
+    data.extend_from_slice(&(width as i32).to_le_bytes());
+    data.extend_from_slice((-(height as i32)).to_le_bytes().as_slice());
+    data.extend_from_slice(&1u16.to_le_bytes());
+    data.extend_from_slice(&32u16.to_le_bytes());
+    data.extend_from_slice(&0u32.to_le_bytes());
+    data.extend_from_slice(&(pixel_data_size as u32).to_le_bytes());
+    data.extend_from_slice(&0i32.to_le_bytes());
+    data.extend_from_slice(&0i32.to_le_bytes());
+    data.extend_from_slice(&0u32.to_le_bytes());
+    data.extend_from_slice(&0u32.to_le_bytes());
+
+    for pixel in rgba.pixels() {
+        data.push(pixel[2]);
+        data.push(pixel[1]);
+        data.push(pixel[0]);
+        data.push(pixel[3]);
+    }
+
+    Ok(data)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_clipboard_image_file_impl(path: &str) -> Result<(), String> {
+    let ctx = ClipboardContext::new().map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
+    ctx.set_files(vec![path.to_string()])
+        .map_err(|e| format!("设置图片到剪贴板失败: {}", e))
+}
+
 // 设置剪贴板为纯文本
 pub fn set_clipboard_text(ctx: &ClipboardContext, text: &str) -> Result<(), String> {
     let _guard = crate::services::clipboard::pause_clipboard_monitor_for(500);
