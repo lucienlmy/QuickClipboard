@@ -360,6 +360,7 @@ export default function App() {
   const windowLabelRef = useRef(getCurrentWindowLabel());
   const nativeDropProxyVisibleRef = useRef(false);
   const nativeDropProxyPendingRef = useRef(false);
+  const nativeDropProxyShowPromiseRef = useRef(null);
   const selfExternalDragRef = useRef(false);
   const selfExternalDragClearTimerRef = useRef(null);
   const internalDragSourceLabelRef = useRef(readStoredInternalDragSource());
@@ -458,6 +459,11 @@ export default function App() {
       window.clearTimeout(cleanupDropResourceTimerRef.current);
       cleanupDropResourceTimerRef.current = null;
     }
+  }, []);
+
+  useEffect(() => {
+    // 提前创建隐藏的原生拖放层，避免首次拖入时边拖边初始化导致丢失 drop。
+    ensureDropProxy().catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -899,29 +905,36 @@ export default function App() {
   const showNativeDropLayer = async () => {
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
-    if (nativeDropProxyPendingRef.current) return;
+    if (nativeDropProxyVisibleRef.current) return;
+    if (nativeDropProxyShowPromiseRef.current) return nativeDropProxyShowPromiseRef.current;
+
     nativeDropProxyPendingRef.current = true;
-    try {
-      await ensureDropProxy();
-      if (!nativeDropProxyPendingRef.current) return;
-      await showDropProxy({
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height,
-      });
-      if (!nativeDropProxyPendingRef.current) {
+
+    const showPromise = (async () => {
+      try {
+        await showDropProxy({
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+        });
+        if (!nativeDropProxyPendingRef.current) {
+          nativeDropProxyVisibleRef.current = false;
+          await hideDropProxy().catch(() => { });
+          return;
+        }
+        nativeDropProxyVisibleRef.current = true;
+      } catch (error) {
         nativeDropProxyVisibleRef.current = false;
-        await hideDropProxy().catch(() => { });
-        return;
+        setErrorText(formatError(error));
+      } finally {
+        nativeDropProxyPendingRef.current = false;
+        nativeDropProxyShowPromiseRef.current = null;
       }
-      nativeDropProxyVisibleRef.current = true;
-    } catch (error) {
-      nativeDropProxyVisibleRef.current = false;
-      setErrorText(formatError(error));
-    } finally {
-      nativeDropProxyPendingRef.current = false;
-    }
+    })();
+
+    nativeDropProxyShowPromiseRef.current = showPromise;
+    return showPromise;
   };
 
   const handleHtmlDragEnter = async (event) => {
@@ -1015,6 +1028,30 @@ export default function App() {
       }
 
       if (shouldUseNativeDropProxy(event.dataTransfer)) {
+        const filesFromHtml = Array.from(event.dataTransfer?.files || []);
+        if (!nativeDropProxyVisibleRef.current) {
+          const directPaths = filesFromHtml
+            .map((file) => (typeof file?.path === 'string' ? file.path : ''))
+            .filter(Boolean);
+          if (directPaths.length > 0) {
+            await addPaths(directPaths);
+            await hideDropProxy();
+            return;
+          }
+
+          if (filesFromHtml.length > 0) {
+            const paths = [];
+            for (const file of filesFromHtml) {
+              const path = await saveDroppedFile(file);
+              if (path) paths.push(path);
+            }
+            if (paths.length > 0) {
+              await addPaths(paths);
+            }
+            await hideDropProxy();
+            return;
+          }
+        }
         shouldHideProxy = false;
         return;
       }
