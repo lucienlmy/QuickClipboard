@@ -49,9 +49,12 @@ import {
   isFiniteNumber,
   resolveBoxSize,
   resolveHtmlPreviewMaxWidth,
+  resolvePreviewDirectionalAvailableWidth,
   chooseContainerPosition,
   resolveTextPreviewMaxHeight,
   resolveTextPreviewMaxWidth,
+  TEXT_MIN_WIDTH,
+  HTML_MIN_WIDTH,
   resolvePreviewMode,
   parsePreviewFiles,
   buildPreviewFileStats,
@@ -859,33 +862,74 @@ function App() {
     };
   }, [workAreaLogical.width, workAreaLogical.height]);
 
+  const mousePositionLogical = useMemo(() => ({
+    x: mousePositionPhysical.x / scaleFactor,
+    y: mousePositionPhysical.y / scaleFactor,
+  }), [mousePositionPhysical, scaleFactor]);
+
+  const textPreviewMaxWidth = useMemo(() => {
+    const availableWidth = resolvePreviewDirectionalAvailableWidth(
+      workAreaLogical,
+      mainWindowLogical,
+      mousePositionLogical,
+      TEXT_MIN_WIDTH,
+    );
+
+    return resolveTextPreviewMaxWidth(
+      workAreaLogical.height,
+      workAreaLogical.width,
+      availableWidth,
+    );
+  }, [
+    mainWindowLogical,
+    mousePositionLogical,
+    workAreaLogical,
+  ]);
+
+  const htmlPreviewMaxWidth = useMemo(() => {
+    const availableWidth = resolvePreviewDirectionalAvailableWidth(
+      workAreaLogical,
+      mainWindowLogical,
+      mousePositionLogical,
+      HTML_MIN_WIDTH,
+    );
+
+    return resolveHtmlPreviewMaxWidth(
+      workAreaLogical.height,
+      workAreaLogical.width,
+      availableWidth,
+    );
+  }, [
+    mainWindowLogical,
+    mousePositionLogical,
+    workAreaLogical,
+  ]);
+
   const textPreferredSize = useMemo(() => {
     if (previewMode !== MODE_TEXT) {
       return null;
     }
 
-    const maxWidth = resolveTextPreviewMaxWidth(workAreaLogical.height, workAreaLogical.width);
-    const measuredSize = measurePlainTextPreviewSize(textContent, { maxWidth });
+    const measuredSize = measurePlainTextPreviewSize(textContent, { maxWidth: textPreviewMaxWidth });
     return {
       ...measuredSize,
       height: measuredSize.height + Math.max(0, textHeightOverflow || 0),
     };
-  }, [previewMode, textContent, textHeightOverflow, workAreaLogical.height, workAreaLogical.width]);
+  }, [previewMode, textContent, textHeightOverflow, textPreviewMaxWidth]);
 
   const htmlPreferredSize = useMemo(() => {
     if (previewMode !== MODE_HTML || !htmlContent) {
       return null;
     }
 
-    const maxWidth = resolveHtmlPreviewMaxWidth(workAreaLogical.height, workAreaLogical.width);
-    const measuredSize = measureHtmlPreviewSize(htmlContent, { maxWidth });
+    const measuredSize = measureHtmlPreviewSize(htmlContent, { maxWidth: htmlPreviewMaxWidth });
     if (htmlMeasuredSize?.width > 0 && htmlMeasuredSize?.height > 0) {
       return htmlMeasuredSize;
     }
     return {
       ...measuredSize,
     };
-  }, [previewMode, htmlContent, htmlMeasuredSize, workAreaLogical.height, workAreaLogical.width]);
+  }, [previewMode, htmlContent, htmlMeasuredSize, htmlPreviewMaxWidth]);
 
   const boxSize = useMemo(() => {
     return resolveBoxSize(previewMode, workAreaLogical.height, workAreaLogical.width, {
@@ -895,6 +939,8 @@ function App() {
       imageHeight: imageDimensions?.height,
       htmlWidth: htmlPreferredSize?.width,
       htmlHeight: htmlPreferredSize?.height,
+      textMaxWidth: textPreviewMaxWidth,
+      htmlMaxWidth: htmlPreviewMaxWidth,
       fileCount: filePreviewStats.fileCount,
       longestFileNameLength: filePreviewStats.longestNameLength,
       longestFilePathLength: filePreviewStats.longestPathLength,
@@ -906,8 +952,10 @@ function App() {
     workAreaLogical.height,
     workAreaLogical.width,
     textPreferredSize,
+    textPreviewMaxWidth,
     imageDimensions,
     htmlPreferredSize,
+    htmlPreviewMaxWidth,
     filePreviewStats,
   ]);
 
@@ -924,11 +972,6 @@ function App() {
       height: boxSize.height,
     };
   }, [previewMode, boxSize, imageScale]);
-
-  const mousePositionLogical = useMemo(() => ({
-    x: mousePositionPhysical.x / scaleFactor,
-    y: mousePositionPhysical.y / scaleFactor,
-  }), [mousePositionPhysical, scaleFactor]);
 
   const containerPosition = useMemo(() => {
     if (!previewData) {
@@ -1551,7 +1594,7 @@ function App() {
                   key={currentRequestId}
                   ref={htmlPreviewRef}
                   htmlContent={htmlContent}
-                  maxWidth={resolveHtmlPreviewMaxWidth(workAreaLogical.height, workAreaLogical.width)}
+                  maxWidth={htmlPreviewMaxWidth}
                   maxHeight={resolveTextPreviewMaxHeight(workAreaLogical.height)}
                   onPreferredSizeChange={(nextSize) => {
                     const nextWidth = Number(nextSize?.width);

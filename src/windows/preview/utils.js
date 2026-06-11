@@ -31,7 +31,33 @@ export const isFiniteNumber = (value) => Number.isFinite(value) && !Number.isNaN
 export const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 export const roundSize = (value, minValue = 120) => Math.max(minValue, Math.round(value));
 
-export function resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth) {
+function resolveWorkAreaMaxWidth(workAreaWidth, minWidth) {
+  if (!isFiniteNumber(workAreaWidth) || workAreaWidth <= 0) {
+    return 420;
+  }
+
+  return Math.max(minWidth, workAreaWidth - 24);
+}
+
+function resolveDirectionalMaxWidth(workAreaWidth, availableWidth, minWidth) {
+  const width = Number(availableWidth);
+  if (!isFiniteNumber(width) || width <= 0) {
+    return null;
+  }
+
+  return clamp(
+    Math.floor(width),
+    minWidth,
+    resolveWorkAreaMaxWidth(workAreaWidth, minWidth),
+  );
+}
+
+export function resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth, availableWidth = null) {
+  const directionalMaxWidth = resolveDirectionalMaxWidth(workAreaWidth, availableWidth, TEXT_MIN_WIDTH);
+  if (directionalMaxWidth) {
+    return directionalMaxWidth;
+  }
+
   if (!isFiniteNumber(workAreaHeight) || workAreaHeight <= 0) {
     return 420;
   }
@@ -39,12 +65,20 @@ export function resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth) {
   return clamp(
     roundSize(workAreaHeight * 0.5, 260),
     260,
-    Math.max(260, workAreaWidth - 24),
+    Math.max(260, resolveWorkAreaMaxWidth(workAreaWidth, TEXT_MIN_WIDTH)),
   );
 }
 
-export function resolveHtmlPreviewMaxWidth(workAreaHeight, workAreaWidth) {
-  return resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth);
+export function resolveHtmlPreviewMaxWidth(workAreaHeight, workAreaWidth, availableWidth = null) {
+  const directionalMaxWidth = resolveDirectionalMaxWidth(workAreaWidth, availableWidth, HTML_MIN_WIDTH);
+  if (directionalMaxWidth) {
+    return directionalMaxWidth;
+  }
+
+  return Math.max(
+    HTML_MIN_WIDTH,
+    resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth),
+  );
 }
 
 export function resolveTextPreviewMaxHeight(workAreaHeight) {
@@ -308,7 +342,7 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
   if (mode === MODE_HTML) {
     const preferredWidth = Number(options.htmlWidth);
     const preferredHeight = Number(options.htmlHeight);
-    const maxWidth = resolveHtmlPreviewMaxWidth(workAreaHeight, workAreaWidth);
+    const maxWidth = resolveHtmlPreviewMaxWidth(workAreaHeight, workAreaWidth, options.htmlMaxWidth);
     const maxHeight = resolveTextPreviewMaxHeight(workAreaHeight);
 
     const width = isFiniteNumber(preferredWidth) && preferredWidth > 0
@@ -324,7 +358,7 @@ export function resolveBoxSize(mode, workAreaHeight, workAreaWidth, options = {}
     };
   }
 
-  const maxWidth = resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth);
+  const maxWidth = resolveTextPreviewMaxWidth(workAreaHeight, workAreaWidth, options.textMaxWidth);
   const maxHeight = resolveTextPreviewMaxHeight(workAreaHeight);
   const preferredWidth = Number(options.textWidth);
   const preferredHeight = Number(options.textHeight);
@@ -349,6 +383,85 @@ function isValidRect(rect) {
     && isFiniteNumber(rect.height)
     && rect.width > 0
     && rect.height > 0;
+}
+
+function resolveBestPositiveSpace(spaces, minWidth) {
+  const validSpaces = spaces
+    .map((space) => Number(space))
+    .filter((space) => isFiniteNumber(space) && space >= minWidth);
+
+  if (validSpaces.length === 0) {
+    return null;
+  }
+
+  return Math.max(...validSpaces);
+}
+
+export function resolvePreviewDirectionalAvailableWidth(
+  workArea,
+  mainWindowRect = null,
+  mousePosition = null,
+  minWidth = TEXT_MIN_WIDTH,
+) {
+  if (!isValidRect(workArea)) {
+    return null;
+  }
+
+  const safeMinWidth = isFiniteNumber(Number(minWidth)) && Number(minWidth) > 0
+    ? Number(minWidth)
+    : TEXT_MIN_WIDTH;
+  const workLeft = workArea.left;
+  const workTop = workArea.top;
+  const workRight = workLeft + workArea.width;
+  const workBottom = workTop + workArea.height;
+  const maxWorkAreaWidth = resolveWorkAreaMaxWidth(workArea.width, safeMinWidth);
+
+  if (isValidRect(mainWindowRect)) {
+    const mainLeft = mainWindowRect.left;
+    const mainTop = mainWindowRect.top;
+    const mainRight = mainLeft + mainWindowRect.width;
+    const mainBottom = mainTop + mainWindowRect.height;
+    const horizontalSpace = resolveBestPositiveSpace(
+      [
+        mainLeft - workLeft - PREVIEW_MAIN_GAP,
+        workRight - mainRight - PREVIEW_MAIN_GAP,
+      ],
+      safeMinWidth,
+    );
+
+    if (horizontalSpace) {
+      return clamp(Math.floor(horizontalSpace), safeMinWidth, maxWorkAreaWidth);
+    }
+
+    const verticalSpace = resolveBestPositiveSpace(
+      [
+        mainTop - workTop - PREVIEW_MAIN_GAP,
+        workBottom - mainBottom - PREVIEW_MAIN_GAP,
+      ],
+      TEXT_MIN_HEIGHT,
+    );
+
+    if (verticalSpace) {
+      return maxWorkAreaWidth;
+    }
+  }
+
+  const mouseX = Number(mousePosition?.x);
+  if (isFiniteNumber(mouseX)) {
+    const pointerSpace = resolveBestPositiveSpace(
+      [
+        workRight - mouseX - PREVIEW_OFFSET,
+        mouseX - workLeft - PREVIEW_OFFSET,
+      ],
+      safeMinWidth,
+    );
+
+    if (pointerSpace) {
+      return clamp(Math.floor(pointerSpace), safeMinWidth, maxWorkAreaWidth);
+    }
+  }
+
+  return maxWorkAreaWidth;
 }
 
 function choosePositionOutsideMainWindow(mouseX, mouseY, width, height, workArea, mainWindowRect) {
