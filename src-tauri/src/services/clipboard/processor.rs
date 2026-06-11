@@ -95,17 +95,15 @@ pub fn process_content(content: ClipboardContent) -> Result<ProcessedContent, St
                 }
                 
                 let (processed_html, image_ids) = process_html_images(&html)?;
-                let mut merged_image_ids = image_ids;
-                if let Some(extra_image_id) = content
+                let clipboard_image_id = content
                     .image_path
                     .as_deref()
-                    .and_then(extract_image_id_from_path)
-                {
-                    if !merged_image_ids.contains(&extra_image_id) {
-                        merged_image_ids.push(extra_image_id);
-                    }
+                    .and_then(extract_image_id_from_path);
+                if clipboard_image_id.is_some() {
                     ct.add_type("image");
                 }
+                let merged_image_ids =
+                    merge_image_ids_prefer_clipboard_image(clipboard_image_id, image_ids);
                 let image_id = if merged_image_ids.is_empty() {
                     None
                 } else {
@@ -339,6 +337,28 @@ fn process_html_images(html: &str) -> Result<(String, Vec<String>), String> {
     Ok((processed_html, image_ids))
 }
 
+fn merge_image_ids_prefer_clipboard_image(
+    clipboard_image_id: Option<String>,
+    html_image_ids: Vec<String>,
+) -> Vec<String> {
+    let mut merged = Vec::new();
+
+    if let Some(image_id) = clipboard_image_id {
+        if !image_id.trim().is_empty() {
+            merged.push(image_id);
+        }
+    }
+
+    for image_id in html_image_ids {
+        if image_id.trim().is_empty() || merged.contains(&image_id) {
+            continue;
+        }
+        merged.push(image_id);
+    }
+
+    merged
+}
+
 // 尝试从URL保存图片并返回图片ID
 fn try_save_image_from_url(src: &str) -> Option<String> {
     let src = src.trim();
@@ -485,5 +505,29 @@ fn extract_image_id_from_path(path_str: &str) -> Option<String> {
     None
 }
 
+#[cfg(test)]
+mod tests {
+    use super::merge_image_ids_prefer_clipboard_image;
+
+    #[test]
+    fn clipboard_image_id_should_be_first_for_rich_text_images() {
+        let merged = merge_image_ids_prefer_clipboard_image(
+            Some("region_snapshot".to_string()),
+            vec!["inline_a".to_string(), "inline_b".to_string()],
+        );
+
+        assert_eq!(merged, vec!["region_snapshot", "inline_a", "inline_b"]);
+    }
+
+    #[test]
+    fn clipboard_image_id_should_not_be_duplicated() {
+        let merged = merge_image_ids_prefer_clipboard_image(
+            Some("region_snapshot".to_string()),
+            vec!["inline_a".to_string(), "region_snapshot".to_string()],
+        );
+
+        assert_eq!(merged, vec!["region_snapshot", "inline_a"]);
+    }
+}
 
 
