@@ -68,6 +68,28 @@ import {
   measurePlainTextPreviewSize,
 } from './textMeasure';
 
+const IMAGE_FILE_EXTENSION_PATTERN = /\.(png|jpe?g|gif|webp|bmp|svg|ico|tiff?|avif)$/i;
+
+function isLikelyImageFilePath(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || /[\r\n]/.test(trimmed)) {
+    return false;
+  }
+
+  const pathWithoutQuery = trimmed.split(/[?#]/)[0];
+  const hasPathMarker =
+    pathWithoutQuery.includes(':')
+    || pathWithoutQuery.startsWith('\\\\')
+    || pathWithoutQuery.includes('/')
+    || pathWithoutQuery.includes('\\');
+
+  return hasPathMarker && IMAGE_FILE_EXTENSION_PATTERN.test(pathWithoutQuery);
+}
+
 async function loadItemData(source, itemId) {
   if (source === 'clipboard') {
     const numericId = Number(itemId);
@@ -114,22 +136,27 @@ async function resolveImageUrlFromItem(item) {
     return convertFileSrc(resolvedPath, 'asset');
   }
 
-  const rawPath = parseRawImagePath(content);
-  if (rawPath) {
-    const mayBeFilePath = rawPath.includes(':') || rawPath.startsWith('\\\\') || rawPath.includes('/') || rawPath.includes('\\');
-    if (mayBeFilePath) {
-      const resolvedPath = rawPath.includes(':') || rawPath.startsWith('\\\\')
-        ? rawPath
-        : await invoke('resolve_image_path', { storedPath: rawPath });
-      return convertFileSrc(resolvedPath, 'asset');
-    }
-  }
-
   const imageId = parseFirstImageId(item?.image_id);
   if (imageId) {
     const dataDir = await invoke('get_data_directory');
     const normalizedDataDir = String(dataDir).replace(/\\/g, '/');
     const filePath = `${normalizedDataDir}/clipboard_images/${imageId}.png`;
+    return convertFileSrc(filePath, 'asset');
+  }
+
+  const rawPath = parseRawImagePath(content);
+  if (isLikelyImageFilePath(rawPath)) {
+    const resolvedPath = rawPath.includes(':') || rawPath.startsWith('\\\\')
+      ? rawPath
+      : await invoke('resolve_image_path', { storedPath: rawPath });
+    return convertFileSrc(resolvedPath, 'asset');
+  }
+
+  if (rawPath.startsWith('image-id:')) {
+    const legacyImageId = rawPath.slice('image-id:'.length).trim();
+    const dataDir = await invoke('get_data_directory');
+    const normalizedDataDir = String(dataDir).replace(/\\/g, '/');
+    const filePath = `${normalizedDataDir}/clipboard_images/${legacyImageId}.png`;
     return convertFileSrc(filePath, 'asset');
   }
 
