@@ -4,6 +4,7 @@ import SettingsSection from '../components/SettingsSection';
 import SettingItem from '../components/SettingItem';
 import Toggle from '@shared/components/ui/Toggle';
 import Select from '@shared/components/ui/Select';
+import PresetInput from '@shared/components/ui/PresetInput';
 import { setAutoStart, getAutoStartStatus, setRunAsAdmin, getRunAsAdminStatus, restartAsAdmin, isRunningAsAdmin } from '@shared/api/settings';
 import { toast } from '@shared/store/toastStore';
 import { showConfirm } from '@shared/utils/dialog';
@@ -14,6 +15,7 @@ function GeneralSection({
   settings,
   onSettingChange
 }) {
+  const MIN_HISTORY_LIMIT = 25;
   const {
     t
   } = useTranslation();
@@ -59,22 +61,22 @@ function GeneralSection({
     syncStatuses();
   }, []);
   const historyLimitOptions = [{
-    value: 50,
+    value: '50',
     label: `50 ${t('settings.general.items')}`
   }, {
-    value: 100,
+    value: '100',
     label: `100 ${t('settings.general.items')}`
   }, {
-    value: 200,
+    value: '200',
     label: `200 ${t('settings.general.items')}`
   }, {
-    value: 500,
+    value: '500',
     label: `500 ${t('settings.general.items')}`
   }, {
-    value: 9999,
+    value: '9999',
     label: `9999 ${t('settings.general.items')}`
   }, {
-    value: 999999,
+    value: '999999',
     label: t('settings.general.unlimited')
   }];
   const languageOptions = getAvailableLanguages();
@@ -145,6 +147,14 @@ function GeneralSection({
       toast.error(t('settings.general.languageChangeFailed'));
     }
   };
+  const handleHistoryLimitCommit = value => {
+    const rawValue = String(value).trim();
+    const currentValue = settings.historyLimit ?? 100;
+    const parsedValue = rawValue === '' ? NaN : Number(rawValue);
+    const normalizedValue = Number.isFinite(parsedValue) ? Math.max(MIN_HISTORY_LIMIT, Math.trunc(parsedValue)) : currentValue;
+    onSettingChange('historyLimit', normalizedValue);
+    return String(normalizedValue);
+  };
   return <SettingsSection title={t('settings.general.title')} description={t('settings.general.description')}>
       <SettingItem label={t('settings.general.language')} description={t('settings.general.languageDesc')}>
         <Select value={settings.language} onChange={handleLanguageChange} options={languageOptions} />
@@ -191,7 +201,15 @@ function GeneralSection({
       </SettingItem>
 
       <SettingItem label={t('settings.general.historyLimit')} description={t('settings.general.historyLimitDesc')}>
-        <Select value={settings.historyLimit} onChange={value => onSettingChange('historyLimit', parseInt(value))} options={historyLimitOptions} />
+        <PresetInput
+          type="number"
+          value={String(settings.historyLimit ?? 100)}
+          onCommit={handleHistoryLimitCommit}
+          options={historyLimitOptions}
+          min={MIN_HISTORY_LIMIT}
+          step={1}
+          className="w-40"
+        />
       </SettingItem>
     </SettingsSection>;
 }
