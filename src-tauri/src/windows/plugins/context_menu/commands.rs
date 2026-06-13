@@ -1,8 +1,8 @@
-use super::window::{ContextMenuOptions, MenuItem, show_menu};
-use tauri::{AppHandle, LogicalSize, PhysicalPosition, Manager};
+use super::window::{show_menu, ContextMenuRequest};
+use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition};
 
 #[tauri::command]
-pub fn get_context_menu_options() -> Result<ContextMenuOptions, String> {
+pub fn get_context_menu_options() -> Result<ContextMenuRequest, String> {
     super::get_options().ok_or_else(|| "配置未初始化".into())
 }
 
@@ -25,36 +25,18 @@ pub fn submit_context_menu(item_id: Option<String>) {
 #[tauri::command]
 pub async fn show_context_menu(
     app: AppHandle,
-    items: Vec<MenuItem>,
-    x: i32,
-    y: i32,
-    width: Option<i32>,
-    theme: Option<String>,
-    light_theme_style: Option<String>,
-    dark_theme_style: Option<String>,
-    ui_animation_enabled: Option<bool>,
-    custom_font_enabled: Option<bool>,
-    custom_font_type: Option<String>,
-    custom_font_path: Option<String>,
-    custom_font_url: Option<String>,
-    custom_font_family: Option<String>,
+    request: ContextMenuRequest,
 ) -> Result<Option<String>, String> {
     let _ = crate::windows::pin_image_window::close_image_preview(app.clone());
     let _ = crate::windows::preview_window::close_preview_window(app.clone());
-    
-    show_menu(app, ContextMenuOptions {
-        items, x, y, cursor_x: 0, cursor_y: 0, width, theme, light_theme_style, dark_theme_style, ui_animation_enabled, session_id: 0,
-        custom_font_enabled, custom_font_type, custom_font_path, custom_font_url, custom_font_family,
-        monitor_x: 0.0, monitor_y: 0.0, monitor_width: 0.0, monitor_height: 0.0,
-        is_tray_menu: false, force_focus: false,
-    }).await
+    show_menu(app, request).await
 }
 
 #[tauri::command]
 pub fn close_all_context_menus(app: AppHandle) {
     let _ = crate::windows::pin_image_window::close_image_preview(app.clone());
     let _ = crate::windows::preview_window::close_preview_window(app.clone());
-    
+
     if let Some(w) = app.get_webview_window("context-menu") {
         let _ = w.hide();
         std::thread::spawn(|| {

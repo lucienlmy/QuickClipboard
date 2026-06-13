@@ -1,7 +1,15 @@
 use std::fs;
 use std::path::PathBuf;
 use tauri::AppHandle;
-use crate::windows::plugins::context_menu::window::{MenuItem as CtxMenuItem, MenuButton as CtxMenuButton, ContextMenuOptions, show_menu};
+use crate::windows::plugins::context_menu::window::{
+    ContextMenuRequest,
+    MenuAppearance,
+    MenuBehavior,
+    MenuButton as CtxMenuButton,
+    MenuItem as CtxMenuItem,
+    MenuPlacement,
+    show_menu,
+};
 use crate::utils::app_links;
 
 fn get_pin_images_dir() -> Result<PathBuf, String> {
@@ -51,19 +59,7 @@ const MAX_PIN_IMAGES_DISPLAY: usize = 20;
 
 // 创建分隔线菜单项
 fn separator_item() -> CtxMenuItem {
-    CtxMenuItem {
-        id: String::new(),
-        label: String::new(),
-        icon: None,
-        favicon: None,
-        icon_color: None,
-        disabled: false,
-        separator: true,
-        item_type: None,
-        buttons: None,
-        children: None,
-        preview_image: None,
-    }
+    CtxMenuItem::separator()
 }
 
 // 创建普通菜单项
@@ -72,19 +68,7 @@ fn menu_item(id: &str, label: &str, icon: Option<&str>) -> CtxMenuItem {
 }
 
 fn menu_item_with_state(id: &str, label: &str, icon: Option<&str>, disabled: bool) -> CtxMenuItem {
-    CtxMenuItem {
-        id: id.to_string(),
-        label: label.to_string(),
-        icon: icon.map(|s| s.to_string()),
-        favicon: None,
-        icon_color: None,
-        disabled,
-        separator: false,
-        item_type: None,
-        buttons: None,
-        children: None,
-        preview_image: None,
-    }
+    CtxMenuItem::item(id, label, icon).with_disabled(disabled)
 }
 
 // 构建贴图子菜单项列表
@@ -94,19 +78,7 @@ fn build_pin_images_children() -> Vec<CtxMenuItem> {
     let mut children = Vec::new();
     
     if images.is_empty() {
-        children.push(CtxMenuItem {
-            id: "empty".to_string(),
-            label: "(暂无贴图)".to_string(),
-            icon: None,
-            favicon: None,
-            icon_color: None,
-            disabled: true,
-            separator: false,
-            item_type: None,
-            buttons: None,
-            children: None,
-            preview_image: None,
-        });
+        children.push(menu_item_with_state("empty", "(暂无贴图)", None, true));
     } else {
         for (idx, (name, path)) in images.iter().take(MAX_PIN_IMAGES_DISPLAY).enumerate() {
             let display_name = if name.len() > 30 {
@@ -114,36 +86,19 @@ fn build_pin_images_children() -> Vec<CtxMenuItem> {
             } else {
                 name.clone()
             };
-            children.push(CtxMenuItem {
-                id: format!("pin-image-{}", idx),
-                label: display_name,
-                icon: Some("ti ti-photo".to_string()),
-                favicon: None,
-                icon_color: None,
-                disabled: false,
-                separator: false,
-                item_type: None,
-                buttons: None,
-                children: None,
-                preview_image: Some(path.clone()),
-            });
+            children.push(
+                CtxMenuItem::item(format!("pin-image-{}", idx), display_name, Some("ti ti-photo"))
+                    .with_preview_image(path.clone()),
+            );
         }
         
         if total_count > MAX_PIN_IMAGES_DISPLAY {
             children.push(separator_item());
-            children.push(CtxMenuItem {
-                id: "pin-open-folder".to_string(),
-                label: format!("更多... (共{}张)", total_count),
-                icon: Some("ti ti-dots".to_string()),
-                favicon: None,
-                icon_color: None,
-                disabled: false,
-                separator: false,
-                item_type: None,
-                buttons: None,
-                children: None,
-                preview_image: None,
-            });
+            children.push(menu_item(
+                "pin-open-folder",
+                &format!("更多... (共{}张)", total_count),
+                Some("ti ti-dots"),
+            ));
         }
     }
     
@@ -171,80 +126,39 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
             Some("ti ti-screenshot"),
             is_force_update || !settings.screenshot_enabled,
         ),
-        CtxMenuItem {
-            id: "pin-images".to_string(),
-            label: "贴图".to_string(),
-            icon: Some("ti ti-pinned".to_string()),
-            favicon: None,
-            icon_color: None,
-            disabled: is_force_update,
-            separator: false,
-            item_type: None,
-            buttons: None,
-            children: Some(build_pin_images_children()),
-            preview_image: None,
-        },
+        CtxMenuItem::submenu(
+            "pin-images",
+            "贴图",
+            Some("ti ti-pinned"),
+            build_pin_images_children(),
+        )
+        .with_disabled(is_force_update),
         separator_item(),
-        CtxMenuItem {
-            id: "file-hub".to_string(),
-            label: "文件中转".to_string(),
-            icon: Some("ti ti-transfer".to_string()),
-            favicon: None,
-            icon_color: None,
-            disabled: is_force_update,
-            separator: false,
-            item_type: None,
-            buttons: None,
-            children: Some(vec![
+        CtxMenuItem::submenu(
+            "file-hub",
+            "文件中转",
+            Some("ti ti-transfer"),
+            vec![
                 menu_item("transfer-shelf", "新建文件盒", Some("ti ti-package")),
                 menu_item("receive-box", "打开收件盒", Some("ti ti-inbox")),
-            ]),
-            preview_image: None,
-        },
+            ],
+        )
+        .with_disabled(is_force_update),
         separator_item(),
         menu_item_with_state("toggle-hotkeys", hotkeys_label, Some("ti ti-keyboard"), is_force_update),
         menu_item_with_state("toggle-clipboard-monitor", monitor_label, Some("ti ti-clipboard"), is_force_update),
         separator_item(),
         menu_item_with_state("low-memory-mode", "进入低占用模式", Some("ti ti-leaf"), is_force_update),
         separator_item(),
-        CtxMenuItem {
-            id: "tray-links".to_string(),
-            label: String::new(),
-            icon: None,
-            favicon: None,
-            icon_color: None,
-            disabled: false,
-            separator: false,
-            item_type: Some("button_row".to_string()),
-            buttons: Some(vec![
-                CtxMenuButton {
-                    id: "open-website".to_string(),
-                    label: "官网".to_string(),
-                    icon: Some("ti ti-world".to_string()),
-                    favicon: None,
-                    icon_color: None,
-                    disabled: false,
-                },
-                CtxMenuButton {
-                    id: "open-github".to_string(),
-                    label: "GitHub".to_string(),
-                    icon: Some("ti ti-brand-github".to_string()),
-                    favicon: None,
-                    icon_color: None,
-                    disabled: false,
-                },
-                CtxMenuButton {
-                    id: "open-qq-group".to_string(),
-                    label: "社区交流".to_string(),
-                    icon: Some("ti ti-users".to_string()),
-                    favicon: None,
-                    icon_color: None,
-                    disabled: false,
-                },
-            ]),
-            children: None,
-            preview_image: None,
-        },
+        CtxMenuItem::button_row(
+            "tray-links",
+            "",
+            vec![
+                CtxMenuButton::new("open-website", "官网").with_icon("ti ti-world"),
+                CtxMenuButton::new("open-github", "GitHub").with_icon("ti ti-brand-github"),
+                CtxMenuButton::new("open-qq-group", "社区交流").with_icon("ti ti-users"),
+            ],
+        ),
         separator_item(),
         menu_item("restart", "重启程序", Some("ti ti-refresh")),
         menu_item("quit", "退出", Some("ti ti-power")),
@@ -253,29 +167,7 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
     let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
     let theme = if settings.theme.is_empty() { "auto".to_string() } else { settings.theme };
     
-    let (logical_x, logical_y) = if let Ok(monitor) = crate::screen::ScreenUtils::get_monitor_at_cursor(&app) {
-        let scale = monitor.scale_factor();
-        let pos = monitor.position();
-        let monitor_x = pos.x as f64;
-        let monitor_y = pos.y as f64;
-        
-        let relative_x = cursor_x as f64 - monitor_x;
-        let relative_y = cursor_y as f64 - monitor_y;
-        (
-            (monitor_x / scale + relative_x / scale) as i32,
-            (monitor_y / scale + relative_y / scale) as i32,
-        )
-    } else {
-        (cursor_x, cursor_y)
-    };
-    
-    let options = ContextMenuOptions {
-        items,
-        x: logical_x,
-        y: logical_y,
-        cursor_x: logical_x,
-        cursor_y: logical_y,
-        width: Some(200),
+    let appearance = MenuAppearance {
         theme: Some(theme),
         light_theme_style: Some(settings.light_theme_style),
         dark_theme_style: Some(settings.dark_theme_style),
@@ -285,14 +177,12 @@ pub async fn show_tray_menu(app: AppHandle) -> Result<(), String> {
         custom_font_path: Some(settings.custom_font_path),
         custom_font_url: Some(settings.custom_font_url),
         custom_font_family: Some(settings.custom_font_family),
-        session_id: 0,
-        monitor_x: 0.0,
-        monitor_y: 0.0,
-        monitor_width: 0.0,
-        monitor_height: 0.0,
-        is_tray_menu: true,
-        force_focus: false,
     };
+
+    let options = ContextMenuRequest::new(items)
+        .with_placement(MenuPlacement::physical_point(cursor_x, cursor_y))
+        .with_appearance(appearance)
+        .with_behavior(MenuBehavior::tray());
     
     if let Ok(Some(selected_id)) = show_menu(app.clone(), options).await {
         handle_tray_menu_selection(&app, &selected_id);

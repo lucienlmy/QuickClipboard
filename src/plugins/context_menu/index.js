@@ -1,89 +1,183 @@
-import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { settingsStore } from '@shared/store/settingsStore';
-document.addEventListener('contextmenu', event => event.preventDefault());
-// 显示右键菜单
-export async function showContextMenu(options) {
-    try {
-        const currentWindow = getCurrentWindow();
+import { invoke } from "@tauri-apps/api/core";
+import { settingsStore } from "@shared/store/settingsStore";
 
-        const outerPosition = await currentWindow.outerPosition();
-        const outerSize = await currentWindow.outerSize();
-        const innerSize = await currentWindow.innerSize();
-        const scaleFactor = await currentWindow.scaleFactor();
+document.addEventListener("contextmenu", (event) => event.preventDefault());
 
-        // 转换物理坐标为逻辑坐标
-        const logicalWindowX = outerPosition.x / scaleFactor;
-        const logicalWindowY = outerPosition.y / scaleFactor;
-        const titleBarHeight = (outerSize.height - innerSize.height) / scaleFactor;
+const MENU_ITEM_TYPE = {
+  ITEM: "item",
+  SEPARATOR: "separator",
+  BUTTON_ROW: "button_row",
+};
 
-        const screenX = logicalWindowX + options.x;
-        const screenY = logicalWindowY + titleBarHeight + options.y;
-
-        const result = await invoke('show_context_menu', {
-            items: options.items,
-            x: Math.round(screenX),
-            y: Math.round(screenY),
-            width: options.width || null,
-            theme: options.theme || null,
-            lightThemeStyle: options.lightThemeStyle || null,
-            darkThemeStyle: options.darkThemeStyle || null,
-            uiAnimationEnabled: options.uiAnimationEnabled !== false,
-            customFontEnabled: settingsStore.customFontEnabled || null,
-            customFontType: settingsStore.customFontType || null,
-            customFontPath: settingsStore.customFontPath || null,
-            customFontUrl: settingsStore.customFontUrl || null,
-            customFontFamily: settingsStore.customFontFamily || null,
-        });
-
-        return result;
-    } catch (error) {
-        console.error('显示右键菜单失败:', error);
-        return null;
-    }
+function valueOrNull(value) {
+  return value === undefined ? null : value;
 }
 
-// 从鼠标事件显示右键菜单
-export async function showContextMenuFromEvent(event, items, extraOptions = {}) {
-    event.preventDefault();
-    event.stopPropagation();
+function normalizeButton(button = {}) {
+  return {
+    id: String(button.id ?? ""),
+    label: String(button.label ?? ""),
+    icon: button.icon ?? null,
+    favicon: button.favicon ?? null,
+    iconColor: button.iconColor ?? null,
+    disabled: Boolean(button.disabled),
+  };
+}
 
-    return await showContextMenu({
-        items,
-        x: event.clientX,
-        y: event.clientY,
-        ...extraOptions
+function normalizeMenuItem(item = {}) {
+  const type = item.type ?? MENU_ITEM_TYPE.ITEM;
+
+  if (type === MENU_ITEM_TYPE.SEPARATOR) {
+    return createSeparator();
+  }
+
+  if (type === MENU_ITEM_TYPE.BUTTON_ROW) {
+    return createButtonRow({
+      id: item.id ?? "",
+      label: item.label ?? "",
+      buttons: Array.isArray(item.buttons) ? item.buttons : [],
+      disabled: item.disabled,
     });
+  }
+
+  return createMenuItem({
+    id: item.id,
+    label: item.label,
+    icon: item.icon,
+    favicon: item.favicon,
+    iconColor: item.iconColor,
+    disabled: item.disabled,
+    checked: item.checked,
+    children: Array.isArray(item.children)
+      ? item.children.map(normalizeMenuItem)
+      : null,
+    previewImage: item.previewImage,
+  });
 }
 
-// 创建菜单项
-export function createMenuItem(id, label, options = {}) {
-    return {
-        id,
-        label,
-        icon: options.icon || null,
-        favicon: options.favicon || null,
-        icon_color: options.iconColor || null,
-        disabled: options.disabled || false,
-        children: options.children || null,
-        separator: false
-    };
+export function getQuickClipboardMenuAppearance(overrides = {}) {
+  return {
+    theme: valueOrNull(overrides.theme ?? settingsStore.theme),
+    lightThemeStyle: valueOrNull(
+      overrides.lightThemeStyle ?? settingsStore.lightThemeStyle,
+    ),
+    darkThemeStyle: valueOrNull(
+      overrides.darkThemeStyle ?? settingsStore.darkThemeStyle,
+    ),
+    uiAnimationEnabled:
+      overrides.uiAnimationEnabled ?? settingsStore.uiAnimationEnabled ?? true,
+    customFontEnabled: valueOrNull(
+      overrides.customFontEnabled ?? settingsStore.customFontEnabled,
+    ),
+    customFontType: valueOrNull(
+      overrides.customFontType ?? settingsStore.customFontType,
+    ),
+    customFontPath: valueOrNull(
+      overrides.customFontPath ?? settingsStore.customFontPath,
+    ),
+    customFontUrl: valueOrNull(
+      overrides.customFontUrl ?? settingsStore.customFontUrl,
+    ),
+    customFontFamily: valueOrNull(
+      overrides.customFontFamily ?? settingsStore.customFontFamily,
+    ),
+  };
 }
 
-// 创建分隔线
+export function createMenuPlacementFromEvent(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  return { anchor: "cursor" };
+}
+
+export function createCursorMenuPlacement() {
+  return { anchor: "cursor" };
+}
+
+export function createPhysicalMenuPlacement(x, y) {
+  return {
+    anchor: "point",
+    coordinateSpace: "physical",
+    x: Math.round(x),
+    y: Math.round(y),
+  };
+}
+
+function normalizeRequest(request = {}) {
+  return {
+    items: Array.isArray(request.items)
+      ? request.items.map(normalizeMenuItem)
+      : [],
+    placement: request.placement ?? createCursorMenuPlacement(),
+    appearance: getQuickClipboardMenuAppearance(request.appearance ?? {}),
+    behavior: {
+      isTrayMenu: Boolean(request.behavior?.isTrayMenu),
+      forceFocus: Boolean(request.behavior?.forceFocus),
+    },
+    layout: {
+      width: request.layout?.width ?? null,
+    },
+  };
+}
+
+export async function showContextMenu(request) {
+  try {
+    return await invoke("show_context_menu", {
+      request: normalizeRequest(request),
+    });
+  } catch (error) {
+    console.error("显示右键菜单失败:", error);
+    return null;
+  }
+}
+
+export function createMenuItem({
+  id,
+  label,
+  icon = null,
+  favicon = null,
+  iconColor = null,
+  disabled = false,
+  checked = false,
+  children = null,
+  previewImage = null,
+}) {
+  return {
+    type: MENU_ITEM_TYPE.ITEM,
+    id: String(id ?? ""),
+    label: String(label ?? ""),
+    icon: checked ? "ti ti-check" : icon,
+    favicon,
+    iconColor,
+    disabled: Boolean(disabled),
+    children,
+    previewImage,
+  };
+}
+
+export function createButtonRow({
+  id,
+  label = "",
+  buttons = [],
+  disabled = false,
+}) {
+  return {
+    type: MENU_ITEM_TYPE.BUTTON_ROW,
+    id: String(id ?? ""),
+    label: String(label ?? ""),
+    buttons: buttons.map(normalizeButton),
+    disabled: Boolean(disabled),
+  };
+}
+
 export function createSeparator() {
-    return {
-        separator: true,
-        id: '',
-        label: ''
-    };
+  return { type: MENU_ITEM_TYPE.SEPARATOR };
 }
 
-// 关闭所有右键菜单窗口
 export async function closeAllContextMenus() {
-    try {
-        await invoke('close_all_context_menus');
-    } catch (error) {
-        console.error('关闭右键菜单失败:', error);
-    }
+  try {
+    await invoke("close_all_context_menus");
+  } catch (error) {
+    console.error("关闭右键菜单失败:", error);
+  }
 }

@@ -1,118 +1,113 @@
-import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import { useTranslation } from 'react-i18next';
-import { useSnapshot } from 'valtio';
-import Tooltip from '@shared/components/common/Tooltip.jsx';
-import { showConfirm } from '@shared/utils/dialog';
-import { clipboardStore } from '@shared/store/clipboardStore';
-import { favoritesStore, refreshFavorites } from '@shared/store/favoritesStore';
-import { groupsStore } from '@shared/store/groupsStore';
-import { settingsStore } from '@shared/store/settingsStore';
+import "@tabler/icons-webfont/dist/tabler-icons.min.css";
+import { useTranslation } from "react-i18next";
+import { useSnapshot } from "valtio";
+import Tooltip from "@shared/components/common/Tooltip.jsx";
+import { showConfirm } from "@shared/utils/dialog";
+import { clipboardStore } from "@shared/store/clipboardStore";
+import { favoritesStore, refreshFavorites } from "@shared/store/favoritesStore";
+import { groupsStore } from "@shared/store/groupsStore";
+import { settingsStore } from "@shared/store/settingsStore";
 import {
   addClipboardToFavorites,
   deleteClipboardItems,
   mergeCopyClipboardItems,
   mergePasteClipboardItems,
-} from '@shared/api/clipboard';
+} from "@shared/api/clipboard";
 import {
   deleteFavoriteItems,
   mergeCopyFavoriteItems,
   mergePasteFavoriteItems,
-} from '@shared/api/favorites';
-import { moveFavoriteToGroup } from '@shared/api/groups';
-import { createMenuItem, showContextMenuFromEvent } from '@/plugins/context_menu/index.js';
-import { toast, TOAST_POSITIONS, TOAST_SIZES } from '@shared/store/toastStore';
-import { getSelectionMergeState } from '../utils/multiSelect';
-
+} from "@shared/api/favorites";
+import { moveFavoriteToGroup } from "@shared/api/groups";
+import {
+  createMenuItem,
+  createMenuPlacementFromEvent,
+  showContextMenu,
+} from "@/plugins/context_menu/index.js";
+import { toast, TOAST_POSITIONS, TOAST_SIZES } from "@shared/store/toastStore";
+import { getSelectionMergeState } from "../utils/multiSelect";
 function MultiSelectActionBar({ activeTab }) {
   const { t } = useTranslation();
   const clipboardSnap = useSnapshot(clipboardStore);
   const favoritesSnap = useSnapshot(favoritesStore);
   const groupsSnap = useSnapshot(groupsStore);
   const settingsSnap = useSnapshot(settingsStore);
-
-  const currentSnap = activeTab === 'clipboard'
-    ? clipboardSnap
-    : activeTab === 'favorites'
-      ? favoritesSnap
-      : null;
-  const currentStore = activeTab === 'clipboard'
-    ? clipboardStore
-    : activeTab === 'favorites'
-      ? favoritesStore
-      : null;
-
+  const currentSnap =
+    activeTab === "clipboard"
+      ? clipboardSnap
+      : activeTab === "favorites"
+        ? favoritesSnap
+        : null;
+  const currentStore =
+    activeTab === "clipboard"
+      ? clipboardStore
+      : activeTab === "favorites"
+        ? favoritesStore
+        : null;
   if (!currentSnap?.isMultiSelectMode || !currentStore) {
     return null;
   }
-
   const selectedEntries = currentSnap.selectedEntries || [];
   const selectedCount = selectedEntries.length;
   const selectedIds = currentStore.getSelectedIds();
   const mergeState = getSelectionMergeState(selectedEntries);
-
   const getDisabledTooltip = (reasonKey) => t(`multiSelect.${reasonKey}`);
-
-  const makeActionButtonClasses = (disabled) => `
+  const makeActionButtonClasses = (disabled) =>
+    `
     flex items-center justify-center
     w-8 h-8
     rounded-md border
     transition-colors duration-200
-    ${disabled
-      ? 'cursor-not-allowed border-qc-border bg-qc-panel text-qc-fg-subtle opacity-60'
-      : 'border-qc-border bg-qc-panel text-qc-fg-muted hover:bg-qc-hover hover:text-qc-fg'}
-  `.trim().replace(/\s+/g, ' ');
-
+    ${disabled ? "cursor-not-allowed border-qc-border bg-qc-panel text-qc-fg-subtle opacity-60" : "border-qc-border bg-qc-panel text-qc-fg-muted hover:bg-qc-hover hover:text-qc-fg"}
+  `
+      .trim()
+      .replace(/\s+/g, " ");
   const withToastConfig = {
     size: TOAST_SIZES.EXTRA_SMALL,
     position: TOAST_POSITIONS.BOTTOM_RIGHT,
   };
-
   const handleMergeCopy = async () => {
     if (!selectedCount || !mergeState.canMerge) return;
-
     try {
-      if (activeTab === 'clipboard') {
+      if (activeTab === "clipboard") {
         await mergeCopyClipboardItems(selectedIds);
       } else {
         await mergeCopyFavoriteItems(selectedIds);
       }
-      toast.success(t('multiSelect.mergeCopied'), withToastConfig);
+      toast.success(t("multiSelect.mergeCopied"), withToastConfig);
     } catch (error) {
-      console.error('合并复制失败:', error);
-      toast.error(error?.message || t('common.copyFailed'), withToastConfig);
+      console.error("合并复制失败:", error);
+      toast.error(error?.message || t("common.copyFailed"), withToastConfig);
     }
   };
-
   const handleMergePaste = async () => {
     if (!selectedCount || !mergeState.canMerge) return;
-
     try {
-      if (activeTab === 'clipboard') {
+      if (activeTab === "clipboard") {
         await mergePasteClipboardItems(selectedIds);
       } else {
         await mergePasteFavoriteItems(selectedIds);
       }
       currentStore.exitMultiSelectMode();
-      toast.success(t('multiSelect.mergePasted'), withToastConfig);
+      toast.success(t("multiSelect.mergePasted"), withToastConfig);
     } catch (error) {
-      console.error('合并粘贴失败:', error);
-      toast.error(error?.message || t('common.pasteFailed'), withToastConfig);
+      console.error("合并粘贴失败:", error);
+      toast.error(error?.message || t("common.pasteFailed"), withToastConfig);
     }
   };
-
   const handleDelete = async () => {
     if (!selectedCount) return;
-
     const confirmed = await showConfirm(
-      t('multiSelect.confirmDelete', { count: selectedCount }),
-      t('multiSelect.confirmDeleteTitle')
+      t("multiSelect.confirmDelete", {
+        count: selectedCount,
+      }),
+      t("multiSelect.confirmDeleteTitle"),
     );
     if (!confirmed) {
       return;
     }
-
     try {
-      if (activeTab === 'clipboard') {
+      if (activeTab === "clipboard") {
         await deleteClipboardItems(selectedIds);
         clipboardStore.removeItems(selectedIds);
       } else {
@@ -120,117 +115,151 @@ function MultiSelectActionBar({ activeTab }) {
         favoritesStore.removeItems(selectedIds);
       }
       currentStore.exitMultiSelectMode();
-      toast.success(t('common.deleted'), withToastConfig);
+      toast.success(t("common.deleted"), withToastConfig);
     } catch (error) {
-      console.error('批量删除失败:', error);
-      toast.error(error?.message || t('common.deleteFailed'), withToastConfig);
+      console.error("批量删除失败:", error);
+      toast.error(error?.message || t("common.deleteFailed"), withToastConfig);
     }
   };
-
   const handleGroupAction = async (event) => {
     if (!selectedCount) return;
-
     const groups = groupsSnap.groups || [];
-    const availableGroups = activeTab === 'favorites' && groupsSnap.currentGroup !== '全部'
-      ? groups.filter(group => group.name !== groupsSnap.currentGroup)
-      : groups;
+    const availableGroups =
+      activeTab === "favorites" && groupsSnap.currentGroup !== "全部"
+        ? groups.filter((group) => group.name !== groupsSnap.currentGroup)
+        : groups;
     if (!availableGroups.length) {
       return;
     }
-
-    const actionPrefix = activeTab === 'clipboard' ? 'multi-select-add-group-' : 'multi-select-move-group-';
-    const menuItems = availableGroups.map(group => createMenuItem(
-      `${actionPrefix}${group.name}`,
-      group.name,
-      {
-        icon: group.icon || 'ti ti-folder',
-        iconColor: group.name === '全部' ? null : (group.color || '#dc2626'),
-      }
-    ));
-
-    const result = await showContextMenuFromEvent(event, menuItems, {
-      theme: settingsSnap.theme,
-      lightThemeStyle: settingsSnap.lightThemeStyle,
-      darkThemeStyle: settingsSnap.darkThemeStyle,
-      uiAnimationEnabled: settingsSnap.uiAnimationEnabled,
+    const actionPrefix =
+      activeTab === "clipboard"
+        ? "multi-select-add-group-"
+        : "multi-select-move-group-";
+    const menuItems = availableGroups.map((group) =>
+      createMenuItem({
+        id: `${actionPrefix}${group.name}`,
+        label: group.name,
+        icon: group.icon || "ti ti-folder",
+        iconColor: group.name === "全部" ? null : group.color || "#dc2626",
+      }),
+    );
+    const result = await showContextMenu({
+      items: menuItems,
+      placement: createMenuPlacementFromEvent(event),
+      appearance: {
+        theme: settingsSnap.theme,
+        lightThemeStyle: settingsSnap.lightThemeStyle,
+        darkThemeStyle: settingsSnap.darkThemeStyle,
+        uiAnimationEnabled: settingsSnap.uiAnimationEnabled,
+      },
     });
-
     if (!result || !result.startsWith(actionPrefix)) {
       return;
     }
-
     const groupName = result.substring(actionPrefix.length);
-
     try {
-      if (activeTab === 'clipboard') {
-        await Promise.all(selectedIds.map(id => addClipboardToFavorites(id, groupName)));
+      if (activeTab === "clipboard") {
+        await Promise.all(
+          selectedIds.map((id) => addClipboardToFavorites(id, groupName)),
+        );
       } else {
-        await Promise.all(selectedIds.map(id => moveFavoriteToGroup(id, groupName)));
+        await Promise.all(
+          selectedIds.map((id) => moveFavoriteToGroup(id, groupName)),
+        );
         await refreshFavorites(groupsSnap.currentGroup);
       }
-
       currentStore.exitMultiSelectMode();
       toast.success(
-        activeTab === 'clipboard' ? t('contextMenu.addedToFavorites') : t('contextMenu.movedToGroup'),
-        withToastConfig
+        activeTab === "clipboard"
+          ? t("contextMenu.addedToFavorites")
+          : t("contextMenu.movedToGroup"),
+        withToastConfig,
       );
     } catch (error) {
       console.error(
-        activeTab === 'clipboard' ? '批量添加到分组失败:' : '批量移动到分组失败:',
-        error
+        activeTab === "clipboard"
+          ? "批量添加到分组失败:"
+          : "批量移动到分组失败:",
+        error,
       );
-      toast.error(error?.message || t('common.operationFailed'), withToastConfig);
+      toast.error(
+        error?.message || t("common.operationFailed"),
+        withToastConfig,
+      );
     }
   };
-
   return (
     <div className="multi-select-action-bar flex-shrink-0 h-11 px-3 border-t border-qc-border bg-qc-panel backdrop-blur-sm rounded-bl-[8px] rounded-br-[8px]">
       <div className="h-full flex items-center justify-between gap-3">
         <div className="text-sm font-medium text-qc-fg">
-          {t('multiSelect.selectedCount', { count: selectedCount })}
+          {t("multiSelect.selectedCount", {
+            count: selectedCount,
+          })}
         </div>
 
         <div className="flex items-center gap-2">
           <Tooltip
-            content={!selectedCount
-              ? getDisabledTooltip('selectFirst')
-              : !mergeState.canMerge
-                ? getDisabledTooltip(mergeState.reasonKey)
-                : t('multiSelect.mergeCopy')}
+            content={
+              !selectedCount
+                ? getDisabledTooltip("selectFirst")
+                : !mergeState.canMerge
+                  ? getDisabledTooltip(mergeState.reasonKey)
+                  : t("multiSelect.mergeCopy")
+            }
             placement="top"
             asChild
           >
             <button
-              className={makeActionButtonClasses(!selectedCount || !mergeState.canMerge)}
+              className={makeActionButtonClasses(
+                !selectedCount || !mergeState.canMerge,
+              )}
               onClick={handleMergeCopy}
               aria-disabled={!selectedCount || !mergeState.canMerge}
             >
-              <i className="ti ti-copy" style={{ fontSize: 15 }}></i>
+              <i
+                className="ti ti-copy"
+                style={{
+                  fontSize: 15,
+                }}
+              ></i>
             </button>
           </Tooltip>
 
           <Tooltip
-            content={!selectedCount
-              ? getDisabledTooltip('selectFirst')
-              : !mergeState.canMerge
-                ? getDisabledTooltip(mergeState.reasonKey)
-                : t('multiSelect.mergePaste')}
+            content={
+              !selectedCount
+                ? getDisabledTooltip("selectFirst")
+                : !mergeState.canMerge
+                  ? getDisabledTooltip(mergeState.reasonKey)
+                  : t("multiSelect.mergePaste")
+            }
             placement="top"
             asChild
           >
             <button
-              className={makeActionButtonClasses(!selectedCount || !mergeState.canMerge)}
+              className={makeActionButtonClasses(
+                !selectedCount || !mergeState.canMerge,
+              )}
               onClick={handleMergePaste}
               aria-disabled={!selectedCount || !mergeState.canMerge}
             >
-              <i className="ti ti-clipboard-list" style={{ fontSize: 15 }}></i>
+              <i
+                className="ti ti-clipboard-list"
+                style={{
+                  fontSize: 15,
+                }}
+              ></i>
             </button>
           </Tooltip>
 
           <Tooltip
-            content={selectedCount
-              ? (activeTab === 'clipboard' ? t('contextMenu.addToFavorites') : t('contextMenu.moveToGroup'))
-              : getDisabledTooltip('selectFirst')}
+            content={
+              selectedCount
+                ? activeTab === "clipboard"
+                  ? t("contextMenu.addToFavorites")
+                  : t("contextMenu.moveToGroup")
+                : getDisabledTooltip("selectFirst")
+            }
             placement="top"
             asChild
           >
@@ -240,14 +269,24 @@ function MultiSelectActionBar({ activeTab }) {
               aria-disabled={!selectedCount}
             >
               <i
-                className={activeTab === 'clipboard' ? 'ti ti-folder-plus' : 'ti ti-folder-share'}
-                style={{ fontSize: 15 }}
+                className={
+                  activeTab === "clipboard"
+                    ? "ti ti-folder-plus"
+                    : "ti ti-folder-share"
+                }
+                style={{
+                  fontSize: 15,
+                }}
               ></i>
             </button>
           </Tooltip>
 
           <Tooltip
-            content={selectedCount ? t('multiSelect.deleteSelected') : getDisabledTooltip('selectFirst')}
+            content={
+              selectedCount
+                ? t("multiSelect.deleteSelected")
+                : getDisabledTooltip("selectFirst")
+            }
             placement="top"
             asChild
           >
@@ -256,16 +295,26 @@ function MultiSelectActionBar({ activeTab }) {
               onClick={handleDelete}
               aria-disabled={!selectedCount}
             >
-              <i className="ti ti-trash" style={{ fontSize: 15 }}></i>
+              <i
+                className="ti ti-trash"
+                style={{
+                  fontSize: 15,
+                }}
+              ></i>
             </button>
           </Tooltip>
 
-          <Tooltip content={t('multiSelect.exitMode')} placement="top" asChild>
+          <Tooltip content={t("multiSelect.exitMode")} placement="top" asChild>
             <button
               className={makeActionButtonClasses(false)}
               onClick={() => currentStore.exitMultiSelectMode()}
             >
-              <i className="ti ti-x" style={{ fontSize: 15 }}></i>
+              <i
+                className="ti ti-x"
+                style={{
+                  fontSize: 15,
+                }}
+              ></i>
             </button>
           </Tooltip>
         </div>
@@ -273,5 +322,4 @@ function MultiSelectActionBar({ activeTab }) {
     </div>
   );
 }
-
 export default MultiSelectActionBar;

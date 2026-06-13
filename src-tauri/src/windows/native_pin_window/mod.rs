@@ -4,7 +4,14 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use tauri::{AppHandle, Listener};
-use crate::windows::plugins::context_menu::window::{MenuItem, ContextMenuOptions, show_menu};
+use crate::windows::plugins::context_menu::window::{
+    ContextMenuRequest,
+    MenuAppearance,
+    MenuBehavior,
+    MenuItem,
+    MenuPlacement,
+    show_menu,
+};
 use crate::services::store;
 
 // 默认缩略图大小
@@ -229,67 +236,19 @@ pub fn set_privacy_mode(id: u64, mode: u8) {
 }
 
 fn separator_item() -> MenuItem {
-    MenuItem {
-        id: String::new(),
-        label: String::new(),
-        icon: None,
-        favicon: None,
-        icon_color: None,
-        disabled: false,
-        separator: true,
-        item_type: None,
-        buttons: None,
-        children: None,
-        preview_image: None,
-    }
+    MenuItem::separator()
 }
 
 fn menu_item(id: &str, label: &str, icon: Option<&str>) -> MenuItem {
-    MenuItem {
-        id: id.to_string(),
-        label: label.to_string(),
-        icon: icon.map(|s| s.to_string()),
-        favicon: None,
-        icon_color: None,
-        disabled: false,
-        separator: false,
-        item_type: None,
-        buttons: None,
-        children: None,
-        preview_image: None,
-    }
+    MenuItem::item(id, label, icon)
 }
 
 fn menu_item_checked(id: &str, label: &str, checked: bool) -> MenuItem {
-    MenuItem {
-        id: id.to_string(),
-        label: label.to_string(),
-        icon: if checked { Some("ti ti-check".to_string()) } else { None },
-        favicon: None,
-        icon_color: None,
-        disabled: false,
-        separator: false,
-        item_type: None,
-        buttons: None,
-        children: None,
-        preview_image: None,
-    }
+    MenuItem::item(id, label, if checked { Some("ti ti-check") } else { None })
 }
 
 fn menu_item_disabled(id: &str, label: &str, icon: Option<&str>, disabled: bool) -> MenuItem {
-    MenuItem {
-        id: id.to_string(),
-        label: label.to_string(),
-        icon: icon.map(|s| s.to_string()),
-        favicon: None,
-        icon_color: None,
-        disabled,
-        separator: false,
-        item_type: None,
-        buttons: None,
-        children: None,
-        preview_image: None,
-    }
+    MenuItem::item(id, label, icon).with_disabled(disabled)
 }
 
 // 事件监听
@@ -352,19 +311,11 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
         )
     }).collect();
     opacity_items.push(separator_item());
-    opacity_items.push(MenuItem {
-        id: format!("native-pin-opacity-custom-{}", window_id),
-        label: "自定义...".to_string(),
-        icon: if is_custom_opacity { Some("ti ti-check".to_string()) } else { None },
-        favicon: None,
-        icon_color: None,
-        disabled: false,
-        separator: false,
-        item_type: None,
-        buttons: None,
-        children: None,
-        preview_image: None,
-    });
+    opacity_items.push(menu_item_checked(
+        &format!("native-pin-opacity-custom-{}", window_id),
+        "自定义...",
+        is_custom_opacity,
+    ));
     
     // 隐私模式子菜单
     let privacy_items = vec![
@@ -379,32 +330,18 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
         menu_item_checked(&format!("native-pin-toggle-lock-{}", window_id), "锁定位置", locked),
         menu_item_checked(&format!("native-pin-toggle-pixel-{}", window_id), "像素级显示", pixel_render),
         menu_item_checked(&format!("native-pin-toggle-thumbnail-{}", window_id), "缩略图模式", is_thumbnail),
-        MenuItem {
-            id: format!("native-pin-opacity-submenu-{}", window_id),
-            label: "透明度".to_string(),
-            icon: Some("ti ti-droplet-half".to_string()),
-            favicon: None,
-            icon_color: None,
-            disabled: false,
-            separator: false,
-            item_type: None,
-            buttons: None,
-            children: Some(opacity_items),
-            preview_image: None,
-        },
-        MenuItem {
-            id: format!("native-pin-privacy-submenu-{}", window_id),
-            label: "隐私模式".to_string(),
-            icon: Some("ti ti-eye-off".to_string()),
-            favicon: None,
-            icon_color: None,
-            disabled: false,
-            separator: false,
-            item_type: None,
-            buttons: None,
-            children: Some(privacy_items),
-            preview_image: None,
-        },
+        MenuItem::submenu(
+            format!("native-pin-opacity-submenu-{}", window_id),
+            "透明度",
+            Some("ti ti-droplet-half"),
+            opacity_items,
+        ),
+        MenuItem::submenu(
+            format!("native-pin-privacy-submenu-{}", window_id),
+            "隐私模式",
+            Some("ti ti-eye-off"),
+            privacy_items,
+        ),
         separator_item(),
         menu_item_disabled(&format!("native-pin-edit-{}", window_id), "编辑", Some("ti ti-pencil"), is_thumbnail),
         separator_item(),
@@ -414,13 +351,7 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
         menu_item(&format!("native-pin-close-{}", window_id), "关闭窗口", Some("ti ti-x")),
     ];
     
-    let options = ContextMenuOptions {
-        items,
-        x: screen_x,
-        y: screen_y,
-        cursor_x: 0,
-        cursor_y: 0,
-        width: None,
+    let appearance = MenuAppearance {
         theme: Some(theme),
         light_theme_style: Some(settings.light_theme_style),
         dark_theme_style: Some(settings.dark_theme_style),
@@ -430,14 +361,12 @@ async fn show_context_menu(app: &AppHandle, window_id: u64, cursor_x: f64, curso
         custom_font_path: Some(settings.custom_font_path),
         custom_font_url: Some(settings.custom_font_url),
         custom_font_family: Some(settings.custom_font_family),
-        session_id: 0,
-        monitor_x: 0.0,
-        monitor_y: 0.0,
-        monitor_width: 0.0,
-        monitor_height: 0.0,
-        is_tray_menu: false,
-        force_focus: true,
     };
+
+    let options = ContextMenuRequest::new(items)
+        .with_placement(MenuPlacement::physical_point(screen_x, screen_y))
+        .with_appearance(appearance)
+        .with_behavior(MenuBehavior::focused());
     
     if let Ok(Some(action)) = show_menu(app.clone(), options).await {
         handle_menu_action(app, &action)?;
