@@ -16,6 +16,7 @@ const IMAGE_MAX_COLS = 20;
 const IMAGE_MIN_CELL_WIDTH = 68;
 const IMAGE_GAP_PX = 8;
 const IMAGE_HORIZONTAL_PADDING_PX = 16;
+const IMAGE_PREFETCH_COUNT = 20;
 
 const getImageItemGroup = (item) => item?.group || item?.category || '';
 const getImageItemKey = (item) => {
@@ -384,7 +385,6 @@ function ImageLibraryTab({
   const { t } = useTranslation();
   const [imageTotal, setImageTotal] = useState(0);
   const [imageItems, setImageItems] = useState([]);
-  const [imageLoading, setImageLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draggingImageKeys, setDraggingImageKeys] = useState(() => new Set());
   const [selectedImageKeys, setSelectedImageKeys] = useState(() => new Set());
@@ -396,7 +396,11 @@ function ImageLibraryTab({
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const isMountedRef = useRef(true);
   const uploadTokenRef = useRef(0);
-  const loadedRangeRef = useRef({ start: 0, end: 0 });
+  const loadedImageIndexesRef = useRef(new Set());
+  const loadingImageIndexesRef = useRef(new Set());
+  const pendingLoadRangeRef = useRef(null);
+  const loadRequestRef = useRef(null);
+  const loadGenerationRef = useRef(0);
   const imageScrollerRef = useRef(null);
   const gridMeasureRef = useRef(null);
   const [contentWidth, setContentWidth] = useState(0);
@@ -413,6 +417,16 @@ function ImageLibraryTab({
   const selectionAnchorKeyRef = useRef(selectionAnchorKey);
   const displayImageItemsRef = useRef([]);
   const selectionDraftRef = useRef(null);
+  const resetImageLoadCache = useCallback(() => {
+    if (loadRequestRef.current) {
+      window.clearTimeout(loadRequestRef.current);
+      loadRequestRef.current = null;
+    }
+    pendingLoadRangeRef.current = null;
+    loadedImageIndexesRef.current = new Set();
+    loadingImageIndexesRef.current = new Set();
+    loadGenerationRef.current += 1;
+  }, []);
   const activeGroupMeta = useMemo(
     () => imageGroups.find(group => group.name === currentGroup) || null,
     [imageGroups, currentGroup]
@@ -450,11 +464,6 @@ function ImageLibraryTab({
     };
   }, [imageTotal]);
 
-  useEffect(() => {
-    loadedRangeRef.current = { start: 0, end: 0 };
-  }, [imageCols]);
-
-  const loadRequestRef = useRef(null);
   const clearSelfPluginDragSoon = useCallback(() => {
     if (pluginDragClearTimerRef.current) {
       window.clearTimeout(pluginDragClearTimerRef.current);
@@ -501,8 +510,9 @@ function ImageLibraryTab({
       if (pluginDragClearTimerRef.current) {
         window.clearTimeout(pluginDragClearTimerRef.current);
       }
+      resetImageLoadCache();
     };
-  }, []);
+  }, [resetImageLoadCache]);
 
   useEffect(() => {
     setSelectedImageKeys(new Set());
@@ -529,51 +539,93 @@ function ImageLibraryTab({
   }, [currentGroup]);
 
   const loadImageRange = useCallback(async (startIndex, endIndex) => {
-    if (imageLoading || !currentGroup) return;
+    if (!currentGroup || imageTotal <= 0) return;
     
     const rowStart = Math.floor(startIndex / imageCols) * imageCols;
-    const rowEnd = Math.ceil((endIndex + 1) / imageCols) * imageCols;
+    const rowEnd = Math.min(imageTotal, Math.ceil((endIndex + 1) / imageCols) * imageCols);
+    let firstMissingIndex = -1;
+    let lastMissingIndex = -1;
     
-    if (rowStart >= loadedRangeRef.current.start && rowEnd <= loadedRangeRef.current.end) {
-      return;
+    for (let index = rowStart; index < rowEnd; index += 1) {
+      if (!loadedImageIndexesRef.current.has(index) && !loadingImageIndexesRef.current.has(index)) {
+        if (firstMissingIndex === -1) firstMissingIndex = index;
+        lastMissingIndex = index;
+      }
     }
+
+    if (firstMissingIndex === -1) return;
+
+    const requestStart = Math.floor(firstMissingIndex / imageCols) * imageCols;
+    const requestEnd = Math.min(
+      imageTotal,
+      Math.ceil((lastMissingIndex + 1) / imageCols) * imageCols + IMAGE_PREFETCH_COUNT
+    );
+
+    for (let index = requestStart; index < requestEnd; index += 1) {
+      loadingImageIndexesRef.current.add(index);
+    }
+
+    const requestGeneration = loadGenerationRef.current;
+    const requestGroup = currentGroup;
     
-    setImageLoading(true);
     try {
-      const result = await imageLibrary.getImageList(currentGroup, rowStart, rowEnd - rowStart + 20);
+      const result = await imageLibrary.getImageList(requestGroup, requestStart, requestEnd - requestStart);
+      if (!isMountedRef.current || loadGenerationRef.current !== requestGeneration) return;
+
+      if (Number.isFinite(result?.total) && result.total !== imageTotal) {
+        setImageTotal(result.total);
+      }
+
+      const items = Array.isArray(result?.items) ? result.items : [];
       setImageItems(prev => {
         const newItems = [...prev];
-        result.items.forEach((item, idx) => {
-          newItems[rowStart + idx] = item;
+        items.forEach((item, idx) => {
+          newItems[requestStart + idx] = item;
         });
         return newItems;
       });
-      loadedRangeRef.current = { 
-        start: Math.min(loadedRangeRef.current.start || rowStart, rowStart), 
-        end: Math.max(loadedRangeRef.current.end || rowEnd, rowStart + result.items.length) 
-      };
+
+      items.forEach((item, idx) => {
+        if (item) {
+          loadedImageIndexesRef.current.add(requestStart + idx);
+        }
+      });
     } catch (err) {
       console.error('加载图片列表失败:', err);
     } finally {
-      setImageLoading(false);
+      if (loadGenerationRef.current === requestGeneration) {
+        for (let index = requestStart; index < requestEnd; index += 1) {
+          loadingImageIndexesRef.current.delete(index);
+        }
+      }
     }
-  }, [currentGroup, imageLoading, imageCols]);
+  }, [currentGroup, imageCols, imageTotal]);
 
   const scheduleLoadRange = useCallback((startIndex, endIndex) => {
-    if (loadRequestRef.current) {
-      clearTimeout(loadRequestRef.current);
-    }
-    loadRequestRef.current = setTimeout(() => {
+    pendingLoadRangeRef.current = pendingLoadRangeRef.current
+      ? {
+          start: Math.min(pendingLoadRangeRef.current.start, startIndex),
+          end: Math.max(pendingLoadRangeRef.current.end, endIndex)
+        }
+      : { start: startIndex, end: endIndex };
+
+    if (loadRequestRef.current) return;
+
+    loadRequestRef.current = window.setTimeout(() => {
+      const pendingRange = pendingLoadRangeRef.current;
+      pendingLoadRangeRef.current = null;
       loadRequestRef.current = null;
-      loadImageRange(startIndex, endIndex);
+      if (pendingRange) {
+        loadImageRange(pendingRange.start, pendingRange.end);
+      }
     }, 50);
   }, [loadImageRange]);
 
   useEffect(() => {
+    resetImageLoadCache();
     setImageItems([]);
-    loadedRangeRef.current = { start: 0, end: 0 };
     loadImageCount();
-  }, [currentGroup, reloadKey, loadImageCount]);
+  }, [currentGroup, reloadKey, loadImageCount, resetImageLoadCache]);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -662,14 +714,14 @@ function ImageLibraryTab({
       
       loadImageCount();
       onGroupsChange?.();
-      loadedRangeRef.current = { start: 0, end: 0 };
+      resetImageLoadCache();
       setImageItems([]);
     } finally {
       if (isMountedRef.current && uploadTokenRef.current === myToken) {
         setIsUploading(false);
       }
     }
-  }, [t, loadImageCount, isUploading, currentGroup, onGroupsChange]);
+  }, [t, loadImageCount, isUploading, currentGroup, onGroupsChange, resetImageLoadCache]);
 
   const handleDeleteImage = useCallback(async (e, item) => {
     e.stopPropagation();
@@ -679,7 +731,7 @@ function ImageLibraryTab({
       await imageLibrary.deleteImage(item.group || item.category, item.filename);
       loadImageCount();
       onGroupsChange?.();
-      loadedRangeRef.current = { start: 0, end: 0 };
+      resetImageLoadCache();
       setImageItems([]);
     } catch (err) {
       console.error('删除图片失败:', err);
@@ -688,7 +740,7 @@ function ImageLibraryTab({
         position: TOAST_POSITIONS.BOTTOM_RIGHT
       });
     }
-  }, [t, loadImageCount, isUploading, onGroupsChange]);
+  }, [t, loadImageCount, isUploading, onGroupsChange, resetImageLoadCache]);
 
   const handleRenameStart = useCallback((e, item) => {
     e.stopPropagation();
@@ -726,7 +778,7 @@ function ImageLibraryTab({
     try {
       await imageLibrary.renameImage(renamingItem.group || renamingItem.category, renamingItem.filename, nextName);
       loadImageCount();
-      loadedRangeRef.current = { start: 0, end: 0 };
+      resetImageLoadCache();
       setImageItems([]);
       setRenamingItem(null);
       setRenameValue('');
@@ -737,7 +789,7 @@ function ImageLibraryTab({
         position: TOAST_POSITIONS.BOTTOM_RIGHT
       });
     }
-  }, [renamingItem, renameValue, loadImageCount, t]);
+  }, [renamingItem, renameValue, loadImageCount, t, resetImageLoadCache]);
 
   const handleImageDragMouseDown = useCallback((e, item) => {
     if (e.target?.closest?.('[data-drag-ignore="true"]')) return;
