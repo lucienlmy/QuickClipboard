@@ -333,7 +333,7 @@ pub fn copy_image_to_clipboard(file_path: String) -> Result<(), String> {
             .map_err(|e| format!("保存图片失败: {}", e))?;
     }
     
-    crate::services::paste::clipboard_content::set_clipboard_image_file(
+    crate::services::paste::clipboard_content::set_clipboard_image_file_recordable(
         &saved_path.to_string_lossy(),
     )
 }

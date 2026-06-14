@@ -79,13 +79,26 @@ pub fn set_clipboard_files(ctx: &ClipboardContext, paths: Vec<String>) -> Result
 
 // 设置剪贴板为图片，同时保留文件路径格式
 pub fn set_clipboard_image_file(path: &str) -> Result<(), String> {
+    set_clipboard_image_file_inner(path, true)
+}
+
+// 设置新图片到系统剪贴板，需要让剪贴板监听器正常入库。
+pub fn set_clipboard_image_file_recordable(path: &str) -> Result<(), String> {
+    set_clipboard_image_file_inner(path, false)
+}
+
+fn set_clipboard_image_file_inner(path: &str, pause_monitor: bool) -> Result<(), String> {
     let resolved_path = crate::services::resolve_stored_path(path);
     if !Path::new(&resolved_path).exists() {
         return Err(format!("图片文件不存在: {}", resolved_path));
     }
 
-    let _guard = crate::services::clipboard::pause_clipboard_monitor_for(500);
-    set_clipboard_image_file_impl(&resolved_path)
+    if pause_monitor {
+        let _guard = crate::services::clipboard::pause_clipboard_monitor_for(500);
+        set_clipboard_image_file_impl(&resolved_path)
+    } else {
+        set_clipboard_image_file_impl(&resolved_path)
+    }
 }
 
 #[cfg(target_os = "windows")]
