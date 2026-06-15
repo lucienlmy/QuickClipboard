@@ -109,6 +109,7 @@ pub struct AppSettings {
 
     // 列表外观设置
     pub row_height: String,
+    pub auto_row_max_lines: u32,
     pub file_display_mode: String,
     pub list_style: String,
     pub card_spacing: u32,
@@ -301,6 +302,7 @@ impl Default for AppSettings {
             ui_animation_enabled: true,
 
             row_height: "medium".to_string(),
+            auto_row_max_lines: 18,
             file_display_mode: "detailed".to_string(),
             list_style: "card".to_string(),
             card_spacing: 8,
@@ -438,4 +440,5 @@ mod tests {
         assert!(settings.app_filter_list.is_empty());
         assert_eq!(settings.app_filter_mode, "blacklist");
     }
+
 }

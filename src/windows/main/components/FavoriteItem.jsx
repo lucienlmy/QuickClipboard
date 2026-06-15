@@ -178,6 +178,7 @@ function FavoriteItem({
   const externalDragIconPath = externalDragInfo.iconPath;
   const canExternalDrag = externalDragPaths.length > 0;
   const dragZoneHalfWidth = '50%';
+  const sortDragZoneRightInset = isFileType ? '12px' : 0;
   const itemRootRef = useRef(null);
   const closeHoverPreview = useCallback(() => {
     if (previewTimerRef.current) {
@@ -650,7 +651,8 @@ function FavoriteItem({
             <div
               className="absolute top-0 right-0 h-full z-[20] cursor-grab active:cursor-grabbing bg-transparent"
               style={{
-                width: dragZoneHalfWidth
+                width: dragZoneHalfWidth,
+                right: sortDragZoneRightInset
               }}
               onMouseDown={(e) => {
                 e.stopPropagation();

@@ -43,6 +43,7 @@ export const defaultSettings = {
   // 列表外观
   listStyle: 'card', 
   rowHeight: 'medium',
+  autoRowMaxLines: 18,
   fileDisplayMode: 'detailed', 
   cardSpacing: 8, 
   

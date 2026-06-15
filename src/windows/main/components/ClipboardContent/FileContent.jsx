@@ -44,11 +44,19 @@ function FileIcon({
 function FileContent({
   item,
   compact = false,
-  searchKeyword
+  searchKeyword,
+  maxContentHeightPx
 }) {
   const { t } = useTranslation();
   const settings = useSnapshot(settingsStore);
+  const isAutoHeight = settings.rowHeight === 'auto';
   const isXSmallHeight = settings.rowHeight === 'xsmall';
+  const autoMaxHeight = Number.isFinite(Number(maxContentHeightPx))
+    ? Number(maxContentHeightPx)
+    : undefined;
+  const autoMaxHeightStyle = isAutoHeight && autoMaxHeight
+    ? { maxHeight: `${autoMaxHeight}px` }
+    : undefined;
   
   const renderFileName = (name) => {
     return searchKeyword ? highlightText(name, searchKeyword) : name;
@@ -83,10 +91,10 @@ function FileContent({
 
   // 仅图标模式：网格布局
   if (settings.fileDisplayMode === 'iconOnly') {
-    const iconSize = isXSmallHeight ? 18 : compact ? 29 : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 80 : 50;
-    const itemSize = isXSmallHeight ? 22 : compact ? 33 : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 84 : 54;
+    const iconSize = isXSmallHeight ? 18 : compact ? 29 : settings.rowHeight === 'large' ? 80 : settings.rowHeight === 'auto' ? 48 : 50;
+    const itemSize = isXSmallHeight ? 22 : compact ? 33 : settings.rowHeight === 'large' ? 84 : settings.rowHeight === 'auto' ? 52 : 54;
     const gap = isXSmallHeight ? '0.125rem' : compact ? '0.25rem' : settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? '0.5rem' : '0.375rem';
-    return <div className="w-full h-full overflow-y-auto">
+    return <div data-drag-ignore="true" className={`w-full overflow-y-auto ${isAutoHeight ? '' : 'h-full'}`} style={autoMaxHeightStyle}>
       <div className="w-full flex flex-wrap" style={{
         gap
       }}>
@@ -183,7 +191,7 @@ function FileContent({
 
   // 正常模式
   const normalIconSize = settings.rowHeight === 'large' || settings.rowHeight === 'auto' ? 48 : 36;
-  return <div className="w-full h-full overflow-y-auto space-y-1 pr-1">
+  return <div data-drag-ignore="true" className={`w-full overflow-y-auto space-y-1 pr-1 ${isAutoHeight ? '' : 'h-full'}`} style={autoMaxHeightStyle}>
     {/* 文件列表 */}
     {filesData.files.map((file, index) => {
       const exists = file.exists !== false;
@@ -191,7 +199,7 @@ function FileContent({
       return (
         <div
           key={index}
-          className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors h-full ${
+          className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors ${isAutoHeight ? '' : 'h-full'} ${
             exists
               ? `bg-qc-panel border-qc-border hover:border-qc-border-strong`
               : 'bg-red-50 border-red-300/60 opacity-60'

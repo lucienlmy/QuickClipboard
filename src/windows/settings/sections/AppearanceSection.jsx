@@ -48,6 +48,7 @@ function AppearanceSection({
     ? Number(settings.superBackgroundBlurScale)
     : 1;
   const blurPercent = Math.round(blurScale * 100);
+  const autoRowMaxLines = Math.min(20, Math.max(1, Math.round(Number(settings.autoRowMaxLines ?? 18)) || 18));
   const [urlInputValue, setUrlInputValue] = useState(settings.customFontUrl || '');
   const visibleOptionalTabs = normalizeVisibleOptionalTabs(settings.visibleOptionalTabs);
   const tabVisibilityOptions = OPTIONAL_TAB_OPTIONS.map(option => ({
@@ -445,6 +446,19 @@ function AppearanceSection({
               label: t('listSettings.rowHeight.xsmall')
             }]} className="max-w-xl" />
           </SettingItem>
+
+          {settings.rowHeight === 'auto' && <SettingItem label={t('settings.appearance.autoRowMaxLines')} description={t('settings.appearance.autoRowMaxLinesDesc')}>
+              <Slider
+                value={autoRowMaxLines}
+                onChange={value => onSettingChange('autoRowMaxLines', Math.min(20, Math.max(1, Math.round(Number(value)) || 18)))}
+                min={1}
+                max={20}
+                step={1}
+                unit={t('common.lines', '行')}
+                className="w-full max-w-xl"
+                sliderClassName="flex-1 min-w-0 w-auto"
+              />
+            </SettingItem>}
 
           {settings.listStyle === 'card' && <SettingItem label={t('settings.appearance.cardSpacing')} description={t('settings.appearance.cardSpacingDesc')}>
               <SegmentedControl value={String(settings.cardSpacing ?? 8)} onChange={value => onSettingChange('cardSpacing', parseInt(value, 10))} options={[0, 4, 8, 12, 16, 20].map(v => ({

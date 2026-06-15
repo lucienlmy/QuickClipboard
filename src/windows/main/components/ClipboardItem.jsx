@@ -198,6 +198,7 @@ function ClipboardItem({
   const externalDragIconPath = externalDragInfo.iconPath;
   const canExternalDrag = externalDragPaths.length > 0;
   const dragZoneHalfWidth = '50%';
+  const sortDragZoneRightInset = isFileType ? '12px' : 0;
   const itemRootRef = useRef(null);
   const getPreviewAnchorRect = useCallback(() => {
     const rect = itemRootRef.current?.getBoundingClientRect();
@@ -694,7 +695,8 @@ function ClipboardItem({
             <div
               className="absolute top-0 right-0 h-full z-[20] cursor-grab active:cursor-grabbing bg-transparent"
               style={{
-                width: dragZoneHalfWidth
+                width: dragZoneHalfWidth,
+                right: sortDragZoneRightInset
               }}
               onMouseDown={(e) => {
                 // 避免触发左侧外部拖拽

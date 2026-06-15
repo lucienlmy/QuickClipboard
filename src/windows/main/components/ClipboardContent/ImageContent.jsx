@@ -17,7 +17,7 @@ function parseFirstImageId(imageId) {
     .find((part) => part.length > 0) || '';
 }
 
-function ImageContent({ item }) {
+function ImageContent({ item, maxContentHeightPx }) {
   const settings = useSnapshot(settingsStore);
   const isAutoHeight = settings.rowHeight === 'auto';
   const isXSmallHeight = settings.rowHeight === 'xsmall';
@@ -25,6 +25,9 @@ function ImageContent({ item }) {
   const maxWidth = settings.imageMaxWidth || 4096;
   const maxHeight = settings.imageMaxHeight || 4096;
   const maxSizeBytes = maxSizeMb * 1024 * 1024;
+  const autoMaxHeight = Number.isFinite(Number(maxContentHeightPx))
+    ? Number(maxContentHeightPx)
+    : 280;
 
   const { t } = useTranslation();
 
@@ -166,13 +169,15 @@ function ImageContent({ item }) {
     setError(true);
   };
 
+  const autoContainerStyle = isAutoHeight ? { maxHeight: `${autoMaxHeight}px` } : undefined;
+
   if (loading) {
-    return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-qc-panel-2 rounded flex items-center justify-center overflow-hidden`}>
+    return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-qc-panel-2 rounded flex items-center justify-center overflow-hidden`} style={autoContainerStyle}>
       <span className="text-sm text-qc-fg-muted">加载中...</span>
     </div>;
   }
   if (error) {
-    return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-red-50 rounded flex items-center justify-center overflow-hidden`}>
+    return <div className={`w-full ${isXSmallHeight ? 'h-full px-2' : 'min-h-[80px]'} bg-red-50 rounded flex items-center justify-center overflow-hidden`} style={autoContainerStyle}>
       <span className="text-sm text-red-500">{t('clipboard.imageLoadFailed', '图片加载失败')}</span>
     </div>;
   }
@@ -231,6 +236,7 @@ function ImageContent({ item }) {
     return (
       <div
         className={`w-full h-full rounded overflow-hidden flex items-center bg-gradient-to-br ${colorClasses} border ${isAutoHeight ? 'justify-center py-4' : 'justify-start px-3 gap-3'} ${!fileExists ? 'opacity-60' : ''}`}
+        style={autoContainerStyle}
       >
         {isAutoHeight ? (
           <div className="flex flex-col items-center justify-center gap-2">
@@ -282,14 +288,19 @@ function ImageContent({ item }) {
 
   return (
     <div
-      className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent ${isAutoHeight ? 'max-h-[280px]' : 'h-full'}`}
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '256px' }}
+      className={`w-full rounded overflow-hidden flex items-center justify-start bg-transparent ${isAutoHeight ? '' : 'h-full'}`}
+      style={{
+        contentVisibility: 'auto',
+        containIntrinsicSize: '256px',
+        ...(autoContainerStyle || {})
+      }}
     >
       <img
         ref={imageElementRef}
         src={imageSrc}
         alt="剪贴板图片"
-        className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? 'max-h-[280px]' : 'max-h-full'}`}
+        className={`max-w-full object-contain pointer-events-none ${isAutoHeight ? '' : 'max-h-full'}`}
+        style={isAutoHeight ? { maxHeight: `${autoMaxHeight}px` } : undefined}
         loading="lazy"
         decoding="async"
         onError={scheduleLocalImageRetry}

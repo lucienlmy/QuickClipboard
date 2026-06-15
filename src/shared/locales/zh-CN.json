@@ -528,6 +528,8 @@
       "uiAnimationDesc": "开启或关闭界面动效（如标签栏滑块、悬停浮动、列表插入、面板显示等动画）",
       "cardSpacing": "卡片间距",
       "cardSpacingDesc": "卡片风格下项目之间的间距（px）",
+      "autoRowMaxLines": "自适应最大行数",
+      "autoRowMaxLinesDesc": "自适应行高模式下单条内容最多显示的行数",
       "customFont": "字体",
       "customFontDesc": "使用自定义字体覆盖所有主题的默认字体",
       "customFontEnable": "启用自定义字体",

@@ -11,7 +11,10 @@ const ERROR_SRC = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjE
 function HtmlContent({
   htmlContent,
   lineClampClass,
-  searchKeyword
+  searchKeyword,
+  rowHeight = 'medium',
+  autoRowMaxLines = 18,
+  maxContentHeightPx
 }) {
   const contentRef = useRef(null);
   const processedRef = useRef(null);
@@ -87,10 +90,20 @@ function HtmlContent({
     }
   }, [searchKeyword, htmlContent]);
 
-  return <div ref={contentRef} className="text-sm text-qc-fg leading-relaxed html-content overflow-hidden scrollbar-thin scrollbar-thumb-qc-border-strong scrollbar-track-transparent" style={{
+  const clampClass = searchKeyword || rowHeight === 'auto' ? '' : lineClampClass;
+  const autoClampStyle = !searchKeyword && rowHeight === 'auto'
+    ? {
+        display: '-webkit-box',
+        WebkitLineClamp: autoRowMaxLines,
+        WebkitBoxOrient: 'vertical'
+      }
+    : undefined;
+
+  return <div ref={contentRef} className={`text-sm text-qc-fg leading-relaxed html-content overflow-hidden scrollbar-thin scrollbar-thumb-qc-border-strong scrollbar-track-transparent ${clampClass}`} style={{
+    ...autoClampStyle,
     wordBreak: 'break-all',
-    maxHeight: '100%',
-    height: '100%',
+    maxHeight: rowHeight === 'auto' && Number.isFinite(Number(maxContentHeightPx)) ? `${Number(maxContentHeightPx)}px` : '100%',
+    height: rowHeight === 'auto' ? undefined : '100%',
     overflow: 'hidden',
     paddingRight: '4px',
     isolation: 'isolate',

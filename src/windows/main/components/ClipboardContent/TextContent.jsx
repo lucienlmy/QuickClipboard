@@ -12,7 +12,9 @@ function TextContent({
   searchKeyword,
   rowHeight = 'medium',
   item,
-  source = 'clipboard'
+  source = 'clipboard',
+  autoRowMaxLines = 18,
+  maxContentHeightPx
 }) {
   const { t } = useTranslation();
   const wrapperRef = useRef(null);
@@ -154,7 +156,14 @@ function TextContent({
     ? highlightText(content, searchKeyword)
     : content;
 
-  const clampClass = searchKeyword ? '' : lineClampClass;
+  const clampClass = searchKeyword || rowHeight === 'auto' ? '' : lineClampClass;
+  const autoClampStyle = !searchKeyword && rowHeight === 'auto'
+    ? {
+        display: '-webkit-box',
+        WebkitLineClamp: autoRowMaxLines,
+        WebkitBoxOrient: 'vertical'
+      }
+    : undefined;
 
   const textClass = rowHeight === 'auto'
     ? 'text-sm leading-normal'
@@ -163,11 +172,16 @@ function TextContent({
     ? 'flex h-full items-center gap-2 min-w-0 max-w-full'
     : '';
 
+  const wrapperStyle = rowHeight === 'auto' && Number.isFinite(Number(maxContentHeightPx))
+    ? { maxHeight: `${Number(maxContentHeightPx)}px` }
+    : undefined;
+
   return (
-    <div ref={wrapperRef} className="h-full min-h-0 overflow-hidden">
+    <div ref={wrapperRef} className="h-full min-h-0 overflow-hidden" style={wrapperStyle}>
       <div
         ref={containerRef}
         className={`${textClass} text-qc-fg break-all ${clampClass} overflow-hidden min-h-0 w-full`}
+        style={autoClampStyle}
       >
         <span className={contentClass}>
           {colorInfo && (

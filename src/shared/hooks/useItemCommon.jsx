@@ -12,12 +12,23 @@ import {
 
 // 行高配置常量
 export const ROW_HEIGHT_CONFIG = {
-  auto: { px: 90, cardPx: 90, class: '', cardClass: '', itemClass: 'min-h-[50px] max-h-[350px]', lineClamp: 'line-clamp-none', lineClampWithTitle: 'line-clamp-none' },
+  auto: { px: 90, cardPx: 90, class: '', cardClass: '', itemClass: 'min-h-[50px]', lineClamp: 'line-clamp-none', lineClampWithTitle: 'line-clamp-none' },
   large: { px: 120, cardPx: 120, class: 'h-[120px]', cardClass: 'h-[120px]', itemClass: 'h-full', lineClamp: 'line-clamp-4', lineClampWithTitle: 'line-clamp-3' },
   medium: { px: 90, cardPx: 90, class: 'h-[90px]', cardClass: 'h-[90px]', itemClass: 'h-full', lineClamp: 'line-clamp-3', lineClampWithTitle: 'line-clamp-2' },
   small: { px: 50, cardPx: 50, class: 'h-[50px]', cardClass: 'h-[50px]', itemClass: 'h-full', lineClamp: 'line-clamp-2', lineClampWithTitle: 'line-clamp-2' },
   xsmall: { px: 34, cardPx: 34, class: 'h-[34px]', cardClass: 'h-[34px]', itemClass: 'h-full', lineClamp: 'line-clamp-1', lineClampWithTitle: 'line-clamp-1' }
 };
+
+const DEFAULT_AUTO_ROW_MAX_LINES = 18;
+const AUTO_ROW_LINE_HEIGHT_PX = 20;
+
+function normalizeAutoRowMaxLines(value) {
+  const lines = Math.round(Number(value));
+  if (!Number.isFinite(lines)) {
+    return DEFAULT_AUTO_ROW_MAX_LINES;
+  }
+  return Math.min(20, Math.max(1, lines));
+}
 
 function matchesFilterType(contentType, filterType) {
   if (!contentType || !filterType || filterType === 'all') {
@@ -136,27 +147,31 @@ export function useItemCommon(item, options = {}) {
     })();
     const textLayout = {
       availableHeightPx: layout?.availableHeightPx,
-      clampLines
+      clampLines,
+      autoRowMaxLines: normalizeAutoRowMaxLines(settings.autoRowMaxLines)
     };
+    const autoRowMaxContentHeightPx = rowHeight === 'auto'
+      ? textLayout.autoRowMaxLines * AUTO_ROW_LINE_HEIGHT_PX
+      : undefined;
 
     // 图片类型
     if (primaryType === 'image') {
-      return <ImageContent item={item} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
+      return <ImageContent item={item} maxContentHeightPx={autoRowMaxContentHeightPx} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
     }
 
     // 文件类型
     if (primaryType === 'file') {
-      return <FileContent item={item} compact={compact} searchKeyword={searchKeyword} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
+      return <FileContent item={item} compact={compact} searchKeyword={searchKeyword} maxContentHeightPx={autoRowMaxContentHeightPx} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
     }
 
     const displayFormat = resolveDisplayFormatByPriority(item, settings.displayPriorityOrder);
 
     if (displayFormat === DISPLAY_FORMAT_IMAGE) {
-      return <ImageContent item={item} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
+      return <ImageContent item={item} maxContentHeightPx={autoRowMaxContentHeightPx} disableExternalDrag={disableExternalDrag} disableExternalTooltip={disableExternalTooltip} />;
     }
 
     if (displayFormat === DISPLAY_FORMAT_HTML && item.html_content) {
-      return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} />;
+      return <HtmlContent htmlContent={item.html_content} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} autoRowMaxLines={textLayout.autoRowMaxLines} maxContentHeightPx={autoRowMaxContentHeightPx} />;
     }
 
     return <TextContent content={item.content || ''} lineClampClass={lineClampClass} searchKeyword={searchKeyword} compact={compact} rowHeight={rowHeight} item={item} source={options.isFavorite ? 'favorite' : 'clipboard'} {...textLayout} />;

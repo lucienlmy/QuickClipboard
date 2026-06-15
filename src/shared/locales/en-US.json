@@ -528,6 +528,8 @@
       "uiAnimationDesc": "Enable or disable UI animations (tab slider, hover float, list insert, panel show, etc.)",
       "cardSpacing": "Card Spacing",
       "cardSpacingDesc": "Spacing between items in card style (px)",
+      "autoRowMaxLines": "Auto Row Max Lines",
+      "autoRowMaxLinesDesc": "Maximum content lines shown per item when adaptive row height is selected",
       "customFont": "Font",
       "customFontDesc": "Override all theme default fonts with a custom font",
       "customFontEnable": "Enable Custom Font",

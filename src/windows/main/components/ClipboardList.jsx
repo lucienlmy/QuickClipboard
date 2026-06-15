@@ -456,7 +456,7 @@ const ClipboardList = forwardRef(({
 
     <DragOverlay dropAnimation={null}>
       {activeItem && activeIndex !== -1 && (() => {
-        const overlayClass = settings.rowHeight === 'auto' ? 'h-auto max-h-[350px]' : heightClass;
+        const overlayClass = settings.rowHeight === 'auto' ? 'h-auto' : heightClass;
         return (
           <div className={`${overlayClass} rounded-md border border-qc-border shadow-lg bg-qc-panel/70 backdrop-blur-md`}>
             <ClipboardItem
