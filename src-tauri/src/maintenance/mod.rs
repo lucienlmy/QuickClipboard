@@ -71,43 +71,15 @@ pub fn ensure_console() {
 pub fn ensure_console() {}
 
 fn find_data_dir() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let exe_dir = exe.parent()?;
+    let settings = crate::services::settings::storage::SettingsStorage::load()
+        .unwrap_or_else(|e| {
+            eprintln!("警告: 读取设置失败，将使用默认设置: {}", e);
+            crate::services::AppSettings::default()
+        });
 
-    let is_portable = exe
-        .file_name()
-        .and_then(|n| n.to_str())
-        .map(|n| n.to_ascii_lowercase().contains("portable"))
-        .unwrap_or(false)
-        || exe_dir.join("portable.flag").exists()
-        || exe_dir.join("portable.txt").exists();
-
-    if is_portable {
-        return Some(exe_dir.join("data"));
-    }
-
-    let data_dir = dirs::data_local_dir()?.join("quickclipboard");
-
-    if let Ok(raw) = std::fs::read_to_string(data_dir.join("settings.json")) {
-        if let Ok(settings) = serde_json::from_str::<serde_json::Value>(&raw) {
-            if settings
-                .get("use_custom_storage")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                if let Some(path) = settings
-                    .get("custom_storage_path")
-                    .and_then(|v| v.as_str())
-                {
-                    let custom = PathBuf::from(path);
-                    let _ = std::fs::create_dir_all(&custom);
-                    return Some(custom);
-                }
-            }
-        }
-    }
-
-    Some(data_dir)
+    crate::services::settings::storage::SettingsStorage::get_data_directory(&settings)
+        .map_err(|e| eprintln!("错误: 获取数据目录失败: {}", e))
+        .ok()
 }
 
 pub fn run() {
