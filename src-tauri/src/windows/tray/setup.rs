@@ -1,10 +1,22 @@
 use image::GenericImageView;
 use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState},
-    AppHandle, Manager,
+    AppHandle,
 };
 
 use super::create_click_handler;
+
+fn guard_tray_click_region(rect: tauri::Rect) {
+    let position = rect.position.to_physical::<i32>(1.0);
+    let size = rect.size.to_physical::<u32>(1.0);
+
+    crate::services::system::raw_input::guard_tray_click_region(
+        position.x,
+        position.y,
+        size.width,
+        size.height,
+    );
+}
 
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let icon = {
@@ -30,7 +42,9 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         })
         .on_tray_icon_event(move |_tray, event| {
             match event {
-                TrayIconEvent::Click { button, button_state, .. } => {
+                TrayIconEvent::Click { button, button_state, rect, .. } => {
+                    guard_tray_click_region(rect);
+
                     match button {
                         MouseButton::Left if button_state == MouseButtonState::Up => {
                             if crate::services::low_memory::is_low_memory_mode() {
@@ -56,8 +70,12 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         _ => {}
                     }
                 }
-                TrayIconEvent::Enter { .. } => {
+                TrayIconEvent::Enter { rect, .. } => {
+                    guard_tray_click_region(rect);
                     let _ = crate::services::system::save_current_focus(app_handle_for_enter.clone());
+                }
+                TrayIconEvent::Move { rect, .. } => {
+                    guard_tray_click_region(rect);
                 }
                 _ => {}
             }

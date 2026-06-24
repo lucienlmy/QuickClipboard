@@ -41,6 +41,7 @@ mod windows_raw_input {
     static QUICKPASTE_SECONDARY_KEY_VK: AtomicU32 = AtomicU32::new(0);
     static QUICKPASTE_SECONDARY_KEY_DOWN: AtomicBool = AtomicBool::new(false);
     static QUICKPASTE_SECONDARY_KEY_PRESS_ID: AtomicU64 = AtomicU64::new(0);
+    static LAST_TRAY_RECT: Lazy<Mutex<Option<(i32, i32, i32, i32)>>> = Lazy::new(|| Mutex::new(None));
     const VK_CONTROL_CODE: u32 = 0x11;
     const VK_LCONTROL_CODE: u32 = 0xA2;
     const VK_RCONTROL_CODE: u32 = 0xA3;
@@ -51,6 +52,12 @@ mod windows_raw_input {
     const PREVIEW_GUARD_THROTTLE_MS: u64 = 50;
     const QUICKPASTE_REPEAT_INITIAL_DELAY_MS: u64 = 300;
     const QUICKPASTE_REPEAT_INTERVAL_MS: u64 = 120;
+
+    pub(crate) fn guard_tray_click_region(x: i32, y: i32, width: u32, height: u32) {
+        let right = x.saturating_add(width.min(i32::MAX as u32) as i32);
+        let bottom = y.saturating_add(height.min(i32::MAX as u32) as i32);
+        *LAST_TRAY_RECT.lock() = Some((x, y, right, bottom));
+    }
 
     pub(crate) fn start_raw_input_if_needed() {
         if RAW_INPUT_ACTIVE.swap(true, Ordering::SeqCst) {
@@ -599,6 +606,16 @@ mod windows_raw_input {
             .as_millis() as u64
     }
 
+    fn is_in_tray_click_region() -> bool {
+        let (cursor_x, cursor_y) = crate::mouse::get_cursor_position();
+        LAST_TRAY_RECT
+            .lock()
+            .map(|(left, top, right, bottom)| {
+                cursor_x >= left && cursor_x <= right && cursor_y >= top && cursor_y <= bottom
+            })
+            .unwrap_or(false)
+    }
+
     fn schedule_preview_guard_check() {
         if !input_common::is_mouse_monitoring_enabled() {
             return;
@@ -777,6 +794,10 @@ mod windows_raw_input {
     }
 
     fn handle_click_outside_impl() {
+        if is_in_tray_click_region() {
+            return;
+        }
+
         if crate::services::low_memory::is_low_memory_mode()
             && crate::services::low_memory::is_panel_visible()
         {
@@ -828,6 +849,7 @@ mod windows_raw_input {
 pub(crate) use windows_raw_input::{
     disable_quickpaste_keyboard_mode,
     enable_quickpaste_keyboard_mode,
+    guard_tray_click_region,
     start_quickpaste_secondary_key_hold,
     start_raw_input_if_needed,
 };
@@ -843,3 +865,6 @@ pub(crate) fn disable_quickpaste_keyboard_mode() {}
 
 #[cfg(not(target_os = "windows"))]
 pub(crate) fn start_quickpaste_secondary_key_hold() {}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn guard_tray_click_region(_x: i32, _y: i32, _width: u32, _height: u32) {}

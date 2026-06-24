@@ -10,9 +10,7 @@ pub fn handle_tray_click(app: &AppHandle) {
         }
         return;
     }
-    if let Some(window) = app.get_webview_window("main") {
-        crate::show_main_window(&window);
-    }
+    crate::toggle_main_window_visibility(app);
 }
 
 pub fn create_click_handler(app_handle: AppHandle) -> impl Fn() + Send + 'static {
