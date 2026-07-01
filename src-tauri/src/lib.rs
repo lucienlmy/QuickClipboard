@@ -477,6 +477,9 @@ pub fn run() {
                     let _ = services::show_startup_notification(app.handle());
                 }
 
+                startup_diagnostics::set_startup_stage("执行 setup：启动自动低占用检测");
+                services::low_memory::init_auto_low_memory_manager(app.handle().clone());
+
                 Ok(())
             })
             .build(tauri::generate_context!())
