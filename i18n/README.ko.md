@@ -1,9 +1,17 @@
-<h1 align="center">QuickClipboard</h1>
+<h1 align="center">‼️‼️‼️‼️‼️프로젝트 업데이트 중단‼️‼️‼️‼️‼️</h1>
 
-<p align="center">
-  <strong>복사 및 붙여넣기 경험을 재정의하다</strong><br>
-  가벼움 · 빠름 · 스마트함 · 맞춤 설정 가능
-</p>
+  <p><b>📢 유지 보수 중단 안내</b></p>
+
+  <p>
+    이 프로젝트는 Tauri를 기반으로 하며 실행에 WebView를 사용합니다. 성능과 메모리 사용량이 만족스럽지 않고, 여러 차례 개발을 반복하는 과정에서 기존 문제가 계속 쌓여 유지 보수 비용이 너무 커졌습니다. 이에 따라 앞으로 <b>기능 업데이트와 유지 보수를 모두 중단합니다</b>.
+  </p>
+
+  <p>
+    프로젝트가 여기서 끝나는 것은 아닙니다. 현재 <b>순수 Rust 프레임워크</b>로 만들고 <b>WebView 의존성을 완전히 제거한</b> 새로운 독립형 네이티브 클립보드 앱을 개발하고 있습니다. 개발이 완료되면 새 저장소를 만들어 공개할 예정이니 조금만 기다려 주세요.
+  </p>
+   <blockquote><p><a href="#group">단체 채팅방에 참여해</a> 새 프로젝트의 진행 상황을 확인하세요.</p></blockquote>
+<hr>
+<blockquote>
 
 <div align="center">
   <img src="../readme-assets/logo.png" alt="QuickClipboard Logo" width="120">
@@ -183,7 +191,7 @@
   QR 코드를 스캔하거나 번호를 검색하여 참여하세요:
 </p>
 
-<table>
+<table id="group">
   <tr>
     <td align="center" width="33%">
       <a href="https://pd.qq.com/s/blp3j847c" target="_blank">
@@ -259,3 +267,5 @@ npm run tauri:build
 ## 라이선스
 
 본 프로젝트는 [Apache License 2.0](LICENSE) 하에 공개되었습니다.
+
+</blockquote>

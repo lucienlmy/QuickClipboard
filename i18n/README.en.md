@@ -1,9 +1,17 @@
-<h1 align="center">QuickClipboard</h1>
+<h1 align="center">‼️‼️‼️‼️‼️Project No Longer Maintained‼️‼️‼️‼️‼️</h1>
 
-<p align="center">
-  <strong>Redefine Your Copy & Paste Experience</strong><br>
-  Lightweight · Fast · Smart · Customizable
-</p>
+  <p><b>📢 Maintenance Discontinuation Notice</b></p>
+
+  <p>
+    This project is built on Tauri and relies on WebView to run. Its performance and memory usage are less than ideal. After multiple iterations, accumulated issues have increased, making maintenance too costly. As a result, this project will receive <b>no further feature updates or maintenance</b>.
+  </p>
+
+  <p>
+    The project is not ending here—we are developing a new standalone, native clipboard app built with a <b>pure Rust framework</b> and <b>without a WebView dependency</b>. Once development is complete, it will be released in a new repository. Thanks for your patience!
+  </p>
+   <blockquote><p><a href="#group">Join the group chat</a> to follow the new project's progress.</p></blockquote>
+<hr>
+<blockquote>
 
 <div align="center">
   <img src="../readme-assets/logo.png" alt="QuickClipboard Logo" width="120">
@@ -183,7 +191,7 @@
   Scan the QR code or search for the group number to join:
 </p>
 
-<table>
+<table id="group">
   <tr>
     <td align="center" width="33%">
       <a href="https://pd.qq.com/s/blp3j847c" target="_blank">
@@ -259,3 +267,5 @@ npm run tauri:build
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
+
+</blockquote>

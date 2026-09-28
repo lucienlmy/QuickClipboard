@@ -1,10 +1,17 @@
-<h1 align="center">QuickClipboard</h1>
+<h1 align="center">‼️‼️‼️‼️‼️项目停止更新‼️‼️‼️‼️‼️</h1>
 
-<p align="center">
-  <strong>重新定义你的复制粘贴体验</strong><br>
-  轻量 · 快速 · 智能 · 可定制
-</p>
+  <p><b>📢 停止维护通知</b></p>
 
+  <p>
+    本项目基于 Tauri，依赖 WebView 运行，性能和内存占用都不太理想；加上多次迭代后遗留问题越来越多，维护成本过高。因此，本项目后续<b>不再进行任何功能更新与维护</b>。
+  </p>
+
+  <p>
+    不过项目并未就此终结——目前已在开发一个全新的独立原生剪贴板程序，采用<b>纯 Rust 框架</b>构建，<b>彻底摆脱 WebView 依赖</b>。待开发完成后会创建新的仓库发布，敬请耐心等待 ~
+  </p>
+   <blockquote><p>新版项目进度可<a href="#group">加入群聊</a>进行了解</p></blockquote>
+<hr>
+<blockquote>
 <div align="center">
   <img src="readme-assets/logo.png" alt="QuickClipboard Logo" width="120">
   <br><br>
@@ -183,7 +190,7 @@
   扫码或搜索号码加入：
 </p>
 
-<table>
+<table id="group">
   <tr>
     <td align="center" width="33%">
       <a href="https://pd.qq.com/s/blp3j847c" target="_blank">
@@ -264,3 +271,5 @@ npm run test:rust             # Rust 单元测试
 ## 许可证
 
  本项目基于 [Apache License 2.0](LICENSE) 开源。
+
+ </blockquote>

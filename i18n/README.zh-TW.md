@@ -1,9 +1,17 @@
-<h1 align="center">QuickClipboard</h1>
+<h1 align="center">‼️‼️‼️‼️‼️專案停止更新‼️‼️‼️‼️‼️</h1>
 
-<p align="center">
-  <strong>重新定義你的複製貼上體驗</strong><br>
-  輕量 · 快速 · 智慧 · 可自訂
-</p>
+  <p><b>📢 停止維護公告</b></p>
+
+  <p>
+    本專案以 Tauri 為基礎，執行時依賴 WebView，效能與記憶體使用量都不太理想；加上多次迭代後遺留問題越來越多，維護成本過高。因此，本專案後續<b>不再進行任何功能更新與維護</b>。
+  </p>
+
+  <p>
+    不過專案並未就此終結——目前正在開發一款全新的獨立原生剪貼簿程式，採用<b>純 Rust 框架</b>建構，<b>徹底擺脫 WebView 依賴</b>。待開發完成後會建立新的儲存庫發布，敬請耐心等候～
+  </p>
+   <blockquote><p>新版專案進度可<a href="#group">加入群聊</a>了解。</p></blockquote>
+<hr>
+<blockquote>
 
 <div align="center">
   <img src="../readme-assets/logo.png" alt="QuickClipboard Logo" width="120">
@@ -183,7 +191,7 @@
   掃碼或搜尋號碼加入：
 </p>
 
-<table>
+<table id="group">
   <tr>
     <td align="center" width="33%">
       <a href="https://pd.qq.com/s/blp3j847c" target="_blank">
@@ -259,3 +267,5 @@ npm run tauri:build
 ## 授權條款
 
  本專案基於 [Apache License 2.0](LICENSE) 開源。
+
+</blockquote>

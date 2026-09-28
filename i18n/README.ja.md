@@ -1,9 +1,17 @@
-<h1 align="center">QuickClipboard</h1>
+<h1 align="center">‼️‼️‼️‼️‼️プロジェクト更新終了‼️‼️‼️‼️‼️</h1>
 
-<p align="center">
-  <strong>コピー＆ペーストの体験を再定義</strong><br>
-  軽量 · 高速 · スマート · カスタマイズ可能
-</p>
+  <p><b>📢 メンテナンス終了のお知らせ</b></p>
+
+  <p>
+    本プロジェクトは Tauri をベースとしており、動作に WebView を利用しています。パフォーマンスやメモリ使用量が理想的とは言えず、複数回の更新を重ねる中で既存の問題も増え、保守コストが高くなりました。そのため、今後は<b>機能追加および保守を一切行いません</b>。
+  </p>
+
+  <p>
+    プロジェクトがここで終わるわけではありません。現在、<b>純粋な Rust フレームワーク</b>で構築し、<b>WebView への依存を完全になくした</b>新しい独立型のネイティブクリップボードアプリを開発中です。完成後、新しいリポジトリで公開する予定です。今しばらくお待ちください。
+  </p>
+   <blockquote><p>新プロジェクトの進捗は<a href="#group">グループチャットに参加</a>してご確認ください。</p></blockquote>
+<hr>
+<blockquote>
 
 <div align="center">
   <img src="../readme-assets/logo.png" alt="QuickClipboard Logo" width="120">
@@ -183,7 +191,7 @@
   QR コードをスキャンするか、グループ番号を検索して参加：
 </p>
 
-<table>
+<table id="group">
   <tr>
     <td align="center" width="33%">
       <a href="https://pd.qq.com/s/blp3j847c" target="_blank">
@@ -259,3 +267,5 @@ npm run tauri:build
 ## ライセンス
 
 このプロジェクトは [Apache License 2.0](LICENSE) の下で公開されています。
+
+</blockquote>
